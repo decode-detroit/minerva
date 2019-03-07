@@ -120,6 +120,9 @@ impl EventHandler {
             None => return None,
         };
         
+        // Create an empty event queue
+        let queue = Queue::new(general_update.clone());
+        
         // Check for existing data from the backup handler
         if let Some((current_scene, status_pairs)) = backup.reload_backup(config.get_status_ids()) {
             
@@ -133,6 +136,11 @@ impl EventHandler {
             config.load_backup_status(status_pairs);
             
             // FIXME Add silent queue changes
+            
+            
+        // If there was no existing data in the backup, trigger the scene reset event
+        } else {
+            queue.add_event(EventDelay::new(None, config.get_current_scene().get_id()));
         }
         
         // Load the current scene into the backup (to detect any crash after this point)
@@ -140,8 +148,8 @@ impl EventHandler {
     
         // Return the completed EventHandler with a new queue
         Some(EventHandler {
-            general_update: general_update.clone(),
-            queue: Queue::new(general_update),
+            general_update: general_update,
+            queue,
             config,
             backup,
         })

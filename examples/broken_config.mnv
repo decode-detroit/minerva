@@ -1,0 +1,198 @@
+---
+# Constants for the Configuration
+version: "0.5.1"
+identifier:
+  id: 5
+server_location: ~
+system_connection: Dummy
+default_scope:
+  id: 100
+
+# Scope Definitions
+all_scopes:
+
+  # Default scope
+  ? id: 100
+  : - id: 2
+    - id: 3
+    - id: 4
+    - id: 5
+    
+  # Second Scope
+  ? id: 200
+  : - id: 6
+    - id: 7
+    - id: 8
+    - id: 9
+  
+    : TriggerEvents:
+        events:
+          - delay:
+              secs: 0
+              nanos: 200000000
+            event_id:
+              id: 8
+          - delay:
+              secs: 0
+              nanos: 700000000
+            event_id:
+              id: 4
+    ? id: 4
+    : SaveData:
+        data:
+          - 4
+    ? id: 3
+    : SaveData:
+        data:
+          - 3
+    ? id: 1
+    : SaveData:
+        data:
+          - 1
+  ? id: 200
+  : ? id: 5
+    : TriggerEvents:
+        events:
+          - delay: ~
+            event_id:
+              id: 6
+          - delay: ~
+            event_id:
+              id: 7
+    ? id: 6
+    : GroupedEvent:
+        status_id:
+          id: 10
+        event_map:
+          ? id: 21
+          : id: 15
+          ? id: 22
+          : id: 7
+    ? id: 7
+    : SaveData:
+        data:
+          - 7
+    ? id: 8
+    : ModifyStatus:
+        status_id:
+          id: 44
+        new_condition:
+          id: 22
+    ? id: 15
+    : TriggerEvents:
+        events:
+          - delay:
+              secs: 0
+              nanos: 200000000
+            event_id:
+              id: 5
+
+# Status Map
+status_map:
+  ? id: 10
+  : MultiCondition:
+      current: 
+        id: 21
+      allowed:
+        - id: 21
+        - id: 22
+      global: false
+
+
+# Event Lookup
+lookup:
+  - id: 1
+    description: Save Data
+    display: Display
+  - id: 2
+    description: Load Delayed Events
+    display: Display
+  - id: 3
+    description: Save Data 3
+    display: Display
+  - id: 4
+    description: Save Data 4
+    display: Display
+  - id: 5
+    description: Load Immediate Events (6 & 7)
+    display: Display
+  - id: 6
+    description: Load Events Or Save Data (Grouped Event)
+    display:
+      DisplayWith:
+        id: 10
+  - id: 7
+    description: Save Data 7
+    display: Display
+  - id: 8
+    description: Modify Test Event Group
+    display: Display
+  - id: 10
+    description: Test Event Group - Loop Or Save
+    display: Hidden
+  - id: 15
+    description: Load Delayed Events (5)
+    display: Hidden
+  - id: 21
+    description: Currently Loading Delayed Events
+    display: Display
+  - id: 22
+    description: Currently Saving Data
+    display: Display
+  - id: 100
+    description: Scope For Handle_Events
+    display: Display
+  - id: 200
+    description: Scope For Link_Events
+    display: Display
+      
+      
+        : ? id: 2
+
+    ? id: 4
+
+    ? id: 3
+
+    ? id: 1
+
+    ? id: 31
+    : SaveData:
+        data:
+          - 31
+    ? id: 32
+    : SaveData:
+        data:
+          - 32
+    ? id: 33
+    : SaveData:
+        data:
+          - 33
+    ? id: 34
+    : SaveData:
+        data:
+          - 34
+    ? id: 35
+    : SaveData:
+        data:
+          - 35
+    ? id: 36
+    : SaveData:
+        data:
+          - 36
+  ? id: 200
+  : ? id: 5
+
+    ? id: 6
+
+    ? id: 7
+
+    ? id: 8
+
+    ? id: 15
+    : TriggerEvents:
+        events:
+          - delay:
+              secs: 0
+              nanos: 200000000
+            event_id:
+              id: 5

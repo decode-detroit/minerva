@@ -16,8 +16,8 @@ Minerva (and her corresponding hardware components) are under very active develo
 
 You'll need Rust and GTK+ to compile and run Minerva. Binaries will be available soon!
 
-Installation of Rust: https://www.rust-lang.org/
-Installation of GTK+: https://www.gtk.org/
+* Installation of Rust: https://www.rust-lang.org/
+* Installation of GTK+: https://www.gtk.org/
 
 To take advantage of all Minerva's features, you'll need ZMQ bindings and a Redis server.
 * ZMQ bindings provide an easy and reliable way to network your devices.
@@ -39,7 +39,7 @@ This will take several minutes to download all the components. You'll be left wi
 cargo run
 ```
 
-to run Minerva again (it will not recompile this time), or run the binary directly (located in the generated [target](/target) folder)
+to run Minerva again (it will not recompile this time), or run the binary directly (located in the generated "target" folder)
 
 Play around! The example configuration has an example of most features.
 
