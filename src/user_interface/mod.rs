@@ -49,6 +49,9 @@ extern crate gdk;
 use self::gtk::prelude::*;
 use self::gio::{SimpleAction, ActionExt};
 
+// Define user interface constants
+const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
+
 // Import program constants
 use super::WINDOW_TITLE; // the window title
 
@@ -93,7 +96,7 @@ impl UserInterface {
             user_interface.check_updates(&interface_receive);
             gtk::Continue(true) // continue looking for updates indefinitely
         });
-        gtk::timeout_add(100, update_interface); // triggers once every 100ms
+        gtk::timeout_add(REFRESH_RATE, update_interface); // triggers once every 100ms
         
         // Return the new UserInterface
         user_interface

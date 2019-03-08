@@ -1,198 +1,179 @@
 ---
 # Constants for the Configuration
-version: "0.5.1"
+version: "0.5.2"
 identifier:
   id: 5
 server_location: ~
 system_connection: Dummy
-default_scope:
+default_scene:
   id: 100
 
 # Scope Definitions
-all_scopes:
+all_scenes:
 
   # Default scope
   ? id: 100
-  : - id: 2
+  : - id: 100
+    - id: 2
     - id: 3
     - id: 4
     - id: 5
+    - id: 6
     
   # Second Scope
   ? id: 200
-  : - id: 6
+  : - id: 200
     - id: 7
     - id: 8
     - id: 9
-  
-    : TriggerEvents:
-        events:
-          - delay:
-              secs: 0
-              nanos: 200000000
-            event_id:
-              id: 8
-          - delay:
-              secs: 0
-              nanos: 700000000
-            event_id:
-              id: 4
-    ? id: 4
-    : SaveData:
-        data:
-          - 4
-    ? id: 3
-    : SaveData:
-        data:
-          - 3
-    ? id: 1
-    : SaveData:
-        data:
-          - 1
-  ? id: 200
-  : ? id: 5
-    : TriggerEvents:
-        events:
-          - delay: ~
-            event_id:
-              id: 6
-          - delay: ~
-            event_id:
-              id: 7
-    ? id: 6
-    : GroupedEvent:
-        status_id:
-          id: 10
-        event_map:
-          ? id: 21
-          : id: 15
-          ? id: 22
-          : id: 7
-    ? id: 7
-    : SaveData:
-        data:
-          - 7
-    ? id: 8
-    : ModifyStatus:
-        status_id:
-          id: 44
-        new_condition:
-          id: 22
-    ? id: 15
-    : TriggerEvents:
-        events:
-          - delay:
-              secs: 0
-              nanos: 200000000
-            event_id:
-              id: 5
+
 
 # Status Map
 status_map:
-  ? id: 10
-  : MultiCondition:
+  ? id: 20
+  : MultiState:
       current: 
         id: 21
       allowed:
         - id: 21
         - id: 22
-      global: false
 
 
 # Event Lookup
-lookup:
-  - id: 1
-    description: Save Data
-    display: Display
-  - id: 2
+event_set:
+  ? id: 2
     description: Load Delayed Events
-    display: Display
-  - id: 3
-    description: Save Data 3
-    display: Display
-  - id: 4
-    description: Save Data 4
-    display: Display
-  - id: 5
-    description: Load Immediate Events (6 & 7)
-    display: Display
-  - id: 6
-    description: Load Events Or Save Data (Grouped Event)
     display:
       DisplayWith:
-        id: 10
-  - id: 7
-    description: Save Data 7
-    display: Display
-  - id: 8
-    description: Modify Test Event Group
-    display: Display
-  - id: 10
-    description: Test Event Group - Loop Or Save
+        group_id:
+          id: 20
+        priority: ~
+        color: [115, 210, 22]
+        highlight: [238, 204, 68]
+  : TriggerEvents:
+      events:
+        - delay:
+            secs: 20
+            nanos: 0
+          event_id:
+            id: 3
+        - delay:
+            secs: 40
+            nanos: 0
+          event_id:
+            id: 4
+        - delay:
+            secs: 60
+            nanos: 0
+          event_id:
+            id: 5
+        - delay:
+            secs: 80
+            nanos: 0
+          event_id:
+            id: 7
+  ? id: 3
+    description: Event Triggered (Visible)
+    display:
+      DisplayWith:
+        group_id:
+          id: 20
+        priority: ~
+        color: ~
+        highlight: ~
+  : TriggerEvents:
+      events: []
+  ? id: 4
+    description: Event Triggered (Debug)
+    display:
+      DisplayDebug:
+        group_id:
+          id: 20
+        priority: ~
+        color: [238, 204, 68]
+        highlight: ~
+  : TriggerEvents:
+      events: []
+  ? id: 5
+    description: Reload Events Or Do Nothing
+    display: 
+      DisplayWith:
+        group_id:
+          id: 20
+        priority: ~
+        color: ~
+        highlight: ~
+  : GroupedEvent:
+      status_id:
+        id: 20
+      event_map:
+        ? id: 21
+        : id: 2
+        ? id: 22
+        : id: 6
+  ? id: 6
+    description: Do Nothing
     display: Hidden
-  - id: 15
-    description: Load Delayed Events (5)
+  : TriggerEvents:
+      events: []
+  ? id: 7
+    description: This Event Can't Be Accessed From Scene One
     display: Hidden
-  - id: 21
-    description: Currently Loading Delayed Events
-    display: Display
-  - id: 22
-    description: Currently Saving Data
-    display: Display
-  - id: 100
-    description: Scope For Handle_Events
-    display: Display
-  - id: 200
-    description: Scope For Link_Events
-    display: Display
-      
-      
-        : ? id: 2
-
-    ? id: 4
-
-    ? id: 3
-
-    ? id: 1
-
-    ? id: 31
-    : SaveData:
-        data:
-          - 31
-    ? id: 32
-    : SaveData:
-        data:
-          - 32
-    ? id: 33
-    : SaveData:
-        data:
-          - 33
-    ? id: 34
-    : SaveData:
-        data:
-          - 34
-    ? id: 35
-    : SaveData:
-        data:
-          - 35
-    ? id: 36
-    : SaveData:
-        data:
-          - 36
+  : TriggerEvents:
+      events: []
+  ? id: 8
+    description: This Event is Broken
+    display:
+      DisplayWith:
+        group_id:
+          id: 20
+        priority: ~
+        color: ~
+        highlight: ~
+  : GroupedEvent:
+      status_id:
+        id: 20
+      event_map:
+        ? id: 23
+        : id: 7
+        ? id: 24
+        : id: 9
+  ? id: 9
+    description: Placeholder
+    display: Hidden
+  : TriggerEvents:
+      events: []
+  ? id: 20
+    description: Event Status
+    display: Hidden
+  : ~
+  ? id: 21
+    description: Loading Delayed Events
+    display: Hidden
+  : ~
+  ? id: 22
+    description: Doing Nothing
+    display: Hidden
+  : ~
+  ? id: 100
+    description: Example Scene One
+    display:
+      LabelHidden:
+        priority: ~
+        color: [51, 161, 255]
+  : TriggerEvents:
+      events:
+        - delay:
+            secs: 20
+            nanos: 0
+          event_id:
+            id: 2
   ? id: 200
-  : ? id: 5
+    description: Example Scene Two
+    display:
+      LabelHidden:
+        priority: ~
+        color: [115, 210, 22]
+  : TriggerEvents:
+      events: []
 
-    ? id: 6
-
-    ? id: 7
-
-    ? id: 8
-
-    ? id: 15
-    : TriggerEvents:
-        events:
-          - delay:
-              secs: 0
-              nanos: 200000000
-            event_id:
-              id: 5

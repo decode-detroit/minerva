@@ -1,6 +1,6 @@
 ---
 # Constants for the Configuration
-version: "0.5.1"
+version: "0.5.2"
 identifier:
   id: 5
 server_location: ~
@@ -49,6 +49,7 @@ event_set:
           id: 20
         priority: ~
         color: [115, 210, 22]
+        highlight: [238, 204, 68]
   : TriggerEvents:
       events:
         - delay:
@@ -74,6 +75,7 @@ event_set:
           id: 20
         priority: ~
         color: ~
+        highlight: ~
   : TriggerEvents:
       events: []
   ? id: 4
@@ -84,6 +86,7 @@ event_set:
           id: 20
         priority: ~
         color: [238, 204, 68]
+        highlight: ~
   : TriggerEvents:
       events: []
   ? id: 5
@@ -94,6 +97,7 @@ event_set:
           id: 20
         priority: ~
         color: ~
+        highlight: ~
   : GroupedEvent:
       status_id:
         id: 20

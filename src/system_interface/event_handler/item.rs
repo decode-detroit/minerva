@@ -208,11 +208,13 @@ pub enum DisplayType {
     /// A variant for items which are displayed in the top level control group.
     /// These items will be displayed in the story control area in order of
     /// ascending  id, or in order of ascending priority if specified. The text
-    /// color will match the rgb value, if specified.
+    /// color will match the rgb value, if specified. The text will use the
+    /// highlight color for any special animations.
     ///
     DisplayControl {
         priority: Option<u32>, 
         color: Option<(u8, u8, u8)>,
+        highlight: Option<(u8, u8, u8)>,
     },
     
     /// A variant to indicatie items which to be displayed with a specific group
@@ -222,24 +224,28 @@ pub enum DisplayType {
     /// group id in the configuration lookup. Events will be displayed in
     /// order of ascending id within their group, or in order of ascending
     /// priority if specified. The text color will match the rgb value, if
-    /// specified.
+    /// specified. The text will use the highlight color for any special
+    /// animations.
     ///
     DisplayWith {
         group_id: ItemId,
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
+        highlight: Option<(u8, u8, u8)>,
     },
     
     /// A variant for items which are displayed with a particular group (if
     /// specified) or with the control group, but only when the program is in
     /// debug mode. These items will be displayed in order of ascending id,
     /// or in order of ascending priority if specified. The text color will
-    /// match the rgb value, if specified.
+    /// match the rgb value, if specified.  The text will use the highlight
+    /// color for any special animations.
     ///
     DisplayDebug {
         group_id: Option<ItemId>,
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
+        highlight: Option<(u8, u8, u8)>,
     },
     
     /// A variant for items which are only to be displayed as a label (not as an

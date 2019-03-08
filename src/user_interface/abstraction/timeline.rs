@@ -653,30 +653,59 @@ impl TimelineAbstraction {
             Err(_) => unreachable!(),
         };
         
-        // Change the event color and visibility, if specified
+        // Change the event color, visibility, and line width, if specified
         let mut text_visible = true;
+        let mut line_width = 2.0; // 2 pixels wide
         match event.event.display {
             
             // Catch the display control variant
-            DisplayControl { color, .. } => {
-                     
+            DisplayControl { color, highlight, .. } => {
+                
                 // If the color is specified
                 if let Some((red, green, blue)) = color {
                     cr.set_source_rgb(red as f64 / 255.0, green as f64 / 255.0, blue as f64 / 255.0);
+                }
+                
+                // If the highlight is specified
+                if let Some((red, green, blue)) = highlight {
+                    
+                    // If there are under ten seconds remaining
+                    if let Some((_, sec)) = event.remaining() {
+                    
+                        // Flash the highlight color and line width
+                        if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            cr.set_source_rgb(red as f64 / 255.0, green as f64 / 255.0, blue as f64 / 255.0);
+                            line_width = 4.0;
+                        }
+                    }
                 }
             },
             
             // Catch the display with variant
-            DisplayWith { color, .. } => {
+            DisplayWith { color, highlight,  .. } => {
             
                 // If the color is specified
                 if let Some((red, green, blue)) = color {
                     cr.set_source_rgb(red as f64 / 255.0, green as f64 / 255.0, blue as f64 / 255.0);
                 }
+                            
+                 // If the highlight is specified
+                 if let Some((red, green, blue)) = highlight {
+                    
+                    // If there are under ten seconds remaining
+                    if let Some((_, sec)) = event.remaining() {
+                        
+                        // Flash the highlight color and line width
+                        if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            cr.set_source_rgb(red as f64 / 255.0, green as f64 / 255.0, blue as f64 / 255.0);
+                            line_width = 4.0;
+                        }
+                    }
+                }
             },
             
             // Catch the display debug variant
-            DisplayDebug { color, .. } => {
+            DisplayDebug { color, highlight, .. } => {
                 
                 // If we're in debug mode
                 if info.is_debug {
@@ -684,6 +713,20 @@ impl TimelineAbstraction {
                     // If the color is specified
                     if let Some((red, green, blue)) = color {
                         cr.set_source_rgb(red as f64 / 255.0, green as f64 / 255.0, blue as f64 / 255.0);
+                    }
+                                        
+                     // If the highlight is specified
+                     if let Some((red, green, blue)) = highlight {
+                        
+                        // If there are under ten seconds remaining
+                        if let Some((_, sec)) = event.remaining() {
+                        
+                            // Flash the highlight color and line width
+                            if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                cr.set_source_rgb(red as f64 / 255.0, green as f64 / 255.0, blue as f64 / 255.0);
+                                line_width = 4.0;
+                            }
+                        }
                     }
                 
                 // Otherwise make the text invisible
@@ -701,7 +744,7 @@ impl TimelineAbstraction {
         }
         
         // Draw the vertical line
-        cr.set_line_width(2.0 / width); // 2 pixels wide
+        cr.set_line_width(line_width / width);
         cr.move_to(location, 0.0);
         cr.line_to(location, 1.0);
         cr.stroke();
@@ -710,7 +753,7 @@ impl TimelineAbstraction {
         if text_visible {
         
             // Draw the horizonal line
-            cr.set_line_width(2.0 / 50.0); // 2 pixels wide
+            cr.set_line_width(line_width / 50.0);
             cr.move_to(location - (LABEL_ADJUSTMENT / width), 0.0);
             cr.line_to(location, 0.0);
             cr.stroke();

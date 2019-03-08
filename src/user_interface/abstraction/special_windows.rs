@@ -739,16 +739,22 @@ struct EditOverview {
     displaycontrol_priority_checkbox: gtk::CheckButton, // the priority checkbox
     displaycontrol_priority: gtk::SpinButton, // the spin selection for priority
     displaycontrol_color_checkbox: gtk::CheckButton, // the color checkbox
-    displaycontrol_color: gtk::ColorButton, // the color selection button 
+    displaycontrol_color: gtk::ColorButton, // the color selection button
+    displaycontrol_highlight_checkbox: gtk::CheckButton, // the highlight checkbox
+    displaycontrol_highlight: gtk::ColorButton, // the highlight selection button  
     displaywith_spin: gtk::SpinButton, // the spin selection for the group id
     displaywith_priority_checkbox: gtk::CheckButton, // the priority checkbox
     displaywith_priority: gtk::SpinButton, // the spin selection for the priority
     displaywith_color_checkbox: gtk::CheckButton, // the color checkbox
     displaywith_color: gtk::ColorButton, // the color selection button
+    displaywith_highlight_checkbox: gtk::CheckButton, // the highlight checkbox
+    displaywith_highlight: gtk::ColorButton, // the highlight selection button
     displaydebug_checkbox: gtk::CheckButton, // the checkbox for group id
     displaydebug_spin: gtk::SpinButton, // the spin selection for the group id
     displaydebug_priority_checkbox: gtk::CheckButton, // the priority checkbox
     displaydebug_priority: gtk::SpinButton, // the spin selection for priority
+    displaydebug_highlight_checkbox: gtk::CheckButton, // the highlight checkbox
+    displaydebug_highlight: gtk::ColorButton, // the highlight selection button
     displaydebug_color_checkbox: gtk::CheckButton, // the color checkbox
     displaydebug_color: gtk::ColorButton, // the color selection button
     labelhidden_color: gtk::ColorButton, // the color selection button  
@@ -777,12 +783,15 @@ impl EditOverview {
         display_type.append("labelhidden", "Label Hidden");
         display_type.append("hidden", "Hidden");
         
-        // Add the displaycontrol type priority and color items
+        // Add the displaycontrol type priority, color, and highlight items
         let displaycontrol_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
         let displaycontrol_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaycontrol_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaycontrol_color = gtk::ColorButton::new();
         displaycontrol_color.set_title("Button Text Color");
+        let displaycontrol_highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
+        let displaycontrol_highlight = gtk::ColorButton::new();
+        displaycontrol_highlight.set_title("Text Highlight Color");
         
         // Compose the displaycontrol grid
         let displaycontrol_grid = gtk::Grid::new();
@@ -790,6 +799,8 @@ impl EditOverview {
         displaycontrol_grid.attach(&displaycontrol_priority, 1, 0, 1, 1);
         displaycontrol_grid.attach(&displaycontrol_color_checkbox, 0, 1, 1, 1);
         displaycontrol_grid.attach(&displaycontrol_color, 1, 1, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_highlight_checkbox, 0, 2, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_highlight, 1, 2, 1, 1);
         displaycontrol_grid.set_column_spacing(10); // Add some space
         displaycontrol_grid.set_row_spacing(10);
         displaycontrol_grid.show_all();
@@ -807,6 +818,9 @@ impl EditOverview {
         let displaywith_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaywith_color = gtk::ColorButton::new();
         displaywith_color.set_title("Button Text Color");
+        let displaywith_highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
+        let displaywith_highlight = gtk::ColorButton::new();
+        displaywith_highlight.set_title("Button Highlight Color");
         
         // Compose the displaywith grid
         let displaywith_grid = gtk::Grid::new();
@@ -816,6 +830,8 @@ impl EditOverview {
         displaywith_grid.attach(&displaywith_priority, 1, 1, 1, 1);
         displaywith_grid.attach(&displaywith_color_checkbox, 0, 2, 1, 1);
         displaywith_grid.attach(&displaywith_color, 1, 2, 1, 1);
+        displaywith_grid.attach(&displaywith_highlight_checkbox, 0, 2, 2, 1);
+        displaywith_grid.attach(&displaywith_highlight, 1, 2, 2, 1);
         displaywith_grid.set_column_spacing(10); // Add some space
         displaywith_grid.set_row_spacing(10);
         displaywith_grid.show_all();
@@ -834,6 +850,9 @@ impl EditOverview {
         let displaydebug_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaydebug_color = gtk::ColorButton::new();
         displaydebug_color.set_title("Button Text Color");
+        let displaydebug_highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
+        let displaydebug_highlight = gtk::ColorButton::new();
+        displaydebug_highlight.set_title("Button Highlight Color");
         
         // Compose the displaydebug grid
         let displaydebug_grid = gtk::Grid::new();
@@ -844,6 +863,8 @@ impl EditOverview {
         displaydebug_grid.attach(&displaydebug_priority, 1, 1, 1, 1);
         displaydebug_grid.attach(&displaydebug_color_checkbox, 0, 2, 1, 1);
         displaydebug_grid.attach(&displaydebug_color, 1, 2, 1, 1);
+        displaydebug_grid.attach(&displaydebug_highlight_checkbox, 0, 2, 2, 1);
+        displaydebug_grid.attach(&displaydebug_highlight, 1, 2, 2, 1);
         displaydebug_grid.set_column_spacing(10); // Add some space
         displaydebug_grid.set_row_spacing(10);
         displaydebug_grid.show_all();
@@ -917,17 +938,23 @@ impl EditOverview {
             displaycontrol_priority,
             displaycontrol_color_checkbox,
             displaycontrol_color,
+            displaycontrol_highlight_checkbox,
+            displaycontrol_highlight,
             displaywith_spin,
             displaywith_priority_checkbox,
             displaywith_priority,
             displaywith_color_checkbox,
             displaywith_color,
+            displaywith_highlight_checkbox,
+            displaywith_highlight,
             displaydebug_checkbox,
             displaydebug_spin,
             displaydebug_priority_checkbox,
             displaydebug_priority,
             displaydebug_color_checkbox,
             displaydebug_color,
+            displaydebug_highlight_checkbox,
+            displaydebug_highlight,
             labelhidden_color,
             detail_selection }
     }
@@ -952,7 +979,7 @@ impl EditOverview {
         match pair.display {
         
             // the displaycontrol variant
-            DisplayControl { priority, color } => {
+            DisplayControl { priority, color, highlight } => {
             
                 // Switch to the displaycontrol type
                 self.display_type.set_active_id("display");
@@ -975,10 +1002,20 @@ impl EditOverview {
                         self.displaycontrol_color.set_rgba(&new_color);
                     },
                 }
+                
+                // If there is a highlight, set it
+                match highlight {
+                    None => self.displaycontrol_highlight_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.displaycontrol_highlight_checkbox.set_active(true);
+                        let new_color = gdk::RGBA { red: new_red as f64 / 255.0, green: new_green as f64 / 255.0, blue: new_blue as f64 / 255.0, alpha: 1.0 };
+                        self.displaycontrol_highlight.set_rgba(&new_color);
+                    },
+                }
             },
             
             // the displaywith variant
-            DisplayWith { group_id, priority, color } => {
+            DisplayWith { group_id, priority, color, highlight } => {
             
                 // Switch to the displaywith type and set the group id
                 self.display_type.set_active_id("displaywith");
@@ -1002,10 +1039,20 @@ impl EditOverview {
                         self.displaywith_color.set_rgba(&new_color);
                     },
                 }
+                
+                // If there is a highlight, set it
+                match highlight {
+                    None => self.displaywith_highlight_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.displaywith_highlight_checkbox.set_active(true);
+                        let new_color = gdk::RGBA { red: new_red as f64 / 255.0, green: new_green as f64 / 255.0, blue: new_blue as f64 / 255.0, alpha: 1.0 };
+                        self.displaywith_highlight.set_rgba(&new_color);
+                    },
+                }
             },
             
             // the displaydebug variant
-            DisplayDebug { group_id, priority, color } => {
+            DisplayDebug { group_id, priority, color, highlight } => {
             
                 // Switch to the displaydebug type
                 self.display_type.set_active_id("displaywith");
@@ -1035,6 +1082,16 @@ impl EditOverview {
                         self.displaydebug_color_checkbox.set_active(true);
                         let new_color = gdk::RGBA { red: new_red as f64 / 255.0, green: new_green as f64 / 255.0, blue: new_blue as f64 / 255.0, alpha: 1.0 };
                         self.displaydebug_color.set_rgba(&new_color);
+                    },
+                }
+                
+                // If there is a highlight, set it
+                match highlight {
+                    None => self.displaydebug_highlight_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.displaydebug_highlight_checkbox.set_active(true);
+                        let new_color = gdk::RGBA { red: new_red as f64 / 255.0, green: new_green as f64 / 255.0, blue: new_blue as f64 / 255.0, alpha: 1.0 };
+                        self.displaydebug_highlight.set_rgba(&new_color);
                     },
                 }
             },
@@ -1091,8 +1148,15 @@ impl EditOverview {
                     color = Some(((red * 255.0) as u8, (green * 255.0) as u8, (blue * 255.0) as u8));
                 }
                 
+                // Extract the highlight, if selected
+                let mut highlight = None;
+                if self.displaycontrol_highlight_checkbox.get_active() {
+                    let gdk::RGBA { red, green, blue, .. } = self.displaycontrol_highlight.get_rgba();
+                    highlight = Some(((red * 255.0) as u8, (green * 255.0) as u8, (blue * 255.0) as u8));
+                }
+                
                 // Return the completed display type
-                DisplayControl { priority, color }
+                DisplayControl { priority, color, highlight }
             },
             
             // For the displaywith type
@@ -1111,8 +1175,15 @@ impl EditOverview {
                     color = Some(((red * 255.0) as u8, (green * 255.0) as u8, (blue * 255.0) as u8));
                 }
                 
+                // Extract the highlight, if selected
+                let mut highlight = None;
+                if self.displaywith_highlight_checkbox.get_active() {
+                    let gdk::RGBA { red, green, blue, .. } = self.displaywith_highlight.get_rgba();
+                    highlight = Some(((red * 255.0) as u8, (green * 255.0) as u8, (blue * 255.0) as u8));
+                }
+                
                 // Return the completed display type
-                DisplayWith { group_id: ItemId::new_unchecked(self.displaywith_spin.get_value() as u32), priority, color }
+                DisplayWith { group_id: ItemId::new_unchecked(self.displaywith_spin.get_value() as u32), priority, color, highlight }
             },
             
             // For the displaydebug type
@@ -1136,9 +1207,16 @@ impl EditOverview {
                     let gdk::RGBA { red, green, blue, .. } = self.displaydebug_color.get_rgba();
                     color = Some(((red * 255.0) as u8, (green * 255.0) as u8, (blue * 255.0) as u8));
                 }
+                                                
+                // Extract the highlight, if selected
+                let mut highlight = None;
+                if self.displaydebug_highlight_checkbox.get_active() {
+                    let gdk::RGBA { red, green, blue, .. } = self.displaydebug_highlight.get_rgba();
+                    highlight = Some(((red * 255.0) as u8, (green * 255.0) as u8, (blue * 255.0) as u8));
+                }
                 
                 // Return the completed display type
-                DisplayDebug { group_id, priority, color }
+                DisplayDebug { group_id, priority, color, highlight }
             },
             
             // For the labelhidden type
