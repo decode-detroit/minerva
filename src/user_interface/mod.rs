@@ -18,10 +18,6 @@
 //! A module to create the user interface to interact with the underlying
 //! system interface. This module links directly to the system interface and
 //! sends any updates to the application window.
-//!
-//! # TODO
-//!
-//! * Finish implementation of edit mode features
 
 
 // Define public submodules

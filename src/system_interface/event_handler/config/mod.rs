@@ -18,11 +18,6 @@
 //! A module to load the configuration from a file and maintain the state
 //! machine. This module handles any changes to the current state of the
 //! program.
-//!
-//! # TODO
-//!
-//! * Write full configuration file examples
-//!
 
 
 // Reexport the key structures and types

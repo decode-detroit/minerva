@@ -18,11 +18,6 @@
 //! A module to create and monitor the user interface and the system inputs.
 //! This module links directly to the event handler and sends any updates
 //! to the application window.
-//!
-//! # TODO
-//!
-//! * Improve the abstraction of the external data system (reading and writing)
-//!
 
 
 // Reexport the key structures and types

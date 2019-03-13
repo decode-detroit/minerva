@@ -17,22 +17,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //! The main module of the minerva program which pulls from the other modules.
-//!
-//! # TODO
-//! 
-//! * Create a log folder if it doesn't exist
-//! * Unwrap system interface better
-//! * Implement autoinstallation of the Redis server.
-//! From the readme, Redis will be downloaded onto the host system with wget into /tmp, then
-//! % make
-//! % make install
-//! % make test (perhaps)
-//! % cd utils
-//! % ./install_server.sh
-//! with the correct configuration added as well. This may be able to be added
-//! to the install script. The redis server should always begin at startup.
-//! The user may also need to be added to the dialout group
-//! * Install ZMQ dependencies automatically
 
 
 // Import YAML processing libraries

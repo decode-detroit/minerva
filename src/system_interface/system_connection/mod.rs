@@ -21,11 +21,6 @@
 //! Event updates are received on the provided input line and echoed to the
 //! rest of the system. Updates from the system are passed back to the event
 //! handler system via the event_send line.
-//!
-//! # TODO
-//!
-//! * Abstract the system connection so that it can accept any number of connections
-//!
 
 
 // Define private submodules

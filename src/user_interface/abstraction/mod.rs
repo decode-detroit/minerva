@@ -19,12 +19,6 @@
 //! content and allows easier interaction and manipulation with the interface.
 //! system interface. This module links indirectly to the system interface and
 //! sends any updates to the application window through gtk widgets.
-//!
-//! TODO
-//!
-//! * Improve the styling of the edit event window
-//! * Create the edit status and edit scene windows
-//! * Consider implementing the notifications as a listbox
 
 
 // Define private submodules

@@ -20,14 +20,6 @@
 //! and handles all changes to the current state as well as queuing upcoming
 //! events. This module also processes the events and sends updtes to the rest
 //! of the program.
-//!
-//! # TODO
-//!
-//! * Write a full version of the write_example_config to generate the test files
-//! * Further abstract the save/read/write events to work with more arbitrary types
-//! * Consider authentication with the Redis server.
-//! * Backup queue data (not just statuses and current scene)
-//!
 
 
 // Reexport the key structures and types
