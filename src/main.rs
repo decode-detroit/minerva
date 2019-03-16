@@ -18,7 +18,6 @@
 
 //! The main module of the minerva program which pulls from the other modules.
 
-
 // Import YAML processing libraries
 #[macro_use]
 extern crate serde_derive;
@@ -33,14 +32,14 @@ use self::system_interface::SystemInterface;
 use self::user_interface::UserInterface;
 
 // Import standard library features
-use std::thread;
 use std::env::args;
 use std::sync::mpsc;
+use std::thread;
 
 // Import GTK and GIO libraries
+extern crate gdk;
 extern crate gio;
 extern crate gtk;
-extern crate gdk;
 use self::gio::prelude::*;
 use self::gtk::prelude::*;
 use self::gtk::SettingsExt;
@@ -51,29 +50,26 @@ const LOGO_WIDE: &str = "logo_wide.png";
 const GTK_THEME: &str = "Materia-dark";
 const WINDOW_TITLE: &str = "Minerva";
 
-
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
 ///
-pub struct Minerva {
-}
+pub struct Minerva {}
 
 // Implement the Minerva functionality
 impl Minerva {
-    
     /// A function to build the main program and the user interface
     ///
     pub fn build_program(application: &gtk::Application) {
-         
         // Load the gtk theme for this application
         if let Some(settings) = gtk::Settings::get_default() {
             settings.set_property_gtk_theme_name(Some(GTK_THEME));
         }
-        
+
         // Launch the background thread to monitor and handle events
         let (interface_send, interface_receive) = mpsc::channel();
-        let (system_interface, system_send) = SystemInterface::new(interface_send.clone()).expect("Unable to create the system interface module.");
-        
+        let (system_interface, system_send) = SystemInterface::new(interface_send.clone())
+            .expect("Unable to create the system interface module.");
+
         // Open the system interface in a new thread
         thread::spawn(move || {
             system_interface.run();
@@ -88,39 +84,43 @@ impl Minerva {
         window.set_position(gtk::WindowPosition::Center);
         window.set_default_size(1500, 800);
         window.set_icon_from_file(LOGO_SQUARE).unwrap_or(()); // give up if unsuccessful
-        
+
         // Connect the delete event for the window
         window.connect_delete_event(clone!(window => move |_, _| {
             window.destroy();
             Inhibit(false)
         }));
-        
+
         // Create the user interface structure to handle user interface updates
-        UserInterface::new(application, &window, system_send, interface_send, interface_receive);
-        
+        UserInterface::new(
+            application,
+            &window,
+            system_send,
+            interface_send,
+            interface_receive,
+        );
+
         // Show all the available windows
         window.show_all();
     }
 }
 
-
 /// The main function of the program, simplified to as high a levet as possible
 /// to allow GTK+ to work its startup magic.
 ///
 fn main() {
-   
     // Create the gtk application window. Failure results in immediate panic!
     let application = gtk::Application::new(None, gio::ApplicationFlags::empty())
-                                       .expect("Initialization Failed For Unknown Reasons.");
+        .expect("Initialization Failed For Unknown Reasons.");
 
     // Create the program and launch the background thread
     application.connect_startup(move |gtk_app| {
         Minerva::build_program(gtk_app);
     });
-    
+
     // Connect the shutdown functions for when the program is terminated
     // application.connect_shutdown(|_| {});
-    
+
     // Connect the activate-specific function (as compared with open-specific function)
     application.connect_activate(|_| {});
 
@@ -132,11 +132,10 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // FIXME Define tests of the whole program
     #[test]
     fn test_minerva() {
-        
         // FIXME: Implement this
         unimplemented!();
     }

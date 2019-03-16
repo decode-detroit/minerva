@@ -27,14 +27,13 @@ use super::{GeneralUpdate, InterfaceUpdate, UpdateStatus};
 
 // Import standard library modules
 use std::fmt;
-use std::sync::mpsc;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::mpsc;
 
 // Import the eternal time library
 extern crate time;
-
 
 /// An enum to contain system notifications in different types.
 ///
@@ -46,44 +45,29 @@ extern crate time;
 ///
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Notification {
-
     /// An error type of notification
-    Error {
-        message: String, 
-        time: time::Tm,
-    },
-    
+    Error { message: String, time: time::Tm },
+
     /// A warning type of notification
-    Warning {
-        message: String,
-        time: time::Tm,
-    },
-    
+    Warning { message: String, time: time::Tm },
+
     /// A current event type of notification
-    Current {
-        message: String,
-        time: time::Tm,
-    },
-    
+    Current { message: String, time: time::Tm },
+
     /// Any other type of system update
-    Update {
-        message: String,
-        time: time::Tm,
-    },
+    Update { message: String, time: time::Tm },
 }
 
 // Reexport the notification type variants
-pub use self::Notification::{Error, Warning, Current, Update};
+pub use self::Notification::{Current, Error, Update, Warning};
 
 // Implement key features for the Notification type
 impl Notification {
-
     /// A function to return a copy of the message inside the notification,
     /// regardless of variant.
     ///
     pub fn message(&self) -> String {
         match self {
-        
             // For every variant type, return a copy of the message
             &Error { ref message, .. } => message.clone(),
             &Warning { ref message, .. } => message.clone(),
@@ -91,13 +75,12 @@ impl Notification {
             &Update { ref message, .. } => message.clone(),
         }
     }
-    
+
     /// A function to return a copy of the time inside the notification,
     /// regardless of variant.
     ///
     pub fn time(&self) -> time::Tm {
         match self {
-        
             // For every variant type, return a copy of the message
             &Error { ref time, .. } => time.clone(),
             &Warning { ref time, .. } => time.clone(),
@@ -108,33 +91,62 @@ impl Notification {
 }
 
 // Implement the display formatting for notifications.
-impl  fmt::Display for Notification {
+impl fmt::Display for Notification {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            
             // For every variant type, combine the message and notification time
-            &Error { ref message, ref time } => write!(f, "{}: {}", time.strftime("%a %T").unwrap_or_else(|_| time.asctime()), message),
-            &Warning { ref message, ref time } => write!(f, "{}: {}", time.strftime("%a %T").unwrap_or_else(|_| time.asctime()), message),
-            &Current { ref message, ref time } => write!(f, "{}: {}", time.strftime("%a %T").unwrap_or_else(|_| time.asctime()), message),
-            &Update { ref message, ref time } => write!(f, "{}: {}", time.strftime("%a %T").unwrap_or_else(|_| time.asctime()), message),
+            &Error {
+                ref message,
+                ref time,
+            } => write!(
+                f,
+                "{}: {}",
+                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                message
+            ),
+            &Warning {
+                ref message,
+                ref time,
+            } => write!(
+                f,
+                "{}: {}",
+                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                message
+            ),
+            &Current {
+                ref message,
+                ref time,
+            } => write!(
+                f,
+                "{}: {}",
+                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                message
+            ),
+            &Update {
+                ref message,
+                ref time,
+            } => write!(
+                f,
+                "{}: {}",
+                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                message
+            ),
         }
     }
 }
 
-
 /// A structure to handle all logging and update processing for the program.
 ///
 pub struct Logger {
-    game_log: Option<File>, // game log file for the program
-    error_log: Option<File>, // error log file for the program
+    game_log: Option<File>,                        // game log file for the program
+    error_log: Option<File>,                       // error log file for the program
     old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
-    general_update: GeneralUpdate, // broadcast channel for current events
-    interface_send: mpsc::Sender<InterfaceUpdate> // an update line for passing updates to the user interface
+    general_update: GeneralUpdate,        // broadcast channel for current events
+    interface_send: mpsc::Sender<InterfaceUpdate>, // an update line for passing updates to the user interface
 }
 
 // Implement key Logger struct features
 impl Logger {
-    
     /// A function to create a new logger instance.
     ///
     /// This function takes a log file name to log program-wide errors and
@@ -147,44 +159,53 @@ impl Logger {
     /// log file. Like all system interface functions and methods, this function
     /// will fail gracefully by returning None.
     ///
-    pub fn new(log_path: Option<PathBuf>, error_path: Option<PathBuf>, general_update: GeneralUpdate, interface_send: mpsc::Sender<InterfaceUpdate>) -> Option<Logger> {
-        
+    pub fn new(
+        log_path: Option<PathBuf>,
+        error_path: Option<PathBuf>,
+        general_update: GeneralUpdate,
+        interface_send: mpsc::Sender<InterfaceUpdate>,
+    ) -> Option<Logger> {
         // Attempt to open the game log file
         let game_log = match log_path {
-            
             // If a file was specified, try to load it
             Some(mut filepath) => {
-                
                 // Use the current time for each instance
                 let time = time::now();
-                filepath.push(format!("game_log_{:04}-{:02}-{:02}_{:02}-{:02}.txt", time.tm_year + 1900, time.tm_mon + 1, time.tm_mday, time.tm_hour, time.tm_min).as_str());
-                
+                filepath.push(
+                    format!(
+                        "game_log_{:04}-{:02}-{:02}_{:02}-{:02}.txt",
+                        time.tm_year + 1900,
+                        time.tm_mon + 1,
+                        time.tm_mday,
+                        time.tm_hour,
+                        time.tm_min
+                    )
+                    .as_str(),
+                );
+
                 // Create the new file instance
                 match File::create(filepath.to_str().unwrap_or("")) {
                     Ok(file) => Some(file),
                     Err(_) => return None,
                 }
-            },
-            
+            }
+
             // If a file was not specified, run without a log file
             None => None,
         };
-        
+
         // Attempt to open the error log file
         let error_log = match error_path {
-            
             // If a file was specified, try to load it
-            Some(filepath) => {
-                match File::create(filepath.to_str().unwrap_or("")) {
-                    Ok(file) => Some(file),
-                    Err(_) => return None,
-                }
+            Some(filepath) => match File::create(filepath.to_str().unwrap_or("")) {
+                Ok(file) => Some(file),
+                Err(_) => return None,
             },
-            
+
             // If a file was not specified, run without a log file
             None => None,
         };
-        
+
         // Return the new logger
         Some(Logger {
             game_log,
@@ -200,7 +221,6 @@ impl Logger {
     /// This function takes a log file name to log saved data.
     ///
     pub fn set_game_log(&mut self, log_path: PathBuf) {
-    
         // Attempt to open the log file
         self.game_log = match File::create(&log_path.to_str().unwrap_or("")) {
             Ok(file) => Some(file),
@@ -213,14 +233,13 @@ impl Logger {
     /// This function takes a log file name to log program-wide errors.
     ///
     pub fn set_error_log(&mut self, log_path: PathBuf) {
-    
         // Attempt to open the log file
         self.error_log = match File::create(&log_path.to_str().unwrap_or("")) {
             Ok(file) => Some(file),
             Err(_) => None,
         }
     }
-    
+
     /// A method to process an update from the system interface and return a
     /// vector of notification strings. Returns None if there are no new
     /// notifications.
@@ -233,26 +252,24 @@ impl Logger {
     /// from the last minute of operation.
     ///
     pub fn update(&mut self, update: EventUpdate) -> Vec<Notification> {
-        
         // Unpack the new update into a notification
-        let mut notifications = vec!(self.unpack_update(update));
-        
+        let mut notifications = vec![self.unpack_update(update)];
+
         // Iterate through the old notifications
         for old_note in self.old_notifications.drain(..) {
-            
             // If the notification is younger than one minute, add it back
             if (time::now() - old_note.time()) < time::Duration::minutes(1) {
                 notifications.push(old_note);
             }
         }
-        
+
         // Update the old notifications list
         self.old_notifications = notifications.clone();
-        
+
         // Return the refreshed list of notifications
         return notifications;
     }
-    
+
     /// An internal method to unpack any event updates.
     ///
     /// This method sorts event updates into their various types and applies
@@ -261,95 +278,137 @@ impl Logger {
     ///
     ///
     fn unpack_update(&mut self, update: EventUpdate) -> Notification {
-        
         // Unpack the event update based on its subtype
         match update {
-            
             // Log and display errors
             EventUpdate::Error(error) => {
-            
                 // Note the current time
                 let now = time::now();
-            
+
                 // Try to write it to the file
                 if let Some(ref mut file) = self.error_log {
-                    file.write(format!("{:04}-{:02}-{:02} {:02}:{:02} — ERROR: {}\n", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday, now.tm_hour, now.tm_min, &error).as_bytes()).unwrap_or(0);
+                    file.write(
+                        format!(
+                            "{:04}-{:02}-{:02} {:02}:{:02} — ERROR: {}\n",
+                            now.tm_year + 1900,
+                            now.tm_mon + 1,
+                            now.tm_mday,
+                            now.tm_hour,
+                            now.tm_min,
+                            &error
+                        )
+                        .as_bytes(),
+                    )
+                    .unwrap_or(0);
                 }
-                
+
                 // Return the error either way
-                Error { message: error, time: now }
-            },
-            
+                Error {
+                    message: error,
+                    time: now,
+                }
+            }
+
             // Simply display errors and updates
-            EventUpdate::Warning(warning) => {
-                Warning { message: warning, time: time::now() }
+            EventUpdate::Warning(warning) => Warning {
+                message: warning,
+                time: time::now(),
             },
-            EventUpdate::Update(update) => {
-                Update { message: update, time: time::now(), }
+            EventUpdate::Update(update) => Update {
+                message: update,
+                time: time::now(),
             },
 
             // Broadcast events, display them, and remove them from the upcoming list
             EventUpdate::Broadcast(id) => {
-                
                 // Broadcast the event
                 self.general_update.send_broadcast(id.get_id());
-                
+
                 // Send a current update with the item pair
-                Current { message: format!("{}", id), time: time::now() }
-            },
-            
+                Current {
+                    message: format!("{}", id),
+                    time: time::now(),
+                }
+            }
+
             // Notify of current events, display them, and remove them from the upcoming list
             EventUpdate::Current(id) => {
-                
                 // Send a current update with the item pair
-                Current { message: format!("{}", id), time: time::now() }
-            },
-            
+                Current {
+                    message: format!("{}", id),
+                    time: time::now(),
+                }
+            }
+
             // Update the state of a status
             EventUpdate::Status(status_id, new_state) => {
-            
                 // Send the change to the interface
-                self.interface_send.send(UpdateStatus { status_id: status_id.clone(), new_state: new_state.clone() }).unwrap_or(());
-                
+                self.interface_send
+                    .send(UpdateStatus {
+                        status_id: status_id.clone(),
+                        new_state: new_state.clone(),
+                    })
+                    .unwrap_or(());
+
                 // Return the notification
-                Update { message: format!("Changing {} To {}.", status_id.description, new_state.description), time: time::now() }
-            },
-            
+                Update {
+                    message: format!(
+                        "Changing {} To {}.",
+                        status_id.description, new_state.description
+                    ),
+                    time: time::now(),
+                }
+            }
+
             // Save data to the system
             EventUpdate::Save(data) => {
-                
                 // Get the current time
                 let now = time::now();
-                
+
                 // Try to write the data to the game log
                 if let Some(ref mut file) = self.game_log {
-                    file.write(format!("{:04}-{:02}-{:02} {:02}:{:02} — {:?}\n", now.tm_year + 1900, now.tm_mon + 1, now.tm_mday, now.tm_hour, now.tm_min, &data).as_bytes()).unwrap_or(0);
+                    file.write(
+                        format!(
+                            "{:04}-{:02}-{:02} {:02}:{:02} — {:?}\n",
+                            now.tm_year + 1900,
+                            now.tm_mon + 1,
+                            now.tm_mday,
+                            now.tm_hour,
+                            now.tm_min,
+                            &data
+                        )
+                        .as_bytes(),
+                    )
+                    .unwrap_or(0);
                 }
-                
+
                 // Print the full data to the notification area
                 #[cfg(test)]
-                return Current { message: format!("Got Data: {:?}" data), time: now };
-                
+                return Current {
+                    message: format!("Got Data: {:?}" data),
+                    time: now,
+                };
+
                 // Otherwise return a message about saving the data
                 #[cfg(not(test))]
-                return Current { message: "Saved Data To Game Log.".to_string(), time: now };
-            },
+                return Current {
+                    message: "Saved Data To Game Log.".to_string(),
+                    time: now,
+                };
+            }
         }
     }
 }
-
 
 // Tests of the logging module
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // FIXME Define tests of this module
     #[test]
     fn test_logging() {
-        
         // FIXME: Implement this
         unimplemented!();
     }
 }
-
