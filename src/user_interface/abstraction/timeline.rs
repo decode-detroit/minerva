@@ -687,18 +687,23 @@ impl TimelineAbstraction {
                     );
                 }
 
-                // If the highlight is specified
-                if let Some((red, green, blue)) = highlight {
-                    // If there are under ten seconds remaining
-                    if let Some((_, sec)) = event.remaining() {
-                        // Flash the highlight color and line width
-                        if (sec < 10.0) & (sec as u32 % 2 == 1) {
-                            cr.set_source_rgb(
-                                red as f64 / 255.0,
-                                green as f64 / 255.0,
-                                blue as f64 / 255.0,
-                            );
-                            line_width = 4.0;
+                // If the timeline isn't stale
+                if !info.is_stale {
+                    // FIXME Replace when let chains feature becomes stable
+
+                    // If the highlight is specified
+                    if let Some((red, green, blue)) = highlight {
+                        // If there are under ten seconds remaining
+                        if let Some((_, sec)) = event.remaining() {
+                            // Flash the highlight color and line width
+                            if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                cr.set_source_rgb(
+                                    red as f64 / 255.0,
+                                    green as f64 / 255.0,
+                                    blue as f64 / 255.0,
+                                );
+                                line_width = 4.0;
+                            }
                         }
                     }
                 }
@@ -717,18 +722,23 @@ impl TimelineAbstraction {
                     );
                 }
 
-                // If the highlight is specified
-                if let Some((red, green, blue)) = highlight {
-                    // If there are under ten seconds remaining
-                    if let Some((_, sec)) = event.remaining() {
-                        // Flash the highlight color and line width
-                        if (sec < 10.0) & (sec as u32 % 2 == 1) {
-                            cr.set_source_rgb(
-                                red as f64 / 255.0,
-                                green as f64 / 255.0,
-                                blue as f64 / 255.0,
-                            );
-                            line_width = 4.0;
+                // If the timeline isn't stale
+                if !info.is_stale {
+                    // FIXME Replace when let chains feature becomes stable
+
+                    // If the highlight is specified
+                    if let Some((red, green, blue)) = highlight {
+                        // If there are under ten seconds remaining
+                        if let Some((_, sec)) = event.remaining() {
+                            // Flash the highlight color and line width
+                            if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                cr.set_source_rgb(
+                                    red as f64 / 255.0,
+                                    green as f64 / 255.0,
+                                    blue as f64 / 255.0,
+                                );
+                                line_width = 4.0;
+                            }
                         }
                     }
                 }
@@ -749,18 +759,23 @@ impl TimelineAbstraction {
                         );
                     }
 
-                    // If the highlight is specified
-                    if let Some((red, green, blue)) = highlight {
-                        // If there are under ten seconds remaining
-                        if let Some((_, sec)) = event.remaining() {
-                            // Flash the highlight color and line width
-                            if (sec < 10.0) & (sec as u32 % 2 == 1) {
-                                cr.set_source_rgb(
-                                    red as f64 / 255.0,
-                                    green as f64 / 255.0,
-                                    blue as f64 / 255.0,
-                                );
-                                line_width = 4.0;
+                    // If the timeline isn't stale
+                    if !info.is_stale {
+                        // FIXME Replace when let chains feature becomes stable
+
+                        // If the highlight is specified
+                        if let Some((red, green, blue)) = highlight {
+                            // If there are under ten seconds remaining
+                            if let Some((_, sec)) = event.remaining() {
+                                // Flash the highlight color and line width
+                                if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                    cr.set_source_rgb(
+                                        red as f64 / 255.0,
+                                        green as f64 / 255.0,
+                                        blue as f64 / 255.0,
+                                    );
+                                    line_width = 4.0;
+                                }
                             }
                         }
                     }

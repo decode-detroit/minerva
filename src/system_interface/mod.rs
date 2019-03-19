@@ -373,7 +373,7 @@ impl SystemInterface {
                             .unwrap_or(());
                     }
                 }
-                
+
                 // Drop the old event handler
                 self.event_handler = None;
 
