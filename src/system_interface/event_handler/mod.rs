@@ -607,6 +607,7 @@ mod tests {
         use self::item::Hidden;
         use std::thread;
         use std::time::Duration;
+        use std::sync::mpsc;
 
         // Create a new Event Handler
         let (tx, rx) = mpsc::channel();
@@ -659,6 +660,7 @@ mod tests {
         use self::item::{DisplayControl, DisplayWith, Hidden};
         use std::thread;
         use std::time::Duration;
+        use std::sync::mpsc;
 
         // Create a new Event Handler
         let (tx, rx) = mpsc::channel();
@@ -683,53 +685,68 @@ mod tests {
         // Create the test vector
         let test = vec![
             EventUpdate::Broadcast(
-                ItemPair::new(5, "Load Immediate Events (6 & 7)", DisplayControl).unwrap(),
+                ItemPair::new(5, "Load Immediate Events (6 & 7)", Hidden).unwrap(),
             ),
             EventUpdate::Broadcast(ItemPair::new(15, "Load Delayed Events (5)", Hidden).unwrap()),
             EventUpdate::Current(
                 ItemPair::new(
                     6,
                     "Load Events Or Save Data (Grouped Event)",
-                    DisplayWith(ItemId::new(10).unwrap()),
+                    DisplayWith {
+                        group_id: Some(ItemId::new(10).unwrap()),
+                        priority: None,
+                        color: None,
+                        highlight: None,
+                    }
                 )
                 .unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Hidden).unwrap()),
             EventUpdate::Broadcast(
-                ItemPair::new(5, "Load Immediate Events (6 & 7)", DisplayControl).unwrap(),
+                ItemPair::new(5, "Load Immediate Events (6 & 7)", Hidden).unwrap(),
             ),
             EventUpdate::Broadcast(ItemPair::new(15, "Load Delayed Events (5)", Hidden).unwrap()),
             EventUpdate::Current(
                 ItemPair::new(
                     6,
                     "Load Events Or Save Data (Grouped Event)",
-                    DisplayWith(ItemId::new(10).unwrap()),
+                    DisplayWith { 
+                        group_id: Some(ItemId::new(10).unwrap()),
+                        priority: None,
+                        color: None,
+                        highlight: None,
+                    }
                 )
                 .unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Hidden).unwrap()),
             EventUpdate::Status(
                 ItemPair::new(10, "Test Event Group - Loop Or Save", Hidden).unwrap(),
-                ItemDescription::new("Currently Saving Data", DisplayControl),
+                ItemDescription::new("Currently Saving Data", Hidden),
             ),
-            EventUpdate::Current(ItemPair::new(8, "Modify Test Event Group", DisplayControl).unwrap()),
+            EventUpdate::Current(ItemPair::new(8, "Modify Test Event Group", Hidden).unwrap()),
             EventUpdate::Broadcast(
-                ItemPair::new(5, "Load Immediate Events (6 & 7)", DisplayControl).unwrap(),
+                ItemPair::new(5, "Load Immediate Events (6 & 7)", Hidden).unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Hidden).unwrap()),
             EventUpdate::Current(
                 ItemPair::new(
                     6,
                     "Load Events Or Save Data (Grouped Event)",
-                    DisplayWith(ItemId::new(10).unwrap()),
+                    DisplayWith {
+                        group_id: Some(ItemId::new(10).unwrap()),
+                        priority: None,
+                        color: None,
+                        highlight: None,
+                    }
                 )
                 .unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Hidden).unwrap()),
         ];
 
         // Wait 2 seconds for all the events to process
