@@ -18,12 +18,11 @@
 //! A module to create a macro and function that simplifies the steps of
 //! creating and updating the user interface.
 
-
 /// A macro to make moving clones into closures more convenient
 ///
 /// This macro allows the user to easily and quickly clone any items in a
 /// closure that would normally have to be manually cloned. This makes the
-/// functions for individual connections much more elegant. 
+/// functions for individual connections much more elegant.
 ///
 macro_rules! clone {
     (@param _) => ( _ );
@@ -42,7 +41,6 @@ macro_rules! clone {
     );
 }
 
-
 /// A function to clean any text provided by the user.
 //
 /// This function cleans any user- or system- provided text (the built-in
@@ -52,61 +50,58 @@ macro_rules! clone {
 /// space. Additional text (beyond max length) will be pushed to the next
 /// line with an indentation if indent is true.
 ///
-pub fn clean_text(raw_text: &str, max_length: usize, newline: bool, indent: bool, clean: bool) -> String {
-    
+pub fn clean_text(
+    raw_text: &str,
+    max_length: usize,
+    newline: bool,
+    indent: bool,
+    clean: bool,
+) -> String {
     // If simply truncating withtout a newline
     let mut clean_text = String::new();
     if !newline {
-        
         // Just copy the raw chars to the clean_text
         for (i, character) in raw_text.chars().enumerate() {
-            
             // Stop at the maximum length
             if i > max_length {
                 break;
             }
-            
+
             // Otherwise add it to the clean text
             clean_text.push(character);
         }
-    
+
     // Otherwise, prevent splitting words whenever possible
     } else {
-    
         // Divide the new text into sections of whitespace
         let mut lines = 1;
         for word in raw_text.split_whitespace() {
-
             // If the size of the word exceeds our allotment, truncate it
             let size = word.chars().count();
             let count = clean_text.chars().count();
             if size > max_length {
-            
                 // Truncate the string at the first viable location
                 let mut index = (max_length * lines) - count;
                 loop {
-                    
                     // Only cut at a valid character boundary
                     match word.get(..index) {
-                    
                         // Add the truncated word
                         Some(truncated) => {
                             clean_text.push_str(truncated);
                             clean_text.push_str("\n... ");
-                            
+
                             // Increment the line count before moving on
                             lines += 1;
                             break;
                         }
-                        
+
                         // Try again with a longer word
                         None => index += 1,
                     }
                 }
-            
+
             // If the end of the word would be beyond our allotment, add a newline
             } else if (size + count) > (max_length * lines) {
-            
                 // Add the newline, tab if requested, and the word
                 if indent {
                     clean_text.push_str("\n\t\t");
@@ -115,10 +110,10 @@ pub fn clean_text(raw_text: &str, max_length: usize, newline: bool, indent: bool
                 }
                 clean_text.push_str(word);
                 clean_text.push(' ');
-                
+
                 // Increment the line count
                 lines += 1;
-            
+
             // Otherwise, just add the word and a space
             } else {
                 clean_text.push_str(word);
@@ -126,39 +121,36 @@ pub fn clean_text(raw_text: &str, max_length: usize, newline: bool, indent: bool
             }
         }
     }
-    
+
     // Return now if not cleaning
     if !clean {
         return clean_text;
     }
-    
+
     // Replace any of the offending characters
     let mut final_text = String::new();
     for character in clean_text.chars() {
-        
         // Catch and replace dangerous characters
         let mut safe_character: &str = &format!("{}", character);
         match character {
-        
             // Replace the ampersand
             '&' => safe_character = "&amp;",
-            
+
             // Replace the less than
             '<' => safe_character = "&lt;",
-            
+
             // Replace the greater than
             '>' => safe_character = "&gt;",
-            
+
             // Replace null character with nothing
             '\0' => safe_character = "",
-            
+
             // Pass along any other characters
             _ => (),
         }
-        
+
         // Add it to the final text
         final_text.push_str(safe_character);
     }
     final_text
 }
-

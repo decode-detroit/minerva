@@ -20,10 +20,9 @@
 //! scenes, and other items in the program.
 
 // Import standard library modules
+use std::cmp::Ordering;
 use std::fmt;
 use std::hash;
-use std::cmp::Ordering;
-
 
 /// Define the All Stop command (a.k.a. emergency stop)
 const ALL_STOP: u32 = 0;
@@ -46,7 +45,6 @@ pub struct ItemId {
 
 // Implement key ItemId struct features
 impl ItemId {
-    
     /// A function to create an item id from u32, CAN version.
     ///
     /// When program is built with CAN checking ON, this function will cap valid
@@ -76,28 +74,27 @@ impl ItemId {
     /// ```
     ///
     /// # Errors
-    /// 
+    ///
     /// This function will return None if the address exceeds the 29-bit
     /// address limit or conflicts with the ALL_STOP id and Some(ItemId)
     /// otherwise.
     ///
     #[cfg(not(feature = "no_can_limit"))]
     pub fn new(id: u32) -> Option<ItemId> {
-        
         // Verify id does not conflict with all stop
         if id == ALL_STOP {
             return None;
         }
-        
+
         // Verify 29 bit limit for CAN bus
         if id >= 0x1FFFFFFF {
             return None;
         }
-        
+
         // Return the new item id
-        Some(ItemId { id, })
+        Some(ItemId { id })
     }
-    
+
     /// A function to create an item id from u32, no CAN version.
     ///
     /// When program is built with CAN checking OFF, this function will not
@@ -125,22 +122,21 @@ impl ItemId {
     /// ```
     ///
     /// # Errors
-    /// 
+    ///
     /// This function will return None if the address conflicts with the
     /// ALL_STOP id and Some(ItemId) otherwise.
     ///
     #[cfg(feature = "no_can_limit")]
     pub fn new(id: u32) -> Option<ItemId> {
-    
         // Verify id does not conflict with all stop
         if id == ALL_STOP {
             return None;
         }
-        
+
         // Return the new item id
-        Some(ItemId { id, })
+        Some(ItemId { id })
     }
-    
+
     /// A function to create an item id from u32, unchecked version.
     ///
     /// This function does not verify that the new ItemId complies with the CAN
@@ -149,16 +145,16 @@ impl ItemId {
     /// are possible and desired.
     ///
     pub fn new_unchecked(id: u32) -> ItemId {
-        ItemId { id, }
+        ItemId { id }
     }
-    
+
     /// A method to return the proper id of the item.
     ///
     /// This function returns the id number of the item. Internal representation
     /// is protected in case future versions make use of inverted ids.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// let id = ItemId::new(5);
     /// assert_eq!(5, id.id());
@@ -167,14 +163,14 @@ impl ItemId {
     pub fn id(&self) -> u32 {
         self.id
     }
-    
+
     /// A method to return the proper id of the item as a string.
     ///
     /// This function returns the id number of the item. Internal representation
     /// is protected in case future versions make use of inverted ids.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// let id = ItemId::new(5);
     /// assert_eq!("5", &id.as_string());
@@ -199,12 +195,10 @@ impl fmt::Display for ItemId {
     }
 }
 
-
 /// This enum is a type to allow display information to fall into several types.
 ///
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum DisplayType {
-
     /// A variant for items which are displayed in the top level control group.
     /// These items will be displayed in the story control area in order of
     /// ascending  id, or in order of ascending priority if specified. The text
@@ -212,11 +206,11 @@ pub enum DisplayType {
     /// highlight color for any special animations.
     ///
     DisplayControl {
-        priority: Option<u32>, 
+        priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
     },
-    
+
     /// A variant to indicatie items which to be displayed with a specific group
     /// (and paired with the status of that group). Note that grouped events
     /// don't need to be displayed in the same group (or at all). However, items
@@ -233,7 +227,7 @@ pub enum DisplayType {
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
     },
-    
+
     /// A variant for items which are displayed with a particular group (if
     /// specified) or with the control group, but only when the program is in
     /// debug mode. These items will be displayed in order of ascending id,
@@ -247,16 +241,14 @@ pub enum DisplayType {
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
     },
-    
+
     /// A variant for items which are only to be displayed as a label (not as an
     /// event triggerable by the user. The text color of the label will match
-    /// the rgb value. This is useful for scene reset events which must match 
+    /// the rgb value. This is useful for scene reset events which must match
     /// the id of the scene but are often not directly triggered by the user.
     ///
-    LabelHidden {
-        color: (u8, u8, u8),
-    },
-    
+    LabelHidden { color: (u8, u8, u8) },
+
     /// Items which should not be displayed. Typically this includes items
     /// internal to the system or not designed to be directly accessible to the
     /// user. If this item is a label, it will be given default priority and
@@ -266,24 +258,25 @@ pub enum DisplayType {
 }
 
 // Reexport the display type variants
-pub use self::DisplayType::{DisplayControl, DisplayWith, DisplayDebug, LabelHidden, Hidden};
-
+pub use self::DisplayType::{DisplayControl, DisplayDebug, DisplayWith, Hidden, LabelHidden};
 
 /// This structure is a generic description to be paired with the ItemId
 /// identifier. This scruct is a simple wrapper for String.
 ///
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct ItemDescription {
-    pub description: String, // a wrapper for a String object
+    pub description: String,  // a wrapper for a String object
     pub display: DisplayType, // the display type for the item, ignored for types other than events
 }
 
 // Implement key ItemDescription struct features
 impl ItemDescription {
-    
     // A function to create an item id from &str and a DisplayType
     pub fn new(description: &str, display: DisplayType) -> ItemDescription {
-        ItemDescription { description: description.to_string(), display, }
+        ItemDescription {
+            description: description.to_string(),
+            display,
+        }
     }
 }
 
@@ -293,7 +286,6 @@ impl fmt::Display for ItemDescription {
         write!(f, "{}", self.description)
     }
 }
-
 
 /// This structure is a generic identifier pair to combine the ItemId and
 /// ItemDescription structs. This pair simply pulls these two fields for easy
@@ -309,7 +301,6 @@ pub struct ItemPair {
 
 // Implement key ItemPair features
 impl ItemPair {
-    
     /// A function to create an item pair from u32, CAN version.
     ///
     /// When program is built with CAN checking ON, this function will cap valid
@@ -339,24 +330,23 @@ impl ItemPair {
     /// ```
     ///
     /// # Errors
-    /// 
+    ///
     /// This function will return None if the address exceeds the 29-bit
     /// address limit or conflicts with the ALL_STOP id and Some(ItemPair)
     /// otherwise.
     ///
     #[cfg(not(feature = "no_can_limit"))]
     pub fn new(id: u32, description: &str, display: DisplayType) -> Option<ItemPair> {
-    
         // Verify id does not conflict with all stop
         if id == ALL_STOP {
             return None;
         }
-    
+
         // Verify 29 bit limit for CAN bus
         if id >= 0x1FFFFFFF {
             return None;
         }
-        
+
         // Return the new item pair
         Some(ItemPair {
             id,
@@ -364,7 +354,7 @@ impl ItemPair {
             display,
         })
     }
-    
+
     /// A function to create an item pair from u32, no CAN version.
     ///
     /// When program is built with CAN checking OFF, this function will not
@@ -392,18 +382,17 @@ impl ItemPair {
     /// ```
     ///
     /// # Errors
-    /// 
+    ///
     /// This function will return None if the address conflicts with the
     /// ALL_STOP id and Some(ItemPair) otherwise.
     ///
     #[cfg(feature = "no_can_limit")]
     pub fn new(id: u32, description: &str, display: DisplayType) -> ItemPair {
-    
         // Verify id does not conflict with all stop
         if id == ALL_STOP {
             return None;
         }
-    
+
         // Return the new item pair
         Some(ItemPair {
             id,
@@ -411,7 +400,7 @@ impl ItemPair {
             display,
         })
     }
-    
+
     /// A function to create an item pair from ItemId and ItemDescription.
     ///
     /// This function takes a valid ItemId and ItemDescription and combines them
@@ -425,36 +414,39 @@ impl ItemPair {
             display: description.display,
         }
     }
-    
+
     /// A method to produce a new u32 from the ItemPair id. The internal
     /// representation is protected in case inverted ids are made in the future.
     ///
     pub fn id(&self) -> u32 {
         self.id
     }
-    
+
     /// A method to produce a new ItemID from the ItemPair.
     ///
     /// This method returns a valid ItemId from this item pair.
     ///
     pub fn get_id(&self) -> ItemId {
-        ItemId { id: self.id, }
+        ItemId { id: self.id }
     }
- 
+
     /// A method to produce a new string from the ItemDescription in ItemPair.
     ///
     pub fn description(&self) -> String {
         self.description.clone()
-    }   
+    }
 
     /// A method to produce a new ItemDescription from the ItemPair.
     ///
     /// This method returns a valid ItemDescription from this item pair.
     ///
     pub fn get_description(&self) -> ItemDescription {
-        ItemDescription { description: self.description.clone(), display: self.display.clone() }
+        ItemDescription {
+            description: self.description.clone(),
+            display: self.display.clone(),
+        }
     }
-    
+
     /// A method to verify full equality of the Item Pairs, including the
     /// description and the display type.
     ///
@@ -462,14 +454,20 @@ impl ItemPair {
     /// (as contrasted with the == operator which will just compare the ids).
     ///
     pub fn truly_equal(&self, other_id: &ItemPair) -> bool {
-        self == other_id && self.description == other_id.description && self.display == other_id.display
+        self == other_id
+            && self.description == other_id.description
+            && self.display == other_id.display
     }
-    
+
     /// A function to return a new all stop item pair. This is a reserved id for
     /// halting all active processes on the system and returning it to normal.
     ///
     pub fn all_stop() -> ItemPair {
-        ItemPair { id: ALL_STOP, description: "ALL STOP".to_string(), display: Hidden }
+        ItemPair {
+            id: ALL_STOP,
+            description: "ALL STOP".to_string(),
+            display: Hidden,
+        }
     }
 }
 
@@ -511,37 +509,33 @@ impl fmt::Display for ItemPair {
     }
 }
 
-
 // Tests of the item module
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // Test id with CAN bus limiter
     #[test]
     #[cfg_attr(not(feature = "no_can_limit"), should_panic)]
     fn create_id() {
-        
         // Try to create an id out of CAN range
         let _e = ItemId::new(0xFFFFFFFF).unwrap();
     }
-    
+
     // Test comparison of simple item pairs
     #[test]
     fn compare_events() {
-    
-        // Create several events 
+        // Create several events
         let event = ItemPair::new(1, "One Event", Hidden).unwrap();
         let same_event = event.clone();
         let different_description = ItemPair::new(1, "Different Description", Hidden).unwrap();
         let different_event = ItemPair::new(2, "Two Event", Hidden).unwrap();
-        
+
         // Compare the events
         assert_eq!(event, same_event);
         assert_eq!(event, different_description);
-        assert!(!(event.truly_equal(&different_description))); 
+        assert!(!(event.truly_equal(&different_description)));
         assert_ne!(event, different_event);
         assert_ne!(same_event, different_event);
     }
 }
-
