@@ -1751,7 +1751,7 @@ struct EditSaveData {
 impl EditSaveData {
     // A function to ceate a save data variant
     //
-    fn new(system_send: &SystemSend) -> EditSaveData {
+    fn new(_system_send: &SystemSend) -> EditSaveData {
         // Create the list for the save data variant
         let save_data_list = gtk::ListBox::new();
         save_data_list.set_selection_mode(gtk::SelectionMode::None);
