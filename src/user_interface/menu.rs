@@ -431,7 +431,7 @@ impl MenuAbstraction {
             dialog.set_license_type(gtk::License::Gpl30);
 
             // Try to add the software logo
-            match gdk_pixbuf::Pixbuf::new_from_file(::LOGO_WIDE) {
+            match gdk_pixbuf::Pixbuf::new_from_file(super::super::LOGO_WIDE) {
 
                 // Add the logo if successful
                Ok(ref pixbuf) => dialog.set_logo(pixbuf),

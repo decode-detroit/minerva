@@ -396,7 +396,7 @@ mod tests {
             let id_ref = ItemId::new_unchecked(205);
             let data1_ref: u32 = 29387;
             let data2_ref: u32 = 0;
-            cc.write_event(id_ref, data1_ref, data2_ref);
+            cc.write_event(id_ref, data1_ref, data2_ref).unwrap_or(());
 
             // Wait for a response
             thread::sleep(Duration::from_secs(1));

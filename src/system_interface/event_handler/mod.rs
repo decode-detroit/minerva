@@ -598,7 +598,7 @@ impl EventHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // FIXME Repair these tests
     // Simple test of running the queue module
     /*#[test]
@@ -711,7 +711,7 @@ mod tests {
                 ItemPair::new(
                     6,
                     "Load Events Or Save Data (Grouped Event)",
-                    DisplayWith { 
+                    DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
                         priority: None,
                         color: None,

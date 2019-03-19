@@ -300,7 +300,7 @@ dependencies = [
 
 [[package]]
 name = "minerva"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "byteorder 1.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "cairo-rs 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",

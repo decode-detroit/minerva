@@ -1001,7 +1001,7 @@ mod tests {
     fn load_config_from_file() {
         // Import features for testing
         use std::sync::mpsc;
-        
+
         // Attempt to open the configuration file
         let config_file = match File::open("examples/testing_config.mnv") {
             Ok(file) => file,
