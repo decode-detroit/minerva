@@ -604,7 +604,7 @@ mod tests {
     fn handle_events() {
         // Import libraries for testing
         use self::event::EventDelay;
-        use self::item::Display;
+        use self::item::Hidden;
         use std::thread;
         use std::time::Duration;
 
@@ -631,12 +631,12 @@ mod tests {
         // Create the test vector
         let test = vec![
             EventUpdate::Update("Got Data: 1".to_string()),
-            EventUpdate::Current(ItemPair::new(1, "Save Data 1", Display).unwrap()),
-            EventUpdate::Broadcast(ItemPair::new(2, "Load Delayed Events", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(1, "Save Data 1", Hidden).unwrap()),
+            EventUpdate::Broadcast(ItemPair::new(2, "Load Delayed Events", Hidden).unwrap()),
             EventUpdate::Update("Got Data: 3".to_string()),
-            EventUpdate::Current(ItemPair::new(3, "Save Data 3", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(3, "Save Data 3", Hidden).unwrap()),
             EventUpdate::Update("Got Data: 4".to_string()),
-            EventUpdate::Current(ItemPair::new(4, "Save Data 4", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(4, "Save Data 4", Hidden).unwrap()),
         ];
 
         // Wait 2 seconds for all the events to process
@@ -656,7 +656,7 @@ mod tests {
     fn link_events() {
         // Import libraries for testing
         use self::event::EventDelay;
-        use self::item::{Display, DisplayWith, Hidden};
+        use self::item::{DisplayControl, DisplayWith, Hidden};
         use std::thread;
         use std::time::Duration;
 
@@ -683,7 +683,7 @@ mod tests {
         // Create the test vector
         let test = vec![
             EventUpdate::Broadcast(
-                ItemPair::new(5, "Load Immediate Events (6 & 7)", Display).unwrap(),
+                ItemPair::new(5, "Load Immediate Events (6 & 7)", DisplayControl).unwrap(),
             ),
             EventUpdate::Broadcast(ItemPair::new(15, "Load Delayed Events (5)", Hidden).unwrap()),
             EventUpdate::Current(
@@ -695,9 +695,9 @@ mod tests {
                 .unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
             EventUpdate::Broadcast(
-                ItemPair::new(5, "Load Immediate Events (6 & 7)", Display).unwrap(),
+                ItemPair::new(5, "Load Immediate Events (6 & 7)", DisplayControl).unwrap(),
             ),
             EventUpdate::Broadcast(ItemPair::new(15, "Load Delayed Events (5)", Hidden).unwrap()),
             EventUpdate::Current(
@@ -709,17 +709,17 @@ mod tests {
                 .unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
             EventUpdate::Status(
                 ItemPair::new(10, "Test Event Group - Loop Or Save", Hidden).unwrap(),
-                ItemDescription::new("Currently Saving Data", Display),
+                ItemDescription::new("Currently Saving Data", DisplayControl),
             ),
-            EventUpdate::Current(ItemPair::new(8, "Modify Test Event Group", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(8, "Modify Test Event Group", DisplayControl).unwrap()),
             EventUpdate::Broadcast(
-                ItemPair::new(5, "Load Immediate Events (6 & 7)", Display).unwrap(),
+                ItemPair::new(5, "Load Immediate Events (6 & 7)", DisplayControl).unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
             EventUpdate::Current(
                 ItemPair::new(
                     6,
@@ -729,7 +729,7 @@ mod tests {
                 .unwrap(),
             ),
             EventUpdate::Update("Got Data: 7".to_string()),
-            EventUpdate::Current(ItemPair::new(7, "Save Data 7", Display).unwrap()),
+            EventUpdate::Current(ItemPair::new(7, "Save Data 7", DisplayControl).unwrap()),
         ];
 
         // Wait 2 seconds for all the events to process

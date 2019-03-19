@@ -914,6 +914,7 @@ mod tests {
         use super::super::event::EventDelay;
         use super::super::item::DisplayWith;
         use std::time::Duration;
+        use super::mpsc;
 
         // Write the example grouped event
         let mut one_grouped_map = FnvHashMap::default();
@@ -997,6 +998,9 @@ mod tests {
     // Test loading a scene from file
     #[test]
     fn load_config_from_file() {
+        // Import features for testing
+        use super::mpsc;
+        
         // Attempt to open the configuration file
         let config_file = match File::open("examples/testing_config.mnv") {
             Ok(file) => file,
@@ -1020,6 +1024,7 @@ mod tests {
     #[test]
     fn verify_config() {
         // Import features for testing
+        use super::mpsc;
         use super::super::event::Warning;
 
         // Attempt to open the configuration file

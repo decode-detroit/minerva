@@ -385,7 +385,7 @@ impl Logger {
                 // Print the full data to the notification area
                 #[cfg(test)]
                 return Current {
-                    message: format!("Got Data: {:?}" data),
+                    message: format!("Got Data: {:?}", data),
                     time: now,
                 };
 
