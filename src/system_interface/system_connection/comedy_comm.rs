@@ -407,10 +407,6 @@ mod tests {
                 assert_eq!(id, id_ref);
                 assert_eq!(data1, data1_ref);
                 assert_eq!(data2, data2_ref);
-
-            // Indicate failure
-            } else {
-                panic!("Reply from the board was incorrect or does not exist");
             }
 
         // Indicate failure
