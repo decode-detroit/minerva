@@ -359,6 +359,21 @@ impl SystemInterface {
 
             // Update the configuration provided to the underlying system
             ConfigFile { filepath } => {
+                // Try to clear all the events in the queue
+                if let Some(ref mut handler) = self.event_handler {
+                    handler.clear_events();
+
+                    // Wait 10 nanoseconds for the queued events to process
+                    thread::sleep(Duration::new(0, 10));
+
+                    // Send an update that there are no upcoming events
+                    if let Some(events) = handler.upcoming_events() {
+                        self.interface_send
+                            .send(UpdateQueue { events })
+                            .unwrap_or(());
+                    }
+                }
+                
                 // Drop the old event handler
                 self.event_handler = None;
 
