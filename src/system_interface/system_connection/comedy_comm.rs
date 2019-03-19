@@ -402,7 +402,7 @@ mod tests {
             thread::sleep(Duration::from_secs(1));
 
             // Read a response
-            if let Some((id, data1, data2)) = cc.read_event() {
+            for (id, data1, data2) in cc.read_events() {
                 // Verify that it is correct
                 assert_eq!(id, id_ref);
                 assert_eq!(data1, data1_ref);
