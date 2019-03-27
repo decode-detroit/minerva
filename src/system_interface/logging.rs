@@ -32,6 +32,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::mpsc;
 
+// Import the failure features
+use failure::Error as FailureError;
+
 // Import the eternal time library
 extern crate time;
 
@@ -164,7 +167,7 @@ impl Logger {
         error_path: Option<PathBuf>,
         general_update: GeneralUpdate,
         interface_send: mpsc::Sender<InterfaceUpdate>,
-    ) -> Option<Logger> {
+    ) -> Result<Logger, FailureError> {
         // Attempt to open the game log file
         let game_log = match log_path {
             // If a file was specified, try to load it
@@ -186,7 +189,7 @@ impl Logger {
                 // Create the new file instance
                 match File::create(filepath.to_str().unwrap_or("")) {
                     Ok(file) => Some(file),
-                    Err(_) => return None,
+                    Err(_) => return Err(format_err!("Unable to create game log file.")),
                 }
             }
 
@@ -199,7 +202,7 @@ impl Logger {
             // If a file was specified, try to load it
             Some(filepath) => match File::create(filepath.to_str().unwrap_or("")) {
                 Ok(file) => Some(file),
-                Err(_) => return None,
+                Err(_) => return Err(format_err!("Unable to create error log file.")),
             },
 
             // If a file was not specified, run without a log file
@@ -207,7 +210,7 @@ impl Logger {
         };
 
         // Return the new logger
-        Some(Logger {
+        Ok(Logger {
             game_log,
             error_log,
             old_notifications: Vec::new(),

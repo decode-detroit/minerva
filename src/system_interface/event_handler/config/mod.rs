@@ -39,6 +39,9 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 
+// Import the failure crate
+use failure::Error;
+
 // Import FNV HashMap
 extern crate fnv;
 use self::fnv::{FnvHashMap, FnvHashSet};
@@ -106,14 +109,14 @@ impl Config {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn from_config(update_line: GeneralUpdate, mut config_file: &File) -> Option<Config> {
+    pub fn from_config(update_line: GeneralUpdate, mut config_file: &File) -> Result<Config, Error> {
         // Try to read from the configuration file
         let mut config_string = String::new();
         match config_file.read_to_string(&mut config_string) {
             Ok(_) => (),
             Err(error) => {
                 update!(err update_line => "Invalid Configuration File: {}", error);
-                return None;
+                return Err(format_err!("Invalid configuration file: {}", error));
             }
         }
 
@@ -122,7 +125,7 @@ impl Config {
             Ok(config) => config,
             Err(error) => {
                 update!(err update_line => "Unable To Parse Configuration File: {}", error);
-                return None;
+                return Err(format_err!("Unable to parse configuration file: {}", error));
             }
         };
 
@@ -177,7 +180,7 @@ impl Config {
         }
 
         // Return the new configuration
-        Some(Config {
+        Ok(Config {
             identifier: yaml_config.identifier,
             system_connection: yaml_config.system_connection,
             server_location: yaml_config.server_location,

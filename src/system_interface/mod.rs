@@ -48,6 +48,9 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+// Import the failure features
+use failure::Error as FailureError;
+
 // Import GTK library
 extern crate gtk;
 
@@ -82,7 +85,7 @@ impl SystemInterface {
     ///
     pub fn new(
         interface_send: mpsc::Sender<InterfaceUpdate>,
-    ) -> Option<(SystemInterface, SystemSend)> {
+    ) -> Result<(SystemInterface, SystemSend), FailureError> {
         // Create the new general update structure and receive channel
         let (general_update, general_receive) = GeneralUpdate::new();
 
@@ -106,15 +109,12 @@ impl SystemInterface {
         };
 
         // Try to create a new logger instance
-        let logger = match Logger::new(
+        let logger = Logger::new(
             log_folder,
             error_log,
             general_update.clone(),
             interface_send.clone(),
-        ) {
-            Some(logger) => logger,
-            None => return None,
-        };
+        )?;
 
         // Create a new system connection instance
         let system_connection = SystemConnection::new(general_update.clone(), None);
@@ -141,7 +141,7 @@ impl SystemInterface {
         }
 
         // Regardless, return the new SystemInterface and general send line
-        Some((sys_interface, system_send))
+        Ok((sys_interface, system_send))
     }
 
     /// A method to run one iteration of the system interface to update the user
@@ -504,8 +504,8 @@ impl SystemInterface {
         // Create a new event handler
         let mut event_handler =
             match EventHandler::new(filepath, self.general_update.clone(), log_failure) {
-                Some(evnt_hdlr) => evnt_hdlr,
-                None => return, // errors will be logged separately if log_failure is true
+                Ok(evnt_hdlr) => evnt_hdlr,
+                Err(_) => return, // errors will be logged separately if log_failure is true
             };
 
         // Create a new connection to the underlying system

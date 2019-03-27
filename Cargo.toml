@@ -10,6 +10,7 @@ edition="2018"
 lto = true
 
 [dependencies]
+failure = "0.1.5"
 time = "0.1"
 fnv = "1.0.6"
 serde = "1.0"

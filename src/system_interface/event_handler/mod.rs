@@ -51,6 +51,9 @@ use std::fs::File;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+// Import the failure features
+use failure::Error;
+
 /// A structure to manage all event triggering and internal event operations
 /// inside the program. This structure allows the main program to be agnostic
 /// to the current configuration of the program and the available events.
@@ -89,7 +92,7 @@ impl EventHandler {
         config_path: PathBuf,
         general_update: GeneralUpdate,
         log_failure: bool,
-    ) -> Option<EventHandler> {
+    ) -> Result<EventHandler, Error> {
         // Attempt to open the configuration file
         let config_file = match File::open(config_path) {
             Ok(file) => file,
@@ -98,25 +101,19 @@ impl EventHandler {
                 if log_failure {
                     update!(err &general_update => "Unable To Open Configuration File.");
                 }
-                return None;
+                return Err(format_err!("Unable to open configuration file."));
             }
         };
 
         // Attempt to process the configuration file
-        let mut config = match Config::from_config(general_update.clone(), &config_file) {
-            Some(c) => c,
-            None => return None,
-        };
+        let mut config = Config::from_config(general_update.clone(), &config_file)?;
 
         // Attempt to create the backup handler
-        let backup = match BackupHandler::new(
+        let backup = BackupHandler::new(
             general_update.clone(),
             config.identifier(),
             config.server_location(),
-        ) {
-            Some(b) => b,
-            None => return None,
-        };
+        )?;
 
         // Create an empty event queue
         let queue = Queue::new(general_update.clone());
@@ -143,7 +140,7 @@ impl EventHandler {
         backup.backup_current_scene(&config.get_current_scene().get_id());
 
         // Return the completed EventHandler with a new queue
-        Some(EventHandler {
+        Ok(EventHandler {
             general_update: general_update,
             queue,
             config,

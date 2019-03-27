@@ -27,6 +27,9 @@ use super::super::GeneralUpdate;
 use super::event::EventUpdate;
 use super::item::ItemId;
 
+// Import the failure features
+use failure::Error;
+
 // Imprt redis client library
 extern crate redis;
 use self::redis::{Commands, RedisResult};
@@ -68,7 +71,7 @@ impl BackupHandler {
         update_line: GeneralUpdate,
         identifier: ItemId,
         server_location: Option<String>,
-    ) -> Option<BackupHandler> {
+    ) -> Result<BackupHandler, Error> {
         // If a server location was specified
         if let Some(location) = server_location {
             // Try to connect to the Redis server
@@ -76,7 +79,7 @@ impl BackupHandler {
                 // Try to get a copy of the Redis connection
                 if let Ok(connection) = client.get_connection() {
                     // Return the new backup handler
-                    return Some(BackupHandler {
+                    return Ok(BackupHandler {
                         identifier,
                         connection: Some(connection),
                         update_line,
@@ -94,12 +97,12 @@ impl BackupHandler {
             }
 
             // Indicate failure
-            return None;
+            return Err(format_err!("Unable To Connect To Backup Server: {}.", location));
 
         // If a location was not specified
         } else {
             // Return the new Backup handler without a redis connection
-            return Some(BackupHandler {
+            return Ok(BackupHandler {
                 identifier,
                 connection: None,
                 update_line,

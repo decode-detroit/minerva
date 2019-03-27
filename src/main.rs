@@ -36,6 +36,9 @@ use std::env::args;
 use std::sync::mpsc;
 use std::thread;
 
+// Import failure features
+#[macro_use] extern crate failure;
+
 // Import GTK and GIO libraries
 extern crate gdk;
 extern crate gio;
@@ -118,9 +121,6 @@ fn main() {
         Minerva::build_program(gtk_app);
     });
 
-    // Connect the shutdown functions for when the program is terminated
-    // application.connect_shutdown(|_| {});
-
     // Connect the activate-specific function (as compared with open-specific function)
     application.connect_activate(|_| {});
 
@@ -128,15 +128,3 @@ fn main() {
     application.run(&args().collect::<Vec<_>>());
 }
 
-// Program-wide tests go here
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of the whole program
-    #[test]
-    fn test_minerva() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}
