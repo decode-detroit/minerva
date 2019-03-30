@@ -291,16 +291,16 @@ macro_rules! update {
 mod tests {
     use super::*;
 
-    // FIXME Reimplement these tests
-    /*// Test the status macro
+    // Test the update! macro
     #[test]
-    fn test_status() {
+    fn test_update() {
         // Import libraries for testing
+        use super::super::super::GeneralUpdate;
+        use super::super::super::GeneralUpdateType;
         use super::super::item::Hidden;
-        use std::sync::mpsc;
 
         // Create the receiving line
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = GeneralUpdate::new();
 
         // Generate a few messages
         update!(err tx => "Test Error {}", 1);
@@ -311,14 +311,14 @@ mod tests {
 
         // Create the test vector
         let test = vec![
-            Error("Test Error 1".to_string()),
-            Warning("Test Warning 2".to_string()),
-            Broadcast(ItemPair::new(3, "Test Event 3", Hidden).unwrap()),
-            Current(ItemPair::new(4, "Test Event 4", Hidden).unwrap()),
-            Update("Test Update 5".to_string()),
+            GeneralUpdateType::Update(Error("Test Error 1".to_string())),
+            GeneralUpdateType::Update(Warning("Test Warning 2".to_string())),
+            GeneralUpdateType::Update(Broadcast(ItemPair::new(3, "Test Event 3", Hidden).unwrap())),
+            GeneralUpdateType::Update(Current(ItemPair::new(4, "Test Event 4", Hidden).unwrap())),
+            GeneralUpdateType::Update(Update("Test Update 5".to_string())),
         ];
 
         // Print and check the messages received (wait at most half a second)
         test_vec!(=rx, test);
-    }*/
+    }
 }

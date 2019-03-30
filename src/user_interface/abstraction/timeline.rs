@@ -833,15 +833,3 @@ impl TimelineAbstraction {
     }
 }
 
-// Tests of the timeline abstraction module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_timeline() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}

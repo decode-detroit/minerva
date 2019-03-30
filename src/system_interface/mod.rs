@@ -644,6 +644,7 @@ impl SystemInterface {
 /// A private enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.
 ///
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum GeneralUpdateType {
     /// A variant for the event type
     Event(ItemId),
@@ -766,6 +767,7 @@ impl SystemSend {
 /// An enum to provide updates from the main thread to the system interface,
 /// listed in order of increasing usage.
 ///
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SystemUpdate {
     /// A special variant to send the "all stop" event which automatically
     /// is broadcast immediately and clears the event queue.

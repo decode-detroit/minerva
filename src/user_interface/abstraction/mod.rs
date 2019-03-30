@@ -325,15 +325,3 @@ impl InterfaceAbstraction {
     }
 }
 
-// Tests of the abstraction module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_abstraction() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}

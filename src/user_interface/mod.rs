@@ -296,15 +296,3 @@ impl UserInterface {
     }
 }
 
-// Tests of the user_interface module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_user_interface() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}

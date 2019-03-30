@@ -60,7 +60,7 @@ impl ItemId {
     /// ```
     /// cargo doc --open
     /// ```
-    /// than your program was likely compiled with CAN checking ON. Rebuild your
+    /// then your program was likely compiled with CAN checking ON. Rebuild your
     /// program without CAN checking with
     ///
     /// ```
@@ -108,7 +108,7 @@ impl ItemId {
     /// ```
     /// cargo doc --open
     /// ```
-    /// than your program was likely compiled with CAN checking OFF. Rebuild
+    /// then your program was likely compiled with CAN checking OFF. Rebuild
     /// your program with CAN checking with
     ///
     /// ```
@@ -316,7 +316,7 @@ impl ItemPair {
     /// ```
     /// cargo doc --open
     /// ```
-    /// than your program was likely compiled with CAN checking ON. Rebuild your
+    /// then your program was likely compiled with CAN checking ON. Rebuild your
     /// program without CAN checking with
     ///
     /// ```
@@ -368,7 +368,7 @@ impl ItemPair {
     /// ```
     /// cargo doc --open
     /// ```
-    /// than your program was likely compiled with CAN checking OFF. Rebuild
+    /// then your program was likely compiled with CAN checking OFF. Rebuild
     /// your program with CAN checking with
     ///
     /// ```

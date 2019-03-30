@@ -465,15 +465,3 @@ impl MenuAbstraction {
     }
 }
 
-// Tests of the abstraction module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_menu() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}

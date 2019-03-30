@@ -312,15 +312,3 @@ impl ControlAbstraction {
     }
 }
 
-// Tests of the control abstraction module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_control_abstraction() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}

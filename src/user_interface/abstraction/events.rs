@@ -606,15 +606,3 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType) -> Optio
     }
 }
 
-// Tests of the event abstraction module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_event_abstraction() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}

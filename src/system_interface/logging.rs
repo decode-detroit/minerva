@@ -408,10 +408,37 @@ impl Logger {
 mod tests {
     use super::*;
 
-    // FIXME Define tests of this module
-    #[test]
+    // Test the logging module
+    /*#[test]
     fn test_logging() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
+        // Import libraries for testing
+        use super::super::super::GeneralUpdate;
+        use super::super::super::GeneralUpdateType;
+
+        // Create the output lines
+        let (gen_tx, gen_rx) = GeneralUpdate::new();
+        let (int_tx, int_rx) = mpsc::channel();
+
+        // Create an empty logger instance
+        Logger::new(None, None, 
+
+        // Generate a few messages
+        update!(err tx => "Test Error {}", 1);
+        update!(warn tx => "Test Warning {}", 2);
+        update!(broadcast tx => ItemPair::new(3, "Test Event 3", Hidden).unwrap());
+        update!(now tx => ItemPair::new(4, "Test Event 4", Hidden).unwrap());
+        update!(update tx => "Test Update {}", "5");
+
+        // Create the test vector
+        let test = vec![
+            GeneralUpdateType::Update(Error("Test Error 1".to_string())),
+            GeneralUpdateType::Update(Warning("Test Warning 2".to_string())),
+            GeneralUpdateType::Update(Broadcast(ItemPair::new(3, "Test Event 3", Hidden).unwrap())),
+            GeneralUpdateType::Update(Current(ItemPair::new(4, "Test Event 4", Hidden).unwrap())),
+            GeneralUpdateType::Update(Update("Test Update 5".to_string())),
+        ];
+
+        // Print and check the messages received (wait at most half a second)
+        test_vec!(=rx, test);
+    }*/
 }

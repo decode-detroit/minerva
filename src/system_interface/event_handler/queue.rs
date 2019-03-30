@@ -413,40 +413,38 @@ impl Queue {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // FIXME Reimplement one of the out of date tests
-    /*
+    
     // Simple test of running the queue module
     #[test]
     fn run_queue() {
         // Import libraries for testing
+        use super::super::super::GeneralUpdate;
+        use super::super::super::GeneralUpdateType;
         use std::time::Duration;
 
         // Create a channel for receiving messages from the queue
-        let (tx, rx) = mpsc::channel();
+        let (tx, rx) = GeneralUpdate::new();
 
         // Create a new message queue
         let queue = Queue::new(tx);
 
         // Load some events into the queue
-        queue.add_events(vec![
-            EventDelay::new(Some(Duration::from_millis(20)), ItemId::new(20).unwrap()),
-            EventDelay::new(Some(Duration::from_millis(60)), ItemId::new(60).unwrap()),
-            EventDelay::new(Some(Duration::from_millis(40)), ItemId::new(40).unwrap()),
-            EventDelay::new(Some(Duration::from_millis(100)), ItemId::new(100).unwrap()),
-            EventDelay::new(Some(Duration::from_millis(80)), ItemId::new(80).unwrap()),
-        ]);
+        queue.add_event(EventDelay::new(Some(Duration::from_millis(20)), ItemId::new(20).unwrap()));
+        queue.add_event(EventDelay::new(Some(Duration::from_millis(60)), ItemId::new(60).unwrap()));
+        queue.add_event(EventDelay::new(Some(Duration::from_millis(40)), ItemId::new(40).unwrap()));
+        queue.add_event(EventDelay::new(Some(Duration::from_millis(100)), ItemId::new(100).unwrap()));
+        queue.add_event(EventDelay::new(Some(Duration::from_millis(80)), ItemId::new(80).unwrap()));
 
         // Create the test vector
         let test = vec![
-            ItemId::new(20).unwrap(),
-            ItemId::new(40).unwrap(),
-            ItemId::new(60).unwrap(),
-            ItemId::new(80).unwrap(),
-            ItemId::new(100).unwrap(),
+            GeneralUpdateType::Event(ItemId::new_unchecked(20)),
+            GeneralUpdateType::Event(ItemId::new_unchecked(40)),
+            GeneralUpdateType::Event(ItemId::new_unchecked(60)),
+            GeneralUpdateType::Event(ItemId::new_unchecked(80)),
+            GeneralUpdateType::Event(ItemId::new_unchecked(100)),
         ];
 
         // Print and check the messages received (wait at most half a second)
         test_vec!(=rx, test);
-    }*/
+    }
 }
