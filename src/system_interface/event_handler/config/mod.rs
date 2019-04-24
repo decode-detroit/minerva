@@ -27,7 +27,7 @@ mod status;
 
 // Import the relevant structures into the correct namespace
 use self::status::{StatusHandler, StatusMap};
-use super::super::system_connection::ConnectionType;
+use super::super::system_connection::ConnectionSet;
 use super::super::GeneralUpdate;
 use super::event::{
     EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData, TriggerEvents,
@@ -42,7 +42,7 @@ use std::io::Write;
 // Import the failure crate
 use failure::Error;
 
-// Import FNV HashMap
+// Import FNV HashMap and HashSet
 extern crate fnv;
 use self::fnv::{FnvHashMap, FnvHashSet};
 
@@ -62,7 +62,7 @@ struct YamlConfig {
     version: String,    // a version tag to warn the user of incompatible versions
     identifier: ItemId, // unique identifier for the program instance
     server_location: Option<String>, // the location of the backup server, if specified
-    system_connection: ConnectionType, // the type of connection to the underlying system
+    system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     default_scene: Option<ItemId>, // the starting scene for the configuration
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap, // hash map of the default game status
@@ -76,7 +76,7 @@ struct YamlConfig {
 ///
 pub struct Config {
     identifier: ItemId,                // unique identifier for the program instance
-    system_connection: ConnectionType, // the type of connection to the underlying system
+    system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     server_location: Option<String>,   // the location of the backup server, if specified
     current_scene: ItemId,             // identifier for the current scene
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
@@ -201,7 +201,7 @@ impl Config {
 
     /// A method to return a copy of the system connection type.
     ///
-    pub fn system_connection(&self) -> (ConnectionType, ItemId) {
+    pub fn system_connection(&self) -> (ConnectionSet, ItemId) {
         (self.system_connection.clone(), self.identifier())
     }
 
@@ -582,7 +582,7 @@ impl Config {
                     // Return None if the id doesn't exist in the scene
                     None => {
                         // Warn that the event could not be found
-                        update!(warn &self.update_line => "Event ID Not Found In Configuration: {}", &self.current_scene);
+                        update!(warn &self.update_line => "Event ID Not Found In Configuration: {}", id);
 
                         // Return None
                         None

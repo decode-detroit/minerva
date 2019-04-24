@@ -25,7 +25,7 @@
 //! may become completely incompatible in the furture.
 
 // Import the relevant structures into the correct namespace
-use super::{ItemId, ReadEvents, WriteEvent, COMM_ERROR, READ_ERROR};
+use super::{ItemId, EventConnection, COMM_ERROR, READ_ERROR};
 
 // Import standard library modules and traits
 use std::io::{Cursor, Read, Write};
@@ -35,6 +35,9 @@ use std::time::{Duration, Instant};
 // Import the serial module
 extern crate serial;
 use self::serial::prelude::*;
+
+// Import the failure features
+use failure::Error;
 
 // Import the byteorder module for converting between types
 extern crate byteorder;
@@ -60,22 +63,20 @@ const MAX_SEND_BUFFER: usize = 100; // the largest number of events allowed to p
 /// may become completely incompatible in the furture.
 ///
 pub struct ComedyComm {
-    port: serial::SystemPort,          // the serial port of the connection
-    buffer: Vec<u8>,                   // the current input buffer
-    outgoing: Vec<(ItemId, u32, u32)>, // the outgoing event buffer
-    last_ack: Option<Instant>,         // Some(instant) if we are still waiting on ack from instant
+    port: serial::SystemPort,               // the serial port of the connection
+    buffer: Vec<u8>,                        // the current input buffer
+    outgoing: Vec<(ItemId, u32, u32)>,      // the outgoing event buffer
+    last_ack: Option<Instant>,              // Some(instant) if we are still waiting on ack from instant
+    filter_events: Vec<(ItemId, u32, u32)>, // events to filter out
 }
 
 // Implement key functionality for the CmdMessenger structure
 impl ComedyComm {
     /// A function to create a new instance of the CmdMessenger
     ///
-    pub fn new(path: &PathBuf, baud: usize, polling_rate: u64) -> Option<ComedyComm> {
+    pub fn new(path: &PathBuf, baud: usize, polling_rate: u64) -> Result<ComedyComm, Error> {
         // Connect to the underlying serial port
-        let mut port = match serial::open(path) {
-            Ok(conn) => conn,
-            _ => return None,
-        };
+        let mut port = serial::open(path)?;
 
         // Try to configure the serial port
         let settings = serial::PortSettings {
@@ -85,21 +86,18 @@ impl ComedyComm {
             stop_bits: serial::Stop1,
             flow_control: serial::FlowNone,
         };
-        if let Err(..) = port.configure(&settings) {
-            return None; // return on failure to configure
-        }
+        port.configure(&settings)?;
 
         // Adjust the timeout for the serial port
-        if let Err(..) = port.set_timeout(Duration::from_millis(polling_rate)) {
-            return None; // return on failure to configure
-        }
+        port.set_timeout(Duration::from_millis(polling_rate))?;
 
         // Return the new CmdMessenger instance
-        Some(ComedyComm {
+        Ok(ComedyComm {
             port,
             buffer: Vec::new(),
             outgoing: Vec::new(),
             last_ack: None,
+            filter_events: Vec::new(),
         })
     }
 
@@ -132,7 +130,7 @@ impl ComedyComm {
 
     /// A helper function to write to the serial port (skip any ack checking)
     ///
-    fn write_event_now(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), ()> {
+    fn write_event_now(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Format the command as a byte
         let mut bytes = Vec::new();
         bytes.push(COMMAND_CHARACTER);
@@ -141,46 +139,32 @@ impl ComedyComm {
         // Add the separator and convert each argument to a character vector
         bytes.push(FIELD_SEPARATOR);
         let mut tmp = Vec::new();
-        if let Err(_) = tmp.write_u32::<LittleEndian>(id.id()) {
-            return Err(());
-        }
+        tmp.write_u32::<LittleEndian>(id.id())?;
 
         // Escape the new argument and then add it
-        if let Err(_) = bytes.write(ComedyComm::escape(tmp).as_slice()) {
-            return Err(());
-        }
+        bytes.write(ComedyComm::escape(tmp).as_slice())?;
 
         // Add the separator and convert each argument to a character vector
         bytes.push(FIELD_SEPARATOR);
         let mut tmp = Vec::new();
-        if let Err(_) = tmp.write_u32::<LittleEndian>(data1) {
-            return Err(());
-        }
+        tmp.write_u32::<LittleEndian>(data1)?;
 
         // Escape the new argument and then add it
-        if let Err(_) = bytes.write(ComedyComm::escape(tmp).as_slice()) {
-            return Err(());
-        }
+        bytes.write(ComedyComm::escape(tmp).as_slice())?;
 
         // Add the separator and convert each argument to a character vector
         bytes.push(FIELD_SEPARATOR);
         let mut tmp = Vec::new();
-        if let Err(_) = tmp.write_u32::<LittleEndian>(data2) {
-            return Err(());
-        }
+        tmp.write_u32::<LittleEndian>(data2)?;
 
         // Escape the new argument and then add it
-        if let Err(_) = bytes.write(ComedyComm::escape(tmp).as_slice()) {
-            return Err(());
-        }
+        bytes.write(ComedyComm::escape(tmp).as_slice())?;
 
         // Append the command separator
         bytes.push(COMMAND_SEPARATOR);
 
         // Send the bytes to the board
-        if let Err(_) = self.port.write(bytes.as_slice()) {
-            return Err(());
-        }
+        self.port.write(bytes.as_slice())?;
 
         // Set the start time waiting for the ack
         self.last_ack = Some(Instant::now());
@@ -190,8 +174,8 @@ impl ComedyComm {
     }
 }
 
-// Implement the read event trait for ComedyComm
-impl ReadEvents for ComedyComm {
+// Implement the event connection trait for ComedyComm
+impl EventConnection for ComedyComm {
     /// A method to receive a new event from the serial connection
     ///
     fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
@@ -335,16 +319,18 @@ impl ReadEvents for ComedyComm {
         // Remove all valid messages from the buffer
         self.buffer.drain(0..message_until);
 
+        // Add the incoming events to the filter
+        for event in events.iter() {
+            self.filter_events.push(event.clone());
+        }
+
         // Return the resulting events
         events
     }
-}
 
-// Implement the write event trait for ComedyComm
-impl WriteEvent for ComedyComm {
     /// A method to send a new event to the serial connection
     ///
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), ()> {
+    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // If this event is not already in the outgoing buffer
         let mut found = false;
         for &(ref existing_id, ref existing_data1, ref existing_data2) in self.outgoing.iter() {
@@ -363,7 +349,7 @@ impl WriteEvent for ComedyComm {
         if self.outgoing.len() > 1 {
             // If the number of events as piled up, send an error
             if self.outgoing.len() > MAX_SEND_BUFFER {
-                return Err(());
+                return Err(format_err!("Too many events in outgoing buffer."));
             }
 
             // Otherwise just return normally
@@ -372,6 +358,38 @@ impl WriteEvent for ComedyComm {
 
         // Try to write the event to serial
         self.write_event_now(id, data1, data2)
+    }
+    
+    /// A method to echo an event to the serial connection
+    ///
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+        // Filter each event before echoing it to the system
+        let mut count = 0;
+        for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_events.iter()
+        {
+            // If the event matches an event in the filter
+            if (id == *filter_id)
+                && (data1 == *filter_data1)
+                && (data2 == *filter_data2)
+            {
+                break; // exit with the found event count
+            }
+
+            // Increment the count
+            count = count + 1;
+        }
+
+        // Filter the event and remove it from the filter
+        if count < self.filter_events.len() {
+            // Remove that event from the filter
+            self.filter_events.remove(count);
+            return Ok(());
+
+        // Otherwise, echo the event to the system
+        } else {
+            // Write the event to the system
+            return self.write_event(id, data1, data2);
+        }
     }
 }
 

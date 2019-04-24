@@ -43,7 +43,7 @@ use self::event::{
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::{ComingEvent, Queue};
-use super::system_connection::ConnectionType;
+use super::system_connection::ConnectionSet;
 use super::GeneralUpdate;
 
 // Import standard library modules
@@ -150,7 +150,7 @@ impl EventHandler {
 
     /// A method to return the configured system connection type.
     ///
-    pub fn system_connection(&self) -> (ConnectionType, ItemId) {
+    pub fn system_connection(&self) -> (ConnectionSet, ItemId) {
         self.config.system_connection()
     }
 
