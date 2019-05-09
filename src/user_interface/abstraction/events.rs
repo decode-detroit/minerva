@@ -22,8 +22,9 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, EventGroup, EventWindow, Hidden,
-    ItemId, ItemPair, LabelHidden, StatusChange, SystemSend, TriggerEvent,
+    DisplayControl, DisplayDebug, DisplayType, DisplayWith, LabelHidden, Hidden,
+    EventGroup, EventWindow, FullStatus, StatusDescription, ItemId,
+    ItemDescription, ItemPair, StatusChange, SystemSend, TriggerEvent,
 };
 use super::super::utils::clean_text;
 
@@ -156,6 +157,7 @@ impl EventAbstraction {
         &mut self,
         current_scene: ItemPair,
         mut window: EventWindow,
+        full_status: &FullStatus,
         system_send: &SystemSend,
     ) {
         // Empty the old event grid
@@ -166,7 +168,7 @@ impl EventAbstraction {
         for group in window.drain(..) {
             // Try to load the group into a group abstraction
             if let Some(grp_abstraction) =
-                EventGroupAbstraction::new(group, system_send, self.last_change.clone())
+                EventGroupAbstraction::new(group, system_send, full_status, self.last_change.clone())
             {
                 // If it has an id, add it to the group list
                 if let Some(_) = grp_abstraction.group_id {
@@ -205,7 +207,7 @@ impl EventAbstraction {
         current_title.show();
         self.side_panel.attach(&current_title, 0, 1, 1, 1);
         let current = gtk::Label::new(None);
-        decorate_label(&current, &current_scene.description, current_scene.display);
+        decorate_label(&current, &current_scene.description, current_scene.display, full_status);
         current.set_property_xalign(0.5);
         current.set_margin_left(10);
         current.set_margin_right(40);
@@ -235,37 +237,6 @@ impl EventAbstraction {
             count = count + 1;
         }
     }
-
-    /// A method to update the state of a particular event group based on
-    /// the provided group id and state.
-    ///
-    /// # Note
-    ///
-    /// This function will update the state of any group with a matching id.
-    /// In theory, there should only be one event group that matches the id.
-    ///
-    pub fn update_state(&mut self, group_id: ItemPair, state: ItemPair) {
-        // Find the correct group
-        for group in self.groups.iter() {
-            // Update the state any group with the matching id
-            if let Some(id) = group.group_id {
-                // Update the state if there is a match
-                if group_id.get_id() == id {
-                    // Try to add the state to change flag
-                    if let Ok(mut last_change) = self.last_change.try_borrow_mut() {
-                        // Add the state id to the flag
-                        *last_change = Some(state.get_id());
-                    }
-
-                    // Update the dropdown (if it exists)
-                    let id_str: &str = &state.id().to_string();
-                    if let Some(ref dropdown) = group.state_selection {
-                        dropdown.set_active_id(id_str);
-                    }
-                }
-            }
-        }
-    }
 }
 
 /// An internal structure to hold an individual event group in the default interface.
@@ -289,6 +260,7 @@ impl EventGroupAbstraction {
     fn new(
         event_group: EventGroup,
         system_send: &SystemSend,
+        full_status: &FullStatus,
         last_change: Rc<RefCell<Option<ItemId>>>,
     ) -> Option<EventGroupAbstraction> {
         // If there is an id, create the header and id and add it to the group
@@ -299,12 +271,63 @@ impl EventGroupAbstraction {
         let header = gtk::Label::new(Some("Story Controls"));
         #[cfg(not(feature = "theater-speak"))]
         let header = gtk::Label::new(Some("Game Controls"));
+        let mut state_selection = None; // create a placeholder for the state selection
         match event_group.group_id.clone() {
             // Create the group_id and header for the particular group
             Some(id_pair) => {
                 group_id = Some(id_pair.get_id());
-                priority = decorate_label(&header, &id_pair.description, id_pair.display);
+                priority = decorate_label(&header, &id_pair.description, id_pair.display, full_status);
                 button_width = BUTTON_LIMIT;
+                
+                // Create the status selection dropdown (if the status exists)
+                if let Some(&StatusDescription { ref current, ref allowed }) = full_status.get(&id_pair) {
+                    // Create the new state selection
+                    let selection = gtk::ComboBoxText::new();
+
+                    // Add each of the available states to the dropdown
+                    for state_pair in allowed.iter() {
+                        let id_str: &str = &state_pair.id().to_string();
+                        selection.append(id_str, &state_pair.description());
+                    }
+
+                    // Set the dropdown to the current status state, if it exists
+                    let id_str: &str = &current.id().to_string();
+                    selection.set_active_id(id_str);
+
+                    // Connect the function to trigger when the state selection changes
+                    selection.connect_changed(clone!(system_send, last_change => move |dropdown| {
+
+                        // Identify and forward the selected state
+                        if let Some(id_str) = dropdown.get_active_id() {
+
+                            // Try to parse the requested id
+                            if let Ok(id_number) = id_str.parse::<u32>() {
+
+                                // Try to compose the id into an item
+                                if let Some(state) = ItemId::new(id_number) {
+
+                                    // Check to see if this was an internal change
+                                    if let Ok(mut change) = last_change.try_borrow_mut() {
+
+                                        // If the state matches the flag
+                                        if *change == Some(state) {
+
+                                            // Reset the flag and return before sending to the system
+                                            *change = None;
+                                            return
+                                        }
+                                    }
+
+                                    // Send the new state of the status to the underlying system
+                                    system_send.send(StatusChange { status_id: id_pair.get_id(), state });
+                                }
+                            }
+                        }
+                    }));
+
+                    // Set the new state selection
+                    state_selection = Some(selection);
+                }
             }
 
             // Create the default id and header
@@ -315,61 +338,7 @@ impl EventGroupAbstraction {
             }
         }
 
-        // Create the status selection dropdown (if the status exists)
-        let mut state_selection = None;
-        if let Some(_) = event_group.group_state {
-            // Create the new state selection
-            let selection = gtk::ComboBoxText::new();
 
-            // Add each of the available states to the dropdown
-            for state_pair in event_group.allowed_states.iter() {
-                let id_str: &str = &state_pair.id().to_string();
-                selection.append(id_str, &state_pair.description());
-            }
-
-            // Set the dropdown to the current status state, if it exists
-            if let Some(state) = event_group.group_state {
-                let id_str: &str = &state.id().to_string();
-                selection.set_active_id(id_str);
-            }
-
-            // Try to extract the valid event_group status id
-            if let Some(status_id) = event_group.group_id {
-                // Connect the function to trigger when the state selection changes
-                selection.connect_changed(clone!(system_send, last_change => move |dropdown| {
-
-                    // Identify and forward the selected state
-                    if let Some(id_str) = dropdown.get_active_id() {
-
-                        // Try to parse the requested id
-                        if let Ok(id_number) = id_str.parse::<u32>() {
-
-                            // Try to compose the id into an item
-                            if let Some(state) = ItemId::new(id_number) {
-
-                                // Check to see if this was an internal change
-                                if let Ok(mut change) = last_change.try_borrow_mut() {
-
-                                    // If the state matches the flag
-                                    if *change == Some(state) {
-
-                                        // Reset the flag and return before sending to the system
-                                        *change = None;
-                                        return
-                                    }
-                                }
-
-                                // Send the new state of the status to the underlying system
-                                system_send.send(StatusChange { status_id: status_id.get_id(), state });
-                            }
-                        }
-                    }
-                }));
-            }
-
-            // Set the new state selection
-            state_selection = Some(selection);
-        }
 
         // Create a new button for each of the group events
         let mut buttons_raw = Vec::new();
@@ -379,7 +348,7 @@ impl EventGroupAbstraction {
             let button_markup = clean_text(&event.description(), button_width, true, false, true);
 
             // Set the markup based on the requested color and extract the priority
-            let button_priority = decorate_label(&button_label, &button_markup, event.display);
+            let button_priority = decorate_label(&button_label, &button_markup, event.display, full_status);
 
             // Set the features of the new label and place it on the button
             button_label.show();
@@ -524,12 +493,12 @@ impl EventGroupAbstraction {
 ///
 /// This function assumes that the text has already been cleaned and sized.
 ///
-fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType) -> Option<u32> {
+fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType, full_status: &FullStatus) -> Option<u32> {
     // Decorate based on the display type
     match display {
         // Match the display control variant
         DisplayControl {
-            color, priority, ..
+            color, highlight, highlight_state, priority, ..
         } => {
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
@@ -541,6 +510,29 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType) -> Optio
             // Default to default text color
             } else {
                 label.set_markup(text);
+            }
+            
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the lowlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. })
+                    = full_status.get(&ItemPair::from_item(
+                        status_id,
+                        ItemDescription::new("", Hidden)
+                    ))
+                    {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
+                                red, green, blue, text
+                            ));
+                        }
+                    }
+                }
             }
 
             // Return the priority
@@ -549,7 +541,7 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType) -> Optio
 
         // Match the display with variant
         DisplayWith {
-            color, priority, ..
+            color, highlight, highlight_state, priority, ..
         } => {
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
@@ -561,6 +553,29 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType) -> Optio
             // Default to default text color
             } else {
                 label.set_markup(text);
+            }
+            
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the lowlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. })
+                    = full_status.get(&ItemPair::from_item(
+                        status_id,
+                        ItemDescription::new("", Hidden)
+                    ))
+                    {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
+                                red, green, blue, text
+                            ));
+                        }
+                    }
+                }
             }
 
             // Return the priority
@@ -569,7 +584,7 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType) -> Optio
 
         // Match the display debug variant
         DisplayDebug {
-            color, priority, ..
+            color, highlight, highlight_state, priority, ..
         } => {
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
@@ -582,19 +597,51 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType) -> Optio
             } else {
                 label.set_markup(text);
             }
+            
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the lowlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. })
+                    = full_status.get(&ItemPair::from_item(
+                        status_id,
+                        ItemDescription::new("", Hidden)
+                    ))
+                    {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
+                                red, green, blue, text
+                            ));
+                        }
+                    }
+                }
+            }
 
             // Return the priority
             return priority;
         }
 
         // Set only the color for a hidden label
-        LabelHidden { color } => {
+        LabelHidden {
+            color, ..
+        } => {
             // Set the markup color
-            let (red, green, blue) = color;
-            label.set_markup(&format!(
-                "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                red, green, blue, text
-            ));
+            if let Some((red, green, blue)) = color {
+                label.set_markup(&format!(
+                    "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
+                    red, green, blue, text
+                ));
+                
+            // Default to default text color
+            } else {
+                label.set_markup(text);
+            }
+            
+            // Indicate no priority
             return None;
         }
 

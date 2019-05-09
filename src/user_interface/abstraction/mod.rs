@@ -34,7 +34,8 @@ use self::special_windows::{
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventDetail, EventWindow, FullStatus, ItemPair, Notification, SystemSend, UpcomingEvent,
+    EventDetail, EventWindow, FullStatus, StatusDescription, ItemPair,
+    Notification, SystemSend, UpcomingEvent, Hidden,
 };
 use super::utils::clean_text;
 
@@ -62,11 +63,14 @@ const NOTIFY_LIMIT: usize = 60; // maximum character width of the notifications
 ///
 #[derive(Clone, Debug)]
 pub struct InterfaceAbstraction {
+    system_send: SystemSend, // a copy of system send held in the interface abstraction
     primary_grid: gtk::Grid, // the top-level grid that contains the control and event grids
+    full_status: Rc<RefCell<FullStatus>>, // user interface storage of the current full status of the system (for use by the event labels and the status dialog)
+    current_window: (ItemPair, EventWindow), // user interface storage of the current event window
     timeline: TimelineAbstraction, // the timeline abstraction that holds the timeline of upcoming events
     control: ControlAbstraction, // the control abstraction that holds the universal system controls
     events: EventAbstraction, // the event abstraction that holds the events selectable in the current scene
-    status_bar: gtk::Statusbar, // the status bar where one line notifications are posted
+    notification_bar: gtk::Statusbar, // the status bar where one line notifications are posted
     edit_dialog: EditDialog,  // the edit dialog for the system to confirm a change to edit mode
     status_dialog: StatusDialog, // the status dialog for the system to change individual statuses
     jump_dialog: JumpDialog,  // the jump dialog for the system to switch between individual scenes
@@ -127,12 +131,12 @@ impl InterfaceAbstraction {
         primary_grid.attach(&separator_horizontal, 0, 4, 3, 1);
 
         // Create the status bar and add it to the primary grid
-        let status_bar = gtk::Statusbar::new();
-        status_bar.set_property_height_request(30);
-        status_bar.set_vexpand(false);
-        status_bar.set_hexpand(true);
-        status_bar.set_halign(gtk::Align::Fill);
-        primary_grid.attach(&status_bar, 0, 5, 3, 1);
+        let notification_bar = gtk::Statusbar::new();
+        notification_bar.set_property_height_request(30);
+        notification_bar.set_vexpand(false);
+        notification_bar.set_hexpand(true);
+        notification_bar.set_halign(gtk::Align::Fill);
+        primary_grid.attach(&notification_bar, 0, 5, 3, 1);
 
         // Create the event abstraction and add it to the primary grid
         let events = EventAbstraction::new();
@@ -149,9 +153,12 @@ impl InterfaceAbstraction {
         primary_grid.attach(&title, 0, 1, 1, 1);
         primary_grid.attach(events.get_side_panel(), 0, 2, 1, 1);
 
+        // Create internal storage for the full status of the system
+        let full_status = Rc::new(RefCell::new(FullStatus::default()));
+
         // Create the special windows for the user interface
         let edit_dialog = EditDialog::new(edit_mode, window);
-        let status_dialog = StatusDialog::new();
+        let status_dialog = StatusDialog::new(full_status.clone());
         let jump_dialog = JumpDialog::new();
         let trigger_dialog = TriggerDialog::new();
         let info_dialog = InfoDialog::new(window);
@@ -159,11 +166,14 @@ impl InterfaceAbstraction {
 
         // Return a copy of the interface abstraction
         InterfaceAbstraction {
+            system_send: system_send.clone(),
             primary_grid,
+            full_status,
+            current_window: (ItemPair::new_unchecked(1, "", Hidden), Vec::new()),
             timeline,
             control,
             events,
-            status_bar,
+            notification_bar,
             edit_dialog,
             status_dialog,
             jump_dialog,
@@ -189,6 +199,16 @@ impl InterfaceAbstraction {
         self.timeline.select_debug(debug);
         self.control.debug_notifications(debug);
         self.is_debug = debug;
+    }
+
+    /// A method to update the internal statuses in the abstraction and the status dialog
+    ///
+    pub fn update_full_status(&mut self, new_status: FullStatus) {
+        // Try to get a mutable copy of the full status
+        if let Ok(mut full_status) = self.full_status.try_borrow_mut() {
+            // Copy the new full status into the structure
+            *full_status = new_status;
+        }
     }
 
     // Methods to update the timeline abstraction
@@ -227,17 +247,22 @@ impl InterfaceAbstraction {
         &mut self,
         current_scene: ItemPair,
         window: EventWindow,
-        system_send: &SystemSend,
     ) {
-        self.events
-            .update_window(current_scene, window, system_send);
+        // Save a copy of the current scene and event window
+        self.current_window = (current_scene.clone(), window.clone());
+        
+        // Try to get a copy of the full status
+        if let Ok(full_status) = self.full_status.try_borrow() {     
+            // Update the event window
+            self.events.update_window(current_scene, window, &full_status, &self.system_send);
+        }
     }
 
     /// A method to update the status bar
     ///
     pub fn notify(&mut self, new_text: &str) {
         // Remove any old messages from the status bar
-        self.status_bar.pop(0);
+        self.notification_bar.pop(0);
 
         // Add the time to the event description
         let now = time::now();
@@ -249,7 +274,7 @@ impl InterfaceAbstraction {
         );
 
         // Add the new notification to the status bar
-        self.status_bar.push(0, &message);
+        self.notification_bar.push(0, &message);
 
         // If in debug mode, also print it to stdio
         if self.is_debug {
@@ -260,38 +285,45 @@ impl InterfaceAbstraction {
     /// A method to update the state of a particular status
     ///
     pub fn update_state(&mut self, status_id: ItemPair, new_state: ItemPair) {
-        // Update both the event abstraction and the status dialog
-        self.events
-            .update_state(status_id.clone(), new_state.clone());
-        self.status_dialog.update_state(status_id, new_state);
+        // Try to get a mutable copy of the full status
+        if let Ok(mut full_status) = self.full_status.try_borrow_mut() {
+            // Modify the specified id
+            if let Some(&mut StatusDescription {
+                ref mut current, ..
+            }) = full_status.get_mut(&status_id)
+            {
+                // Change the current status
+                *current = new_state;
+            }
+        }
+        
+        // Redraw the event window
+        if let Ok(full_status) = self.full_status.try_borrow() {
+            let (current_scene, window) = self.current_window.clone();
+            self.events.update_window(current_scene, window, &full_status, &self.system_send);
+        }
     }
 
     /// A method to launch the edit dialog
     ///
-    pub fn launch_edit(&self, system_send: &SystemSend, checkbox: &SimpleAction) {
-        self.edit_dialog.launch(system_send, checkbox);
+    pub fn launch_edit(&self, checkbox: &SimpleAction) {
+        self.edit_dialog.launch(&self.system_send, checkbox);
     }
 
     // Methods to update the status dialog
     //
     /// A method to launch the status dialog
     ///
-    pub fn launch_status(&self, window: &gtk::ApplicationWindow, system_send: &SystemSend) {
-        self.status_dialog.launch(window, system_send);
-    }
-    //
-    /// A method to update the statuses in the status dialog
-    ///
-    pub fn update_full_status(&mut self, new_status: FullStatus) {
-        self.status_dialog.update_full_status(new_status);
+    pub fn launch_status(&self, window: &gtk::ApplicationWindow) {
+        self.status_dialog.launch(window, &self.system_send);
     }
 
     // Methods to update the jump dialog
     //
     /// A method to launch the jump dialog
     ///
-    pub fn launch_jump(&self, window: &gtk::ApplicationWindow, system_send: &SystemSend) {
-        self.jump_dialog.launch(window, system_send);
+    pub fn launch_jump(&self, window: &gtk::ApplicationWindow) {
+        self.jump_dialog.launch(window, &self.system_send);
     }
     //
     /// A method to update the scenes in the jump dialog
@@ -302,8 +334,8 @@ impl InterfaceAbstraction {
 
     /// A method to launch the trigger event dialog
     ///
-    pub fn launch_trigger(&self, window: &gtk::ApplicationWindow, system_send: &SystemSend) {
-        self.trigger_dialog.launch(window, system_send);
+    pub fn launch_trigger(&self, window: &gtk::ApplicationWindow) {
+        self.trigger_dialog.launch(window, &self.system_send);
     }
 
     /// A method to launch the information window
@@ -316,12 +348,11 @@ impl InterfaceAbstraction {
     ///
     pub fn launch_edit_event(
         &self,
-        system_send: &SystemSend,
         event_id: Option<ItemPair>,
         event_detail: Option<EventDetail>,
     ) {
         self.edit_event_dialog
-            .launch(system_send, event_id, event_detail);
+            .launch(&self.system_send, event_id, event_detail);
     }
 }
 

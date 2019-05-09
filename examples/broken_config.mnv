@@ -1,10 +1,10 @@
 ---
 # Constants for the Configuration
-version: "0.5.2"
+version: "0.6.1"
 identifier:
   id: 5
 server_location: ~
-system_connection: Dummy
+system_connection: []
 default_scene:
   id: 100
 

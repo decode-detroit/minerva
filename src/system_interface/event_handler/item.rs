@@ -203,12 +203,14 @@ pub enum DisplayType {
     /// These items will be displayed in the story control area in order of
     /// ascending  id, or in order of ascending priority if specified. The text
     /// color will match the rgb value, if specified. The text will use the
-    /// highlight color for any special animations.
+    /// highlight color for any special animations and when the highlight_state
+    /// status is in the listed state (if specified).
     ///
     DisplayControl {
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
+        highlight_state: Option<(ItemId, ItemId)>
     },
 
     /// A variant to indicatie items which to be displayed with a specific group
@@ -219,13 +221,15 @@ pub enum DisplayType {
     /// order of ascending id within their group, or in order of ascending
     /// priority if specified. The text color will match the rgb value, if
     /// specified. The text will use the highlight color for any special
-    /// animations.
+    /// animations and when the highlight_state status is in the listed state
+    /// (if specified).
     ///
     DisplayWith {
         group_id: ItemId,
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
+        highlight_state: Option<(ItemId, ItemId)>
     },
 
     /// A variant for items which are displayed with a particular group (if
@@ -233,13 +237,15 @@ pub enum DisplayType {
     /// debug mode. These items will be displayed in order of ascending id,
     /// or in order of ascending priority if specified. The text color will
     /// match the rgb value, if specified.  The text will use the highlight
-    /// color for any special animations.
+    /// color for any special animations and when the highlight_state status 
+    /// is in the listed state (if specified).
     ///
     DisplayDebug {
         group_id: Option<ItemId>,
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
+        highlight_state: Option<(ItemId, ItemId)>
     },
 
     /// A variant for items which are only to be displayed as a label (not as an
@@ -247,7 +253,10 @@ pub enum DisplayType {
     /// the rgb value. This is useful for scene reset events which must match
     /// the id of the scene but are often not directly triggered by the user.
     ///
-    LabelHidden { color: (u8, u8, u8) },
+    LabelHidden {
+        color: Option<(u8, u8, u8)>,
+        highlight: Option<(u8, u8, u8)>
+    },
 
     /// Items which should not be displayed. Typically this includes items
     /// internal to the system or not designed to be directly accessible to the
@@ -399,6 +408,21 @@ impl ItemPair {
             description: description.to_string(),
             display,
         })
+    }
+
+    /// A function to create an item id from u32, unchecked version.
+    ///
+    /// This function does not verify that the new ItemPair complies with the
+    /// CAN limit and does not check that the new ItemId does not collide with
+    /// the all stop item id. This is useful when either (or both) of these
+    /// cases are possible and desired.
+    ///
+    pub fn new_unchecked(id: u32, description: &str, display: DisplayType) -> ItemPair {
+        ItemPair {
+            id,
+            description: description.to_string(),
+            display,
+        }
     }
 
     /// A function to create an item pair from ItemId and ItemDescription.

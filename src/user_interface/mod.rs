@@ -153,7 +153,7 @@ impl UserInterface {
             };
 
             // Launch the edit dialog
-            interface.launch_edit(&self.system_send, checkbox);
+            interface.launch_edit(checkbox);
 
         // If the edit setting was not chosen
         } else {
@@ -179,7 +179,7 @@ impl UserInterface {
         // Attempt to get a copy of the interface abstraction
         if let Ok(interface) = self.interface_abstraction.try_borrow() {
             // Launch the dialog
-            interface.launch_status(window, &self.system_send);
+            interface.launch_status(window);
         }
     }
 
@@ -189,7 +189,7 @@ impl UserInterface {
         // Attempt to get a copy of the interface abstraction
         if let Ok(interface) = self.interface_abstraction.try_borrow() {
             // Launch the dialog
-            interface.launch_jump(window, &self.system_send);
+            interface.launch_jump(window);
         }
     }
 
@@ -199,7 +199,7 @@ impl UserInterface {
         // Attempt to get a copy of the interface abstraction
         if let Ok(interface) = self.interface_abstraction.try_borrow() {
             // Launch the dialog
-            interface.launch_trigger(window, &self.system_send);
+            interface.launch_trigger(window);
         }
     }
 
@@ -210,7 +210,7 @@ impl UserInterface {
         // Attempt to get a copy of the interface abstraction
         if let Ok(interface) = self.interface_abstraction.try_borrow() {
             // Launch the dialog
-            interface.launch_edit_event(&self.system_send, None, None);
+            interface.launch_edit_event(None, None);
         }
     }
 
@@ -259,7 +259,7 @@ impl UserInterface {
                 UpdateWindow {
                     current_scene,
                     window,
-                } => interface.update_window(current_scene, window, &self.system_send),
+                } => interface.update_window(current_scene, window),
 
                 // Update the state of a particular status
                 UpdateStatus {
@@ -286,7 +286,6 @@ impl UserInterface {
                     event_id,
                     event_detail,
                 } => interface.launch_edit_event(
-                    &self.system_send,
                     Some(event_id),
                     Some(event_detail),
                 ),

@@ -362,18 +362,6 @@ impl Config {
         events
     }
 
-    /// A method to return true if the provided id corresponds to a status and
-    /// false otherwise.
-    ///
-    /// # Errors
-    ///
-    /// This method does not return any errors.
-    ///
-    pub fn is_status(&self, status_id: &ItemId) -> bool {
-        // Return whether or not the id corresponds to a status
-        self.status_handler.is_status(status_id)
-    }
-
     /// A method to return an item id of the current state of the provided
     /// item id, or None if it was not found.
     ///
@@ -389,32 +377,6 @@ impl Config {
     pub fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Return the internal state of the status handler
         self.status_handler.get_id(status_id)
-    }
-
-    /// A method to return a vector of itempairs of the allowed states for
-    /// the provided status id. This vector will be empty if it was not found.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error the provided status id was not found in
-    /// the lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the status line and returning an
-    /// empty vector.
-    ///
-    pub fn get_allowed_states(&self, status_id: &ItemId) -> Vec<ItemPair> {
-        // Try to find the allowed states for the status
-        let state_ids = self.status_handler.get_allowed(status_id);
-
-        // Repackage the states with their corresponding descriptions
-        let mut states = Vec::new();
-        for id in state_ids.iter() {
-            states.push(ItemPair::from_item(id.clone(), self.get_description(id)));
-        }
-
-        // Return the complete list of allowed states
-        states
     }
 
     /// A method to return the current scene.

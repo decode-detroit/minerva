@@ -552,7 +552,7 @@ impl SystemInterface {
                 DisplayWith { group_id, .. } => {
                     let group_pair =
                         ItemPair::from_item(group_id, event_handler.get_description(&group_id));
-                    SystemInterface::sort_groups(&mut groups, group_pair, event, event_handler);
+                    SystemInterface::sort_groups(&mut groups, group_pair, event);
                 }
 
                 // Add display debug events to the matching event group
@@ -567,7 +567,6 @@ impl SystemInterface {
                                 &mut groups,
                                 group_pair,
                                 event,
-                                event_handler,
                             );
 
                         // Otherwise add it to the general group
@@ -585,8 +584,6 @@ impl SystemInterface {
         // Add the general group to the rest of the groups and return the packaged result
         groups.push(EventGroup {
             group_id: None,
-            group_state: None,
-            allowed_states: Vec::new(),
             group_events: general_group,
         });
         groups
@@ -600,7 +597,6 @@ impl SystemInterface {
         groups: &mut Vec<EventGroup>,
         event_group: ItemPair,
         event: ItemPair,
-        event_handler: &mut EventHandler,
     ) {
         // Look through the existing groups for a group match
         let mut found = false; // flag for if a matching group was found
@@ -619,24 +615,10 @@ impl SystemInterface {
         // If a matching id was not found, add a new group
         if !found {
             // Check to see if the group id has a corresponding status
-            if event_handler.is_status(&event_group.get_id()) {
-                // If so, add a new group with the corresponding status
-                groups.push(EventGroup {
-                    group_id: Some(event_group.clone()),
-                    group_state: event_handler.get_state_description(&event_group.get_id()),
-                    allowed_states: event_handler.get_allowed_states(&event_group.get_id()),
-                    group_events: vec![event],
-                });
-
-            // If not, add a new group with an empty label
-            } else {
-                groups.push(EventGroup {
-                    group_id: Some(event_group),
-                    group_state: None,
-                    allowed_states: Vec::new(),
-                    group_events: vec![event],
-                });
-            }
+            groups.push(EventGroup {
+                group_id: Some(event_group),
+                group_events: vec![event],
+            });
         }
     }
 }
@@ -839,8 +821,6 @@ pub use self::SystemUpdate::{
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct EventGroup {
     pub group_id: Option<ItemPair>, // the group id identifying and describing the group or None for the general group
-    pub group_state: Option<ItemPair>, // the id and description of the group state or None for the general group
-    pub allowed_states: Vec<ItemPair>, // a vector of the allowed states for the group
     pub group_events: Vec<ItemPair>,   // a vector of the events that belong in this group
 }
 

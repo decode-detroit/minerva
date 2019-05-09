@@ -71,20 +71,6 @@ impl StatusHandler {
         }
     }
 
-    /// A method to check if the provided status id corresponds to a real
-    /// status. This method can be used to check to see if get_id and get_string
-    /// will return useful resolts.
-    ///
-    /// # Errors
-    ///
-    /// This function will not raise any errors as it simply checks to see if
-    /// the provided status id is valid.
-    ///
-    pub fn is_status(&self, status_id: &ItemId) -> bool {
-        // Check to see if the status is available in the current map
-        self.status_map.contains_key(status_id)
-    }
-
     /// A method to get the current state of the requested status. This
     /// method returns the state as an item id.
     ///
@@ -108,31 +94,6 @@ impl StatusHandler {
         } else {
             update!(err &self.update_line => "Unable To Locate Current State Of Status: {}.", &status_id);
             return None;
-        }
-    }
-
-    /// A method to get the allowed states within the provided status id.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error if the provided status id was not found
-    /// in the configuration. This usually indicates a problem with the
-    /// underlying confirguration file.
-    ///
-    /// Like all StatusHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty vector.
-    ///
-    pub fn get_allowed(&self, status_id: &ItemId) -> Vec<ItemId> {
-        // Try to return the allowed states for the provided id
-        if let Some(detail) = self.status_map.get(status_id) {
-            // Return a copy of the allowed state ids
-            return detail.allowed();
-
-        // Warn the system that the corresponding status was not found
-        } else {
-            update!(warn &self.update_line => "Unable To Locate Allowed States Of Status: {}", status_id);
-            return Vec::new();
         }
     }
 

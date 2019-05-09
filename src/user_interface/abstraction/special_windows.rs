@@ -142,9 +142,9 @@ impl StatusDialog {
     /// A function to create a new status dialog structure with the ability to
     /// modify an individual status.
     ///
-    pub fn new() -> StatusDialog {
+    pub fn new(full_status: Rc<RefCell<FullStatus>>) -> StatusDialog {
         StatusDialog {
-            full_status: Rc::new(RefCell::new(FullStatus::default())),
+            full_status,
         }
     }
 
@@ -203,7 +203,6 @@ impl StatusDialog {
 
                             // Find the corresponding detail
                             if let Some(&StatusDescription { ref current, ref allowed }) = full_status.get(&id) {
-
                                 // Extract the allowed ids and add them to the dropdown
                                 for state_pair in allowed.iter() {
                                     let id_str: &str = &state_pair.id().to_string();
@@ -284,32 +283,6 @@ impl StatusDialog {
 
         // Show the dialog and return
         dialog.show_all();
-    }
-
-    /// A method to update the available full status in the status dialog.
-    ///
-    pub fn update_full_status(&mut self, new_status: FullStatus) {
-        // Try to get a mutable copy of the full status
-        if let Ok(mut full_status) = self.full_status.try_borrow_mut() {
-            // Copy the new full status into the structure
-            *full_status = new_status;
-        }
-    }
-
-    /// A method to update a particular state of a status in the dialog.
-    ///
-    pub fn update_state(&mut self, status_id: ItemPair, new_state: ItemPair) {
-        // Try to get a mutable copy of the full status
-        if let Ok(mut full_status) = self.full_status.try_borrow_mut() {
-            // Modify the specified id
-            if let Some(&mut StatusDescription {
-                ref mut current, ..
-            }) = full_status.get_mut(&status_id)
-            {
-                // Change the current status
-                *current = new_state;
-            }
-        }
     }
 }
 
@@ -1003,6 +976,7 @@ impl EditOverview {
                 priority,
                 color,
                 highlight,
+                highlight_state, // FIXME use it
             } => {
                 // Switch to the displaycontrol type
                 self.display_type.set_active_id("display");
@@ -1053,6 +1027,7 @@ impl EditOverview {
                 priority,
                 color,
                 highlight,
+                highlight_state, // FIXME use it
             } => {
                 // Switch to the displaywith type and set the group id
                 self.display_type.set_active_id("displaywith");
@@ -1104,6 +1079,7 @@ impl EditOverview {
                 priority,
                 color,
                 highlight,
+                highlight_state, // FIXME use it
             } => {
                 // Switch to the displaydebug type
                 self.display_type.set_active_id("displaywith");
@@ -1158,16 +1134,17 @@ impl EditOverview {
             }
 
             // the label hidden variant
-            LabelHidden { color } => {
-                // Set the current color
-                let (new_red, new_green, new_blue) = color;
-                let new_color = gdk::RGBA {
-                    red: new_red as f64 / 255.0,
-                    green: new_green as f64 / 255.0,
-                    blue: new_blue as f64 / 255.0,
-                    alpha: 1.0,
-                };
-                self.labelhidden_color.set_rgba(&new_color);
+            LabelHidden { color, highlight } => {
+                // Set the current color FIXME add the checkbox
+                if let Some((new_red, new_green, new_blue)) = color {
+                    let new_color = gdk::RGBA {
+                        red: new_red as f64 / 255.0,
+                        green: new_green as f64 / 255.0,
+                        blue: new_blue as f64 / 255.0,
+                        alpha: 1.0,
+                    };
+                    self.labelhidden_color.set_rgba(&new_color);
+                }
             }
 
             // the hidden variant
@@ -1236,6 +1213,7 @@ impl EditOverview {
                     priority,
                     color,
                     highlight,
+                    highlight_state: None, // FIXME use it
                 }
             }
 
@@ -1279,6 +1257,7 @@ impl EditOverview {
                     priority,
                     color,
                     highlight,
+                    highlight_state: None, // FIXME use it
                 }
             }
 
@@ -1330,6 +1309,7 @@ impl EditOverview {
                     priority,
                     color,
                     highlight,
+                    highlight_state: None, // FIXME use it
                 }
             }
 
@@ -1339,14 +1319,15 @@ impl EditOverview {
                 let gdk::RGBA {
                     red, green, blue, ..
                 } = self.displaydebug_color.get_rgba();
-                let color = (
+                let color = Some((
                     (red * 255.0) as u8,
                     (green * 255.0) as u8,
                     (blue * 255.0) as u8,
-                );
+                ));
+                // FIXME Read from the highlight value
 
                 // Return the completed display type
-                LabelHidden { color }
+                LabelHidden { color, highlight: None }
             }
 
             // For the hidden type
