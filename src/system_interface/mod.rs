@@ -241,6 +241,13 @@ impl SystemInterface {
                             ),
                         })
                         .unwrap_or(());
+
+                    // If the upcoming events have changed, send an update
+                    if let Some(events) = handler.upcoming_events() {
+                        self.interface_send
+                            .send(UpdateQueue { events })
+                            .unwrap_or(());
+                    }
                 }
             }
 

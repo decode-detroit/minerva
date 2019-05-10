@@ -693,9 +693,9 @@ impl TimelineAbstraction {
                     // If the highlight is specified
                     if let Some((red, green, blue)) = highlight {
                         // If there are under ten seconds remaining
-                        if let Some((_, sec)) = event.remaining() {
+                        if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,
@@ -727,9 +727,9 @@ impl TimelineAbstraction {
                     // If the highlight is specified
                     if let Some((red, green, blue)) = highlight {
                         // If there are under ten seconds remaining
-                        if let Some((_, sec)) = event.remaining() {
+                        if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,
@@ -763,9 +763,9 @@ impl TimelineAbstraction {
                         // If the highlight is specified
                         if let Some((red, green, blue)) = highlight {
                             // If there are under ten seconds remaining
-                            if let Some((_, sec)) = event.remaining() {
+                            if let Some((min, sec)) = event.remaining() {
                                 // Flash the highlight color and line width
-                                if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
                                     cr.set_source_rgb(
                                         red as f64 / 255.0,
                                         green as f64 / 255.0,
@@ -802,9 +802,9 @@ impl TimelineAbstraction {
                     // If the highlight is specified
                     if let Some((red, green, blue)) = highlight {
                         // If there are under ten seconds remaining
-                        if let Some((_, sec)) = event.remaining() {
+                        if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,

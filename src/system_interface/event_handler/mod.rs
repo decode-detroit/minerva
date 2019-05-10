@@ -38,8 +38,8 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    EventDelay, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData,
-    TriggerEvents, UpcomingEvent,
+    EventDelay, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene,
+    SaveData, TriggerEvents, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::{ComingEvent, Queue};
@@ -49,6 +49,7 @@ use super::GeneralUpdate;
 // Import standard library modules
 use std::fs::File;
 use std::path::PathBuf;
+use std::thread;
 use std::time::{Duration, Instant};
 
 // Import the failure features
@@ -119,7 +120,7 @@ impl EventHandler {
         let queue = Queue::new(general_update.clone());
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, status_pairs)) = backup.reload_backup(config.get_status_ids()) {
+        if let Some((current_scene, status_pairs, queued_events)) = backup.reload_backup(config.get_status_ids()) {
             // Notify that existing data was found
             update!(err &general_update => "Detected Lingering Backup Data. Reloading ...");
 
@@ -129,7 +130,16 @@ impl EventHandler {
             // Update the current status states based on the backup
             config.load_backup_status(status_pairs);
 
-        // FIXME Add silent queue changes
+            // Update the queue with the found events
+            for event in queued_events {
+                queue.add_event(EventDelay::new(Some(event.remaining), event.event_id));
+            }
+            
+            // Wait 10 nanoseconds for the queued events to process
+            thread::sleep(Duration::new(0, 10));
+            
+            // Trigger a redraw of the window and timeline
+            general_update.send_redraw();
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
@@ -199,6 +209,9 @@ impl EventHandler {
     pub fn upcoming_events(&self) -> Option<Vec<UpcomingEvent>> {
         // If there are upcoming events, repackage them
         if let Some(mut events) = self.queue.list_events() {
+            // Backup the upcoming events
+            self.backup.backup_events(events.clone());
+            
             // Repackage the list as upcoming events
             let mut coming_events = Vec::new();
             for event in events.drain(..) {
@@ -339,7 +352,7 @@ impl EventHandler {
             // Backup the status change
             self.backup.backup_status(status_id, new_state);
 
-            // Run the change event for the new state
+            // Run the change event for the new state (no backup necessary)
             self.queue
                 .add_event(EventDelay::new(None, new_state.clone()));
         }
@@ -382,7 +395,7 @@ impl EventHandler {
             // Backup the current scene change
             self.backup.backup_current_scene(&scene_id);
 
-            // Run the reset event for the new scene
+            // Run the reset event for the new scene (no backup necessary)
             self.queue.add_event(EventDelay::new(None, scene_id));
         }
     }
@@ -400,12 +413,12 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by ignoring this failure.
     ///
-    pub fn adjust_event(&self, event_id: ItemId, start_time: Instant, new_delay: Duration) {
+    pub fn adjust_event(&self, event_id: ItemId, start_time: Instant, delay: Duration) {
         // Try to modify the provided event in the current queue
         self.queue.adjust_event(ComingEvent {
             event_id,
             start_time,
-            delay: new_delay,
+            delay,
         });
     }
 
@@ -413,13 +426,12 @@ impl EventHandler {
     ///
     /// # Errors
     ///
-    /// This method will fail silently if the provided id was not found in the
-    /// queue. This usually indicates that the event has been triggered and that
-    /// the user tried to modify an event just a few moments before the time
-    /// expired
+    /// This method will fail silently if it was unable to create the desired
+    /// file. This usually indicates that there is an underlying file system
+    /// error.
     ///
     /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by ignoring this failure.
+    /// gracefully by notifying the user.
     ///
     pub fn save_config(&self, config_path: PathBuf) {
         // Attempt to open the new configuration file

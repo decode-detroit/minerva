@@ -20,7 +20,7 @@
 
 // Import YAML processing libraries
 #[macro_use]
-extern crate serde_derive;
+extern crate serde;
 
 // Define program modules
 pub mod system_interface;

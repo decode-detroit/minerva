@@ -21,7 +21,7 @@
 //! that events with a longer delay always arrive later than earlier events.
 
 // Import the relevant structures into the correct namespace
-use super::super::GeneralUpdate;
+use super::super::{GeneralUpdate, EventUpdate};
 use super::event::EventDelay;
 use super::item::ItemId;
 
@@ -369,7 +369,15 @@ impl Queue {
     ///
     pub fn list_events(&self) -> Option<Vec<ComingEvent>> {
         // Return a copy of the events in the queue, when available
-        self.coming_events.lock().unwrap().list_events()
+        match self.coming_events.lock() {
+            Ok(mut events) => events.list_events(),
+            
+            // Raise an error if the queue has failed
+            _ => {
+                self.general_update.send_update(EventUpdate::Error("Internal Failure Of The Event Queue.".to_string()));
+                None
+            }
+        }
     }
 
     /// A method to adjust the remaining delay in a specific upcoming event. If
@@ -389,10 +397,20 @@ impl Queue {
     /// function may hang as well.
     ///
     pub fn adjust_event(&self, new_event: ComingEvent) {
-        // Try to withdraw the existing event from the queue
-        if let Some(event) = self.coming_events.lock().unwrap().withdraw(new_event) {
-            // If successful, send the new event to the queue. This also triggers the queue to notice the change.
-            self.queue_load.send(event).unwrap_or(());
+        // Open the coming events
+        match self.coming_events.lock() {
+            Ok(mut events) => {
+                // Try to withdraw the existing event from the queue
+                if let Some(event) = events.withdraw(new_event) {
+                    // If successful, send the new event to the queue. This also triggers the queue to notice the change.
+                    self.queue_load.send(event).unwrap_or(());
+                }
+            }
+                        
+            // Raise an error if the queue has failed
+            _ => {
+                self.general_update.send_update(EventUpdate::Error("Internal Failure Of The Event Queue.".to_string()));
+            }
         }
     }
 
@@ -405,7 +423,15 @@ impl Queue {
     /// function may hang as well.
     ///
     pub fn clear(&self) {
-        self.coming_events.lock().unwrap().clear();
+        // Open the coming events
+        match self.coming_events.lock() {
+            Ok(mut events) => events.clear(),
+                       
+            // Raise an error if the queue has failed
+            _ => {
+                self.general_update.send_update(EventUpdate::Error("Internal Failure Of The Event Queue.".to_string()));
+            }
+        }
     }
 }
 
