@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "0.6.1"
+version = "0.6.2"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Program And Synchronize Your Internet Of Things In One Step."
 license = "GPL-3.0-or-later"

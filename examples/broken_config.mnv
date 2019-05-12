@@ -1,6 +1,6 @@
 ---
 # Constants for the Configuration
-version: "0.6.1"
+version: "0.6.2"
 identifier:
   id: 5
 server_location: ~

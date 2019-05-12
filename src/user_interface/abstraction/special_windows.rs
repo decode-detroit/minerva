@@ -733,6 +733,9 @@ struct EditOverview {
     displaycontrol_color: gtk::ColorButton,              // the color selection button
     displaycontrol_highlight_checkbox: gtk::CheckButton, // the highlight checkbox
     displaycontrol_highlight: gtk::ColorButton,          // the highlight selection button
+    displaycontrol_highstate_checkbox: gtk::CheckButton, // the highlight state checkbox
+    displaycontrol_highstate_status: gtk::SpinButton,    // the highlight state status spin
+    displaycontrol_highstate_state: gtk::SpinButton,     // the highlight state state spin
     displaywith_spin: gtk::SpinButton,                   // the spin selection for the group id
     displaywith_priority_checkbox: gtk::CheckButton,     // the priority checkbox
     displaywith_priority: gtk::SpinButton,               // the spin selection for the priority
@@ -740,15 +743,24 @@ struct EditOverview {
     displaywith_color: gtk::ColorButton,                 // the color selection button
     displaywith_highlight_checkbox: gtk::CheckButton,    // the highlight checkbox
     displaywith_highlight: gtk::ColorButton,             // the highlight selection button
+    displaywith_highstate_checkbox: gtk::CheckButton,    // the highlight state checkbox
+    displaywith_highstate_status: gtk::SpinButton,       // the highlight state status spin
+    displaywith_highstate_state: gtk::SpinButton,        // the highlight state state spin
     displaydebug_checkbox: gtk::CheckButton,             // the checkbox for group id
     displaydebug_spin: gtk::SpinButton,                  // the spin selection for the group id
     displaydebug_priority_checkbox: gtk::CheckButton,    // the priority checkbox
     displaydebug_priority: gtk::SpinButton,              // the spin selection for priority
-    displaydebug_highlight_checkbox: gtk::CheckButton,   // the highlight checkbox
-    displaydebug_highlight: gtk::ColorButton,            // the highlight selection button
     displaydebug_color_checkbox: gtk::CheckButton,       // the color checkbox
     displaydebug_color: gtk::ColorButton,                // the color selection button
+    displaydebug_highlight_checkbox: gtk::CheckButton,   // the highlight checkbox
+    displaydebug_highlight: gtk::ColorButton,            // the highlight selection button
+    displaydebug_highstate_checkbox: gtk::CheckButton,   // the highlight state checkbox
+    displaydebug_highstate_status: gtk::SpinButton,      // the highlight state status spin
+    displaydebug_highstate_state: gtk::SpinButton,       // the highlight state state spin
+    labelhidden_color_checkbox: gtk::CheckButton,        // the color check
     labelhidden_color: gtk::ColorButton,                 // the color selection button
+    labelhidden_highlight_checkbox: gtk::CheckButton,    // the highlight checkbox
+    labelhidden_highlight: gtk::ColorButton,             // the highlight selection button
     detail_selection: gtk::ComboBoxText, // the detail variant selection for the event
 }
 
@@ -777,11 +789,22 @@ impl EditOverview {
         let displaycontrol_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaycontrol_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaycontrol_color = gtk::ColorButton::new();
-        displaycontrol_color.set_title("Button Text Color");
+        displaycontrol_color.set_title("Text Color");
         let displaycontrol_highlight_checkbox =
             gtk::CheckButton::new_with_label("Custom Text Highlight");
         let displaycontrol_highlight = gtk::ColorButton::new();
         displaycontrol_highlight.set_title("Text Highlight Color");
+        let displaycontrol_highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let displaycontrol_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let displaycontrol_highstate_status_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        displaycontrol_highstate_status_lookup.connect_clicked(clone!(displaycontrol_highstate_status, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaycontrol_highstate_status.get_value() as u32) });
+        }));
+        let displaycontrol_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let displaycontrol_highstate_state_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        displaycontrol_highstate_state_lookup.connect_clicked(clone!(displaycontrol_highstate_state, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaycontrol_highstate_state.get_value() as u32) });
+        }));
 
         // Compose the displaycontrol grid
         let displaycontrol_grid = gtk::Grid::new();
@@ -791,6 +814,11 @@ impl EditOverview {
         displaycontrol_grid.attach(&displaycontrol_color, 1, 1, 1, 1);
         displaycontrol_grid.attach(&displaycontrol_highlight_checkbox, 0, 2, 1, 1);
         displaycontrol_grid.attach(&displaycontrol_highlight, 1, 2, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_highstate_checkbox, 0, 3, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_highstate_status, 1, 3, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_highstate_status_lookup, 2, 3, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_highstate_state, 3, 3, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_highstate_state_lookup, 4, 3, 1, 1);
         displaycontrol_grid.set_column_spacing(10); // Add some space
         displaycontrol_grid.set_row_spacing(10);
         displaycontrol_grid.show_all();
@@ -808,11 +836,22 @@ impl EditOverview {
         let displaywith_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaywith_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaywith_color = gtk::ColorButton::new();
-        displaywith_color.set_title("Button Text Color");
+        displaywith_color.set_title("Text Color");
         let displaywith_highlight_checkbox =
             gtk::CheckButton::new_with_label("Custom Text Highlight");
         let displaywith_highlight = gtk::ColorButton::new();
-        displaywith_highlight.set_title("Button Highlight Color");
+        displaywith_highlight.set_title("Text Highlight Color");
+        let displaywith_highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let displaywith_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let displaywith_highstate_status_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        displaywith_highstate_status_lookup.connect_clicked(clone!(displaywith_highstate_status, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_highstate_status.get_value() as u32) });
+        }));
+        let displaywith_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let displaywith_highstate_state_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        displaywith_highstate_state_lookup.connect_clicked(clone!(displaywith_highstate_state, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_highstate_state.get_value() as u32) });
+        }));
 
         // Compose the displaywith grid
         let displaywith_grid = gtk::Grid::new();
@@ -822,8 +861,13 @@ impl EditOverview {
         displaywith_grid.attach(&displaywith_priority, 1, 1, 1, 1);
         displaywith_grid.attach(&displaywith_color_checkbox, 0, 2, 1, 1);
         displaywith_grid.attach(&displaywith_color, 1, 2, 1, 1);
-        displaywith_grid.attach(&displaywith_highlight_checkbox, 0, 2, 2, 1);
-        displaywith_grid.attach(&displaywith_highlight, 1, 2, 2, 1);
+        displaywith_grid.attach(&displaywith_highlight_checkbox, 0, 3, 1, 1);
+        displaywith_grid.attach(&displaywith_highlight, 1, 3, 1, 1);
+        displaywith_grid.attach(&displaywith_highstate_checkbox, 0, 4, 1, 1);
+        displaywith_grid.attach(&displaywith_highstate_status, 1, 4, 1, 1);
+        displaywith_grid.attach(&displaywith_highstate_status_lookup, 2, 4, 1, 1);
+        displaywith_grid.attach(&displaywith_highstate_state, 3, 4, 1, 1);
+        displaywith_grid.attach(&displaywith_highstate_state_lookup, 4, 4, 1, 1);
         displaywith_grid.set_column_spacing(10); // Add some space
         displaywith_grid.set_row_spacing(10);
         displaywith_grid.show_all();
@@ -842,11 +886,22 @@ impl EditOverview {
         let displaydebug_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaydebug_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaydebug_color = gtk::ColorButton::new();
-        displaydebug_color.set_title("Button Text Color");
+        displaydebug_color.set_title("Text Color");
         let displaydebug_highlight_checkbox =
             gtk::CheckButton::new_with_label("Custom Text Highlight");
         let displaydebug_highlight = gtk::ColorButton::new();
-        displaydebug_highlight.set_title("Button Highlight Color");
+        displaydebug_highlight.set_title("Text Highlight Color");
+        let displaydebug_highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let displaydebug_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let displaydebug_highstate_status_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        displaydebug_highstate_status_lookup.connect_clicked(clone!(displaydebug_highstate_status, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_highstate_status.get_value() as u32) });
+        }));
+        let displaydebug_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let displaydebug_highstate_state_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        displaydebug_highstate_state_lookup.connect_clicked(clone!(displaydebug_highstate_state, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_highstate_state.get_value() as u32) });
+        }));
 
         // Compose the displaydebug grid
         let displaydebug_grid = gtk::Grid::new();
@@ -857,22 +912,38 @@ impl EditOverview {
         displaydebug_grid.attach(&displaydebug_priority, 1, 1, 1, 1);
         displaydebug_grid.attach(&displaydebug_color_checkbox, 0, 2, 1, 1);
         displaydebug_grid.attach(&displaydebug_color, 1, 2, 1, 1);
-        displaydebug_grid.attach(&displaydebug_highlight_checkbox, 0, 2, 2, 1);
-        displaydebug_grid.attach(&displaydebug_highlight, 1, 2, 2, 1);
+        displaydebug_grid.attach(&displaydebug_highlight_checkbox, 0, 3, 1, 1);
+        displaydebug_grid.attach(&displaydebug_highlight, 1, 3, 1, 1);
+        displaydebug_grid.attach(&displaydebug_highstate_checkbox, 0, 4, 1, 1);
+        displaydebug_grid.attach(&displaydebug_highstate_status, 1, 4, 1, 1);
+        displaydebug_grid.attach(&displaydebug_highstate_status_lookup, 2, 4, 1, 1);
+        displaydebug_grid.attach(&displaydebug_highstate_state, 3, 4, 1, 1);
+        displaydebug_grid.attach(&displaydebug_highstate_state_lookup, 4, 4, 1, 1);
         displaydebug_grid.set_column_spacing(10); // Add some space
         displaydebug_grid.set_row_spacing(10);
         displaydebug_grid.show_all();
 
-        // Add the labelhidden color selection
+        // Add the labelhidden color items
+        let labelhidden_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let labelhidden_color = gtk::ColorButton::new();
-        labelhidden_color.set_title("Button Text Color");
+        labelhidden_color.set_title("Text Color");
+        let labelhidden_highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
+        let labelhidden_highlight = gtk::ColorButton::new();
+        labelhidden_highlight.set_title("Text Highlight Color");
+        
+        // Compose the labelhidden grid
+        let labelhidden_grid = gtk::Grid::new();
+        labelhidden_grid.attach(&labelhidden_color_checkbox, 0, 0, 1, 1);
+        labelhidden_grid.attach(&labelhidden_color, 1, 0, 1, 1);
+        labelhidden_grid.attach(&labelhidden_highlight_checkbox, 0, 1, 1, 1);
+        labelhidden_grid.attach(&labelhidden_highlight, 1, 1, 1, 1);
 
         // Fill the display type stack
         let display_stack = gtk::Stack::new();
         display_stack.add_named(&displaycontrol_grid, "displaycontrol");
         display_stack.add_named(&displaywith_grid, "displaywith");
         display_stack.add_named(&displaydebug_grid, "displaydebug");
-        display_stack.add_named(&labelhidden_color, "labelhidden");
+        display_stack.add_named(&labelhidden_grid, "labelhidden");
         let blank_label = gtk::Label::new(None);
         display_stack.add_named(&blank_label, "hidden");
         blank_label.show();
@@ -934,6 +1005,9 @@ impl EditOverview {
             displaycontrol_color,
             displaycontrol_highlight_checkbox,
             displaycontrol_highlight,
+            displaycontrol_highstate_checkbox,
+            displaycontrol_highstate_status,
+            displaycontrol_highstate_state,
             displaywith_spin,
             displaywith_priority_checkbox,
             displaywith_priority,
@@ -941,6 +1015,9 @@ impl EditOverview {
             displaywith_color,
             displaywith_highlight_checkbox,
             displaywith_highlight,
+            displaywith_highstate_checkbox,
+            displaywith_highstate_status,
+            displaywith_highstate_state,
             displaydebug_checkbox,
             displaydebug_spin,
             displaydebug_priority_checkbox,
@@ -949,7 +1026,13 @@ impl EditOverview {
             displaydebug_color,
             displaydebug_highlight_checkbox,
             displaydebug_highlight,
+            displaydebug_highstate_checkbox,
+            displaydebug_highstate_status,
+            displaydebug_highstate_state,
+            labelhidden_color_checkbox,
             labelhidden_color,
+            labelhidden_highlight_checkbox,
+            labelhidden_highlight,
             detail_selection,
         }
     }
@@ -976,7 +1059,7 @@ impl EditOverview {
                 priority,
                 color,
                 highlight,
-                highlight_state, // FIXME use it
+                highlight_state,
             } => {
                 // Switch to the displaycontrol type
                 self.display_type.set_active_id("display");
@@ -1019,6 +1102,16 @@ impl EditOverview {
                         self.displaycontrol_highlight.set_rgba(&new_color);
                     }
                 }
+                
+                // If there is a highlight state, set it
+                match highlight_state {
+                    None => self.displaycontrol_highstate_checkbox.set_active(false),
+                    Some((new_status, new_state)) => {
+                        self.displaycontrol_highstate_checkbox.set_active(true);
+                        self.displaycontrol_highstate_status.set_value(new_status.id() as f64);
+                        self.displaycontrol_highstate_state.set_value(new_state.id() as f64);
+                    }
+                }
             }
 
             // the displaywith variant
@@ -1027,7 +1120,7 @@ impl EditOverview {
                 priority,
                 color,
                 highlight,
-                highlight_state, // FIXME use it
+                highlight_state,
             } => {
                 // Switch to the displaywith type and set the group id
                 self.display_type.set_active_id("displaywith");
@@ -1071,6 +1164,16 @@ impl EditOverview {
                         self.displaywith_highlight.set_rgba(&new_color);
                     }
                 }
+                
+                // If there is a highlight state, set it
+                match highlight_state {
+                    None => self.displaywith_highstate_checkbox.set_active(false),
+                    Some((new_status, new_state)) => {
+                        self.displaywith_highstate_checkbox.set_active(true);
+                        self.displaywith_highstate_status.set_value(new_status.id() as f64);
+                        self.displaywith_highstate_state.set_value(new_state.id() as f64);
+                    }
+                }
             }
 
             // the displaydebug variant
@@ -1079,10 +1182,10 @@ impl EditOverview {
                 priority,
                 color,
                 highlight,
-                highlight_state, // FIXME use it
+                highlight_state,
             } => {
                 // Switch to the displaydebug type
-                self.display_type.set_active_id("displaywith");
+                self.display_type.set_active_id("displaydebug");
 
                 // If theere is a group id, set it
                 match group_id {
@@ -1131,19 +1234,51 @@ impl EditOverview {
                         self.displaydebug_highlight.set_rgba(&new_color);
                     }
                 }
+                
+                // If there is a highlight state, set it
+                match highlight_state {
+                    None => self.displaydebug_highstate_checkbox.set_active(false),
+                    Some((new_status, new_state)) => {
+                        self.displaydebug_highstate_checkbox.set_active(true);
+                        self.displaydebug_highstate_status.set_value(new_status.id() as f64);
+                        self.displaydebug_highstate_state.set_value(new_state.id() as f64);
+                    }
+                }
             }
 
             // the label hidden variant
             LabelHidden { color, highlight } => {
-                // Set the current color FIXME add the checkbox
-                if let Some((new_red, new_green, new_blue)) = color {
-                    let new_color = gdk::RGBA {
-                        red: new_red as f64 / 255.0,
-                        green: new_green as f64 / 255.0,
-                        blue: new_blue as f64 / 255.0,
-                        alpha: 1.0,
-                    };
-                    self.labelhidden_color.set_rgba(&new_color);
+                //Switch to the labelhidden type
+                self.display_type.set_active_id("labelhidden");
+            
+                // If there is a color, set it
+                match color {
+                    None => self.labelhidden_color_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.labelhidden_color_checkbox.set_active(true);
+                        let new_color = gdk::RGBA {
+                            red: new_red as f64 / 255.0,
+                            green: new_green as f64 / 255.0,
+                            blue: new_blue as f64 / 255.0,
+                            alpha: 1.0,
+                        };
+                        self.labelhidden_color.set_rgba(&new_color);
+                    }
+                }
+                
+                // If there is a highlight, set it
+                match highlight {
+                    None => self.labelhidden_highlight_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.labelhidden_highlight_checkbox.set_active(true);
+                        let new_color = gdk::RGBA {
+                            red: new_red as f64 / 255.0,
+                            green: new_green as f64 / 255.0,
+                            blue: new_blue as f64 / 255.0,
+                            alpha: 1.0,
+                        };
+                        self.labelhidden_highlight.set_rgba(&new_color);
+                    }
                 }
             }
 
@@ -1207,13 +1342,19 @@ impl EditOverview {
                         (blue * 255.0) as u8,
                     ));
                 }
+                
+                // Extract the highlight state, if selected
+                let mut highlight_state = None;
+                if self.displaycontrol_highstate_checkbox.get_active() {
+                    highlight_state = Some((ItemId::new_unchecked(self.displaycontrol_highstate_status.get_value() as u32), ItemId::new_unchecked(self.displaycontrol_highstate_state.get_value() as u32)));
+                }
 
                 // Return the completed display type
                 DisplayControl {
                     priority,
                     color,
                     highlight,
-                    highlight_state: None, // FIXME use it
+                    highlight_state,
                 }
             }
 
@@ -1250,6 +1391,12 @@ impl EditOverview {
                         (blue * 255.0) as u8,
                     ));
                 }
+                
+                // Extract the highlight state, if selected
+                let mut highlight_state = None;
+                if self.displaywith_highstate_checkbox.get_active() {
+                    highlight_state = Some((ItemId::new_unchecked(self.displaywith_highstate_status.get_value() as u32), ItemId::new_unchecked(self.displaywith_highstate_state.get_value() as u32)));
+                }
 
                 // Return the completed display type
                 DisplayWith {
@@ -1257,7 +1404,7 @@ impl EditOverview {
                     priority,
                     color,
                     highlight,
-                    highlight_state: None, // FIXME use it
+                    highlight_state,
                 }
             }
 
@@ -1302,6 +1449,12 @@ impl EditOverview {
                         (blue * 255.0) as u8,
                     ));
                 }
+                
+                // Extract the highlight state, if selected
+                let mut highlight_state = None;
+                if self.displaydebug_highstate_checkbox.get_active() {
+                    highlight_state = Some((ItemId::new_unchecked(self.displaydebug_highstate_status.get_value() as u32), ItemId::new_unchecked(self.displaydebug_highstate_state.get_value() as u32)));
+                }
 
                 // Return the completed display type
                 DisplayDebug {
@@ -1309,25 +1462,40 @@ impl EditOverview {
                     priority,
                     color,
                     highlight,
-                    highlight_state: None, // FIXME use it
+                    highlight_state,
                 }
             }
 
             // For the labelhidden type
             "labelhidden" => {
-                // Extract the selected color
-                let gdk::RGBA {
-                    red, green, blue, ..
-                } = self.displaydebug_color.get_rgba();
-                let color = Some((
-                    (red * 255.0) as u8,
-                    (green * 255.0) as u8,
-                    (blue * 255.0) as u8,
-                ));
-                // FIXME Read from the highlight value
+                // Extract the color, if selected
+                let mut color = None;
+                if self.labelhidden_color_checkbox.get_active() {
+                    let gdk::RGBA {
+                        red, green, blue, ..
+                    } = self.labelhidden_color.get_rgba();
+                    color = Some((
+                        (red * 255.0) as u8,
+                        (green * 255.0) as u8,
+                        (blue * 255.0) as u8,
+                    ));
+                }
+
+                // Extract the highlight, if selected
+                let mut highlight = None;
+                if self.labelhidden_highlight_checkbox.get_active() {
+                    let gdk::RGBA {
+                        red, green, blue, ..
+                    } = self.labelhidden_highlight.get_rgba();
+                    highlight = Some((
+                        (red * 255.0) as u8,
+                        (green * 255.0) as u8,
+                        (blue * 255.0) as u8,
+                    ));
+                }
 
                 // Return the completed display type
-                LabelHidden { color, highlight: None }
+                LabelHidden { color, highlight }
             }
 
             // For the hidden type
@@ -2053,10 +2221,10 @@ impl EditGroupedEvent {
                         // Recast the widget as a grid
                         if let Ok(grouped_grid) = tmp_grid.downcast::<gtk::Grid>() {
                             // Extract the state number
-                            let cdtn = match grouped_grid.get_child_at(1, 0) {
+                            let state = match grouped_grid.get_child_at(1, 0) {
                                 Some(spin_tmp) => {
-                                    if let Ok(cdtn_spin) = spin_tmp.downcast::<gtk::SpinButton>() {
-                                        cdtn_spin.get_value() as u32
+                                    if let Ok(state_spin) = spin_tmp.downcast::<gtk::SpinButton>() {
+                                        state_spin.get_value() as u32
                                     } else {
                                         unreachable!()
                                     }
@@ -2065,10 +2233,10 @@ impl EditGroupedEvent {
                             };
 
                             // Extract the event number
-                            let evnt = match grouped_grid.get_child_at(1, 0) {
+                            let event = match grouped_grid.get_child_at(4, 0) {
                                 Some(spin_tmp) => {
-                                    if let Ok(evnt_spin) = spin_tmp.downcast::<gtk::SpinButton>() {
-                                        evnt_spin.get_value() as u32
+                                    if let Ok(event_spin) = spin_tmp.downcast::<gtk::SpinButton>() {
+                                        event_spin.get_value() as u32
                                     } else {
                                         unreachable!()
                                     }
@@ -2077,8 +2245,8 @@ impl EditGroupedEvent {
                             };
 
                             // Add the state and event pair to the map
-                            let state_id = ItemId::new_unchecked(cdtn);
-                            let event_id = ItemId::new_unchecked(evnt);
+                            let state_id = ItemId::new_unchecked(state);
+                            let event_id = ItemId::new_unchecked(event);
                             event_map.insert(state_id, event_id);
                         }
                     }
