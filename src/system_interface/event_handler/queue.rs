@@ -40,7 +40,7 @@ pub struct ComingEvent {
 
 // Implement the Coming Event features
 impl ComingEvent {
-    /// A function to return a new ComingEvent by consuming and Duration and
+    /// A function to return a new ComingEvent by consuming Duration and
     /// ItemId.
     ///
     pub fn new(delay: Duration, event_id: ItemId) -> ComingEvent {
@@ -226,11 +226,10 @@ impl ComingEvents {
     }
 }
 
-/// A struct to hold a queue of future events. Although this struct originally
-/// launched a new thread for each future event, the new version launches a
+/// A struct to hold a queue of future events. This struct launches a
 /// separate daemon to preserve ordering of the events and minimize the spread
-/// of unnecessary threads. This version _should_ preserve the proper order of
-/// the events.
+/// of unnecessary threads. This version preserves the proper order of the
+/// events.
 ///
 pub struct Queue {
     queue_load: mpsc::Sender<ComingEvent>, // the queue loading line that sends additional items to the daemon

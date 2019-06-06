@@ -770,7 +770,7 @@ impl EditOverview {
         // Create the event number and description
         let id_label = gtk::Label::new("  Event Id  ");
         let id_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        id_spin.set_size_request(200, 30);
+        id_spin.set_size_request(100, 30);
         id_spin.set_hexpand(false);
         let description = gtk::Entry::new();
         description.set_placeholder_text("Enter a description here");
@@ -927,9 +927,11 @@ impl EditOverview {
         let labelhidden_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let labelhidden_color = gtk::ColorButton::new();
         labelhidden_color.set_title("Text Color");
+        labelhidden_color.set_size_request(140, 30);
         let labelhidden_highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
         let labelhidden_highlight = gtk::ColorButton::new();
         labelhidden_highlight.set_title("Text Highlight Color");
+        labelhidden_highlight.set_size_request(140, 30);
         
         // Compose the labelhidden grid
         let labelhidden_grid = gtk::Grid::new();
@@ -1531,11 +1533,11 @@ impl EditNewScene {
 
         // Add a label and spin to the new scene grid
         let new_scene_label = gtk::Label::new("Scene Id");
-        new_scene_label.set_size_request(100, 30);
+        new_scene_label.set_size_request(80, 30);
         new_scene_label.set_hexpand(false);
         new_scene_label.set_vexpand(false);
         let new_scene_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        new_scene_spin.set_size_request(200, 30);
+        new_scene_spin.set_size_request(100, 30);
         new_scene_spin.set_hexpand(false);
         let new_scene_lookup =
             gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
@@ -1596,11 +1598,11 @@ impl EditModifyStatus {
 
         // Add a labels and spins to the modify status grid
         let status_id_label = gtk::Label::new("Status Id");
-        status_id_label.set_size_request(100, 30);
+        status_id_label.set_size_request(80, 30);
         status_id_label.set_hexpand(false);
         status_id_label.set_vexpand(false);
         let status_id_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        status_id_spin.set_size_request(200, 30);
+        status_id_spin.set_size_request(100, 30);
         status_id_spin.set_hexpand(false);
         let status_id_lookup =
             gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
@@ -1608,11 +1610,11 @@ impl EditModifyStatus {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(status_id_spin.get_value() as u32) });
         }));
         let state_id_label = gtk::Label::new("State Id");
-        state_id_label.set_size_request(100, 30);
+        state_id_label.set_size_request(80, 30);
         state_id_label.set_hexpand(false);
         state_id_label.set_vexpand(false);
         let state_id_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        state_id_spin.set_size_request(200, 30);
+        state_id_spin.set_size_request(100, 30);
         state_id_spin.set_hexpand(false);
         let state_id_lookup =
             gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
@@ -1739,11 +1741,11 @@ impl EditTriggerEvents {
         // Create an empty spin box for the list
         let event_grid = gtk::Grid::new();
         let event_label = gtk::Label::new("Event");
-        event_label.set_size_request(100, 30);
+        event_label.set_size_request(80, 30);
         event_label.set_hexpand(false);
         event_label.set_vexpand(false);
         let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        event_spin.set_size_request(200, 30);
+        event_spin.set_size_request(100, 30);
         event_spin.set_hexpand(false);
 
         // Add a lookup button for the event
@@ -1755,18 +1757,18 @@ impl EditTriggerEvents {
 
         // Add spin adjustments for the event delay minutes and seconds
         let minutes_label = gtk::Label::new("  Delay: Minutes  ");
-        minutes_label.set_size_request(100, 30);
+        minutes_label.set_size_request(120, 30);
         minutes_label.set_hexpand(false);
         minutes_label.set_vexpand(false);
         let minutes = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
-        minutes.set_size_request(200, 30);
+        minutes.set_size_request(100, 30);
         minutes.set_hexpand(false);
         let seconds_label = gtk::Label::new("  Seconds  ");
-        seconds_label.set_size_request(100, 30);
+        seconds_label.set_size_request(80, 30);
         seconds_label.set_hexpand(false);
         seconds_label.set_vexpand(false);
         let seconds = gtk::SpinButton::new_with_range(0.0, 60.0, 1.0);
-        seconds.set_size_request(200, 30);
+        seconds.set_size_request(100, 30);
         seconds.set_hexpand(false);
 
         // Add a button to delete the item from the list
@@ -1959,11 +1961,11 @@ impl EditSaveData {
         // Create an empty spin box for the list
         let item_grid = gtk::Grid::new();
         let item_label = gtk::Label::new("Save Data:");
-        item_label.set_size_request(100, 30);
+        item_label.set_size_request(80, 30);
         item_label.set_hexpand(false);
         item_label.set_vexpand(false);
         let item_spin = gtk::SpinButton::new_with_range(0.0, 4294967295.0, 1.0);
-        item_spin.set_size_request(200, 30);
+        item_spin.set_size_request(100, 30);
         item_spin.set_hexpand(false);
 
         // Add a button to delete the item from the list
@@ -2056,11 +2058,11 @@ impl EditGroupedEvent {
         // Create the status spin
         let status_grid = gtk::Grid::new();
         let status_label = gtk::Label::new("Status");
-        status_label.set_size_request(100, 30);
+        status_label.set_size_request(80, 30);
         status_label.set_hexpand(false);
         status_label.set_vexpand(false);
         let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        status_spin.set_size_request(200, 30);
+        status_spin.set_size_request(100, 30);
         status_spin.set_hexpand(false);
         let status_id_lookup =
             gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
@@ -2140,11 +2142,11 @@ impl EditGroupedEvent {
         // Create a state spin box for the list
         let group_grid = gtk::Grid::new();
         let state_label = gtk::Label::new("State");
-        state_label.set_size_request(100, 30);
+        state_label.set_size_request(80, 30);
         state_label.set_hexpand(false);
         state_label.set_vexpand(false);
         let state_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        state_spin.set_size_request(200, 30);
+        state_spin.set_size_request(100, 30);
         state_spin.set_hexpand(false);
 
         // Add a lookup button for the state
@@ -2156,11 +2158,11 @@ impl EditGroupedEvent {
 
         // Create a event spin box for the list
         let event_label = gtk::Label::new("Event");
-        event_label.set_size_request(100, 30);
+        event_label.set_size_request(80, 30);
         event_label.set_hexpand(false);
         event_label.set_vexpand(false);
         let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        event_spin.set_size_request(200, 30);
+        event_spin.set_size_request(100, 30);
         event_spin.set_hexpand(false);
 
         // Add a lookup button for the event
