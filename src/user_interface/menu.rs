@@ -116,13 +116,12 @@ impl MenuAbstraction {
             dialog.set_position(gtk::WindowPosition::Center);
 
             // Connect the close event for when the dialog is complete
-            dialog.add_button("Cancel", gtk::ResponseType::Cancel.into());
-            dialog.add_button("Confirm", gtk::ResponseType::Ok.into());
+            dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+            dialog.add_button("Confirm", gtk::ResponseType::Ok);
             dialog.connect_response(clone!(user_interface => move |chooser, id| {
 
                 // Notify the system of the new configuration file
-                let response: i32 = gtk::ResponseType::Ok.into();
-                if id == response {
+                if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
                         user_interface.send(ConfigFile { filepath: Some(filepath), });
                     }
@@ -145,13 +144,12 @@ impl MenuAbstraction {
             dialog.set_position(gtk::WindowPosition::Center);
 
             // Connect the close event for when the dialog is complete
-            dialog.add_button("Cancel", gtk::ResponseType::Cancel.into());
-            dialog.add_button("Confirm", gtk::ResponseType::Ok.into());
+            dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+            dialog.add_button("Confirm", gtk::ResponseType::Ok);
             dialog.connect_response(clone!(user_interface => move |chooser, id| {
 
                 // Notify the system of the new configuration file
-                let response: i32 = gtk::ResponseType::Ok.into();
-                if id == response {
+                if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
                         user_interface.send(GameLog { filepath, });
                     }
@@ -174,13 +172,12 @@ impl MenuAbstraction {
             dialog.set_position(gtk::WindowPosition::Center);
 
             // Connect the close event for when the dialog is complete
-            dialog.add_button("Cancel", gtk::ResponseType::Cancel.into());
-            dialog.add_button("Confirm", gtk::ResponseType::Ok.into());
+            dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+            dialog.add_button("Confirm", gtk::ResponseType::Ok);
             dialog.connect_response(clone!(user_interface => move |chooser, id| {
 
                 // Notify the system of the new configuration file
-                let response: i32 = gtk::ResponseType::Ok.into();
-                if id == response {
+                if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
                         user_interface.send(ErrorLog { filepath, });
                     }
@@ -311,13 +308,12 @@ impl MenuAbstraction {
                     dialog.set_position(gtk::WindowPosition::Center);
 
                     // Connect the close event for when the dialog is complete
-                    dialog.add_button("Cancel", gtk::ResponseType::Cancel.into());
-                    dialog.add_button("Confirm", gtk::ResponseType::Ok.into());
+                    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+                    dialog.add_button("Confirm", gtk::ResponseType::Ok);
                     dialog.connect_response(clone!(user_interface => move |chooser, id| {
 
                         // Notify the system of the new configuration file
-                        let response: i32 = gtk::ResponseType::Ok.into();
-                        if id == response {
+                        if id == gtk::ResponseType::Ok {
                             if let Some(filepath) = chooser.get_filename() {
                                 user_interface.send(SaveConfig { filepath, });
                             }

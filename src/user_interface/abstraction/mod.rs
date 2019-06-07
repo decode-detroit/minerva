@@ -103,8 +103,8 @@ impl InterfaceAbstraction {
         primary_grid.set_row_homogeneous(false);
         primary_grid.set_column_spacing(10); // add some space between the rows and columns
         primary_grid.set_row_spacing(10);
-        primary_grid.set_margin_left(10); // add some space on the left and right side
-        primary_grid.set_margin_right(10);
+        primary_grid.set_margin_start(10); // add some space on the left and right side
+        primary_grid.set_margin_end(10);
 
         // Set the interrior items to fill the available space
         primary_grid.set_valign(gtk::Align::Fill);
@@ -148,7 +148,7 @@ impl InterfaceAbstraction {
         title.set_markup("<span color='#338DD6' size='14000'>Story Information</span>");
         #[cfg(not(feature = "theater-speak"))]
         title.set_markup("<span color='#338DD6' size='14000'>Game Information</span>");
-        title.set_property_xalign(0.5);
+        title.set_halign(gtk::Align::Center);
         title.show();
         primary_grid.attach(&title, 0, 1, 1, 1);
         primary_grid.attach(events.get_side_panel(), 0, 2, 1, 1);

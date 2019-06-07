@@ -75,11 +75,12 @@ impl EventAbstraction {
         grid.set_row_spacing(0);
         grid.set_margin_top(10); // add some space on the margins
         grid.set_margin_bottom(10);
-        grid.set_margin_left(10);
-        grid.set_margin_right(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
 
         // Create the scrolled window and add the grid
-        let window = gtk::ScrolledWindow::new(None, None);
+        let window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
+        // FIXME Broken implementation of ScrolledWindow::new()
         window.add(&grid);
         window.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Never);
 
@@ -97,8 +98,8 @@ impl EventAbstraction {
         side_panel.set_row_spacing(10);
         side_panel.set_margin_top(10); // add some space on the margins
         side_panel.set_margin_bottom(10);
-        side_panel.set_margin_left(10);
-        side_panel.set_margin_right(10);
+        side_panel.set_margin_start(10);
+        side_panel.set_margin_end(10);
         side_panel.set_vexpand(true); // adjust the expansion parameters of the grid
         side_panel.set_hexpand(false);
 
@@ -201,16 +202,16 @@ impl EventAbstraction {
 
         // Add the current scene detail
         let current_title = gtk::Label::new(Some("Current Scene:"));
-        current_title.set_property_xalign(0.5);
-        current_title.set_margin_left(60);
-        current_title.set_margin_right(10);
+        current_title.set_halign(gtk::Align::Center);
+        current_title.set_margin_start(60);
+        current_title.set_margin_end(10);
         current_title.show();
         self.side_panel.attach(&current_title, 0, 1, 1, 1);
         let current = gtk::Label::new(None);
         decorate_label(&current, &current_scene.description, current_scene.display, full_status);
-        current.set_property_xalign(0.5);
-        current.set_margin_left(10);
-        current.set_margin_right(40);
+        current.set_halign(gtk::Align::Center);
+        current.set_margin_start(10);
+        current.set_margin_end(40);
         current.show();
         self.side_panel.attach(&current, 1, 1, 1, 1);
 
@@ -352,14 +353,14 @@ impl EventGroupAbstraction {
 
             // Set the features of the new label and place it on the button
             button_label.show();
-            button_label.set_property_xalign(0.5);
+            button_label.set_halign(gtk::Align::Center);
             let button = gtk::Button::new();
             button.add(&button_label);
 
             // Set the features of the new button
             button.set_size_request(80, 30);
-            button.set_margin_right(10);
-            button.set_margin_left(10);
+            button.set_margin_start(10);
+            button.set_margin_end(10);
 
             // Create the new button action and connect it
             button.connect_clicked(clone!(system_send => move |_| {
@@ -420,8 +421,8 @@ impl EventGroupAbstraction {
         grid.set_column_spacing(0);
         grid.set_margin_top(10); // add margins on all sides
         grid.set_margin_bottom(10);
-        grid.set_margin_left(5);
-        grid.set_margin_right(5);
+        grid.set_margin_start(5);
+        grid.set_margin_end(5);
 
         // Create the grid for the buttons
         let button_grid = gtk::Grid::new();
@@ -439,7 +440,8 @@ impl EventGroupAbstraction {
         }
 
         // Create the scrollable window for the buttons
-        let window = gtk::ScrolledWindow::new(None, None);
+        let window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
+        // FIXME Broken implementation of ScrolledWindow::new()
         window.add(&button_grid);
         window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 

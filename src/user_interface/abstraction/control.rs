@@ -83,21 +83,12 @@ impl ControlAbstraction {
         let notification_title = gtk::Label::new(None);
         notification_title
             .set_markup("<span color='#338DD6' size='14000'>System Notifications</span>");
-        notification_title.set_property_xalign(0.5);
+        notification_title.set_halign(gtk::Align::Center);
 
         // Create the notification area
         let notification_area = gtk::Label::new(Some("System notifications appear here."));
-        notification_area.override_background_color(
-            gtk::StateFlags::empty(),
-            Some(&gdk::RGBA {
-                red: 0.259,
-                green: 0.259,
-                blue: 0.259,
-                alpha: 1.0,
-            }),
-        ); // set background color
-        notification_area.set_property_xalign(0.00);
-        notification_area.set_property_yalign(0.02);
+        notification_area.set_halign(gtk::Align::Start);
+        notification_area.set_valign(gtk::Align::Start);
         notification_area.set_property_height_request(400);
         notification_area.set_hexpand(true);
         notification_area.set_vexpand(true);

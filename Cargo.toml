@@ -25,8 +25,8 @@ byteorder = "1"
 zmq = "0.8"
 
 [dependencies.gtk]
-version = "0.4.0"
-features = ["v3_10"]
+version = "0.6.0"
+features = ["v3_16"]
 
 [features]
 no_can_limit = []

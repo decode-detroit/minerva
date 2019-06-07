@@ -129,8 +129,8 @@ impl TimelineAdjustment {
             Some(window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
-                ("Cancel", gtk::ResponseType::Cancel.into()),
-                ("Confirm", gtk::ResponseType::Ok.into()),
+                ("Cancel", gtk::ResponseType::Cancel),
+                ("Confirm", gtk::ResponseType::Ok),
             ],
         );
         dialog.set_position(gtk::WindowPosition::Center);
@@ -164,10 +164,10 @@ impl TimelineAdjustment {
             };
 
             // Identify and forward the selected id
-            if let Some(id_str) = dropdown.get_active_id() {
+            if let Some(id) = dropdown.get_active_id() {
 
                 // Identify the selected event
-                if let Some(event) = events.get(&id_str) {
+                if let Some(event) = events.get(id.as_str()) {
 
                     // Use the information to update the minute and second values
                     if let Some((min, sec)) = event.remaining() {
@@ -203,8 +203,8 @@ impl TimelineAdjustment {
         // Add some space on all the sides
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
-        grid.set_margin_left(10);
-        grid.set_margin_right(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
         let timeline_events = self.timeline_events.clone();
@@ -212,8 +212,7 @@ impl TimelineAdjustment {
         dialog.connect_response(clone!(selection, minutes, seconds => move |modal, reply| {
 
             // Notify the system of the event change
-            let response: i32 = gtk::ResponseType::Ok.into();
-            if reply == response {
+            if reply == gtk::ResponseType::Ok {
 
                 // Try to find the information about the events
                 let events = match timeline_events.try_borrow() {
@@ -222,10 +221,10 @@ impl TimelineAdjustment {
                 };
 
                 // Identify and forward the selected event
-                if let Some(id_str) = selection.get_active_id() {
+                if let Some(id) = selection.get_active_id() {
 
                     // Look for the corresponding event
-                    if let Some(event) = events.get(&id_str) {
+                    if let Some(event) = events.get(id.as_str()) {
 
                         // Use that information to create the new duration
                         let mut new_delay = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
@@ -279,7 +278,7 @@ impl TimelineAbstraction {
         // Create the timeline title
         let timeline_title = gtk::Label::new(None);
         timeline_title.set_markup("<span color='#338DD6' size='14000'>Timeline</span>");
-        timeline_title.set_property_xalign(0.5);
+        timeline_title.set_halign(gtk::Align::Center);
         timeline_title.set_margin_top(20);
         timeline_title.set_margin_bottom(10);
         timeline_title.set_hexpand(true);
@@ -318,7 +317,7 @@ impl TimelineAbstraction {
         };
 
         // Connect the button press events to the timeline area
-        timeline_area.add_events(gdk::EventMask::BUTTON_PRESS_MASK.bits() as i32);
+        timeline_area.add_events(gdk::EventMask::BUTTON_PRESS_MASK);
         timeline_area.connect_button_press_event(clone!(window => move |area, press| {
 
             // Get the drawable width

@@ -74,8 +74,8 @@ impl EditDialog {
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
-                ("Cancel", gtk::ResponseType::Cancel.into()),
-                ("Confirm", gtk::ResponseType::Ok.into()),
+                ("Cancel", gtk::ResponseType::Cancel),
+                ("Confirm", gtk::ResponseType::Ok),
             ],
         );
         dialog.set_position(gtk::WindowPosition::Center);
@@ -91,8 +91,8 @@ impl EditDialog {
         // Add some space on all the sides
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
-        grid.set_margin_left(10);
-        grid.set_margin_right(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
         let edit_mode = self.edit_mode.clone();
@@ -100,8 +100,7 @@ impl EditDialog {
         dialog.connect_response(clone!(system_send, checkbox => move |modal, id| {
 
             // Notify the system of the event change
-            let response: i32 = gtk::ResponseType::Ok.into();
-            if id == response {
+            if id == gtk::ResponseType::Ok {
 
                 // Change the internal flag to edit mode
                 if let Ok(mut flag) = edit_mode.try_borrow_mut() {
@@ -237,16 +236,15 @@ impl StatusDialog {
         // Add some space on all the sides
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
-        grid.set_margin_left(10);
-        grid.set_margin_right(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
         dialog.connect_response(
             clone!(status_selection, state_selection, system_send => move |modal, id| {
 
                 // Notify the system of the event change
-                let response: i32 = gtk::ResponseType::Ok.into();
-                if id == response {
+                if id == gtk::ResponseType::Ok {
 
                     // Identify and forward the selected status
                     if let Some(id_status) = status_selection.get_active_id() {
@@ -314,8 +312,8 @@ impl JumpDialog {
             Some(window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
-                ("Cancel", gtk::ResponseType::Cancel.into()),
-                ("Confirm", gtk::ResponseType::Ok.into()),
+                ("Cancel", gtk::ResponseType::Cancel),
+                ("Confirm", gtk::ResponseType::Ok),
             ],
         );
         dialog.set_position(gtk::WindowPosition::Center);
@@ -351,15 +349,14 @@ impl JumpDialog {
         // Add some space on all the sides
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
-        grid.set_margin_left(10);
-        grid.set_margin_right(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
         dialog.connect_response(clone!(scene_selection, system_send => move |modal, id| {
 
             // Notify the system of the event change
-            let response: i32 = gtk::ResponseType::Ok.into();
-            if id == response {
+            if id == gtk::ResponseType::Ok {
 
                 // Identify and forward the selected scene
                 if let Some(id_scene) = scene_selection.get_active_id() {
@@ -414,8 +411,8 @@ impl TriggerDialog {
             Some(window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
-                ("Cancel", gtk::ResponseType::Cancel.into()),
-                ("Confirm", gtk::ResponseType::Ok.into()),
+                ("Cancel", gtk::ResponseType::Cancel),
+                ("Confirm", gtk::ResponseType::Ok),
             ],
         );
         dialog.set_position(gtk::WindowPosition::Center);
@@ -427,7 +424,7 @@ impl TriggerDialog {
 
         // Add the dropdown and label
         let label = gtk::Label::new(Some("Warning: Triggering a custom event may not succeedif the event is not in the current scene."));
-        label.set_property_xalign(0.5);
+        label.set_halign(gtk::Align::Center);
         //label.set_hexpand(true);
         grid.attach(&label, 0, 0, 2, 1);
 
@@ -448,8 +445,8 @@ impl TriggerDialog {
         // Add some space on all the sides
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
-        grid.set_margin_left(10);
-        grid.set_margin_right(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
         //grid.set_hexpand(true);
         grid.set_halign(gtk::Align::Center);
 
@@ -457,8 +454,7 @@ impl TriggerDialog {
         dialog.connect_response(clone!(system_send, event_spin => move |modal, id| {
 
             // Notify the system of the event change
-            let response: i32 = gtk::ResponseType::Ok.into();
-            if id == response {
+            if id == gtk::ResponseType::Ok {
 
                 // Send the selected event to the system
                 system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32)});
@@ -498,7 +494,7 @@ impl InfoDialog {
             Some("About Item"),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
-            &[("Okay", gtk::ResponseType::Ok.into())],
+            &[("Okay", gtk::ResponseType::Ok)],
         );
         dialog.set_position(gtk::WindowPosition::Center);
 
@@ -520,8 +516,8 @@ impl InfoDialog {
         // Add some space on all the sides
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
-        grid.set_margin_left(10);
-        grid.set_margin_right(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
         dialog.connect_response(move |modal, _| {
@@ -571,8 +567,8 @@ impl EditEventDialog {
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
-                ("Cancel", gtk::ResponseType::Cancel.into()),
-                ("Confirm", gtk::ResponseType::Ok.into()),
+                ("Cancel", gtk::ResponseType::Cancel),
+                ("Confirm", gtk::ResponseType::Ok),
             ],
         );
         dialog.set_position(gtk::WindowPosition::Center);
@@ -620,8 +616,8 @@ impl EditEventDialog {
         // Add some space on all the sides
         dialog_grid.set_margin_top(10);
         dialog_grid.set_margin_bottom(10);
-        dialog_grid.set_margin_left(10);
-        dialog_grid.set_margin_right(10);
+        dialog_grid.set_margin_start(10);
+        dialog_grid.set_margin_end(10);
 
         // Add the primary grid to the dialog
         let content = dialog.get_content_area();
@@ -678,8 +674,7 @@ impl EditEventDialog {
         dialog.connect_response(clone!(system_send, edit_overview, edit_new_scene, edit_modify_status, edit_trigger_events, edit_save_data, edit_grouped_event => move |modal, id| {
 
             // Check to see if the event edit was confirmed
-            let response: i32 = gtk::ResponseType::Ok.into();
-            if id == response {
+            if id == gtk::ResponseType::Ok {
 
                 // Process the information for the event overview
                 let (event_pair, detail_type) = edit_overview.pack_pair();
@@ -1305,11 +1300,11 @@ impl EditOverview {
         let event_id = ItemId::new_unchecked(self.id_spin.get_value() as u32);
 
         // Create the new item description
-        let tmp_desc = self.description.get_text().unwrap_or(String::new());
+        let tmp_desc = self.description.get_text().unwrap_or(String::new().into());
         let tmp_disp_id = self
             .display_type
             .get_active_id()
-            .unwrap_or(String::from("hidden"));
+            .unwrap_or(String::from("hidden").into());
         let tmp_disp = match tmp_disp_id.as_str() {
             // For the displaycontrol type
             "displaycontrol" => {
@@ -1511,7 +1506,9 @@ impl EditOverview {
             ItemPair::from_item(event_id, event_description),
             self.detail_selection
                 .get_active_id()
-                .unwrap_or(String::from("scene")),
+                .unwrap_or(String::from("scene").into()).into(),
+                // TODO: Conversion to and then from GString won't be necessary
+                // once GStrings are implemented properly.
         )
     }
 }
@@ -1691,7 +1688,8 @@ impl EditTriggerEvents {
         }));
 
         // Create the scrollable window for the list
-        let event_window = gtk::ScrolledWindow::new(None, None);
+        let event_window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
+        // FIXME Broken implementation of ScrolledWindow::new()
         event_window.add(&trigger_event_list);
         event_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
@@ -1916,7 +1914,8 @@ impl EditSaveData {
         }));
 
         // Create the scrollable window for the list
-        let data_window = gtk::ScrolledWindow::new(None, None);
+        let data_window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
+        // FIXME Broken implementation of ScrolledWindow::new()
         data_window.add(&save_data_list);
         data_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
@@ -2082,7 +2081,8 @@ impl EditGroupedEvent {
         }));
 
         // Create the scrollable window for the list
-        let group_window = gtk::ScrolledWindow::new(None, None);
+        let group_window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
+        // FIXME Broken implementation of ScrolledWindow::new()
         group_window.add(&grouped_event_list);
         group_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
