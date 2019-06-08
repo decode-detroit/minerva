@@ -39,7 +39,7 @@ use super::GeneralUpdate;
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 // Import the failure features
 use failure::Error;
@@ -74,7 +74,7 @@ pub enum ConnectionType {
         recv_path: PathBuf, // the location to connect the ZMQ receiver
     },
 
-    /// A variant to connect with a DMX serial port. The connection type allows
+    /// A variant to connect with a DMX serial port. This connection type allows
     /// messages to be the sent only.
     DmxSerial {
         path: PathBuf, // the location of the serial port
@@ -234,7 +234,7 @@ impl SystemConnection {
         connections: Option<(ConnectionSet, ItemId)>,
     ) -> SystemConnection {
         // Create an empty system connection
-        let mut system_connection =  SystemConnection {
+        let mut system_connection = SystemConnection {
             general_update,
             connection_send: None,
         };
@@ -317,6 +317,9 @@ impl SystemConnection {
     ) {
         // Run the loop until there is an error or instructed to quit
         loop {
+            // Save the start time of the loop
+            let loop_start = Instant::now();
+            
             // If there are no connections, wait a little bit each loop
             if connections.len() == 0 {
                 thread::sleep(Duration::from_millis(POLLING_RATE));
@@ -386,6 +389,11 @@ impl SystemConnection {
 
                 // Otherwise continue
                 _ => (),
+            }
+        
+            // Make sure that some time elapses in each loop
+            if Duration::from_millis(POLLING_RATE) < loop_start.elapsed() {
+                    thread::sleep(Duration::from_millis(POLLING_RATE));
             }
         }
     }
