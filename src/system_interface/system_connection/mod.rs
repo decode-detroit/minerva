@@ -393,7 +393,7 @@ impl SystemConnection {
         
             // Make sure that some time elapses in each loop
             if Duration::from_millis(POLLING_RATE) < loop_start.elapsed() {
-                    thread::sleep(Duration::from_millis(POLLING_RATE));
+                thread::sleep(Duration::from_millis(POLLING_RATE));
             }
         }
     }

@@ -46,7 +46,7 @@ const UPDATE_NUMBER: usize = 20; // maximum number of updates to display
 #[derive(Clone, Debug)]
 pub struct ControlAbstraction {
     grid: gtk::Grid,               // the grid to hold the underlying elements
-    notification_area: gtk::Label, // the notification area for system notifications
+    notification_area_list: gtk::ListBox, // the notification area list for system notifications
     is_debug_mode: bool, // a flag to indicate whether debug-level notifications should be displayed (not retroctive)
 }
 
@@ -85,15 +85,29 @@ impl ControlAbstraction {
             .set_markup("<span color='#338DD6' size='14000'>System Notifications</span>");
         notification_title.set_halign(gtk::Align::Center);
 
-        // Create the notification area
-        let notification_area = gtk::Label::new(Some("System notifications appear here."));
-        notification_area.set_halign(gtk::Align::Start);
-        notification_area.set_valign(gtk::Align::Start);
+        // Create the notification area list
+        let notification_area_list = gtk::ListBox::new();
+        notification_area_list.set_selection_mode(gtk::SelectionMode::None);
+        
+        // Format the notification area list
+        //notification_area_list.set_property_height_request(400);
+        //notification_area_list.set_hexpand(true);
+        //notification_area_list.set_vexpand(true);
+        //notification_area_list.set_halign(gtk::Align::Start);
+        //notification_area_list.set_valign(gtk::Align::Start);
+
+        // Create the scrollable window for the list
+        let notification_area = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
+        // FIXME Broken implementation of ScrolledWindow::new()
+        notification_area.add(&notification_area_list);
+        notification_area.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+
+        // Format the scrolling window
         notification_area.set_property_height_request(400);
         notification_area.set_hexpand(true);
         notification_area.set_vexpand(true);
-        notification_area.set_halign(gtk::Align::Fill);
-        notification_area.set_valign(gtk::Align::Fill);
+        notification_area.set_halign(gtk::Align::Start);
+        notification_area.set_valign(gtk::Align::Start);
 
         // Add them near the top of the control grid
         grid.attach(&notification_title, 0, 1, 1, 1);
@@ -181,7 +195,7 @@ impl ControlAbstraction {
         // Return the new Control Abstraction
         ControlAbstraction {
             grid,
-            notification_area,
+            notification_area_list,
             is_debug_mode: false,
         }
     }
@@ -225,21 +239,41 @@ impl ControlAbstraction {
                 }
             }
         }
+        
+        // Clear the existing notifications in the list
+        loop {
+            // Iterate through the notifications in the list
+            match self.notification_area_list.get_row_at_index(0) {
+                // Extract each row and the corresponding notification
+                Some(row) => {
+                    // As each row is removed, the next row moves to index zero
+                    self.notification_area_list.remove(&row);
+                }
 
-        // Simply unpack each of the notification lines, the most recent at the top
-        let mut markup = String::new();
+                // Break when there are no more rows
+                None => break,
+            }
+        }
+
+        // Unpack each of the notification lines, the most recent at the top
         for (i, update) in notifications.drain(..).enumerate() {
             // Cap the list at the update number
             if i >= UPDATE_NUMBER {
                 break;
             }
 
-            // Unpack the notification
-            markup = markup + &self.unpack_notification(update);
+            // Unpack the notification and create a label
+            let markup = &self.unpack_notification(update);
+            let notification_label = gtk::Label::new(None);
+            notification_label.set_markup(&markup);
+            
+            // Format and show each label
+            notification_label.set_halign(gtk::Align::Start);
+            notification_label.show();
+            
+            // Add the label to the notification list
+            self.notification_area_list.add(&notification_label);
         }
-
-        // Change the notification area
-        self.notification_area.set_markup(&markup);
     }
 
     /// An internal method to unpack a notification into properly formatted
