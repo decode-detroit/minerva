@@ -546,68 +546,18 @@ impl TimelineAbstraction {
         }
 
         // Draw any events for the timeline
-        let mut placeholders = Vec::new();
         for (_, event) in events.iter_mut() {
             // Try to draw the event
-            if TimelineAbstraction::draw_event(
+            TimelineAbstraction::draw_event(
                 cr,
                 timeline_info.clone(),
                 event,
                 width,
                 &event_locations,
-            ) {
-                cr.set_source_rgb(0.9, 0.9, 0.9); // reset the color, just in case
-
-            // Otherwise, draw a placeholder
-            } else {
-                // Extract the event location
-                let location = event.location;
-
-                // Made sure that this placeholder does not overlap others
-                let label_width = LABEL_ADJUSTMENT as f64 / width;
-                let location_width = location - label_width;
-                let mut found = false;
-                for spot in placeholders.iter() {
-                    // Check to see if this placeholder overlaps
-                    if (location > (*spot - label_width) && location < *spot)
-                        || (location_width > (*spot - label_width) && location_width < *spot)
-                    {
-                        // Note that one was found and quit
-                        found = true;
-                        break;
-                    }
-                }
-
-                // Don't add another placeholder if one was found
-                if !found {
-                    // Note the location of this placeholder
-                    placeholders.push(location);
-
-                    // Draw the vertical line
-                    cr.set_line_width(2.0 / width); // 2 pixels wide
-                    cr.move_to(location, 0.0);
-                    cr.line_to(location, 1.0);
-                    cr.stroke();
-
-                    // Draw the horizonal line
-                    cr.set_line_width(2.0 / 50.0); // 2 pixels wide
-                    cr.move_to(location - (LABEL_ADJUSTMENT / width), 0.0);
-                    cr.line_to(location, 0.0);
-                    cr.stroke();
-
-                    // Write the event text and the remaining time
-                    cr.move_to(location - (LABEL_ADJUSTMENT / width), 0.3);
-                    cr.show_text("Multiple Events");
-
-                    // If there is remaining time and the timeline isn't stale, add that as well
-                    if !info.is_stale {
-                        if let Some((min, sec)) = event.remaining() {
-                            cr.move_to(location - (LABEL_ADJUSTMENT / width), 0.6);
-                            cr.show_text(format!(" In {:02}:{:02}", min, sec).as_str());
-                        }
-                    }
-                }
-            }
+            );
+            
+            // Reset the color after the event
+            cr.set_source_rgb(0.9, 0.9, 0.9);
         }
 
         // If the timeline is not stale
@@ -638,8 +588,8 @@ impl TimelineAbstraction {
 
     /// A function to draw a new event on the timeline.
     ///
-    /// If the event overlaps with another event, this function does not draw
-    /// the event and returns false. Otherwise, it returns true.
+    /// If the event overlaps with another event, this function draws a simple
+    /// line rather than the full event detail.
     ///
     fn draw_event(
         cr: &cairo::Context,
@@ -647,21 +597,9 @@ impl TimelineAbstraction {
         event: &mut TimelineEvent,
         width: f64,
         event_locations: &Vec<f64>,
-    ) -> bool {
+    ) {
         // Extract the event location
         let location = event.location;
-
-        // Make sure that the event doesn't overlap other events
-        let label_width = LABEL_ADJUSTMENT as f64 / width;
-        let location_width = location - label_width;
-        for spot in event_locations.iter() {
-            // If the location is within the spot label range
-            if (location > (*spot - label_width) && location < *spot)
-                || (location_width > (*spot - label_width) && location_width < *spot)
-            {
-                return false; // indicate an overlap
-            }
-        }
 
         // Try to get a mutable copy of timeline info
         let info = match timeline_info.try_borrow() {
@@ -830,6 +768,18 @@ impl TimelineAbstraction {
         cr.line_to(location, 1.0);
         cr.stroke();
 
+        // Make sure that the event doesn't overlap other events
+        let label_width = LABEL_ADJUSTMENT as f64 / width;
+        let location_width = location - label_width;
+        for spot in event_locations.iter() {
+            // If the location is within the spot label range
+            if (location > (*spot - label_width) && location < *spot)
+                || (location_width > (*spot - label_width) && location_width < *spot)
+            {
+                return; // Return early
+            }
+        }
+
         // If the text should be visible
         if text_visible {
             // Draw the horizonal line
@@ -857,9 +807,6 @@ impl TimelineAbstraction {
                 }
             }
         }
-
-        // Indicate success
-        true
     }
 }
 

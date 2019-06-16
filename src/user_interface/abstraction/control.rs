@@ -289,7 +289,7 @@ impl ControlAbstraction {
 
                 // Combine the message and the time
                 format!(
-                    "{} — <span color='#FF3333'><b>Error: {}</b></span>\n",
+                    "{} — <span color='#FF3333'><b>Error: {}</b></span>",
                     timestr,
                     clean_text(&message, UPDATE_LIMIT, true, true, true)
                 )
@@ -302,7 +302,7 @@ impl ControlAbstraction {
 
                 // Combine the message and the time
                 format!(
-                    "{} — <span color='#FFEE44'>Warning: {}</span>\n",
+                    "{} — <span color='#FFEE44'>Warning: {}</span>",
                     timestr,
                     clean_text(&message, UPDATE_LIMIT, true, true, true)
                 )
@@ -315,7 +315,7 @@ impl ControlAbstraction {
 
                 // Combine the message and the time
                 return format!(
-                    "{} — Event: <span color='#338DD6'>{}</span>\n",
+                    "{} — Event: <span color='#338DD6'>{}</span>",
                     timestr,
                     clean_text(&message, UPDATE_LIMIT, true, true, true)
                 );
@@ -328,7 +328,7 @@ impl ControlAbstraction {
 
                 // Combine the message and the time
                 format!(
-                    "{} — {}\n",
+                    "{} — {}",
                     timestr,
                     clean_text(&message, UPDATE_LIMIT, true, true, true)
                 )
