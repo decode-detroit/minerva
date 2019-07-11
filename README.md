@@ -25,6 +25,23 @@ To take advantage of all Minerva's features, you'll need ZMQ bindings and a Redi
 
 Installation instructions for these are below in "Installing Extras". If you're just looking to experiment, you can safely get by without these features. :)
 
+
+### Issues Install
+If you run into issues with glib-2.0 or gdk-3.0 run these commands
+
+glib2.0 issue: 
+
+```
+sudo apt install libgtk2.0
+```
+
+gdk-3.0 issue:
+
+```
+sudo apt install build-essential libgtk-3-dev
+```
+
+
 ### Installing
 
 Clone or download this repository. Then compile and run the program using Cargo (included with Rust):
