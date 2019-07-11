@@ -211,22 +211,23 @@ impl InterfaceAbstraction {
         }
     }
 
-    // Methods to update the timeline abstraction
-    //
-    /// A method to update the timebar within the timeline
+    /// A method to update all time-sensitive elements of the interface
     ///
-    pub fn update_timeline(&self) {
-        self.timeline.update();
+    pub fn refresh_all(&self) {
+        
+        // Refresh the timeline
+        self.timeline.refresh();
+        
+        // Refresh the notification area
+        self.control.refresh_notifications();
     }
-    //
+    
     /// A method to update the timeline of coming events
     ///
     pub fn update_events(&mut self, events: Vec<UpcomingEvent>) {
         self.timeline.update_events(events);
     }
 
-    // Methods to update the control abstraction
-    //
     /// A method to update the notifications in the control abstraction
     ///
     pub fn update_notifications(&mut self, notifications: Vec<Notification>) {

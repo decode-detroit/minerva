@@ -229,8 +229,8 @@ impl UserInterface {
             Err(_) => return,
         };
 
-        // Update the timeline
-        interface.update_timeline();
+        // Update the time-sensitive elements of the interface
+        interface.refresh_all();
 
         // Look for any updates and act upon them
         loop {

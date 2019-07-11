@@ -479,7 +479,7 @@ impl TimelineAbstraction {
 
     /// A method to trigger a redraw of the timeline
     ///
-    pub fn update(&self) {
+    pub fn refresh(&self) {
         self.timeline_area.queue_draw();
     }
 

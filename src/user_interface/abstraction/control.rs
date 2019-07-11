@@ -212,6 +212,12 @@ impl ControlAbstraction {
     pub fn debug_notifications(&mut self, debug: bool) {
         self.is_debug_mode = debug;
     }
+    
+    /// A method to refresh the notification area to allow for highlighted events
+    ///
+    pub fn refresh_notifications(&self) {
+        // FIXME: This currently does nothing
+    }
 
     /// A method to update the notification area with system notifications
     ///
