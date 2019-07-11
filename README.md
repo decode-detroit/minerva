@@ -26,8 +26,8 @@ To take advantage of all Minerva's features, you'll need ZMQ bindings and a Redi
 Installation instructions for these are below in "Installing Extras". If you're just looking to experiment, you can safely get by without these features. :)
 
 
-### Issues Install
-If you run into issues with glib-2.0 or gdk-3.0 run these commands
+### Issues Installing
+If you run into issues with glib-2.0 or gdk-3.0, you can run these commands on a Debian-like system:
 
 glib2.0 issue: 
 
@@ -73,6 +73,10 @@ apt install libzmq3-dev
 Currently, rust-zmq requires ZeroMQ 4.1. If your OS of choice does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
 
 The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
+
+### Make It Pretty!
+
+GTK can be easily re-themed. We recommend the Materia Dark theme for Minerva which will automatically load if you install the Materia theme package (See here: https://github.com/nana-4/materia-theme). On GNU/Linux system, simply install the materia-gtk-theme package.
 
 ## Contributing
 
