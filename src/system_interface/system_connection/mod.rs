@@ -320,11 +320,6 @@ impl SystemConnection {
             // Save the start time of the loop
             let loop_start = Instant::now();
             
-            // If there are no connections, wait a little bit each loop
-            if connections.len() == 0 {
-                thread::sleep(Duration::from_millis(POLLING_RATE));
-            }
-            
             // Read all events from the system connections
             let mut events = Vec::new();
             for connection in connections.iter_mut() {
@@ -392,7 +387,7 @@ impl SystemConnection {
             }
         
             // Make sure that some time elapses in each loop
-            if Duration::from_millis(POLLING_RATE) < loop_start.elapsed() {
+            if Duration::from_millis(POLLING_RATE) > loop_start.elapsed() {
                 thread::sleep(Duration::from_millis(POLLING_RATE));
             }
         }

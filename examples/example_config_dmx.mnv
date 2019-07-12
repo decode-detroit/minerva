@@ -4,9 +4,36 @@ version: "0.6.3"
 identifier:
   id: 5
 server_location: ~
-system_connection: []
+system_connection:
+  - DmxSerial:
+      path: "/dev/ttyUSB0"
+      dmx_map:
+        ? id: 7
+        : channel: 1
+          value: 255
+          duration:
+            secs: 4
+            nanos: 0
+        ? id: 8
+        : channel: 1
+          value: 0
+          duration:
+            secs: 1
+            nanos: 0
+        ? id: 10
+        : channel: 1
+          value: 255
+          duration:
+            secs: 1
+            nanos: 0
+        ? id: 11
+        : channel: 1
+          value: 100
+          duration:
+            secs: 0
+            nanos: 200000000
 default_scene:
-  id: 100
+  id: 200
 
 # Scope Definitions
 all_scenes:
@@ -26,6 +53,9 @@ all_scenes:
     - id: 7
     - id: 8
     - id: 9
+    - id: 10
+    - id: 11
+    - id: 12
 
 
 # Status Map
@@ -112,20 +142,106 @@ event_set:
   : TriggerEvents:
       events: []
   ? id: 7
-    description: Placeholder
-    display: Hidden
+    description: Fade Up
+    display:
+      DisplayWith:
+        group_id:
+          id: 30
+        priority: ~
+        color: ~
+        highlight: ~
   : TriggerEvents:
       events: []
   ? id: 8
-    description: Placeholder
-    display: Hidden
+    description: Fade Down
+    display:
+      DisplayWith:
+        group_id:
+          id: 30
+        priority: ~
+        color: ~
+        highlight: ~
   : TriggerEvents:
       events: []
   ? id: 9
-    description: Placeholder
+    description: Fade Up And Down Three Times
+    display:
+      DisplayWith:
+        group_id:
+          id: 30
+        priority: ~
+        color: [115, 210, 22]
+        highlight: ~
+  : TriggerEvents:
+      events:
+        - delay: ~
+          event_id:
+            id: 7
+        - delay:
+            secs: 5
+            nanos: 0
+          event_id:
+            id: 8
+        - delay:
+            secs: 10
+            nanos: 0
+          event_id:
+            id: 7
+        - delay:
+            secs: 15
+            nanos: 0
+          event_id:
+            id: 8
+        - delay:
+            secs: 20
+            nanos: 0
+          event_id:
+            id: 7
+        - delay:
+            secs: 25
+            nanos: 0
+          event_id:
+            id: 8
+  ? id: 10
+    description: Quick Fade Up
     display: Hidden
   : TriggerEvents:
       events: []
+  ? id: 11
+    description: Quick Fade Down
+    display: Hidden
+  : TriggerEvents:
+      events: []
+  ? id: 12
+    description: Lights Shudder
+    display:
+      DisplayWith:
+        group_id:
+          id: 30
+        priority: ~
+        color: [115, 210, 22]
+        highlight: ~
+  : TriggerEvents:
+      events:
+        - delay: ~
+          event_id:
+            id: 11
+        - delay:
+            secs: 0
+            nanos: 300000000
+          event_id:
+            id: 10
+        - delay:
+            secs: 0
+            nanos: 700000000
+          event_id:
+            id: 11
+        - delay:
+            secs: 1
+            nanos: 200000000
+          event_id:
+            id: 10
+        
   ? id: 20
     description: Event Status
     display: Hidden
@@ -136,6 +252,10 @@ event_set:
   : ~
   ? id: 22
     description: Doing Nothing
+    display: Hidden
+  : ~
+  ? id: 30
+    description: Lighting Controls
     display: Hidden
   : ~
   ? id: 100

@@ -49,7 +49,7 @@ const DMX_MAX: u32 = 512; // the highest channel of DMX, exclusive
 const COMMAND_START: u8 = 0x7E as u8; // the start of the command
 const MESSAGE_LABEL: u8 = 0x06 as u8; // the message type label
 const DATA_LSB: u8 = 0x01 as u8; // the data least significant bit
-const DATA_MSB: u8 = 0x02 as u8; // the data most significant bit FIXME check this
+const DATA_MSB: u8 = 0x02 as u8; // the data most significant bit
 const DMX_START_CODE: u8 = 0x00 as u8; // the DMX start code
 const COMMAND_END: u8 = 0xE7 as u8; // the end of the command
 
@@ -186,7 +186,7 @@ impl DmxChange {
         // Compose and return the new dmx change
         DmxChange {
             start_time: Instant::now(),
-            difference: end_value as f64 - start_value as f64,
+            difference: start_value as f64 - end_value as f64,
             end_value,
             duration,
         }
@@ -245,7 +245,7 @@ impl DmxQueue {
     }
 
     /// An internal function to run the queue in an infinite loop. This function
-    /// should be launched a new background thread for the queue.
+    /// should be launched as a new background thread for the queue.
     ///
     fn run_loop(&mut self) {
         // Run the background process indefinitely
@@ -254,7 +254,7 @@ impl DmxQueue {
             if !self.dmx_changes.is_empty() {
                 // Update the current status for every fade
                 // TODO: This could perhaps be more efficient with retain()
-                let mut new_changes = self.dmx_changes.clone();
+                let mut new_changes = FnvHashMap::default();
                 for (channel, change) in self.dmx_changes.iter() {
                     // Check to see if the fade is complete
                     match change.current_fade() {
@@ -309,7 +309,7 @@ impl DmxQueue {
         
         // Correct the channel range (convert to zero-indexed, rather than
         // the one-indexed standard of dmx
-        let channel = dmx_fade.channel;
+        let channel = dmx_fade.channel - 1;
         
         // Check whether there is a fade specified
         match dmx_fade.duration {
