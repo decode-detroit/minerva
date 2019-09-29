@@ -34,7 +34,7 @@ use self::special_windows::{
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventDetail, EventWindow, FullStatus, StatusDescription, ItemPair,
+    EventDetail, EventWindow, FullStatus, StatusDescription, ItemId, ItemPair,
     Notification, SystemSend, UpcomingEvent, Hidden,
 };
 use super::utils::clean_text;
@@ -115,7 +115,7 @@ impl InterfaceAbstraction {
         primary_grid.attach(timeline.get_top_element(), 0, 0, 3, 1);
 
         // Create the control abstraction and add it to the primary grid
-        let control = ControlAbstraction::new(system_send);
+        let control = ControlAbstraction::new(system_send, window);
         primary_grid.attach(control.get_top_element(), 0, 3, 1, 1);
 
         // Create a horizontal and vertical separator
@@ -339,7 +339,7 @@ impl InterfaceAbstraction {
         self.trigger_dialog.launch(window, &self.system_send);
     }
 
-    /// A method to launch the information window
+    /// A method to launch the information window FIXME replace with in-window context
     ///
     pub fn launch_info(&self, item_information: &ItemPair) {
         self.info_dialog.launch(item_information);

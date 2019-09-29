@@ -33,6 +33,7 @@ use self::menu::MenuAbstraction;
 use super::system_interface::{
     DebugMode, Description, DetailToModify, EditMode, InterfaceUpdate, Notify, SystemSend,
     SystemUpdate, UpdateConfig, UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow,
+    ItemId,
 };
 
 // Import standard library features
@@ -203,7 +204,7 @@ impl UserInterface {
         }
     }
 
-    /// A method to laundh the new event dialog to edit event details
+    /// A method to launch the new event dialog to edit event details
     /// Only available in edit mode.
     ///
     pub fn launch_new_event_dialog(&self) {

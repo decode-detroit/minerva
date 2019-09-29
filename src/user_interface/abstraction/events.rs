@@ -366,7 +366,7 @@ impl EventGroupAbstraction {
             button.connect_clicked(clone!(system_send => move |_| {
 
                 // Send the event trigger to the underlying system
-                system_send.send(TriggerEvent { event: event.get_id()});
+                system_send.send(TriggerEvent { event: event.get_id(), checkscene: false });
             }));
 
             // Add the priority and button to the list

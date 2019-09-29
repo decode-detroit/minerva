@@ -29,7 +29,7 @@ mod comedy_comm;
 
 // Import the relevant structures into the correct namespace
 use self::zmq_comm::{ZmqBind, ZmqConnect};
-use self::dmx_comm::{DmxComm, DmxMap};
+use self::dmx_comm::{DmxComm, DmxFade, DmxMap};
 use self::comedy_comm::ComedyComm;
 use super::event_handler::event::EventUpdate;
 use super::event_handler::item::{ItemId, COMM_ERROR, READ_ERROR};
@@ -78,7 +78,8 @@ pub enum ConnectionType {
     /// messages to be the sent only.
     DmxSerial {
         path: PathBuf, // the location of the serial port
-        dmx_map: DmxMap, // the map of event ids to dmx animations
+        all_stop_dmx: Vec<DmxFade>, // a vector of dmx fades for all stop
+        dmx_map: DmxMap, // the map of event ids to dmx fades
     },
 }
 
@@ -113,9 +114,9 @@ impl ConnectionType {
             }
             
             // Connect to a live version of the DMX serial port
-            &ConnectionType::DmxSerial { ref path, ref dmx_map } => {
+            &ConnectionType::DmxSerial { ref path, ref all_stop_dmx, ref dmx_map } => {
                 // Create the new dmx connection
-                let connection = DmxComm::new(path, dmx_map.clone())?;
+                let connection = DmxComm::new(path, all_stop_dmx.clone(), dmx_map.clone())?;
                 Ok(LiveConnection::DmxSerial { connection })
             }
         }
@@ -330,18 +331,11 @@ impl SystemConnection {
             for (id, game_id, data2) in events.drain(..) {
                 // If there was a read error, notify the system
                 if id == ItemId::new_unchecked(READ_ERROR) {
-                    gen_update.send_update(EventUpdate::Error(String::from(
-                        "There Was A Read Error."
-                    )));
-
-                    // Wait the normal polling rate (to prevent eating the processor)
-                    thread::sleep(Duration::from_millis(POLLING_RATE));
+                    update!(err &gen_update => "There Was A Read Error.");
 
                 // If there was a communication error on the network, notify the system
                 } else if id == ItemId::new_unchecked(COMM_ERROR) {
-                    gen_update.send_update(EventUpdate::Error(String::from(
-                        "There Was A Communication Error."
-                    )));
+                    update!(err &gen_update => "There Was A Communication Error.");
 
                 // Echo all valid events back to the system
                 } else {
@@ -354,6 +348,10 @@ impl SystemConnection {
                     if identifier.id() == game_id {
                         // Create a new id and send it to the program
                         gen_update.send_nobroadcast(id);
+                    
+                    // Otherwise send a notification of an incorrect game number
+                    } else {
+                        update!(warnevent &gen_update => id => "Game Id Does Not Match. Event Ignored.");
                     }
                 }
             }
@@ -370,9 +368,7 @@ impl SystemConnection {
                             thread::sleep(Duration::from_millis(POLLING_RATE));
                             if let Err(_) = connection.write_event(id, identifier.id(), 0) {
                                 // If failed twice in a row, notify the system
-                                gen_update.send_update(EventUpdate::Error(String::from(
-                                    "Unable To Contact The Underlying System.",
-                                )));
+                                update!(err &gen_update => "Unable To Contact The Underlying System.");
                             }
                         }
                     }

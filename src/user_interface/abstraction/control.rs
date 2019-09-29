@@ -22,7 +22,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, Current, Error, Notification, SystemSend, Update, Warning,
+    AllStop, Current, Error, Notification, GetDescription, TriggerEvent, SystemSend, Update, Warning, ItemId
 };
 use super::super::utils::clean_text;
 
@@ -38,6 +38,104 @@ extern crate time;
 const UPDATE_LIMIT: usize = 40; // maximum character width of updates
 const UPDATE_NUMBER: usize = 20; // maximum number of updates to display
 
+/// A structure to contain the dialog for triggering a custom event. A near
+/// of the special windows trigger dialog, copied here for convenience
+///
+#[derive(Clone, Debug)]
+struct TriggerDialog {
+    window: gtk::ApplicationWindow,
+    system_send: SystemSend,
+}
+
+// Implement key features for the trigger dialog
+impl TriggerDialog {
+    /// A function to create a new trigger dialog structure.
+    ///
+    pub fn new(window: &gtk::ApplicationWindow, system_send: &SystemSend) -> TriggerDialog {
+        TriggerDialog { window: window.clone(), system_send: system_send.clone() }
+    }
+
+    /// A method to launch the new edit dialog
+    ///
+    pub fn launch(&self, event_id: Option<ItemId>) {
+        // Create the new dialog
+        let dialog = gtk::Dialog::new_with_buttons(
+            Some("Trigger Custom Event"),
+            Some(&self.window),
+            gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
+            &[
+                ("Cancel", gtk::ResponseType::Cancel),
+                ("Confirm", gtk::ResponseType::Ok),
+            ],
+        );
+        dialog.set_position(gtk::WindowPosition::Center);
+
+        // Access the content area and add the dropdown
+        let content = dialog.get_content_area();
+        let grid = gtk::Grid::new();
+        content.add(&grid);
+
+        // Add the dropdown and label
+        let label = gtk::Label::new(Some(" Warning: Triggering A Custom Event May Cause Undesired Behaviour. "));
+        label.set_halign(gtk::Align::Center);
+        //label.set_hexpand(true);
+        grid.attach(&label, 0, 0, 3, 1);
+        
+        // Description label for the current event FIXME
+        //let description = gtk::Label::new(Some("");
+
+        // Create the event selection
+        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        
+        // If an id was specified, use it
+        if let Some(id) = event_id {
+            event_spin.set_value(id.id() as f64);
+        }
+        
+        // Create the checkbox
+        let event_checkbox = gtk::CheckButton::new_with_label("Check Scene");
+        let event_lookup =
+            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        let send_clone = self.system_send.clone();
+        event_lookup.connect_clicked(clone!(event_spin => move |_| {
+            send_clone.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
+        }));
+        grid.attach(&event_spin, 0, 1, 1, 1);
+        grid.attach(&event_checkbox, 1, 1, 1, 1);
+        grid.attach(&event_lookup, 2, 1, 1, 1);
+
+        // Add some space between the rows and columns
+        grid.set_column_spacing(20);
+        grid.set_row_spacing(30);
+
+        // Add some space on all the sides
+        grid.set_margin_top(10);
+        grid.set_margin_bottom(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
+        //grid.set_hexpand(true);
+        grid.set_halign(gtk::Align::Center);
+
+        // Connect the close event for when the dialog is complete
+        let send_clone = self.system_send.clone();
+        dialog.connect_response(clone!(event_spin, event_checkbox => move |modal, id| {
+
+            // Notify the system of the event change
+            if id == gtk::ResponseType::Ok {
+
+                // Send the selected event to the system
+                send_clone.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), checkscene: event_checkbox.get_active()});
+            }
+
+            // Close the window either way
+            modal.destroy();
+        }));
+
+        // Show the dialog and return
+        dialog.show_all();
+    }
+}
+
 /// A structure to hold the control grid elements in the default interface.
 ///
 /// This structure allows easier modification of the gtk control grid elements
@@ -48,6 +146,7 @@ pub struct ControlAbstraction {
     grid: gtk::Grid,               // the grid to hold the underlying elements
     notification_area_list: gtk::ListBox, // the notification area list for system notifications
     is_debug_mode: bool, // a flag to indicate whether debug-level notifications should be displayed (not retroctive)
+    trigger_dialog: TriggerDialog, // a struct to conveniently launch a trigger dialog
 }
 
 // Implement key features for the Control Abstraction
@@ -56,7 +155,7 @@ impl ControlAbstraction {
     /// function loads all the default widgets into the interface and returns
     /// a new copy to allow insertion into higher-level elements.
     ///
-    pub fn new(system_send: &SystemSend) -> ControlAbstraction {
+    pub fn new(system_send: &SystemSend, window: &gtk::ApplicationWindow) -> ControlAbstraction {
         // Create the control grid for holding all the universal controls
         let grid = gtk::Grid::new();
 
@@ -89,7 +188,7 @@ impl ControlAbstraction {
         let notification_area_list = gtk::ListBox::new();
         notification_area_list.set_selection_mode(gtk::SelectionMode::None);
         
-        // Format the notification area list
+        // Format the notification area list FIXME
         //notification_area_list.set_property_height_request(400);
         //notification_area_list.set_hexpand(true);
         //notification_area_list.set_vexpand(true);
@@ -191,12 +290,16 @@ impl ControlAbstraction {
 
         // Add the all stop stack at the bottom of the control grid
         grid.attach(&stop_stack, 0, 4, 1, 1);
+        
+        // Create the trigger dialog window
+        let trigger_dialog = TriggerDialog::new(window, system_send);
 
         // Return the new Control Abstraction
         ControlAbstraction {
             grid,
             notification_area_list,
             is_debug_mode: false,
+            trigger_dialog,
         }
     }
 
@@ -269,7 +372,7 @@ impl ControlAbstraction {
             }
 
             // Unpack the notification and create a label
-            let markup = &self.unpack_notification(update);
+            let (markup, button_opt) = &self.unpack_notification(update);
             let notification_label = gtk::Label::new(None);
             notification_label.set_markup(&markup);
             
@@ -277,41 +380,118 @@ impl ControlAbstraction {
             notification_label.set_halign(gtk::Align::Start);
             notification_label.show();
             
-            // Add the label to the notification list
-            self.notification_area_list.add(&notification_label);
+            // Check to see if there is a button
+            match button_opt {
+            
+                // If so, add the button and the label
+                Some(button) => {
+                    
+                    // Create a new grid
+                    let grid = gtk::Grid::new();
+                    
+                    // Set the features of the grid
+                    grid.set_column_homogeneous(false); // set the row and column heterogeneous
+                    grid.set_row_homogeneous(false);
+                    grid.set_column_spacing(5); // add some space between the columns
+
+                    // Format the whole grid
+                    grid.set_hexpand(true);
+                    grid.set_vexpand(false);
+                    
+                    // Add the two items to the grid
+                    grid.attach(&notification_label, 0, 0, 1, 1);
+                    grid.attach(button, 0, 1, 1, 1);
+                    
+                    // Show the grid components
+                    grid.show_all();
+                    
+                    // Add it to the notification list
+                    self.notification_area_list.add(&grid);
+                }
+                
+                // If not, just add the label
+                None => {
+                    self.notification_area_list.add(&notification_label);
+                }
+            }
         }
     }
 
     /// An internal method to unpack a notification into properly formatted
-    /// Pango markup that highlights warnings and errors.
+    /// Pango markup that highlights warnings and errors. The function will
+    /// return a button if it should accompany the notification.
     ///
-    fn unpack_notification(&self, notification: Notification) -> String {
+    fn unpack_notification(&self, notification: Notification) -> (String, Option<gtk::Button>) {
         // Unpack the notification based on its variant
         match notification {
             // Highlight the error variant in bold with red
-            Error { message, time } => {
+            Error { message, time, event_id } => {
                 // Format the time appropriately
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
-
-                // Combine the message and the time
-                format!(
-                    "{} — <span color='#FF3333'><b>Error: {}</b></span>",
-                    timestr,
-                    clean_text(&message, UPDATE_LIMIT, true, true, true)
-                )
+                
+                // Extract the id, if specified
+                match event_id {
+                    // If there's an id, include it in the message
+                    Some(id) => {
+                        // Combine the message and the time
+                        (format!(
+                            "{} — <span color='#FF3333'><b>Error: {} ({})</b></span>",
+                            timestr,
+                            clean_text(&message, UPDATE_LIMIT, true, true, true),
+                            id
+                        ), None)
+                    },
+                    
+                    // Otherwise, just include the message
+                    None => {
+                        // Combine the message and the time
+                        (format!(
+                            "{} — <span color='#FF3333'><b>Error: {}</b></span>",
+                            timestr,
+                            clean_text(&message, UPDATE_LIMIT, true, true, true)
+                        ), None)
+                    },
+                }
             }
 
             // Highlight the warning variant with yellow
-            Warning { message, time } => {
+            Warning { message, time, event_id } => {
                 // Format the time appropriately
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
 
+                // Assemble a button if there should be one
+                let button_opt = match event_id {
+                    // If an event was specified, create a launch info button
+                    Some(event_id) => {
+                        // Create a label for the button
+                        let tmp_label = gtk::Label::new(None);
+                        tmp_label.set_markup("<span size='10000'>Trigger The Event Anyway</span>");
+                    
+                        // Create a button to open the trigger dialog
+                        let new_button = gtk::Button::new();
+                        new_button.add(&tmp_label);
+                        new_button.set_hexpand(false);
+                        new_button.set_vexpand(false);
+
+                        // Connect the confirmation reveal
+                        let trigger_clone = self.trigger_dialog.clone();
+                        new_button.connect_clicked(move |_| {
+                            trigger_clone.launch(Some(event_id))
+                        });
+                        
+                        // Return the new button
+                        Some(new_button)
+                    },
+                    
+                    None => None,
+                };
+
                 // Combine the message and the time
-                format!(
+                (format!(
                     "{} — <span color='#FFEE44'>Warning: {}</span>",
                     timestr,
                     clean_text(&message, UPDATE_LIMIT, true, true, true)
-                )
+                ), button_opt)
             }
 
             // Add a prefix to the current variant and highlight with blue
@@ -320,11 +500,11 @@ impl ControlAbstraction {
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
 
                 // Combine the message and the time
-                return format!(
+                (format!(
                     "{} — Event: <span color='#338DD6'>{}</span>",
                     timestr,
                     clean_text(&message, UPDATE_LIMIT, true, true, true)
-                );
+                ), None)
             }
 
             // Leave the other update unformatted
@@ -333,11 +513,11 @@ impl ControlAbstraction {
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
 
                 // Combine the message and the time
-                format!(
+                (format!(
                     "{} — {}",
                     timestr,
                     clean_text(&message, UPDATE_LIMIT, true, true, true)
-                )
+                ), None)
             }
         }
     }

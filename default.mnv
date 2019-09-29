@@ -2,7 +2,7 @@
 # Constants for the Configuration
 version: "0.6.2"
 identifier:
-  id: 5
+  id: 0
 server_location: ~
 system_connection: []
 default_scene:

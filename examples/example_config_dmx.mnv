@@ -9,14 +9,14 @@ system_connection:
       path: "/dev/ttyUSB0"
       dmx_map:
         ? id: 7
-        : channel: 1
+        : channel: 5
           value: 255
           duration:
             secs: 4
             nanos: 0
         ? id: 8
-        : channel: 1
-          value: 0
+        : channel: 5
+          value: 100
           duration:
             secs: 1
             nanos: 0

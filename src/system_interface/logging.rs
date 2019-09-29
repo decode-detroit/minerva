@@ -23,7 +23,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::event_handler::event::EventUpdate;
-use super::{GeneralUpdate, InterfaceUpdate, UpdateStatus};
+use super::{GeneralUpdate, InterfaceUpdate, UpdateStatus, ItemId};
 
 // Import standard library modules
 use std::fmt;
@@ -49,10 +49,10 @@ extern crate time;
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Notification {
     /// An error type of notification
-    Error { message: String, time: time::Tm },
+    Error { message: String, time: time::Tm, event_id: Option<ItemId> },
 
     /// A warning type of notification
-    Warning { message: String, time: time::Tm },
+    Warning { message: String, time: time::Tm, event_id: Option<ItemId> },
 
     /// A current event type of notification
     Current { message: String, time: time::Tm },
@@ -100,7 +100,7 @@ impl fmt::Display for Notification {
             // For every variant type, combine the message and notification time
             &Error {
                 ref message,
-                ref time,
+                ref time, ..
             } => write!(
                 f,
                 "{}: {}",
@@ -109,7 +109,7 @@ impl fmt::Display for Notification {
             ),
             &Warning {
                 ref message,
-                ref time,
+                ref time, ..
             } => write!(
                 f,
                 "{}: {}",
@@ -254,7 +254,7 @@ impl Logger {
     /// from this method are the newest notifications as well as notifications
     /// from the last minute of operation.
     ///
-    pub fn update(&mut self, update: EventUpdate) -> Vec<Notification> {
+    pub fn update(&mut self, update: EventUpdate) -> Vec<Notification>  {
         // Unpack the new update into a notification
         let mut notifications = vec![self.unpack_update(update)];
 
@@ -284,7 +284,7 @@ impl Logger {
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
-            EventUpdate::Error(error) => {
+            EventUpdate::Error(error, event_id) => {
                 // Note the current time
                 let now = time::now();
 
@@ -309,13 +309,15 @@ impl Logger {
                 Error {
                     message: error,
                     time: now,
+                    event_id,
                 }
             }
 
-            // Simply display errors and updates
-            EventUpdate::Warning(warning) => Warning {
+            // Simply display warnings and updates
+            EventUpdate::Warning(warning, event_id) => Warning {
                 message: warning,
                 time: time::now(),
+                event_id,
             },
             EventUpdate::Update(update) => Update {
                 message: update,

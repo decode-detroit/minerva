@@ -170,14 +170,14 @@ impl EventHandler {
     ///
     /// This method will not raise any errors. If the module encounters an
     /// inconsistency when trying to process an event, it will raise a warning
-    /// both otherwise continue processing events.
+    /// and otherwise continue processing events.
     ///
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line.
     ///
-    pub fn process_event(&mut self, event_id: &ItemId, broadcast: bool) {
+    pub fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool, ) {
         // Process the event
-        self.retrieve_event(event_id, broadcast);
+        self.retrieve_event(event_id, checkscene, broadcast);
     }
 
     /// A method to clear the existing events in the timed queue.
@@ -245,7 +245,7 @@ impl EventHandler {
     ///
     pub fn get_detail(&mut self, event_id: &ItemId) -> Option<EventDetail> {
         // Try to retrieve the event detail
-        self.config.try_event(event_id)
+        self.config.try_event(event_id, false) // do not check the scene
     }
 
     /// A method to return a copy of the description of the provided id.
@@ -449,13 +449,13 @@ impl EventHandler {
 
     /// An internal function to try retrieve the event details and act upon them.
     ///
-    fn retrieve_event(&mut self, event_id: &ItemId, broadcast: bool) {
+    fn retrieve_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) {
         // Try to retrieve the event details and unpack the event
-        let event_detail = match self.config.try_event(event_id) {
+        let event_detail = match self.config.try_event(event_id, checkscene) {
             // Process a valid event
             Some(event_detail) => event_detail,
 
-            // Ignore an invalid event
+            // Return on failure
             None => return,
         };
 
@@ -518,7 +518,7 @@ impl EventHandler {
                     // Try to find the corresponding event in the event_map
                     match event_map.get(&state) {
                         // Trigger the event if it was found
-                        Some(event_id) => self.retrieve_event(event_id, true),
+                        Some(event_id) => self.retrieve_event(event_id, true, true), // check scene and broadcast
 
                         // Otherwise warn the system the event was not found
                         None => {

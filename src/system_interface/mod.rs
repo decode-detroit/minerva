@@ -151,11 +151,11 @@ impl SystemInterface {
         // Check for any of the updates
         match self.general_receive.recv() {
             // If an event to process was recieved, pass it to the event handler
-            Ok(GeneralUpdateType::Event(event_id)) => {
+            Ok(GeneralUpdateType::Event(event_id, checkscene)) => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Process the event
-                    handler.process_event(&event_id, true);
+                    handler.process_event(&event_id, checkscene, true);
 
                     // Notify the user interface of the event
                     let description = handler.get_description(&event_id);
@@ -165,8 +165,8 @@ impl SystemInterface {
                         })
                         .unwrap_or(());
 
-                    // Wait 10 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 10));
+                    // Wait 20 nanoseconds for the queued events to process
+                    thread::sleep(Duration::new(0, 20));
 
                     // If the upcoming events have changed, send an update
                     if let Some(events) = handler.upcoming_events() {
@@ -174,6 +174,10 @@ impl SystemInterface {
                             .send(UpdateQueue { events })
                             .unwrap_or(());
                     }
+                
+                // Otherwise noity the user that a configuration faild to load
+                } else {
+                    update!(err &self.general_update => "Event Could Not Be Processed. No Active Configuration.");
                 }
             }
 
@@ -182,7 +186,7 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Process the event
-                    handler.process_event(&event_id, false);
+                    handler.process_event(&event_id, true, false); // checkscene, no broadcast
 
                     // Notify the user interface of the event
                     let description = handler.get_description(&event_id);
@@ -206,7 +210,7 @@ impl SystemInterface {
 
             // If an event update was recieved, pass it to the logger
             Ok(GeneralUpdateType::Update(event_update)) => {
-                // Process the update in the logger
+                // Find the most recent notifications
                 let notifications = self.logger.update(event_update);
 
                 // Send a notification update to the system
@@ -466,10 +470,10 @@ impl SystemInterface {
             }
 
             // Pass a triggered event to the event_handler, if it exists
-            TriggerEvent { event } => {
+            TriggerEvent { event, checkscene } => {
                 // Operate normally when not in edit mode
                 if !self.is_edit_mode {
-                    self.general_update.send_event(event);
+                    self.general_update.send_event(event, checkscene);
 
                 // Return the event detail if in edit mode
                 } else {
@@ -630,13 +634,13 @@ impl SystemInterface {
     }
 }
 
-/// A private enum to provide and receive updates from the various internal
+/// An private enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.
 ///
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum GeneralUpdateType {
     /// A variant for the event type
-    Event(ItemId),
+    Event(ItemId, bool),
 
     /// A variant for the no broadcast event type
     NoBroadcastEvent(ItemId),
@@ -676,11 +680,13 @@ impl GeneralUpdate {
         (GeneralUpdate { general_send }, receive)
     }
 
-    /// A method to trigger a new event in the system interface.
+    /// A method to trigger a new event in the system interface. If the
+    /// checkscene flag is not set, the system will not check if the event 
+    /// is in the current scene. 
     ///
-    pub fn send_event(&self, event_id: ItemId) {
+    pub fn send_event(&self, event_id: ItemId, checkscene: bool) {
         self.general_send
-            .send(GeneralUpdateType::Event(event_id))
+            .send(GeneralUpdateType::Event(event_id, checkscene))
             .unwrap_or(());
     }
 
@@ -812,8 +818,10 @@ pub enum SystemUpdate {
     /// A variant to trigger all the queued events to clear
     ClearQueue,
 
-    /// A variant that triggers a new event with the given item id
-    TriggerEvent { event: ItemId },
+    /// A variant that triggers a new event with the given item id. If the
+    /// checkscene flag is no set, the system will not check if the event is
+    /// listed in the current scene.
+    TriggerEvent { event: ItemId, checkscene: bool },
 }
 
 // Reexport the system update type variants

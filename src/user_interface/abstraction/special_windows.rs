@@ -423,7 +423,7 @@ impl TriggerDialog {
         content.add(&grid);
 
         // Add the dropdown and label
-        let label = gtk::Label::new(Some("Warning: Triggering a custom event may not succeedif the event is not in the current scene."));
+        let label = gtk::Label::new(Some(" Warning: Triggering A Custom Event May Cause Undesired Behaviour. "));
         label.set_halign(gtk::Align::Center);
         //label.set_hexpand(true);
         grid.attach(&label, 0, 0, 2, 1);
@@ -457,7 +457,7 @@ impl TriggerDialog {
             if id == gtk::ResponseType::Ok {
 
                 // Send the selected event to the system
-                system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32)});
+                system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), checkscene: false}); // FIXME
             }
 
             // Close the window either way

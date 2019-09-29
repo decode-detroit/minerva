@@ -303,7 +303,7 @@ impl Queue {
                         None => {
                             // Remove the last event from the list and send it if it matches what we expected. Otherwise, do nothing.
                             if let Some(event_now) = coming_events.lock().unwrap().pop_if(&event) {
-                                general_update.send_event(event_now.id());
+                                general_update.send_event(event_now.id(), true); // checkscene
                             }
                         }
 
@@ -322,7 +322,7 @@ impl Queue {
                                     if let Some(event_now) =
                                         coming_events.lock().unwrap().pop_if(&event)
                                     {
-                                        general_update.send_event(event_now.id());
+                                        general_update.send_event(event_now.id(), true); // checkscene
                                     }
                                 }
 
@@ -352,7 +352,7 @@ impl Queue {
             }
 
             // Immediately return any events that have no delay
-            None => self.general_update.send_event(event.id()),
+            None => self.general_update.send_event(event.id(), true), // checkscene
         }
     }
 
@@ -373,7 +373,7 @@ impl Queue {
             
             // Raise an error if the queue has failed
             _ => {
-                self.general_update.send_update(EventUpdate::Error("Internal Failure Of The Event Queue.".to_string()));
+                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
                 None
             }
         }
@@ -408,7 +408,7 @@ impl Queue {
                         
             // Raise an error if the queue has failed
             _ => {
-                self.general_update.send_update(EventUpdate::Error("Internal Failure Of The Event Queue.".to_string()));
+                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
             }
         }
     }
@@ -428,7 +428,7 @@ impl Queue {
                        
             // Raise an error if the queue has failed
             _ => {
-                self.general_update.send_update(EventUpdate::Error("Internal Failure Of The Event Queue.".to_string()));
+                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
             }
         }
     }

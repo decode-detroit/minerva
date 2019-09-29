@@ -77,6 +77,7 @@ pub type DmxMap = FnvHashMap<ItemId, DmxFade>;
 /// A structure to hold and manipulate the connection over serial
 ///
 pub struct DmxComm {
+    all_stop_dmx: Vec<DmxFade>,         // a vector of dmx fades for all stop
     dmx_map: DmxMap,                    // the map of event ids to fade instructions
     load_fade: mpsc::Sender<DmxFade>,   // a line to load the dmx fade into the queue
 }
@@ -85,7 +86,11 @@ pub struct DmxComm {
 impl DmxComm {
     /// A function to create a new instance of the DmxComm
     ///
-    pub fn new(path: &PathBuf, dmx_map: DmxMap) -> Result<DmxComm, Error> {
+    pub fn new(
+        path: &PathBuf,
+        all_stop_dmx: Vec<DmxFade>,
+        dmx_map: DmxMap
+    ) -> Result<DmxComm, Error> {
         // Connect to the underlying serial port
         let mut port = serial::open(path)?;
 
@@ -113,6 +118,7 @@ impl DmxComm {
 
         // Return the new DmxComm instance
         Ok(DmxComm {
+            all_stop_dmx,
             dmx_map,
             load_fade,
         })
@@ -130,8 +136,20 @@ impl EventConnection for DmxComm {
     /// A method to send a new event to the serial connection
     ///
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
+        // Check to see if the event is all stop
+        if id == ItemId::all_stop() {
+            
+            // Run all of the all stop fades, ignoring errors
+            for dmx_fade in self.all_stop_dmx.iter() {
+                // Verify the range of the selected channel
+                if (dmx_fade.channel <= DMX_MAX) & (dmx_fade.channel > 0) {
+                    // Send the fade to the background thread
+                    self.load_fade.send(dmx_fade.clone()).unwrap_or(()) // ignore errors
+                }
+            }
+        
         // Check to see if the event is in the DMX map
-        if let Some(dmx_fade) = self.dmx_map.get(&id) {
+        } else if let Some(dmx_fade) = self.dmx_map.get(&id) {
             
             // Verify the range of the selected channel
             if (dmx_fade.channel > DMX_MAX) | (dmx_fade.channel < 1) {
@@ -328,6 +346,9 @@ impl DmxQueue {
             
             // Otherwise
             None => {
+                // Remove a fade on that channel, if it exists
+                self.dmx_changes.remove(&channel);
+                
                 // Make the change immediately
                 self.status[channel as usize] = dmx_fade.value;
                 self.write_frame();
