@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "0.6.4"
+version = "0.7.2"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Program And Synchronize Your Internet Of Things In One Step."
 license = "GPL-3.0-or-later"
@@ -15,7 +15,6 @@ time = "0.1"
 fnv = "1.0.6"
 serde = {version = "1.0", features = ["derive"]}
 serde_yaml = "0.7"
-gio = "^0"
 gdk = "^0"
 gdk-pixbuf = "^0"
 cairo-rs = "^0"
@@ -25,8 +24,12 @@ byteorder = "1"
 zmq = "0.8"
 
 [dependencies.gtk]
-version = "0.6.0"
+version = "0.7.0"
 features = ["v3_16"]
+
+[dependencies.gio]
+version = ""
+features = ["v2_44"]
 
 [features]
 no_can_limit = []

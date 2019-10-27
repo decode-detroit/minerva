@@ -21,7 +21,7 @@
 //! that events with a longer delay always arrive later than earlier events.
 
 // Import the relevant structures into the correct namespace
-use super::super::{GeneralUpdate, EventUpdate};
+use super::super::{EventUpdate, GeneralUpdate};
 use super::event::EventDelay;
 use super::item::ItemId;
 
@@ -195,6 +195,28 @@ impl ComingEvents {
         None
     }
 
+    /// A method to determine the amount of time remaining before an event 
+    /// is triggered.
+    ///
+    /// # Errors
+    ///
+    /// If the requested event does not exist in the queue, this method will
+    /// return None.
+    ///
+    fn remaining(&self, event_id: &ItemId) -> Option<Duration> {
+        // Look through the list for a matching event
+        for coming in self.list.iter().rev() {
+            // If the event ids match
+            if coming.event_id == *event_id {
+                // Return the corresponding remaining duration
+                return coming.remaining();
+            }
+        }
+        
+        // Otherwise, indicate the event wasn't found
+        None
+    }
+
     /// A method to remove the requested event from the list, change its delay
     /// to the provided Duration, return it to the caller.
     ///
@@ -223,6 +245,31 @@ impl ComingEvents {
 
         // If the event wasn't found, return None
         None
+    }
+    
+    /// A method to remove any events that match the event id from the list.
+    ///
+    /// # Errors
+    ///
+    /// If the requested event id does not exist in the queue, this method will
+    /// fail silently.
+    ///
+    fn cancel(&mut self, event_id: ItemId) {
+        // Look for and remove any events that match the requested id
+        let mut index = 0;
+        while index != self.list.len() {
+            // If the event was found, remove it, and return the provided event
+            if self.list[index].event_id == event_id {
+                // Remove the old event and update the flag
+                self.list.remove(index);
+                self.changed = true;
+                // Do not increment, as the index has now changed by one
+
+            // Otherwise, keep looking
+            } else {
+                index += 1;
+            }
+        }
     }
 }
 
@@ -370,11 +417,42 @@ impl Queue {
         // Return a copy of the events in the queue, when available
         match self.coming_events.lock() {
             Ok(mut events) => events.list_events(),
-            
+
             // Raise an error if the queue has failed
             _ => {
                 update!(err &self.general_update => "Internal Failure Of The Event Queue.");
                 None
+            }
+        }
+    }
+
+    /// A method to check the remaining time until an event is triggered. If
+    /// multiple events with the same id are in the queue, the remaining time
+    /// until the earliest event (the one with the shortest delay) is provided.
+    ///
+    /// # Errors
+    ///
+    /// If the provided event id does not exist in the queue, this method will
+    /// fail silently.
+    ///
+    /// # Note
+    ///
+    /// While unlikely, this function must wait for the background process to
+    /// release the lock on the queue. If the background process hangs, this
+    /// function may hang as well.
+    ///
+    pub fn event_remaining(&self, event_id: &ItemId) -> Option<Duration> {
+        // Open the coming events
+        match self.coming_events.lock() {
+            Ok(events) => {
+                // Try to get the delay of the provided event id
+                return events.remaining(event_id);
+            }
+
+            // Raise an error if the queue has failed
+            _ => {
+                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+                return None;
             }
         }
     }
@@ -405,7 +483,63 @@ impl Queue {
                     self.queue_load.send(event).unwrap_or(());
                 }
             }
-                        
+
+            // Raise an error if the queue has failed
+            _ => {
+                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+            }
+        }
+    }
+
+    /// A method to cancel a specific upcoming event.
+    ///
+    /// # Errors
+    ///
+    /// If the provided event id does not exist in the queue, this method will
+    /// fail silently.
+    ///
+    /// # Note
+    ///
+    /// While unlikely, this function must wait for the background process to
+    /// release the lock on the queue. If the background process hangs, this
+    /// function may hang as well.
+    ///
+    pub fn cancel_event(&self, new_event: ComingEvent) {
+        // Open the coming events
+        match self.coming_events.lock() {
+            Ok(mut events) => {
+                // Try to withdraw the existing event from the queue
+                events.withdraw(new_event); // Queue will automatically detect the change
+            }
+
+            // Raise an error if the queue has failed
+            _ => {
+                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+            }
+        }
+    }
+
+    /// A method to cancel all upcoming instances of an event.
+    ///
+    /// # Errors
+    ///
+    /// If the provided event id does not exist in the queue, this method will
+    /// fail silently.
+    ///
+    /// # Note
+    ///
+    /// While unlikely, this function must wait for the background process to
+    /// release the lock on the queue. If the background process hangs, this
+    /// function may hang as well.
+    ///
+    pub fn cancel_all(&self, event_id: ItemId) {
+        // Open the coming events
+        match self.coming_events.lock() {
+            Ok(mut events) => {
+                // Cancel any matching events in the queue
+                events.cancel(event_id); // Queue will automatically detect the change
+            }
+
             // Raise an error if the queue has failed
             _ => {
                 update!(err &self.general_update => "Internal Failure Of The Event Queue.");
@@ -425,7 +559,7 @@ impl Queue {
         // Open the coming events
         match self.coming_events.lock() {
             Ok(mut events) => events.clear(),
-                       
+
             // Raise an error if the queue has failed
             _ => {
                 update!(err &self.general_update => "Internal Failure Of The Event Queue.");
@@ -438,7 +572,7 @@ impl Queue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // Simple test of running the queue module
     #[test]
     fn run_queue() {
@@ -454,11 +588,26 @@ mod tests {
         let queue = Queue::new(tx);
 
         // Load some events into the queue
-        queue.add_event(EventDelay::new(Some(Duration::from_millis(20)), ItemId::new(20).unwrap()));
-        queue.add_event(EventDelay::new(Some(Duration::from_millis(60)), ItemId::new(60).unwrap()));
-        queue.add_event(EventDelay::new(Some(Duration::from_millis(40)), ItemId::new(40).unwrap()));
-        queue.add_event(EventDelay::new(Some(Duration::from_millis(100)), ItemId::new(100).unwrap()));
-        queue.add_event(EventDelay::new(Some(Duration::from_millis(80)), ItemId::new(80).unwrap()));
+        queue.add_event(EventDelay::new(
+            Some(Duration::from_millis(20)),
+            ItemId::new(20).unwrap(),
+        ));
+        queue.add_event(EventDelay::new(
+            Some(Duration::from_millis(60)),
+            ItemId::new(60).unwrap(),
+        ));
+        queue.add_event(EventDelay::new(
+            Some(Duration::from_millis(40)),
+            ItemId::new(40).unwrap(),
+        ));
+        queue.add_event(EventDelay::new(
+            Some(Duration::from_millis(100)),
+            ItemId::new(100).unwrap(),
+        ));
+        queue.add_event(EventDelay::new(
+            Some(Duration::from_millis(80)),
+            ItemId::new(80).unwrap(),
+        ));
 
         // Create the test vector
         let test = vec![

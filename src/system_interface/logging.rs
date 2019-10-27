@@ -23,7 +23,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::event_handler::event::EventUpdate;
-use super::{GeneralUpdate, InterfaceUpdate, UpdateStatus, ItemId};
+use super::{GeneralUpdate, InterfaceUpdate, ItemId, UpdateStatus};
 
 // Import standard library modules
 use std::fmt;
@@ -49,10 +49,18 @@ extern crate time;
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Notification {
     /// An error type of notification
-    Error { message: String, time: time::Tm, event_id: Option<ItemId> },
+    Error {
+        message: String,
+        time: time::Tm,
+        event_id: Option<ItemId>,
+    },
 
     /// A warning type of notification
-    Warning { message: String, time: time::Tm, event_id: Option<ItemId> },
+    Warning {
+        message: String,
+        time: time::Tm,
+        event_id: Option<ItemId>,
+    },
 
     /// A current event type of notification
     Current { message: String, time: time::Tm },
@@ -100,7 +108,8 @@ impl fmt::Display for Notification {
             // For every variant type, combine the message and notification time
             &Error {
                 ref message,
-                ref time, ..
+                ref time,
+                ..
             } => write!(
                 f,
                 "{}: {}",
@@ -109,7 +118,8 @@ impl fmt::Display for Notification {
             ),
             &Warning {
                 ref message,
-                ref time, ..
+                ref time,
+                ..
             } => write!(
                 f,
                 "{}: {}",
@@ -254,7 +264,7 @@ impl Logger {
     /// from this method are the newest notifications as well as notifications
     /// from the last minute of operation.
     ///
-    pub fn update(&mut self, update: EventUpdate) -> Vec<Notification>  {
+    pub fn update(&mut self, update: EventUpdate) -> Vec<Notification> {
         // Unpack the new update into a notification
         let mut notifications = vec![self.unpack_update(update)];
 
@@ -324,7 +334,7 @@ impl Logger {
                 time: time::now(),
             },
 
-            // Broadcast events, display them, and remove them from the upcoming list
+            // Broadcast events and display them
             EventUpdate::Broadcast(id) => {
                 // Broadcast the event
                 self.general_update.send_broadcast(id.get_id());
@@ -335,8 +345,20 @@ impl Logger {
                     time: time::now(),
                 }
             }
+            
+            // Broadcast events with data and display them
+            EventUpdate::BroadcastData(id, data) => {
+                // Broadcast the event
+                self.general_update.send_broadcast_data(id.get_id(), data);
 
-            // Notify of current events, display them, and remove them from the upcoming list
+                // Send a current update with the item pair
+                Current {
+                    message: format!("{}", id),
+                    time: time::now(),
+                }
+            }
+
+            // Notify of current events and display them
             EventUpdate::Current(id) => {
                 // Send a current update with the item pair
                 Current {
@@ -422,7 +444,7 @@ mod tests {
         let (int_tx, int_rx) = mpsc::channel();
 
         // Create an empty logger instance
-        Logger::new(None, None, 
+        Logger::new(None, None,
 
         // Generate a few messages
         update!(err tx => "Test Error {}", 1);

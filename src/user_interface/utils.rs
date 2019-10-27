@@ -154,4 +154,3 @@ pub fn clean_text(
     }
     final_text
 }
-

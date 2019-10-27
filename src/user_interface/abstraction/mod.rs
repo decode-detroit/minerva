@@ -34,12 +34,13 @@ use self::special_windows::{
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventDetail, EventWindow, FullStatus, StatusDescription, ItemId, ItemPair,
-    Notification, SystemSend, UpcomingEvent, Hidden,
+    EventDetail, EventWindow, FullStatus, Hidden, ItemPair, ItemId, Notification,
+    StatusDescription, SystemSend, UpcomingEvent, InterfaceUpdate,
 };
 use super::utils::clean_text;
 
 // Import standard library features
+use std::sync::mpsc;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -55,6 +56,9 @@ extern crate time;
 
 // Define module constants
 const NOTIFY_LIMIT: usize = 60; // maximum character width of the notifications
+const SMALL_FONT: u32 = 10000; // equivalent to 14pt
+const NORMAL_FONT: u32 = 12000; // equivalent to 12pt
+const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 
 /// A structure to hold all the features of the default interface.
 ///
@@ -64,9 +68,10 @@ const NOTIFY_LIMIT: usize = 60; // maximum character width of the notifications
 #[derive(Clone, Debug)]
 pub struct InterfaceAbstraction {
     system_send: SystemSend, // a copy of system send held in the interface abstraction
+    interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
     primary_grid: gtk::Grid, // the top-level grid that contains the control and event grids
     full_status: Rc<RefCell<FullStatus>>, // user interface storage of the current full status of the system (for use by the event labels and the status dialog)
-    current_window: (ItemPair, EventWindow), // user interface storage of the current event window
+    current_window: (ItemPair, Vec<ItemPair>, EventWindow), // user interface storage of the current event window
     timeline: TimelineAbstraction, // the timeline abstraction that holds the timeline of upcoming events
     control: ControlAbstraction, // the control abstraction that holds the universal system controls
     events: EventAbstraction, // the event abstraction that holds the events selectable in the current scene
@@ -92,6 +97,7 @@ impl InterfaceAbstraction {
     ///
     pub fn new(
         system_send: &SystemSend,
+        interface_send: &mpsc::Sender<InterfaceUpdate>,
         window: &gtk::ApplicationWindow,
         edit_mode: Rc<RefCell<bool>>,
     ) -> InterfaceAbstraction {
@@ -115,7 +121,7 @@ impl InterfaceAbstraction {
         primary_grid.attach(timeline.get_top_element(), 0, 0, 3, 1);
 
         // Create the control abstraction and add it to the primary grid
-        let control = ControlAbstraction::new(system_send, window);
+        let control = ControlAbstraction::new(system_send, interface_send);
         primary_grid.attach(control.get_top_element(), 0, 3, 1, 1);
 
         // Create a horizontal and vertical separator
@@ -132,7 +138,6 @@ impl InterfaceAbstraction {
 
         // Create the status bar and add it to the primary grid
         let notification_bar = gtk::Statusbar::new();
-        notification_bar.set_property_height_request(30);
         notification_bar.set_vexpand(false);
         notification_bar.set_hexpand(true);
         notification_bar.set_halign(gtk::Align::Fill);
@@ -142,34 +147,51 @@ impl InterfaceAbstraction {
         let events = EventAbstraction::new();
         primary_grid.attach(events.get_top_element(), 2, 1, 1, 3);
 
+        // Create the side panel scrolling window
+        let side_scroll = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
+        side_scroll.add(events.get_side_panel());
+        side_scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+
+        // Format the window
+        //left_window.set_hexpand(true);
+        //left_window.set_vexpand(true);
+        //left_window.set_halign(gtk::Align::Fill);
+        //left_window.set_valign(gtk::Align::Fill);
+
         // Add the title and the side panel
         let title = gtk::Label::new(None);
-        #[cfg(feature = "theater-speak")]
-        title.set_markup("<span color='#338DD6' size='14000'>Story Information</span>");
-        #[cfg(not(feature = "theater-speak"))]
         title.set_markup("<span color='#338DD6' size='14000'>Game Information</span>");
         title.set_halign(gtk::Align::Center);
         title.show();
+        
         primary_grid.attach(&title, 0, 1, 1, 1);
-        primary_grid.attach(events.get_side_panel(), 0, 2, 1, 1);
+        primary_grid.attach(&side_scroll, 0, 2, 1, 1);
 
         // Create internal storage for the full status of the system
         let full_status = Rc::new(RefCell::new(FullStatus::default()));
 
         // Create the special windows for the user interface
         let edit_dialog = EditDialog::new(edit_mode, window);
-        let status_dialog = StatusDialog::new(full_status.clone());
-        let jump_dialog = JumpDialog::new();
-        let trigger_dialog = TriggerDialog::new();
+        let status_dialog = StatusDialog::new(full_status.clone(), window);
+        let jump_dialog = JumpDialog::new(window);
+        let trigger_dialog = TriggerDialog::new(window);
         let info_dialog = InfoDialog::new(window);
         let edit_event_dialog = EditEventDialog::new(window);
 
         // Return a copy of the interface abstraction
         InterfaceAbstraction {
             system_send: system_send.clone(),
+            interface_send: interface_send.clone(),
             primary_grid,
             full_status,
-            current_window: (ItemPair::new_unchecked(1, "", Hidden), Vec::new()),
+            current_window: (
+                ItemPair::new_unchecked(1, "", Hidden),
+                Vec::new(),
+                Vec::new(),
+            ),
             timeline,
             control,
             events,
@@ -191,14 +213,29 @@ impl InterfaceAbstraction {
         &self.primary_grid
     }
 
-    /// A method to change the timeline and the notification level to (or from)
-    /// debug. If notification level is not debug, only updates, warnings, and
-    /// errors will be displayed.
+    /// A method to change the notification level to (or from) debug. If 
+    /// notification level is not debug, only updates, warnings, and errors will
+    /// be displayed.
     ///
-    pub fn select_debug(&mut self, debug: bool) {
-        self.timeline.select_debug(debug);
-        self.control.debug_notifications(debug);
-        self.is_debug = debug;
+    pub fn select_debug(&mut self, is_debug: bool) {
+        self.control.select_debug(is_debug);
+        self.is_debug = is_debug;
+    }
+
+    /// A method to change the font size of all items in the interface.
+    ///
+    pub fn select_font(&mut self, is_large: bool) {
+        self.timeline.select_font(is_large);
+        self.control.select_font(is_large);
+        self.events.select_font(is_large);
+    }
+
+    /// A method to change the color contrast of all items in the interface.
+    ///
+    pub fn select_contrast(&mut self, is_hc: bool) {
+        self.timeline.select_contrast(is_hc);
+        self.control.select_contrast(is_hc);
+        self.events.select_contrast(is_hc);
     }
 
     /// A method to update the internal statuses in the abstraction and the status dialog
@@ -214,14 +251,13 @@ impl InterfaceAbstraction {
     /// A method to update all time-sensitive elements of the interface
     ///
     pub fn refresh_all(&self) {
-        
         // Refresh the timeline
         self.timeline.refresh();
-        
+
         // Refresh the notification area
         self.control.refresh_notifications();
     }
-    
+
     /// A method to update the timeline of coming events
     ///
     pub fn update_events(&mut self, events: Vec<UpcomingEvent>) {
@@ -247,15 +283,23 @@ impl InterfaceAbstraction {
     pub fn update_window(
         &mut self,
         current_scene: ItemPair,
+        statuses: Vec<ItemPair>,
         window: EventWindow,
     ) {
         // Save a copy of the current scene and event window
-        self.current_window = (current_scene.clone(), window.clone());
-        
+        self.current_window = (current_scene.clone(), statuses.clone(), window.clone());
+
         // Try to get a copy of the full status
-        if let Ok(full_status) = self.full_status.try_borrow() {     
+        if let Ok(full_status) = self.full_status.try_borrow() {
             // Update the event window
-            self.events.update_window(current_scene, window, &full_status, &self.system_send);
+            self.events.update_window(
+                current_scene,
+                statuses,
+                window,
+                &full_status,
+                &self.system_send,
+                &self.interface_send,
+            );
         }
     }
 
@@ -297,11 +341,18 @@ impl InterfaceAbstraction {
                 *current = new_state;
             }
         }
-        
+
         // Redraw the event window
         if let Ok(full_status) = self.full_status.try_borrow() {
-            let (current_scene, window) = self.current_window.clone();
-            self.events.update_window(current_scene, window, &full_status, &self.system_send);
+            let (current_scene, statuses, window) = self.current_window.clone();
+            self.events.update_window(
+                current_scene,
+                statuses,
+                window,
+                &full_status,
+                &self.system_send,
+                &self.interface_send,
+            );
         }
     }
 
@@ -315,16 +366,16 @@ impl InterfaceAbstraction {
     //
     /// A method to launch the status dialog
     ///
-    pub fn launch_status(&self, window: &gtk::ApplicationWindow) {
-        self.status_dialog.launch(window, &self.system_send);
+    pub fn launch_status(&self, status: Option<ItemPair>) {
+        self.status_dialog.launch(&self.system_send, status);
     }
 
     // Methods to update the jump dialog
     //
     /// A method to launch the jump dialog
     ///
-    pub fn launch_jump(&self, window: &gtk::ApplicationWindow) {
-        self.jump_dialog.launch(window, &self.system_send);
+    pub fn launch_jump(&self) {
+        self.jump_dialog.launch(&self.system_send);
     }
     //
     /// A method to update the scenes in the jump dialog
@@ -335,8 +386,8 @@ impl InterfaceAbstraction {
 
     /// A method to launch the trigger event dialog
     ///
-    pub fn launch_trigger(&self, window: &gtk::ApplicationWindow) {
-        self.trigger_dialog.launch(window, &self.system_send);
+    pub fn launch_trigger(&self, event: Option<ItemId>) {
+        self.trigger_dialog.launch(&self.system_send, event);
     }
 
     /// A method to launch the information window FIXME replace with in-window context
@@ -347,13 +398,8 @@ impl InterfaceAbstraction {
 
     /// A method to launch the edit event dialog
     ///
-    pub fn launch_edit_event(
-        &self,
-        event_id: Option<ItemPair>,
-        event_detail: Option<EventDetail>,
-    ) {
+    pub fn launch_edit_event(&self, event_id: Option<ItemPair>, event_detail: Option<EventDetail>) {
         self.edit_event_dialog
             .launch(&self.system_send, event_id, event_detail);
     }
 }
-

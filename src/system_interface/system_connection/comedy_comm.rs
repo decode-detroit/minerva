@@ -25,7 +25,7 @@
 //! may become completely incompatible in the furture.
 
 // Import the relevant structures into the correct namespace
-use super::{ItemId, EventConnection, COMM_ERROR, READ_ERROR};
+use super::{EventConnection, ItemId, COMM_ERROR, READ_ERROR};
 
 // Import standard library modules and traits
 use std::io::{Cursor, Read, Write};
@@ -66,7 +66,7 @@ pub struct ComedyComm {
     port: serial::SystemPort,               // the serial port of the connection
     buffer: Vec<u8>,                        // the current input buffer
     outgoing: Vec<(ItemId, u32, u32)>,      // the outgoing event buffer
-    last_ack: Option<Instant>,              // Some(instant) if we are still waiting on ack from instant
+    last_ack: Option<Instant>, // Some(instant) if we are still waiting on ack from instant
     filter_events: Vec<(ItemId, u32, u32)>, // events to filter out
 }
 
@@ -359,19 +359,15 @@ impl EventConnection for ComedyComm {
         // Try to write the event to serial
         self.write_event_now(id, data1, data2)
     }
-    
+
     /// A method to echo an event to the serial connection
     ///
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Filter each event before echoing it to the system
         let mut count = 0;
-        for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_events.iter()
-        {
+        for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_events.iter() {
             // If the event matches an event in the filter
-            if (id == *filter_id)
-                && (data1 == *filter_data1)
-                && (data2 == *filter_data2)
-            {
+            if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
                 break; // exit with the found event count
             }
 

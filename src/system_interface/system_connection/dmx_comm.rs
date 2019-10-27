@@ -22,13 +22,13 @@
 //! This module is currently limited to Enttec DMX USB Pro compatible hardware.
 
 // Import the relevant structures into the correct namespace
-use super::{ItemId, EventConnection};
+use super::{EventConnection, ItemId};
 
 // Import standard library features
-use std::thread;
 use std::io::Write;
-use std::sync::mpsc;
 use std::path::PathBuf;
+use std::sync::mpsc;
+use std::thread;
 use std::time::{Duration, Instant};
 
 // Import the serial module
@@ -65,9 +65,9 @@ const RESOLUTION: u64 = 50; // the time resolution of each fade, in ms
 ///
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DmxFade {
-    channel: u32,                       // the dmx channel to fade
-    value: u8,                          // the final value at the end of the fade
-    duration: Option<Duration>,         // the duration of the fade (None if instantaneous)
+    channel: u32,               // the dmx channel to fade
+    value: u8,                  // the final value at the end of the fade
+    duration: Option<Duration>, // the duration of the fade (None if instantaneous)
 }
 
 /// A type to store a hashmap of event ids and DMX fades
@@ -77,9 +77,9 @@ pub type DmxMap = FnvHashMap<ItemId, DmxFade>;
 /// A structure to hold and manipulate the connection over serial
 ///
 pub struct DmxComm {
-    all_stop_dmx: Vec<DmxFade>,         // a vector of dmx fades for all stop
-    dmx_map: DmxMap,                    // the map of event ids to fade instructions
-    load_fade: mpsc::Sender<DmxFade>,   // a line to load the dmx fade into the queue
+    all_stop_dmx: Vec<DmxFade>,       // a vector of dmx fades for all stop
+    dmx_map: DmxMap,                  // the map of event ids to fade instructions
+    load_fade: mpsc::Sender<DmxFade>, // a line to load the dmx fade into the queue
 }
 
 // Implement key functionality for the DMX structure
@@ -89,7 +89,7 @@ impl DmxComm {
     pub fn new(
         path: &PathBuf,
         all_stop_dmx: Vec<DmxFade>,
-        dmx_map: DmxMap
+        dmx_map: DmxMap,
     ) -> Result<DmxComm, Error> {
         // Connect to the underlying serial port
         let mut port = serial::open(path)?;
@@ -106,7 +106,7 @@ impl DmxComm {
 
         // Adjust the timeout for the serial port
         port.set_timeout(Duration::from_millis(100))?;
-        
+
         // Create a new DMX queue
         let (load_fade, receive_fade) = mpsc::channel();
         let mut dmx_queue = DmxQueue::new(port, receive_fade);
@@ -138,7 +138,6 @@ impl EventConnection for DmxComm {
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
         // Check to see if the event is all stop
         if id == ItemId::all_stop() {
-            
             // Run all of the all stop fades, ignoring errors
             for dmx_fade in self.all_stop_dmx.iter() {
                 // Verify the range of the selected channel
@@ -147,25 +146,24 @@ impl EventConnection for DmxComm {
                     self.load_fade.send(dmx_fade.clone()).unwrap_or(()) // ignore errors
                 }
             }
-        
+
         // Check to see if the event is in the DMX map
         } else if let Some(dmx_fade) = self.dmx_map.get(&id) {
-            
             // Verify the range of the selected channel
             if (dmx_fade.channel > DMX_MAX) | (dmx_fade.channel < 1) {
                 return Err(format_err!("Selected DMX channel is out of range."));
             }
-            
+
             // Send the fade to the background thread
             if let Err(_) = self.load_fade.send(dmx_fade.clone()) {
                 return Err(format_err!("Background DMX fading control has crashed."));
             }
         };
-        
+
         // If the event wasn't found or was processed correctly, indicate success
         Ok(())
     }
-    
+
     /// A method to echo an event to the serial connection
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         self.write_event(id, data1, data2)
@@ -177,7 +175,7 @@ impl EventConnection for DmxComm {
 enum FadeStatus {
     /// a variant indicating the fade is still in progress
     Ongoing(u8),
-    
+
     /// a variant indicating that the fade is complete
     Complete(u8),
 }
@@ -185,10 +183,10 @@ enum FadeStatus {
 /// A struct to allow easier manipulation of queued DMX changes.
 #[derive(Copy, Clone, PartialEq, Debug)]
 struct DmxChange {
-    start_time: Instant,        // the original start time of the fade
-    difference: f64,            // the difference between the start value and end value
-    end_value: u8,              // the final value at the end of the fade
-    duration: Duration, // the duration of the fade (None if instantaneous)
+    start_time: Instant, // the original start time of the fade
+    difference: f64,     // the difference between the start value and end value
+    end_value: u8,       // the final value at the end of the fade
+    duration: Duration,  // the duration of the fade (None if instantaneous)
 }
 
 // Implement the DMX Change features
@@ -196,11 +194,7 @@ impl DmxChange {
     /// A function to return a new DmxChange by composing the elements of the
     /// fade
     ///
-    fn new(
-        start_value: u8,
-        end_value: u8,
-        duration: Duration
-    ) -> DmxChange {
+    fn new(start_value: u8, end_value: u8, duration: Duration) -> DmxChange {
         // Compose and return the new dmx change
         DmxChange {
             start_time: Instant::now(),
@@ -216,13 +210,17 @@ impl DmxChange {
     ///
     fn current_fade(&self) -> FadeStatus {
         // Calculate the ratio of elapsed time to total fade time
-        let fade_factor = 1.0 - (self.start_time.elapsed().as_millis() as f64)/(self.duration.as_millis() as f64 + 0.1); // cheap fix to avoid dividing by zero
-        
+        let fade_factor = 1.0
+            - (self.start_time.elapsed().as_millis() as f64)
+                / (self.duration.as_millis() as f64 + 0.1); // cheap fix to avoid dividing by zero
+
         // If the fade factor is still less than one
         if fade_factor > 0.0 {
             // Return the correct fade amount with an ongoing fade
-            return FadeStatus::Ongoing(((self.end_value as f64) + (self.difference * fade_factor)) as u8);
-        
+            return FadeStatus::Ongoing(
+                ((self.end_value as f64) + (self.difference * fade_factor)) as u8,
+            );
+
         // If the fade factor is over one (the fade is complete)
         } else {
             // Return the final value and a complete fade
@@ -237,8 +235,8 @@ impl DmxChange {
 /// changes.
 ///
 pub struct DmxQueue {
-    port: serial::SystemPort,               // the serial port of the connection
-    status: Vec<u8>,                        // the current status of all the channels
+    port: serial::SystemPort,                // the serial port of the connection
+    status: Vec<u8>,                         // the current status of all the channels
     queue_receive: mpsc::Receiver<DmxFade>, // the queue receiving line that sends additional fade items to the daemon
     dmx_changes: FnvHashMap<u32, DmxChange>, // the dmx queue holding the coming changes, sorted by channel
 }
@@ -281,74 +279,73 @@ impl DmxQueue {
                             self.status[*channel as usize] = value;
                             new_changes.insert(channel.clone(), change.clone());
                         }
-                        
+
                         // If complete, drop the change
                         FadeStatus::Complete(value) => {
                             self.status[*channel as usize] = value;
                         }
                     }
                 }
-                
+
                 // Write the changed state(s)
                 self.write_frame();
-                
+
                 // Replace the old changes with the new changes
                 self.dmx_changes = new_changes;
-                
+
                 // Wait a short period for a new fade message
-                match self.queue_receive.recv_timeout(Duration::from_millis(RESOLUTION)) {
+                match self
+                    .queue_receive
+                    .recv_timeout(Duration::from_millis(RESOLUTION))
+                {
                     // Process a message if received
                     Ok(new_fade) => self.process_fade(new_fade),
 
                     // Ignore timeout messages
                     Err(mpsc::RecvTimeoutError::Timeout) => (),
-                    
+
                     // Quit the thread on any other error
                     _ => break,
                 }
-            
+
             // Otherwise just wait for new message indefinitely
             } else {
                 // Process a message if received
                 match self.queue_receive.recv() {
                     // Add the new fade to the queue
                     Ok(new_fade) => self.process_fade(new_fade),
-                    
+
                     // Quit the thread on any error
                     _ => break,
                 }
             }
         }
     }
-    
+
     /// A helper function to process new dmx fade messages
     ///
     fn process_fade(&mut self, dmx_fade: DmxFade) {
-        
         // Correct the channel range (convert to zero-indexed, rather than
         // the one-indexed standard of dmx
         let channel = dmx_fade.channel - 1;
-        
+
         // Check whether there is a fade specified
         match dmx_fade.duration {
             // If a fade was specified
             Some(duration) => {
                 // Repack the fade as a dmx change
-                let change = DmxChange::new(
-                    self.status[channel as usize],
-                    dmx_fade.value, 
-                    duration
-                );
-                
+                let change =
+                    DmxChange::new(self.status[channel as usize], dmx_fade.value, duration);
+
                 // Save the new fade, replace the existing fade if necessary
                 self.dmx_changes.insert(channel, change);
             }
-            
+
             // Otherwise
             None => {
                 // Remove a fade on that channel, if it exists
                 self.dmx_changes.remove(&channel);
-                
+
                 // Make the change immediately
                 self.status[channel as usize] = dmx_fade.value;
                 self.write_frame();
@@ -359,7 +356,6 @@ impl DmxQueue {
     /// A helper function to write the existing frame to the serial port
     ///
     fn write_frame(&mut self) {
-        
         // Add the message header
         let mut bytes = Vec::new();
         bytes.push(COMMAND_START);
@@ -371,68 +367,65 @@ impl DmxQueue {
         // Add the current status to the message
         let mut status_copy = self.status.clone();
         bytes.append(&mut status_copy);
-        
+
         // Add the message ending
         bytes.push(COMMAND_END);
-        
+
         // Send the bytes to the board
         self.port.write(bytes.as_slice()).unwrap_or(0); // silently ignore errors
     }
 }
 
-
 // Tests of the DMXComm module
 /*#[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // Import the library items for the testing function
     /*use std::thread;
     use std::time::{Duration, Instant};
 
-    // Test the function by 
+    // Test the function by
     fn main() {
         // Print the current step
         println!("Starting up ...");
-        
+
         // Try to open the serial connection
         match DmxComm::new(&PathBuf::from("/dev/ttyUSB0")) {
             // If the connection is a success
             Some(mut connection) => {
                 println!("Connected.");
-                
+
                 // Running the dimming cycle indefinitely
                 loop {
                     // Change the value from low to high over time
                     for count in 0..125 {
                         // Notify of the change
                         println!("Dimming ... {}", count);
-                        
+
                         // Send the updated value
                         connection.write_frame_now(count * 2);
-                        
+
                         // Wait a little bit
                         thread::sleep(Duration::from_millis(25));
                     }
-                    
+
                     // Dim the light back down
                     for count in 0..125 {
                         // Notify of the change
                         println!("Dimming ... {}", 125-count);
-                        
+
                         // Send the updated value
                         connection.write_frame_now((125-count) * 2);
-                        
+
                         // Wait a little bit
                         thread::sleep(Duration::from_millis(50));
                     }
                 }
             },
-            
+
             // Otherwise, warn of the error
             None => println!("Unable to connect."),
         }
     }*/
-
 }*/
-

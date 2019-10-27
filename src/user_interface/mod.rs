@@ -33,7 +33,7 @@ use self::menu::MenuAbstraction;
 use super::system_interface::{
     DebugMode, Description, DetailToModify, EditMode, InterfaceUpdate, Notify, SystemSend,
     SystemUpdate, UpdateConfig, UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow,
-    ItemId,
+    LaunchWindow, WindowType, ChangeSettings, DisplaySetting, Redraw,
 };
 
 // Import standard library features
@@ -82,7 +82,7 @@ impl UserInterface {
         // Create a new interface abstraction and add the top element to the window
         let edit_mode = Rc::new(RefCell::new(false));
         let interface_abstraction =
-            InterfaceAbstraction::new(&system_send, window, edit_mode.clone());
+            InterfaceAbstraction::new(&system_send, &interface_send, window, edit_mode.clone());
         window.add(interface_abstraction.get_top_element());
 
         // Wrap the interface abstraction in a rc and refcell
@@ -93,12 +93,12 @@ impl UserInterface {
             interface_abstraction,
             edit_mode,
             system_send,
-            interface_send,
+            interface_send: interface_send.clone(),
             window: window.clone(),
         };
 
         // Create the menu bar for the window
-        MenuAbstraction::build_menu(application, window, &user_interface);
+        MenuAbstraction::build_menu(application, window, &user_interface, &interface_send);
 
         // Launch the interface monitoring interrupt, currently set to ten times a second
         let update_interface = clone!(user_interface => move || {
@@ -118,43 +118,18 @@ impl UserInterface {
         self.system_send.send(update);
     }
 
-    /// A method to swap between normal and debug versions of the interface.
-    /// When set to true, this method exposes the clear queue button, and
-    /// changes the notification level to debug.
-    ///
-    pub fn select_debug(&self, debug_interface: bool) {
-        // Send a notification to the underlying system to change mode
-        self.send(DebugMode(debug_interface));
-
-        // Attempt to get a mutable copy of the interface abstraction
-        let mut interface = match self.interface_abstraction.try_borrow_mut() {
-            Ok(interface) => interface,
-
-            // If unable, exit immediately
-            Err(_) => return,
-        };
-
-        // Change the timeline format, exposing the clear queue button. And
-        // change the notification level.
-        interface.select_debug(debug_interface);
-    }
-
     /// A method to swap between operations and edit versions of the interface.
     /// When set to true, this method clears all upcoming events and switches
     /// the operation of the program to editing the configuration file.
     pub fn select_edit(&self, edit_config: bool, checkbox: &SimpleAction) {
         // If the edit setting was chosen
         if edit_config {
-            // Attempt to get a mutable copy of the interface abstraction
-            let interface = match self.interface_abstraction.try_borrow() {
-                Ok(interface) => interface,
+            // Attempt to get a copy of the interface abstraction
+            if let Ok(interface) = self.interface_abstraction.try_borrow() {
+                // Launch the edit dialog
+                interface.launch_edit(checkbox);
+            }
 
-                // If unable, exit immediately
-                Err(_) => return,
-            };
-
-            // Launch the edit dialog
-            interface.launch_edit(checkbox);
 
         // If the edit setting was not chosen
         } else {
@@ -171,36 +146,6 @@ impl UserInterface {
 
             // Change the window title back to normal
             self.window.set_title(WINDOW_TITLE);
-        }
-    }
-
-    /// A method to launch the status dialog to modify an individual status
-    ///
-    pub fn launch_status_dialog(&self, window: &gtk::ApplicationWindow) {
-        // Attempt to get a copy of the interface abstraction
-        if let Ok(interface) = self.interface_abstraction.try_borrow() {
-            // Launch the dialog
-            interface.launch_status(window);
-        }
-    }
-
-    /// A method to launch the jump dialog to change between individual scenes
-    ///
-    pub fn launch_jump_dialog(&self, window: &gtk::ApplicationWindow) {
-        // Attempt to get a copy of the interface abstraction
-        if let Ok(interface) = self.interface_abstraction.try_borrow() {
-            // Launch the dialog
-            interface.launch_jump(window);
-        }
-    }
-
-    /// A method to launch the trigger dialog to change between individual scenes
-    ///
-    pub fn launch_trigger_dialog(&self, window: &gtk::ApplicationWindow) {
-        // Attempt to get a copy of the interface abstraction
-        if let Ok(interface) = self.interface_abstraction.try_borrow() {
-            // Launch the dialog
-            interface.launch_trigger(window);
         }
     }
 
@@ -259,8 +204,9 @@ impl UserInterface {
                 // Update the current event window
                 UpdateWindow {
                     current_scene,
+                    statuses,
                     window,
-                } => interface.update_window(current_scene, window),
+                } => interface.update_window(current_scene, statuses, window),
 
                 // Update the state of a particular status
                 UpdateStatus {
@@ -275,6 +221,49 @@ impl UserInterface {
 
                 // Update the events in the timeline area
                 UpdateQueue { events } => interface.update_events(events),
+                
+                // Launch the requested special window
+                LaunchWindow { window_type } => {
+                    // Sort for the window type
+                    match window_type {
+                        // Launch the status dialog
+                        WindowType::Status(status) => interface.launch_status(status),       
+                                                
+                        // Launch the jump dialog
+                        WindowType::Jump(scene) => interface.launch_jump(),
+                        
+                        // Launch the trigger dialog
+                        WindowType::Trigger(event) => interface.launch_trigger(event),
+                    }
+                }
+                
+                // Change the internal setting of the user interface
+                ChangeSettings { display_setting } => {
+                    // Sort for the display setting
+                    match display_setting {
+                        // Change the debug mode of the display
+                        DisplaySetting::DebugMode(is_debug) => {
+                            // Update the interface and trigger a redraw.
+                            interface.select_debug(is_debug);
+                            self.send(DebugMode(is_debug));
+                            self.send(Redraw);
+                        }
+                        
+                        // Change the font size of the display
+                        DisplaySetting::LargeFont(is_large) => {
+                            // Update the interface and trigger a redraw
+                            interface.select_font(is_large);
+                            self.send(Redraw);
+                        }
+                                                
+                        // Change the color mode of the display
+                        DisplaySetting::HighContrast(is_hc) => {
+                            // Update the interface and trigger a redraw
+                            interface.select_contrast(is_hc);
+                            self.send(Redraw);
+                        }
+                    }
+                }
 
                 // Show a one line notification in the status bar
                 Notify { message } => interface.notify(&message),
@@ -286,13 +275,9 @@ impl UserInterface {
                 DetailToModify {
                     event_id,
                     event_detail,
-                } => interface.launch_edit_event(
-                    Some(event_id),
-                    Some(event_detail),
-                ),
+                } => interface.launch_edit_event(Some(event_id), Some(event_detail)),
                 // FIXME Add other modification tools here
             }
         }
     }
 }
-

@@ -89,6 +89,25 @@ impl UpcomingEvent {
     }
 }
 
+/// An enum with the types of data available to be saved and sent
+/// FIXME Currently only two types, which should be expanded
+///
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub enum DataType {
+    /// A variant for time until an event
+    TimeUntil { 
+        event_id: ItemId, // the event of interest
+    },
+    
+    /// A variant for time passed until an event is triggered
+    TimePassedUntil {
+        event_id: ItemId, // the event of interest
+        total_time: Duration, // the total duration until the event is normally triggered
+    }, 
+    
+    // FIXME Figure out how to implement time since an event
+}
+
 /// An enum with various options for the detail of each event.
 ///
 /// # Warning
@@ -109,12 +128,19 @@ pub enum EventDetail {
     /// A variant that links to one or more events to trigger. These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
-    ///
     TriggerEvents { events: Vec<EventDelay> },
+    
+    /// A variant that links to one or more events to cancel. All upcoming
+    /// events that match the specified id(s) will be cancelled.
+    CancelEvents { events: Vec<ItemId> },
 
     /// A variant which contains a vector of data to save in the current game
     /// logging file.
     SaveData { data: Vec<u32> },
+    
+    /// A variant which contains a type of data to include with the event
+    /// when broadcast to the system
+    SendData ( DataType ),
 
     /// A variant which indicates a grouped event. This event changes its
     /// event detail based on the state of the corresponding status.
@@ -125,7 +151,7 @@ pub enum EventDetail {
 }
 
 // Reexport the event detail type variants
-pub use self::EventDetail::{GroupedEvent, ModifyStatus, NewScene, SaveData, TriggerEvents};
+pub use self::EventDetail::{GroupedEvent, ModifyStatus, NewScene, SaveData, SendData, TriggerEvents, CancelEvents};
 
 /// An enum for updating the rest of the system on changes to the scene and
 /// to the current events.
@@ -142,6 +168,10 @@ pub enum EventUpdate {
     /// A variant that notifies the rest of the system to broadcast this
     /// currently playing event.
     Broadcast(ItemPair),
+    
+    /// A variant which notifies the rest of the system to broadcast this
+    /// currently playing event with the corresponding data
+    BroadcastData(ItemPair, u32),
 
     /// A variant that notifies the rest of the system of a currently playing
     /// event.
@@ -158,7 +188,9 @@ pub enum EventUpdate {
 }
 
 // Reexport the event update type variants
-pub use self::EventUpdate::{Broadcast, Current, Error, Save, Status, Update, Warning};
+pub use self::EventUpdate::{Broadcast, BroadcastData, Current, Error, Save, Status,
+    Update, Warning,
+};
 
 // Implement displaying that shows detail of the event update
 impl fmt::Display for EventUpdate {
@@ -171,7 +203,10 @@ impl fmt::Display for EventUpdate {
             &Warning(ref warning, ..) => write!(f, "WARNING: {}", warning),
 
             // If there is a broadcast event, write the formatted ID
-            &Broadcast(ref broadcast_event) => write!(f, "Broadcast: {}", broadcast_event),
+            &Broadcast(ref event) => write!(f, "Broadcast: {}", event),
+
+            // If there is a broadcast event, write the formatted ID
+            &BroadcastData(ref event, ..) => write!(f, "Broadcast: {}", event),
 
             // If there is a current event, write the formatted ID
             &Current(ref current_event) => write!(f, "Now Playing: {}", current_event),
@@ -258,7 +293,7 @@ macro_rules! update {
             },
         }
     });
-    
+
     // Take a mpsc line and warning type of EventUpdate with an event id
         // Take a mpsc line and warning type of EventUpdate
     (warnevent $line:expr => $event:expr => $($arg:tt)*) => ({
@@ -287,6 +322,13 @@ macro_rules! update {
 
         // Send an update to the mpsc line
         $line.send_update(EventUpdate::Broadcast($event));
+    });
+    
+    // Take a mpsc line and broadcast data type of event update
+    (broadcastdata $line:expr => $event:expr, $data:expr) => ({
+
+        // Send an update to the mpsc line
+        $line.send_update(EventUpdate::BroadcastData($event, $data));
     });
 
     // Take a mpsc line and current type of event update

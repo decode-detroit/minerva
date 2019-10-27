@@ -84,7 +84,7 @@ impl StatusHandler {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn get_id(&self, status_id: &ItemId) -> Option<ItemId> {
+    pub fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Try to return the local status as an id
         if let Some(detail) = self.status_map.get(status_id) {
             // Return the current state
@@ -98,7 +98,8 @@ impl StatusHandler {
     }
 
     /// A method to modify a status state within the current scene based
-    /// on the provided status id and new state. Returns true on success.
+    /// on the provided status id and new state. Returns Some(new state id) on
+    /// success and None on failure.
     ///
     /// # Errors
     ///
@@ -109,22 +110,25 @@ impl StatusHandler {
     /// Like all StatusHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning false.
     ///
-    pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> bool {
+    pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
         // Try to get a mutable reference to the status detail
         if let Some(status_detail) = self.status_map.get_mut(status_id) {
             // Try to update the status detail
-            if !status_detail.update(new_state.clone()) {
-                update!(warn &self.update_line => "Selected State Was Not Valid: {}", new_state);
-                return false;
+            match status_detail.update(new_state.clone()) {
+                // If the update was successful, return the new state
+                Some(new_id) => Some(new_id),
+                
+                // If the update failed, warn the system
+                None => {
+                    update!(warn &self.update_line => "Selected State Was Not Valid: {}", new_state);
+                    None
+                },
             }
-
-            // Indicate success
-            return true;
 
         // Warn the system that this is not a valid id
         } else {
             update!(warn &self.update_line => "Status ID Not Found In Config: {}", status_id);
-            return false;
+            None
         }
     }
 
@@ -306,9 +310,9 @@ impl StatusDetail {
 
     /// A method to update the state of the status, first checking for
     /// that the new state is valid. If the operation was successful, the
-    /// method returns true.
+    /// method returns the new state, otherwise None.
     ///
-    pub fn update(&mut self, new_state: ItemId) -> bool {
+    pub fn update(&mut self, new_state: ItemId) -> Option<ItemId> {
         match self {
             // The multistate variant
             &mut MultiState {
@@ -320,9 +324,9 @@ impl StatusDetail {
                 if allowed.is_empty() | allowed.contains(&new_state) {
                     // Update the state
                     *current = new_state;
-                    return true;
+                    return Some(new_state);
                 }
-                false // indicate failure
+                None // indicate failure
             }
 
             // The countedstate variant
@@ -339,11 +343,17 @@ impl StatusDetail {
                 if new_state == *reset {
                     *count = *default_count; // reset the count
                     *current = *anti_trigger; // reset the current state
+                    
+                    // Return the current state
+                    Some(current.clone())
 
                 // Increment the count when the anti-trigger is provided
                 } else if new_state == *anti_trigger {
                     *count = *count + 1; // increase the count
                     *current = *anti_trigger; // reset the current state
+                    
+                    // Return the current state
+                    Some(current.clone())
 
                 // Decrement the count when the trigger is provided
                 } else if new_state == *trigger {
@@ -356,12 +366,14 @@ impl StatusDetail {
                     if *count == 0 {
                         *current = *trigger;
                     }
+                    
+                    // Return the current state
+                    Some(current.clone())
 
                 // Otherwise report failure
                 } else {
-                    return false;
+                    None
                 }
-                true // indicate success
             }
         }
     }
@@ -370,6 +382,8 @@ impl StatusDetail {
 /// A struct which allows a limited number of possible states. This version
 /// uses fully described itempairs for use with the user interface. If the
 /// allowed state vector is empty, any state will be allowed.
+/// FIXME Reconsider this specification. Perhaps an empty allowed state vector
+/// should indicate that the user cannot select a valid state.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct StatusDescription {

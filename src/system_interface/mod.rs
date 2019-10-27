@@ -23,7 +23,7 @@
 pub use self::event_handler::event::{EventDelay, EventDetail, EventUpdate, UpcomingEvent};
 pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
-    ItemPair, LabelHidden,
+    ItemPair, LabelControl, LabelHidden,
 };
 pub use self::event_handler::{FullStatus, StatusDescription};
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
@@ -174,7 +174,7 @@ impl SystemInterface {
                             .send(UpdateQueue { events })
                             .unwrap_or(());
                     }
-                
+
                 // Otherwise noity the user that a configuration faild to load
                 } else {
                     update!(err &self.general_update => "Event Could Not Be Processed. No Active Configuration.");
@@ -221,7 +221,12 @@ impl SystemInterface {
 
             // If a broadcast event was recieved, send it to the system connection
             Ok(GeneralUpdateType::Broadcast(event_id)) => {
-                self.system_connection.broadcast(event_id)
+                self.system_connection.broadcast(event_id, None);
+            }
+            
+            // If a broadcast data event was received, send it to the system connection
+            Ok(GeneralUpdateType::BroadcastData(event_id, data)) => {
+                self.system_connection.broadcast(event_id, Some(data));
             }
 
             // If a system update was recieved, process the update
@@ -234,15 +239,19 @@ impl SystemInterface {
             Ok(GeneralUpdateType::Redraw) => {
                 // Try to redraw the current window
                 if let Some(ref mut handler) = self.event_handler {
+                    // Compose the new event window and status items
+                    let (window, statuses) = SystemInterface::sort_items(
+                        handler.get_items(),
+                        handler,
+                        self.is_debug_mode,
+                    );
+
                     // Send the update with the new event window
                     self.interface_send
                         .send(UpdateWindow {
                             current_scene: handler.get_current_scene(),
-                            window: SystemInterface::sort_events(
-                                handler.get_events(),
-                                handler,
-                                self.is_debug_mode,
-                            ),
+                            window,
+                            statuses,
                         })
                         .unwrap_or(());
 
@@ -317,11 +326,8 @@ impl SystemInterface {
 
             // Swtich between normal mode and debug mode
             DebugMode(mode) => {
-                // Switch the mode
+                // Switch the mode (redraw triggered by the user interface)
                 self.is_debug_mode = mode;
-
-                // Queue a redraw of the user interface
-                self.general_update.send_redraw();
             }
 
             // Switch between run mode and edit mode
@@ -498,6 +504,9 @@ impl SystemInterface {
                     }
                 }
             }
+            
+            // Redraw the user interface
+            Redraw => self.general_update.send_redraw(),
         }
         true // indicate to continue
     }
@@ -545,25 +554,26 @@ impl SystemInterface {
     /// An internal to sort the available events in this current scene
     /// into an Event Window.
     ///
-    fn sort_events(
-        mut events: Vec<ItemPair>,
+    fn sort_items(
+        mut items: Vec<ItemPair>,
         event_handler: &mut EventHandler,
         is_debug_mode: bool,
-    ) -> EventWindow {
-        // Iterate through the events and group them
+    ) -> (EventWindow, Vec<ItemPair>) {
+        // Iterate through the items and group them
         let mut groups = Vec::new();
         let mut general_group = Vec::new();
-        for event in events.drain(..) {
-            // Unpack the events
-            match event.display {
+        let mut statuses = Vec::new();
+        for item in items.drain(..) {
+            // Unpack the items
+            match item.display {
                 // Add display control events to the general control group
-                DisplayControl { .. } => general_group.push(event),
+                DisplayControl { .. } => general_group.push(item),
 
                 // Add display with events to the matching event group
                 DisplayWith { group_id, .. } => {
                     let group_pair =
                         ItemPair::from_item(group_id, event_handler.get_description(&group_id));
-                    SystemInterface::sort_groups(&mut groups, group_pair, event);
+                    SystemInterface::sort_groups(&mut groups, group_pair, item);
                 }
 
                 // Add display debug events to the matching event group
@@ -574,20 +584,19 @@ impl SystemInterface {
                         if let Some(id) = group_id {
                             let group_pair =
                                 ItemPair::from_item(id, event_handler.get_description(&id));
-                            SystemInterface::sort_groups(
-                                &mut groups,
-                                group_pair,
-                                event,
-                            );
+                            SystemInterface::sort_groups(&mut groups, group_pair, item);
 
                         // Otherwise add it to the general group
                         } else {
-                            general_group.push(event);
+                            general_group.push(item);
                         }
                     }
                 }
 
-                // Ignore label hidden and hidden events
+                // Add label control items to the statuses list
+                LabelControl { .. } => statuses.push(item),
+
+                // Ignore label hidden and hidden items
                 _ => (),
             }
         }
@@ -597,18 +606,14 @@ impl SystemInterface {
             group_id: None,
             group_events: general_group,
         });
-        groups
+        (groups, statuses)
     }
 
     /// An internal function to sort through the groups currently in the provided
     /// vector, add the provided event if it matches one of the groups, and
     /// create a new group if it does not.
     ///
-    fn sort_groups(
-        groups: &mut Vec<EventGroup>,
-        event_group: ItemPair,
-        event: ItemPair,
-    ) {
+    fn sort_groups(groups: &mut Vec<EventGroup>, event_group: ItemPair, event: ItemPair) {
         // Look through the existing groups for a group match
         let mut found = false; // flag for if a matching group was found
         for group in groups.iter_mut() {
@@ -650,6 +655,9 @@ enum GeneralUpdateType {
 
     /// A variant for the broadcast type
     Broadcast(ItemId),
+   
+    /// A variant for the broadcast data type
+    BroadcastData(ItemId, u32),
 
     /// A variant for the system update type
     System(SystemUpdate),
@@ -666,6 +674,7 @@ pub struct GeneralUpdate {
 }
 
 // Implement the key features of the general update struct
+// FIXME Consider moving this and the Interface update type to "neutral territory"
 impl GeneralUpdate {
     /// A function to create the new General Update structure.
     ///
@@ -681,8 +690,8 @@ impl GeneralUpdate {
     }
 
     /// A method to trigger a new event in the system interface. If the
-    /// checkscene flag is not set, the system will not check if the event 
-    /// is in the current scene. 
+    /// checkscene flag is not set, the system will not check if the event
+    /// is in the current scene.
     ///
     pub fn send_event(&self, event_id: ItemId, checkscene: bool) {
         self.general_send
@@ -711,6 +720,14 @@ impl GeneralUpdate {
     pub fn send_broadcast(&self, event_id: ItemId) {
         self.general_send
             .send(GeneralUpdateType::Broadcast(event_id))
+            .unwrap_or(());
+    }
+    
+    /// A method to broadcast an event and corresponding data via the system interface.
+    ///
+    pub fn send_broadcast_data(&self, event_id: ItemId, data: u32) {
+        self.general_send
+            .send(GeneralUpdateType::BroadcastData(event_id, data))
             .unwrap_or(());
     }
 
@@ -812,7 +829,7 @@ pub enum SystemUpdate {
     EventChange {
         event_id: ItemId,
         start_time: Instant, // the start time of the event, for unambiguous identification
-        new_delay: Duration, // new delay relative to the original start time
+        new_delay: Option<Duration>, // new delay relative to the original start time, or None to cancel the event
     },
 
     /// A variant to trigger all the queued events to clear
@@ -822,12 +839,16 @@ pub enum SystemUpdate {
     /// checkscene flag is no set, the system will not check if the event is
     /// listed in the current scene.
     TriggerEvent { event: ItemId, checkscene: bool },
+    
+    /// A variant that triggers a redraw of the current event window
+    Redraw,
 }
 
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
-    AllStop, ClearQueue, Close, ConfigFile, DebugMode, EditDetail, EditMode, ErrorLog, EventChange,
-    GameLog, GetDescription, SaveConfig, SceneChange, StatusChange, TriggerEvent,
+    AllStop, ClearQueue, Close, ConfigFile, DebugMode, EditDetail, EditMode, ErrorLog,
+    EventChange, GameLog, GetDescription, SaveConfig, SceneChange, StatusChange,
+    TriggerEvent, Redraw,
 };
 
 /// A structure to list a series of event buttons that are associated with one
@@ -836,12 +857,40 @@ pub use self::SystemUpdate::{
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct EventGroup {
     pub group_id: Option<ItemPair>, // the group id identifying and describing the group or None for the general group
-    pub group_events: Vec<ItemPair>,   // a vector of the events that belong in this group
+    pub group_events: Vec<ItemPair>, // a vector of the events that belong in this group
 }
 
 /// A type to list a series of event groups that fill the event window.
 ///
 pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong in this window
+
+/// An enum to launch one of the special windows for the user interface
+///
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum WindowType {
+    /// A variant to launch the status dialog with an optional relevant status of interest
+    Status(Option<ItemPair>),
+    
+    /// A variant to launch the jump dialog with an optional scene of interest
+    Jump(Option<ItemPair>),
+    
+    /// A variant to launch the trigger dialog with an optional event of interest
+    /// TODO Should use ItemPair for consistency
+    Trigger(Option<ItemId>),
+}
+
+/// An enum to change one of the display settings of the user interface
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum DisplaySetting {
+    /// A variant to change the debug mode of the display
+    DebugMode(bool),
+    
+    /// A variant to change the font size of the display
+    LargeFont(bool),
+    
+    /// A variant to change the color mode of the display
+    HighContrast(bool),
+}
 
 /// An enum type to provide interface updates back to the user interface thread.
 ///
@@ -858,6 +907,7 @@ pub enum InterfaceUpdate {
     /// the new provided window.
     UpdateWindow {
         current_scene: ItemPair,
+        statuses: Vec<ItemPair>,
         window: EventWindow,
     },
 
@@ -876,8 +926,18 @@ pub enum InterfaceUpdate {
     UpdateQueue {
         events: Vec<UpcomingEvent>,
     },
+    
+    /// A variant to launch one of the special windows
+    LaunchWindow {
+        window_type: WindowType,
+    },
+    
+    /// A variant to change the display settings
+    ChangeSettings {
+        display_setting: DisplaySetting,
+    },
 
-    // A variant to post a current event to the status bar
+    /// A variant to post a current event to the status bar
     Notify {
         message: String,
     },
@@ -897,8 +957,8 @@ pub enum InterfaceUpdate {
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    Description, DetailToModify, Notify, UpdateConfig, UpdateNotifications, UpdateQueue,
-    UpdateStatus, UpdateWindow,
+    Description, DetailToModify, Notify, ChangeSettings, LaunchWindow, UpdateConfig,
+    UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow,
 };
 
 // Tests of the system_interface module

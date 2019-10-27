@@ -24,7 +24,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::GeneralUpdate;
-use super::{EventUpdate, ItemId, ComingEvent};
+use super::{ComingEvent, EventUpdate, ItemId};
 
 // Import standard library features
 use std::time::Duration;
@@ -47,7 +47,7 @@ extern crate serde_yaml;
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct QueuedEvent {
     pub remaining: Duration, // the remaining time before the event is triggered
-    pub event_id: ItemId, // id of the event to launch
+    pub event_id: ItemId,    // id of the event to launch
 }
 
 /// A structure which holds a reference to the Redis server (if it exists) and
@@ -109,7 +109,10 @@ impl BackupHandler {
             }
 
             // Indicate failure
-            return Err(format_err!("Unable To Connect To Backup Server: {}.", location));
+            return Err(format_err!(
+                "Unable To Connect To Backup Server: {}.",
+                location
+            ));
 
         // If a location was not specified
         } else {
@@ -187,7 +190,7 @@ impl BackupHandler {
             }
         }
     }
-    
+
     /// A method to backup the event queue on the backup server based on the
     /// provided coming events
     ///
@@ -219,7 +222,7 @@ impl BackupHandler {
                     });
                 }
             }
-            
+
             // Try to serialize the coming events
             let event_string = match serde_yaml::to_string(&queued_events) {
                 Ok(string) => string,
@@ -228,13 +231,10 @@ impl BackupHandler {
                     return;
                 }
             };
-            
+
             // Try to copy the event to the server
             let result: RedisResult<bool>;
-            result = connection.set(
-                &format!("{}:queue", self.identifier),
-                &event_string,
-            );
+            result = connection.set(&format!("{}:queue", self.identifier), &event_string);
 
             // Warn that the event queue was not set
             if let Err(..) = result {
@@ -271,7 +271,7 @@ impl BackupHandler {
                 let mut queued_events: Vec<QueuedEvent> = Vec::new();
                 let result: RedisResult<String> =
                     connection.get(&format!("{}:queue", self.identifier));
-                
+
                 // If something was received
                 if let Ok(queue_string) = result {
                     // Try to parse the queue
@@ -279,7 +279,7 @@ impl BackupHandler {
                         queued_events = events;
                     }
                 }
-                
+
                 // Compile a list of valid status pairs
                 let mut status_pairs: Vec<(ItemId, ItemId)> = Vec::new();
                 for status_id in status_ids.drain(..) {
@@ -322,18 +322,15 @@ impl Drop for BackupHandler {
     ///
     /// # Errors
     ///
-    /// This method will raise an error if there was an error removing a status
-    /// from the status server.
-    ///
-    /// Like all StatusHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line.
+    /// This method will ignore any errors as it is called only when the backup
+    /// connection is being closed.
     ///
     fn drop(&mut self) {
         // If the redis connection exists
         if let &Some(ref connection) = &self.connection {
             // Try to delete the current scene if it exists (unable to manually specify types)
             let _: RedisResult<bool> = connection.del(&format!("{}:current", self.identifier));
-            
+
             // Try to delete the queue if it exists
             let _: RedisResult<bool> = connection.del(&format!("{}:queue", self.identifier));
 

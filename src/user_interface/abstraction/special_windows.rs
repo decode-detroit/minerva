@@ -22,7 +22,8 @@
 use super::super::super::system_interface::{
     AllStop, DisplayControl, DisplayDebug, DisplayWith, EditDetail, EditMode, EventDelay,
     EventDetail, FullStatus, GetDescription, Hidden, ItemDescription, ItemId, ItemPair,
-    LabelHidden, SceneChange, StatusChange, StatusDescription, SystemSend, TriggerEvent,
+    LabelControl, LabelHidden, SceneChange, StatusChange, StatusDescription, SystemSend,
+    TriggerEvent,
 };
 
 // Import standard library features
@@ -134,6 +135,7 @@ impl EditDialog {
 #[derive(Clone, Debug)]
 pub struct StatusDialog {
     full_status: Rc<RefCell<FullStatus>>, // a hashmap of status id pairs and status descriptions, stored inside Rc/RefCell
+    window: gtk::ApplicationWindow, // a copy of the primary window
 }
 
 // Implement key features for the status dialog
@@ -141,20 +143,21 @@ impl StatusDialog {
     /// A function to create a new status dialog structure with the ability to
     /// modify an individual status.
     ///
-    pub fn new(full_status: Rc<RefCell<FullStatus>>) -> StatusDialog {
+    pub fn new(full_status: Rc<RefCell<FullStatus>>, window: &gtk::ApplicationWindow) -> StatusDialog {
         StatusDialog {
             full_status,
+            window: window.clone()
         }
     }
 
     /// A method to launch the new status dialog with the current state of
     /// all of the statuses in the current configuration.
     ///
-    pub fn launch(&self, window: &gtk::ApplicationWindow, system_send: &SystemSend) {
+    pub fn launch(&self, system_send: &SystemSend, status: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
             Some("  Modify System Status  "),
-            Some(window),
+            Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
                 ("Cancel", gtk::ResponseType::Cancel.into()),
@@ -175,7 +178,7 @@ impl StatusDialog {
         // Add each of the available status to the dropdown
         for status_pair in full_status.keys() {
             let id_str: &str = &status_pair.id().to_string();
-            status_selection.append(id_str, &status_pair.description());
+            status_selection.append(Some(id_str), &status_pair.description());
         }
 
         // Create the state selection dropdown
@@ -205,18 +208,23 @@ impl StatusDialog {
                                 // Extract the allowed ids and add them to the dropdown
                                 for state_pair in allowed.iter() {
                                     let id_str: &str = &state_pair.id().to_string();
-                                    state_selection.append(id_str, &state_pair.description());
+                                    state_selection.append(Some(id_str), &state_pair.description());
                                 }
 
                                 // Extract the current id and set it properly
                                 let id_str: &str = &current.id().to_string();
-                                state_selection.set_active_id(id_str);
+                                state_selection.set_active_id(Some(id_str));
                             }
                         }
                     }
                 }
             }
         }));
+        
+        // Select the relevant status, if specified
+        if let Some(status_id) = status {
+            status_selection.set_active_id(Some(status_id.id().to_string().as_str()));
+        }
 
         // Access the content area and add the dropdown
         let content = dialog.get_content_area();
@@ -291,6 +299,7 @@ impl StatusDialog {
 #[derive(Clone, Debug)]
 pub struct JumpDialog {
     scenes: Vec<ItemPair>, // a vector of the available scenes
+    window: gtk::ApplicationWindow, // a copy of the primary window
 }
 
 // Implement key features for the jump dialog
@@ -298,18 +307,18 @@ impl JumpDialog {
     /// A function to create a new jump dialog structure with the ability to
     /// change between individual scenes.
     ///
-    pub fn new() -> JumpDialog {
-        JumpDialog { scenes: Vec::new() }
+    pub fn new(window: &gtk::ApplicationWindow) -> JumpDialog {
+        JumpDialog { scenes: Vec::new(), window: window.clone() }
     }
 
     /// A method to launch the new jump dialog with the current list of available
     /// scenes in the configuration.
     ///
-    pub fn launch(&self, window: &gtk::ApplicationWindow, system_send: &SystemSend) {
+    pub fn launch(&self, system_send: &SystemSend) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
             Some("  Jump To ...  "),
-            Some(window),
+            Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
                 ("Cancel", gtk::ResponseType::Cancel),
@@ -324,7 +333,7 @@ impl JumpDialog {
         // Add each of the available status to the dropdown
         for scene_pair in self.scenes.iter() {
             let id_str: &str = &scene_pair.id().to_string();
-            scene_selection.append(id_str, &scene_pair.description());
+            scene_selection.append(Some(id_str), &scene_pair.description());
         }
 
         // Connect the function to trigger when the status selection changes
@@ -392,23 +401,25 @@ impl JumpDialog {
 /// A structure to contain the dialog for triggering a custom event.
 ///
 #[derive(Clone, Debug)]
-pub struct TriggerDialog;
+pub struct TriggerDialog {
+    window: gtk::ApplicationWindow, // a copy of the primary window
+}
 
 // Implement key features for the trigger dialog
 impl TriggerDialog {
     /// A function to create a new trigger dialog structure.
     ///
-    pub fn new() -> TriggerDialog {
-        TriggerDialog
+    pub fn new(window: &gtk::ApplicationWindow) -> TriggerDialog {
+        TriggerDialog { window: window.clone() }
     }
 
     /// A method to launch the new edit dialog
     ///
-    pub fn launch(&self, window: &gtk::ApplicationWindow, system_send: &SystemSend) {
+    pub fn launch(&self, system_send: &SystemSend, event_id: Option<ItemId>) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
             Some("Trigger Custom Event"),
-            Some(window),
+            Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
                 ("Cancel", gtk::ResponseType::Cancel),
@@ -423,41 +434,53 @@ impl TriggerDialog {
         content.add(&grid);
 
         // Add the dropdown and label
-        let label = gtk::Label::new(Some(" Warning: Triggering A Custom Event May Cause Undesired Behaviour. "));
-        label.set_halign(gtk::Align::Center);
-        //label.set_hexpand(true);
-        grid.attach(&label, 0, 0, 2, 1);
+        let label = gtk::Label::new(Some(
+            " Warning: Triggering A Custom Event May Cause Undesired Behaviour. ",
+        ));
+        grid.attach(&label, 0, 0, 3, 1);
+
+        // Description label for the current event FIXME update the description
+        //let description = gtk::Label::new(Some("");
 
         // Create the event selection
         let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        
+        // If an id was specified, use it
+        if let Some(id) = event_id {
+            event_spin.set_value(id.id() as f64);
+        }
+
+        // Create the checkbox
+        let event_checkbox = gtk::CheckButton::new_with_label("Check Scene");
+        event_checkbox.set_active(true);
         let event_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         event_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
         }));
         grid.attach(&event_spin, 0, 1, 1, 1);
-        grid.attach(&event_lookup, 1, 1, 1, 1);
+        grid.attach(&event_checkbox, 1, 1, 1, 1);
+        grid.attach(&event_lookup, 2, 1, 1, 1);
 
         // Add some space between the rows and columns
-        grid.set_column_spacing(20);
-        grid.set_row_spacing(30);
+        grid.set_column_spacing(10);
+        grid.set_row_spacing(10);
 
         // Add some space on all the sides
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
         grid.set_margin_start(10);
         grid.set_margin_end(10);
-        //grid.set_hexpand(true);
-        grid.set_halign(gtk::Align::Center);
+        // FIXME not needed grid.set_halign(gtk::Align::Center);
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(system_send, event_spin => move |modal, id| {
+        dialog.connect_response(clone!(system_send, event_spin, event_checkbox => move |modal, id| {
 
             // Notify the system of the event change
             if id == gtk::ResponseType::Ok {
 
                 // Send the selected event to the system
-                system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), checkscene: false}); // FIXME
+                system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), checkscene: event_checkbox.get_active()});
             }
 
             // Close the window either way
@@ -500,8 +523,8 @@ impl InfoDialog {
 
         // Create grid of information for the item
         let grid = gtk::Grid::new();
-        let id_label = gtk::Label::new(format!("Item Id: {}", item_information.id()).as_str());
-        let description = gtk::Label::new(item_information.description().as_str());
+        let id_label = gtk::Label::new(Some(format!("Item Id: {}", item_information.id()).as_str()));
+        let description = gtk::Label::new(Some(item_information.description().as_str()));
         grid.attach(&id_label, 0, 0, 1, 1);
         grid.attach(&description, 0, 1, 1, 1);
 
@@ -534,6 +557,8 @@ impl InfoDialog {
 /// A structure to contain the dialog for modifying an individual event. This
 /// dialog is currently rather inconvenient to use as it is not made for use
 /// during typical operations.
+///
+/// FIXME NEED to ADD the SEND DATA VARIANT
 ///
 #[derive(Clone, Debug)]
 pub struct EditEventDialog {
@@ -577,7 +602,7 @@ impl EditEventDialog {
         let detail_stack = gtk::Stack::new();
 
         // Add the selection label to the stack
-        let select_type_label = gtk::Label::new("Select Event Type");
+        let select_type_label = gtk::Label::new(Some("Select Event Type"));
         detail_stack.add_named(&select_type_label, "empty");
         detail_stack.set_visible_child_full("empty", gtk::StackTransitionType::SlideDown);
 
@@ -592,6 +617,10 @@ impl EditEventDialog {
         // Create and add the trigger event variant to the detail stack
         let edit_trigger_events = EditTriggerEvents::new(system_send);
         detail_stack.add_named(edit_trigger_events.get_top_element(), "events");
+
+        // Create and add the cancel event variant to the detail stack
+        let edit_cancel_events = EditCancelEvents::new(system_send);
+        detail_stack.add_named(edit_cancel_events.get_top_element(), "cancel");
 
         // Create and add the save data variant to the detail stack
         let edit_save_data = EditSaveData::new(system_send);
@@ -652,12 +681,21 @@ impl EditEventDialog {
                     edit_trigger_events.load_detail(events);
                     edit_overview.choose_detail("events");
                 }
+                
+                // Load the cancel events variant
+                EventDetail::CancelEvents { events } => {
+                    edit_cancel_events.load_detail(events);
+                    edit_overview.choose_detail("cancel");
+                }
 
                 // Load the save data variant
                 EventDetail::SaveData { data } => {
                     edit_save_data.load_detail(data);
                     edit_overview.choose_detail("data");
                 }
+                
+                // Ignore the send data variant FIXME
+                EventDetail::SendData ( data_type ) => (),
 
                 // Load the grouped event variant
                 EventDetail::GroupedEvent {
@@ -671,7 +709,7 @@ impl EditEventDialog {
         }
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(system_send, edit_overview, edit_new_scene, edit_modify_status, edit_trigger_events, edit_save_data, edit_grouped_event => move |modal, id| {
+        dialog.connect_response(clone!(system_send, edit_overview, edit_new_scene, edit_modify_status, edit_trigger_events, edit_cancel_events, edit_save_data, edit_grouped_event => move |modal, id| {
 
             // Check to see if the event edit was confirmed
             if id == gtk::ResponseType::Ok {
@@ -690,6 +728,9 @@ impl EditEventDialog {
 
                     // Pack the trigger events variant
                     "events" => edit_trigger_events.pack_detail(),
+                    
+                    // Pack the cancel events variant
+                    "cancel" => edit_cancel_events.pack_detail(),
 
                     // Pack the save data variant
                     "data" => edit_save_data.pack_detail(),
@@ -752,6 +793,17 @@ struct EditOverview {
     displaydebug_highstate_checkbox: gtk::CheckButton,   // the highlight state checkbox
     displaydebug_highstate_status: gtk::SpinButton,      // the highlight state status spin
     displaydebug_highstate_state: gtk::SpinButton,       // the highlight state state spin
+    labelcontrol_priority_checkbox: gtk::CheckButton,    // the priority checkbox
+    labelcontrol_priority: gtk::SpinButton,              // the spin selection for priority
+    labelcontrol_color_checkbox: gtk::CheckButton,       // the color checkbox
+    labelcontrol_color: gtk::ColorButton,                // the color selection button
+    labelcontrol_highlight_checkbox: gtk::CheckButton,   // the highlight checkbox
+    labelcontrol_highlight: gtk::ColorButton,            // the highlight selection button
+    labelcontrol_highstate_checkbox: gtk::CheckButton,   // the highlight state checkbox
+    labelcontrol_highstate_status: gtk::SpinButton,      // the highlight state status spin
+    labelcontrol_highstate_state: gtk::SpinButton,       // the highlight state state spin
+    labelhidden_priority_checkbox: gtk::CheckButton,     // the priority checkbox
+    labelhidden_priority: gtk::SpinButton,               // the spin selection for priority
     labelhidden_color_checkbox: gtk::CheckButton,        // the color check
     labelhidden_color: gtk::ColorButton,                 // the color selection button
     labelhidden_highlight_checkbox: gtk::CheckButton,    // the highlight checkbox
@@ -763,21 +815,22 @@ impl EditOverview {
     // A function to create an edit overview
     fn new(system_send: &SystemSend, detail_stack: &gtk::Stack) -> EditOverview {
         // Create the event number and description
-        let id_label = gtk::Label::new("  Event Id  ");
+        let id_label = gtk::Label::new(Some("  Event Id  "));
         let id_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         id_spin.set_size_request(100, 30);
         id_spin.set_hexpand(false);
         let description = gtk::Entry::new();
-        description.set_placeholder_text("Enter a description here");
+        description.set_placeholder_text(Some("Enter a description here"));
 
         // Add the display type dropdown
-        let display_type_label = gtk::Label::new("  Display Type  ");
+        let display_type_label = gtk::Label::new(Some("  Display Type  "));
         let display_type = gtk::ComboBoxText::new();
-        display_type.append("displaycontrol", "Display Control");
-        display_type.append("displaywith", "Display With");
-        display_type.append("displaydebug", "Display Debug");
-        display_type.append("labelhidden", "Label Hidden");
-        display_type.append("hidden", "Hidden");
+        display_type.append(Some("displaycontrol"), "Display Control");
+        display_type.append(Some("displaywith"), "Display With");
+        display_type.append(Some("displaydebug"), "Display Debug");
+        display_type.append(Some("labelcontrol"), "Label Control");
+        display_type.append(Some("labelhidden"), "Label Hidden");
+        display_type.append(Some("hidden"), "Hidden");
 
         // Add the displaycontrol type priority, color, and highlight items
         let displaycontrol_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
@@ -789,14 +842,18 @@ impl EditOverview {
             gtk::CheckButton::new_with_label("Custom Text Highlight");
         let displaycontrol_highlight = gtk::ColorButton::new();
         displaycontrol_highlight.set_title("Text Highlight Color");
-        let displaycontrol_highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
-        let displaycontrol_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaycontrol_highstate_status_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        let displaycontrol_highstate_checkbox =
+            gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let displaycontrol_highstate_status =
+            gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let displaycontrol_highstate_status_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaycontrol_highstate_status_lookup.connect_clicked(clone!(displaycontrol_highstate_status, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaycontrol_highstate_status.get_value() as u32) });
         }));
         let displaycontrol_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaycontrol_highstate_state_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        let displaycontrol_highstate_state_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaycontrol_highstate_state_lookup.connect_clicked(clone!(displaycontrol_highstate_state, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaycontrol_highstate_state.get_value() as u32) });
         }));
@@ -821,7 +878,7 @@ impl EditOverview {
         // Add the displaywith type spin items
         let displaywith_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaywith_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaywith_lookup.connect_clicked(clone!(displaywith_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_spin.get_value() as u32) });
         }));
@@ -836,14 +893,17 @@ impl EditOverview {
             gtk::CheckButton::new_with_label("Custom Text Highlight");
         let displaywith_highlight = gtk::ColorButton::new();
         displaywith_highlight.set_title("Text Highlight Color");
-        let displaywith_highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let displaywith_highstate_checkbox =
+            gtk::CheckButton::new_with_label("Status-Based Highlighting");
         let displaywith_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaywith_highstate_status_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        let displaywith_highstate_status_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaywith_highstate_status_lookup.connect_clicked(clone!(displaywith_highstate_status, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_highstate_status.get_value() as u32) });
         }));
         let displaywith_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaywith_highstate_state_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        let displaywith_highstate_state_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaywith_highstate_state_lookup.connect_clicked(clone!(displaywith_highstate_state, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_highstate_state.get_value() as u32) });
         }));
@@ -871,7 +931,7 @@ impl EditOverview {
         let displaydebug_checkbox = gtk::CheckButton::new_with_label("Display With Group");
         let displaydebug_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaydebug_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaydebug_lookup.connect_clicked(clone!(displaydebug_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_spin.get_value() as u32) });
         }));
@@ -886,14 +946,17 @@ impl EditOverview {
             gtk::CheckButton::new_with_label("Custom Text Highlight");
         let displaydebug_highlight = gtk::ColorButton::new();
         displaydebug_highlight.set_title("Text Highlight Color");
-        let displaydebug_highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let displaydebug_highstate_checkbox =
+            gtk::CheckButton::new_with_label("Status-Based Highlighting");
         let displaydebug_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaydebug_highstate_status_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        let displaydebug_highstate_status_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaydebug_highstate_status_lookup.connect_clicked(clone!(displaydebug_highstate_status, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_highstate_status.get_value() as u32) });
         }));
         let displaydebug_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaydebug_highstate_state_lookup = gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+        let displaydebug_highstate_state_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         displaydebug_highstate_state_lookup.connect_clicked(clone!(displaydebug_highstate_state, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_highstate_state.get_value() as u32) });
         }));
@@ -918,28 +981,76 @@ impl EditOverview {
         displaydebug_grid.set_row_spacing(10);
         displaydebug_grid.show_all();
 
-        // Add the labelhidden color items
+        // Add the labelcontrol type priority, color, and highlight items
+        let labelcontrol_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
+        let labelcontrol_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let labelcontrol_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
+        let labelcontrol_color = gtk::ColorButton::new();
+        labelcontrol_color.set_title("Text Color");
+        let labelcontrol_highlight_checkbox =
+            gtk::CheckButton::new_with_label("Custom Text Highlight");
+        let labelcontrol_highlight = gtk::ColorButton::new();
+        labelcontrol_highlight.set_title("Text Highlight Color");
+        let labelcontrol_highstate_checkbox =
+            gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let labelcontrol_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let labelcontrol_highstate_status_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        labelcontrol_highstate_status_lookup.connect_clicked(clone!(labelcontrol_highstate_status, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(labelcontrol_highstate_status.get_value() as u32) });
+        }));
+        let labelcontrol_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let labelcontrol_highstate_state_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        labelcontrol_highstate_state_lookup.connect_clicked(clone!(labelcontrol_highstate_state, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(labelcontrol_highstate_state.get_value() as u32) });
+        }));
+
+        // Compose the labelcontrol grid
+        let labelcontrol_grid = gtk::Grid::new();
+        labelcontrol_grid.attach(&labelcontrol_priority_checkbox, 0, 0, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_priority, 1, 0, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_color_checkbox, 0, 1, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_color, 1, 1, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_highlight_checkbox, 0, 2, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_highlight, 1, 2, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_highstate_checkbox, 0, 3, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_highstate_status, 1, 3, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_highstate_status_lookup, 2, 3, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_highstate_state, 3, 3, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_highstate_state_lookup, 4, 3, 1, 1);
+        labelcontrol_grid.set_column_spacing(10); // Add some space
+        labelcontrol_grid.set_row_spacing(10);
+        labelcontrol_grid.show_all();
+
+        // Add the labelhidden priority, color, and highlight items
+        let labelhidden_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
+        let labelhidden_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let labelhidden_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let labelhidden_color = gtk::ColorButton::new();
         labelhidden_color.set_title("Text Color");
         labelhidden_color.set_size_request(140, 30);
-        let labelhidden_highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
+        let labelhidden_highlight_checkbox =
+            gtk::CheckButton::new_with_label("Custom Text Highlight");
         let labelhidden_highlight = gtk::ColorButton::new();
         labelhidden_highlight.set_title("Text Highlight Color");
         labelhidden_highlight.set_size_request(140, 30);
-        
+
         // Compose the labelhidden grid
         let labelhidden_grid = gtk::Grid::new();
-        labelhidden_grid.attach(&labelhidden_color_checkbox, 0, 0, 1, 1);
-        labelhidden_grid.attach(&labelhidden_color, 1, 0, 1, 1);
-        labelhidden_grid.attach(&labelhidden_highlight_checkbox, 0, 1, 1, 1);
-        labelhidden_grid.attach(&labelhidden_highlight, 1, 1, 1, 1);
+        labelhidden_grid.attach(&labelhidden_priority_checkbox, 0, 0, 1, 1);
+        labelhidden_grid.attach(&labelhidden_priority, 1, 0, 1, 1);
+        labelhidden_grid.attach(&labelhidden_color_checkbox, 0, 1, 1, 1);
+        labelhidden_grid.attach(&labelhidden_color, 1, 1, 1, 1);
+        labelhidden_grid.attach(&labelhidden_highlight_checkbox, 0, 2, 1, 1);
+        labelhidden_grid.attach(&labelhidden_highlight, 1, 2, 1, 1);
 
         // Fill the display type stack
         let display_stack = gtk::Stack::new();
         display_stack.add_named(&displaycontrol_grid, "displaycontrol");
         display_stack.add_named(&displaywith_grid, "displaywith");
         display_stack.add_named(&displaydebug_grid, "displaydebug");
+        display_stack.add_named(&labelcontrol_grid, "labelcontrol");
         display_stack.add_named(&labelhidden_grid, "labelhidden");
         let blank_label = gtk::Label::new(None);
         display_stack.add_named(&blank_label, "hidden");
@@ -960,11 +1071,12 @@ impl EditOverview {
         let detail_selection = gtk::ComboBoxText::new();
 
         // Add each of the available detail types to the dropdown
-        detail_selection.append("scene", "New Scene");
-        detail_selection.append("status", "Modify Status");
-        detail_selection.append("events", "Trigger Events");
-        detail_selection.append("data", "Save Data");
-        detail_selection.append("grouped", "Grouped Event");
+        detail_selection.append(Some("scene"), "New Scene");
+        detail_selection.append(Some("status"), "Modify Status");
+        detail_selection.append(Some("events"), "Trigger Events");
+        detail_selection.append(Some("cancel"), "Cancel Events");
+        detail_selection.append(Some("data"), "Save Data");
+        detail_selection.append(Some("grouped"), "Grouped Event");
 
         // Connect the function to trigger detail selection changes
         detail_selection.connect_changed(clone!(detail_stack => move |dropdown| {
@@ -1026,6 +1138,17 @@ impl EditOverview {
             displaydebug_highstate_checkbox,
             displaydebug_highstate_status,
             displaydebug_highstate_state,
+            labelcontrol_priority_checkbox,
+            labelcontrol_priority,
+            labelcontrol_color_checkbox,
+            labelcontrol_color,
+            labelcontrol_highlight_checkbox,
+            labelcontrol_highlight,
+            labelcontrol_highstate_checkbox,
+            labelcontrol_highstate_status,
+            labelcontrol_highstate_state,
+            labelhidden_priority_checkbox,
+            labelhidden_priority,
             labelhidden_color_checkbox,
             labelhidden_color,
             labelhidden_highlight_checkbox,
@@ -1059,7 +1182,7 @@ impl EditOverview {
                 highlight_state,
             } => {
                 // Switch to the displaycontrol type
-                self.display_type.set_active_id("display");
+                self.display_type.set_active_id(Some("displaycontrol"));
 
                 // If there is a priority, set it
                 match priority {
@@ -1099,14 +1222,16 @@ impl EditOverview {
                         self.displaycontrol_highlight.set_rgba(&new_color);
                     }
                 }
-                
+
                 // If there is a highlight state, set it
                 match highlight_state {
                     None => self.displaycontrol_highstate_checkbox.set_active(false),
                     Some((new_status, new_state)) => {
                         self.displaycontrol_highstate_checkbox.set_active(true);
-                        self.displaycontrol_highstate_status.set_value(new_status.id() as f64);
-                        self.displaycontrol_highstate_state.set_value(new_state.id() as f64);
+                        self.displaycontrol_highstate_status
+                            .set_value(new_status.id() as f64);
+                        self.displaycontrol_highstate_state
+                            .set_value(new_state.id() as f64);
                     }
                 }
             }
@@ -1120,7 +1245,7 @@ impl EditOverview {
                 highlight_state,
             } => {
                 // Switch to the displaywith type and set the group id
-                self.display_type.set_active_id("displaywith");
+                self.display_type.set_active_id(Some("displaywith"));
                 self.displaywith_spin.set_value(group_id.id() as f64);
 
                 // If there is a priority, set it
@@ -1161,14 +1286,16 @@ impl EditOverview {
                         self.displaywith_highlight.set_rgba(&new_color);
                     }
                 }
-                
+
                 // If there is a highlight state, set it
                 match highlight_state {
                     None => self.displaywith_highstate_checkbox.set_active(false),
                     Some((new_status, new_state)) => {
                         self.displaywith_highstate_checkbox.set_active(true);
-                        self.displaywith_highstate_status.set_value(new_status.id() as f64);
-                        self.displaywith_highstate_state.set_value(new_state.id() as f64);
+                        self.displaywith_highstate_status
+                            .set_value(new_status.id() as f64);
+                        self.displaywith_highstate_state
+                            .set_value(new_state.id() as f64);
                     }
                 }
             }
@@ -1182,7 +1309,7 @@ impl EditOverview {
                 highlight_state,
             } => {
                 // Switch to the displaydebug type
-                self.display_type.set_active_id("displaydebug");
+                self.display_type.set_active_id(Some("displaydebug"));
 
                 // If theere is a group id, set it
                 match group_id {
@@ -1231,23 +1358,96 @@ impl EditOverview {
                         self.displaydebug_highlight.set_rgba(&new_color);
                     }
                 }
-                
+
                 // If there is a highlight state, set it
                 match highlight_state {
                     None => self.displaydebug_highstate_checkbox.set_active(false),
                     Some((new_status, new_state)) => {
                         self.displaydebug_highstate_checkbox.set_active(true);
-                        self.displaydebug_highstate_status.set_value(new_status.id() as f64);
-                        self.displaydebug_highstate_state.set_value(new_state.id() as f64);
+                        self.displaydebug_highstate_status
+                            .set_value(new_status.id() as f64);
+                        self.displaydebug_highstate_state
+                            .set_value(new_state.id() as f64);
+                    }
+                }
+            }
+
+            // the labelcontrol variant
+            LabelControl {
+                priority,
+                color,
+                highlight,
+                highlight_state,
+            } => {
+                // Switch to the labelcontrol type
+                self.display_type.set_active_id(Some("labelcontrol"));
+
+                // If there is a priority, set it
+                match priority {
+                    None => self.labelcontrol_priority_checkbox.set_active(false),
+                    Some(number) => {
+                        self.labelcontrol_priority_checkbox.set_active(true);
+                        self.labelcontrol_priority.set_value(number as f64);
+                    }
+                }
+
+                // If there is a color, set it
+                match color {
+                    None => self.labelcontrol_color_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.labelcontrol_color_checkbox.set_active(true);
+                        let new_color = gdk::RGBA {
+                            red: new_red as f64 / 255.0,
+                            green: new_green as f64 / 255.0,
+                            blue: new_blue as f64 / 255.0,
+                            alpha: 1.0,
+                        };
+                        self.labelcontrol_color.set_rgba(&new_color);
+                    }
+                }
+
+                // If there is a highlight, set it
+                match highlight {
+                    None => self.labelcontrol_highlight_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.labelcontrol_highlight_checkbox.set_active(true);
+                        let new_color = gdk::RGBA {
+                            red: new_red as f64 / 255.0,
+                            green: new_green as f64 / 255.0,
+                            blue: new_blue as f64 / 255.0,
+                            alpha: 1.0,
+                        };
+                        self.labelcontrol_highlight.set_rgba(&new_color);
+                    }
+                }
+
+                // If there is a highlight state, set it
+                match highlight_state {
+                    None => self.labelcontrol_highstate_checkbox.set_active(false),
+                    Some((new_status, new_state)) => {
+                        self.labelcontrol_highstate_checkbox.set_active(true);
+                        self.labelcontrol_highstate_status
+                            .set_value(new_status.id() as f64);
+                        self.labelcontrol_highstate_state
+                            .set_value(new_state.id() as f64);
                     }
                 }
             }
 
             // the label hidden variant
-            LabelHidden { color, highlight } => {
+            LabelHidden { priority, color, highlight } => {
                 //Switch to the labelhidden type
-                self.display_type.set_active_id("labelhidden");
-            
+                self.display_type.set_active_id(Some("labelhidden"));
+
+                // If there is a priority, set it
+                match priority {
+                    None => self.labelhidden_priority_checkbox.set_active(false),
+                    Some(number) => {
+                        self.labelhidden_priority_checkbox.set_active(true);
+                        self.labelhidden_priority.set_value(number as f64);
+                    }
+                }
+
                 // If there is a color, set it
                 match color {
                     None => self.labelhidden_color_checkbox.set_active(false),
@@ -1262,7 +1462,7 @@ impl EditOverview {
                         self.labelhidden_color.set_rgba(&new_color);
                     }
                 }
-                
+
                 // If there is a highlight, set it
                 match highlight {
                     None => self.labelhidden_highlight_checkbox.set_active(false),
@@ -1281,7 +1481,7 @@ impl EditOverview {
 
             // the hidden variant
             Hidden => {
-                self.display_type.set_active_id("hidden");
+                self.display_type.set_active_id(Some("hidden"));
             }
         }
     }
@@ -1290,7 +1490,7 @@ impl EditOverview {
     //
     fn choose_detail(&self, detail: &str) {
         // Pass the chosen detail to the detail selection
-        self.detail_selection.set_active_id(detail);
+        self.detail_selection.set_active_id(Some(detail));
     }
 
     // A function to pack the event pair into an item pair
@@ -1339,11 +1539,18 @@ impl EditOverview {
                         (blue * 255.0) as u8,
                     ));
                 }
-                
+
                 // Extract the highlight state, if selected
                 let mut highlight_state = None;
                 if self.displaycontrol_highstate_checkbox.get_active() {
-                    highlight_state = Some((ItemId::new_unchecked(self.displaycontrol_highstate_status.get_value() as u32), ItemId::new_unchecked(self.displaycontrol_highstate_state.get_value() as u32)));
+                    highlight_state = Some((
+                        ItemId::new_unchecked(
+                            self.displaycontrol_highstate_status.get_value() as u32
+                        ),
+                        ItemId::new_unchecked(
+                            self.displaycontrol_highstate_state.get_value() as u32
+                        ),
+                    ));
                 }
 
                 // Return the completed display type
@@ -1388,11 +1595,14 @@ impl EditOverview {
                         (blue * 255.0) as u8,
                     ));
                 }
-                
+
                 // Extract the highlight state, if selected
                 let mut highlight_state = None;
                 if self.displaywith_highstate_checkbox.get_active() {
-                    highlight_state = Some((ItemId::new_unchecked(self.displaywith_highstate_status.get_value() as u32), ItemId::new_unchecked(self.displaywith_highstate_state.get_value() as u32)));
+                    highlight_state = Some((
+                        ItemId::new_unchecked(self.displaywith_highstate_status.get_value() as u32),
+                        ItemId::new_unchecked(self.displaywith_highstate_state.get_value() as u32),
+                    ));
                 }
 
                 // Return the completed display type
@@ -1446,11 +1656,14 @@ impl EditOverview {
                         (blue * 255.0) as u8,
                     ));
                 }
-                
+
                 // Extract the highlight state, if selected
                 let mut highlight_state = None;
                 if self.displaydebug_highstate_checkbox.get_active() {
-                    highlight_state = Some((ItemId::new_unchecked(self.displaydebug_highstate_status.get_value() as u32), ItemId::new_unchecked(self.displaydebug_highstate_state.get_value() as u32)));
+                    highlight_state = Some((
+                        ItemId::new_unchecked(self.displaydebug_highstate_status.get_value() as u32),
+                        ItemId::new_unchecked(self.displaydebug_highstate_state.get_value() as u32),
+                    ));
                 }
 
                 // Return the completed display type
@@ -1463,8 +1676,66 @@ impl EditOverview {
                 }
             }
 
+            // For the labelcontrol type
+            "labelcontrol" => {
+                // Extract the priority, if selected
+                let mut priority = None;
+                if self.labelcontrol_priority_checkbox.get_active() {
+                    priority = Some(self.labelcontrol_priority.get_value() as u32);
+                }
+
+                // Extract the color, if selected
+                let mut color = None;
+                if self.labelcontrol_color_checkbox.get_active() {
+                    let gdk::RGBA {
+                        red, green, blue, ..
+                    } = self.labelcontrol_color.get_rgba();
+                    color = Some((
+                        (red * 255.0) as u8,
+                        (green * 255.0) as u8,
+                        (blue * 255.0) as u8,
+                    ));
+                }
+
+                // Extract the highlight, if selected
+                let mut highlight = None;
+                if self.labelcontrol_highlight_checkbox.get_active() {
+                    let gdk::RGBA {
+                        red, green, blue, ..
+                    } = self.labelcontrol_highlight.get_rgba();
+                    highlight = Some((
+                        (red * 255.0) as u8,
+                        (green * 255.0) as u8,
+                        (blue * 255.0) as u8,
+                    ));
+                }
+
+                // Extract the highlight state, if selected
+                let mut highlight_state = None;
+                if self.labelcontrol_highstate_checkbox.get_active() {
+                    highlight_state = Some((
+                        ItemId::new_unchecked(self.labelcontrol_highstate_status.get_value() as u32),
+                        ItemId::new_unchecked(self.labelcontrol_highstate_state.get_value() as u32),
+                    ));
+                }
+
+                // Return the completed display type
+                LabelControl {
+                    priority,
+                    color,
+                    highlight,
+                    highlight_state,
+                }
+            }
+
             // For the labelhidden type
             "labelhidden" => {
+                // Extract the priority, if selected
+                let mut priority = None;
+                if self.labelhidden_priority_checkbox.get_active() {
+                    priority = Some(self.labelhidden_priority.get_value() as u32);
+                }
+                
                 // Extract the color, if selected
                 let mut color = None;
                 if self.labelhidden_color_checkbox.get_active() {
@@ -1492,7 +1763,7 @@ impl EditOverview {
                 }
 
                 // Return the completed display type
-                LabelHidden { color, highlight }
+                LabelHidden { priority, color, highlight }
             }
 
             // For the hidden type
@@ -1506,9 +1777,10 @@ impl EditOverview {
             ItemPair::from_item(event_id, event_description),
             self.detail_selection
                 .get_active_id()
-                .unwrap_or(String::from("scene").into()).into(),
-                // TODO: Conversion to and then from GString won't be necessary
-                // once GStrings are implemented properly.
+                .unwrap_or(String::from("scene").into())
+                .into(),
+            // TODO: Conversion to and then from GString won't be necessary
+            // once GStrings are implemented properly.
         )
     }
 }
@@ -1529,7 +1801,7 @@ impl EditNewScene {
         let new_scene_grid = gtk::Grid::new();
 
         // Add a label and spin to the new scene grid
-        let new_scene_label = gtk::Label::new("Scene Id");
+        let new_scene_label = gtk::Label::new(Some("Scene Id"));
         new_scene_label.set_size_request(80, 30);
         new_scene_label.set_hexpand(false);
         new_scene_label.set_vexpand(false);
@@ -1537,7 +1809,7 @@ impl EditNewScene {
         new_scene_spin.set_size_request(100, 30);
         new_scene_spin.set_hexpand(false);
         let new_scene_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         new_scene_lookup.connect_clicked(clone!(new_scene_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(new_scene_spin.get_value() as u32) });
         }));
@@ -1594,7 +1866,7 @@ impl EditModifyStatus {
         let modify_status_grid = gtk::Grid::new();
 
         // Add a labels and spins to the modify status grid
-        let status_id_label = gtk::Label::new("Status Id");
+        let status_id_label = gtk::Label::new(Some("Status Id"));
         status_id_label.set_size_request(80, 30);
         status_id_label.set_hexpand(false);
         status_id_label.set_vexpand(false);
@@ -1602,11 +1874,11 @@ impl EditModifyStatus {
         status_id_spin.set_size_request(100, 30);
         status_id_spin.set_hexpand(false);
         let status_id_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         status_id_lookup.connect_clicked(clone!(status_id_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(status_id_spin.get_value() as u32) });
         }));
-        let state_id_label = gtk::Label::new("State Id");
+        let state_id_label = gtk::Label::new(Some("State Id"));
         state_id_label.set_size_request(80, 30);
         state_id_label.set_hexpand(false);
         state_id_label.set_vexpand(false);
@@ -1614,7 +1886,7 @@ impl EditModifyStatus {
         state_id_spin.set_size_request(100, 30);
         state_id_spin.set_hexpand(false);
         let state_id_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         state_id_lookup.connect_clicked(clone!(state_id_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(state_id_spin.get_value() as u32) });
         }));
@@ -1680,7 +1952,8 @@ impl EditTriggerEvents {
         trigger_event_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a button to add events to the list
-        let add_button = gtk::Button::new_from_icon_name("list-add", gtk::IconSize::Button.into());
+        let add_button =
+            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
         add_button.connect_clicked(clone!(trigger_event_list, system_send => move |_| {
 
             // Add an event to the list
@@ -1688,8 +1961,10 @@ impl EditTriggerEvents {
         }));
 
         // Create the scrollable window for the list
-        let event_window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
-        // FIXME Broken implementation of ScrolledWindow::new()
+        let event_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
         event_window.add(&trigger_event_list);
         event_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
@@ -1738,7 +2013,7 @@ impl EditTriggerEvents {
     ) {
         // Create an empty spin box for the list
         let event_grid = gtk::Grid::new();
-        let event_label = gtk::Label::new("Event");
+        let event_label = gtk::Label::new(Some("Event"));
         event_label.set_size_request(80, 30);
         event_label.set_hexpand(false);
         event_label.set_vexpand(false);
@@ -1748,20 +2023,20 @@ impl EditTriggerEvents {
 
         // Add a lookup button for the event
         let event_id_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         event_id_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
         }));
 
         // Add spin adjustments for the event delay minutes and seconds
-        let minutes_label = gtk::Label::new("  Delay: Minutes  ");
+        let minutes_label = gtk::Label::new(Some("  Delay: Minutes  "));
         minutes_label.set_size_request(120, 30);
         minutes_label.set_hexpand(false);
         minutes_label.set_vexpand(false);
         let minutes = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
         minutes.set_size_request(100, 30);
         minutes.set_hexpand(false);
-        let seconds_label = gtk::Label::new("  Seconds  ");
+        let seconds_label = gtk::Label::new(Some("  Seconds  "));
         seconds_label.set_size_request(80, 30);
         seconds_label.set_hexpand(false);
         seconds_label.set_vexpand(false);
@@ -1771,7 +2046,7 @@ impl EditTriggerEvents {
 
         // Add a button to delete the item from the list
         let delete_button =
-            gtk::Button::new_from_icon_name("edit-delete", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
         delete_button.connect_clicked(clone!(trigger_event_list, event_grid => move |_| {
             if let Some(widget) = event_grid.get_parent() {
                 trigger_event_list.remove(&widget);
@@ -1889,6 +2164,176 @@ impl EditTriggerEvents {
     }
 }
 
+// Create the cancel events variant
+//
+#[derive(Clone, Debug)]
+struct EditCancelEvents {
+    grid: gtk::Grid,                  // the main grid for this element
+    cancel_event_list: gtk::ListBox, // the list for events in this variant
+    system_send: SystemSend,          // the system response sender
+}
+
+impl EditCancelEvents {
+    // A function to ceate a cancel events variant
+    //
+    fn new(system_send: &SystemSend) -> EditCancelEvents {
+        // Create the list for the cancel events variant
+        let cancel_event_list = gtk::ListBox::new();
+        cancel_event_list.set_selection_mode(gtk::SelectionMode::None);
+
+        // Create a button to add events to the list
+        let add_button =
+            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
+        add_button.connect_clicked(clone!(cancel_event_list, system_send => move |_| {
+
+            // Add an event to the list
+            EditCancelEvents::add_event(&cancel_event_list, None, &system_send);
+        }));
+
+        // Create the scrollable window for the list
+        let event_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
+        event_window.add(&cancel_event_list);
+        event_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+
+        // Format the scrolling window
+        event_window.set_hexpand(false);
+        event_window.set_vexpand(true);
+        event_window.set_valign(gtk::Align::Fill);
+
+        // Add the button below the data list
+        let cancel_event_grid = gtk::Grid::new();
+        cancel_event_grid.attach(&event_window, 0, 0, 1, 1);
+        cancel_event_grid.attach(&add_button, 0, 1, 1, 1);
+        cancel_event_grid.set_column_spacing(10); // Add some space
+        cancel_event_grid.set_row_spacing(10);
+
+        // Create and return the cancel events variant
+        cancel_event_grid.show_all();
+        EditCancelEvents {
+            grid: cancel_event_grid,
+            cancel_event_list,
+            system_send: system_send.clone(),
+        }
+    }
+
+    // A function to return the top element of the cancel events variant
+    //
+    fn get_top_element(&self) -> &gtk::Grid {
+        &self.grid
+    }
+
+    // A function to load an event detail into the cancel events variant
+    //
+    fn load_detail(&self, events: Vec<ItemId>) {
+        // Add each event to the list
+        for event in events {
+            EditCancelEvents::add_event(&self.cancel_event_list, Some(event), &self.system_send);
+        }
+    }
+
+    // A helper function to add an event to the data list
+    //
+    fn add_event(
+        cancel_event_list: &gtk::ListBox,
+        event_id: Option<ItemId>,
+        system_send: &SystemSend,
+    ) {
+        // Create an empty spin box for the list
+        let event_grid = gtk::Grid::new();
+        let event_label = gtk::Label::new(Some("Event"));
+        event_label.set_size_request(80, 30);
+        event_label.set_hexpand(false);
+        event_label.set_vexpand(false);
+        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        event_spin.set_size_request(100, 30);
+        event_spin.set_hexpand(false);
+
+        // Add a lookup button for the event
+        let event_id_lookup =
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        event_id_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
+            system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
+        }));
+
+        // Add a button to delete the item from the list
+        let delete_button =
+            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
+        delete_button.connect_clicked(clone!(cancel_event_list, event_grid => move |_| {
+            if let Some(widget) = event_grid.get_parent() {
+                cancel_event_list.remove(&widget);
+            }
+        }));
+
+        // Add all the components to the event grid
+        event_grid.attach(&event_label, 0, 0, 1, 1);
+        event_grid.attach(&event_spin, 1, 0, 1, 1);
+        event_grid.attach(&event_id_lookup, 2, 0, 1, 1);
+        event_grid.attach(&delete_button, 3, 0, 1, 1);
+        event_grid.set_column_spacing(10); // Add some space
+        event_grid.set_row_spacing(10);
+
+        // Set the value of the event id if it was provided
+        if let Some(id) = event_id {
+            event_spin.set_value(id.id() as f64);
+        }
+
+        // Add the new grid to the list
+        event_grid.show_all();
+        cancel_event_list.add(&event_grid);
+    }
+
+    // A function to pack and return the event detail
+    //
+    fn pack_detail(&self) -> EventDetail {
+        // Create the event vector
+        let mut events = Vec::new();
+
+        // Fill the vector with the events in the list
+        let mut i: i32 = 0;
+        loop {
+            // Iterate through the events in the list
+            match self.cancel_event_list.get_row_at_index(i) {
+                // Extract each row and include the event
+                Some(row) => {
+                    if let Some(tmp_grid) = row.get_child() {
+                        // Recast the widget as a grid
+                        if let Ok(event_grid) = tmp_grid.downcast::<gtk::Grid>() {
+                            // Extract the event number
+                            let evnt = match event_grid.get_child_at(1, 0) {
+                                Some(spin_tmp) => {
+                                    if let Ok(event_spin) = spin_tmp.downcast::<gtk::SpinButton>() {
+                                        event_spin.get_value() as u32
+                                    } else {
+                                        unreachable!()
+                                    }
+                                }
+                                None => unreachable!(),
+                            };
+
+                            // Create and add the event delay
+                            let event_id = ItemId::new_unchecked(evnt);
+                            events.push(event_id);
+                        }
+                    }
+
+                    // Move to the next row
+                    i = i + 1;
+                }
+
+                // Break when there are no more rows
+                None => break,
+            }
+        }
+
+        // Pack the new scene id into a detail
+        EventDetail::CancelEvents { events }
+    }
+}
+
+
 // Create the save data variant
 //
 #[derive(Clone, Debug)]
@@ -1906,7 +2351,8 @@ impl EditSaveData {
         save_data_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a button to add data to the list
-        let add_button = gtk::Button::new_from_icon_name("list-add", gtk::IconSize::Button.into());
+        let add_button =
+            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
         add_button.connect_clicked(clone!(save_data_list => move |_| {
 
             // Add a data item to the list
@@ -1914,8 +2360,10 @@ impl EditSaveData {
         }));
 
         // Create the scrollable window for the list
-        let data_window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
-        // FIXME Broken implementation of ScrolledWindow::new()
+        let data_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
         data_window.add(&save_data_list);
         data_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
@@ -1959,7 +2407,7 @@ impl EditSaveData {
     fn add_data(save_data_list: &gtk::ListBox, data: Option<u32>) {
         // Create an empty spin box for the list
         let item_grid = gtk::Grid::new();
-        let item_label = gtk::Label::new("Save Data:");
+        let item_label = gtk::Label::new(Some("Save Data:"));
         item_label.set_size_request(80, 30);
         item_label.set_hexpand(false);
         item_label.set_vexpand(false);
@@ -1969,7 +2417,7 @@ impl EditSaveData {
 
         // Add a button to delete the item from the list
         let delete_button =
-            gtk::Button::new_from_icon_name("edit-delete", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
         delete_button.connect_clicked(clone!(save_data_list, item_grid => move |_| {
             if let Some(widget) = item_grid.get_parent() {
                 save_data_list.remove(&widget);
@@ -2056,7 +2504,7 @@ impl EditGroupedEvent {
 
         // Create the status spin
         let status_grid = gtk::Grid::new();
-        let status_label = gtk::Label::new("Status");
+        let status_label = gtk::Label::new(Some("Status"));
         status_label.set_size_request(80, 30);
         status_label.set_hexpand(false);
         status_label.set_vexpand(false);
@@ -2064,7 +2512,7 @@ impl EditGroupedEvent {
         status_spin.set_size_request(100, 30);
         status_spin.set_hexpand(false);
         let status_id_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         status_id_lookup.connect_clicked(clone!(status_spin, system_send => move |_| {
                 system_send.send(GetDescription { item_id: ItemId::new_unchecked(status_spin.get_value() as u32) });
             }));
@@ -2073,7 +2521,8 @@ impl EditGroupedEvent {
         status_grid.attach(&status_id_lookup, 2, 0, 1, 1);
 
         // Create a button to add events to the list
-        let add_button = gtk::Button::new_from_icon_name("list-add", gtk::IconSize::Button.into());
+        let add_button =
+            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
         add_button.connect_clicked(clone!(grouped_event_list, system_send => move |_| {
 
             // Add a new blank event to the list
@@ -2081,8 +2530,10 @@ impl EditGroupedEvent {
         }));
 
         // Create the scrollable window for the list
-        let group_window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
-        // FIXME Broken implementation of ScrolledWindow::new()
+        let group_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
         group_window.add(&grouped_event_list);
         group_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
@@ -2141,7 +2592,7 @@ impl EditGroupedEvent {
     ) {
         // Create a state spin box for the list
         let group_grid = gtk::Grid::new();
-        let state_label = gtk::Label::new("State");
+        let state_label = gtk::Label::new(Some("State"));
         state_label.set_size_request(80, 30);
         state_label.set_hexpand(false);
         state_label.set_vexpand(false);
@@ -2151,13 +2602,13 @@ impl EditGroupedEvent {
 
         // Add a lookup button for the state
         let state_id_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         state_id_lookup.connect_clicked(clone!(state_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(state_spin.get_value() as u32) });
         }));
 
         // Create a event spin box for the list
-        let event_label = gtk::Label::new("Event");
+        let event_label = gtk::Label::new(Some("Event"));
         event_label.set_size_request(80, 30);
         event_label.set_hexpand(false);
         event_label.set_vexpand(false);
@@ -2167,14 +2618,14 @@ impl EditGroupedEvent {
 
         // Add a lookup button for the event
         let event_id_lookup =
-            gtk::Button::new_from_icon_name("edit-find", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
         event_id_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
         }));
 
         // Add a button to delete the item from the list
         let delete_button =
-            gtk::Button::new_from_icon_name("edit-delete", gtk::IconSize::Button.into());
+            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
         delete_button.connect_clicked(clone!(grouped_event_list, group_grid => move |_| {
             if let Some(widget) = group_grid.get_parent() {
                 grouped_event_list.remove(&widget);
@@ -2269,4 +2720,3 @@ impl EditGroupedEvent {
         }
     }
 }
-

@@ -210,7 +210,7 @@ pub enum DisplayType {
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>
+        highlight_state: Option<(ItemId, ItemId)>,
     },
 
     /// A variant to indicatie items which to be displayed with a specific group
@@ -229,7 +229,7 @@ pub enum DisplayType {
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>
+        highlight_state: Option<(ItemId, ItemId)>,
     },
 
     /// A variant for items which are displayed with a particular group (if
@@ -237,7 +237,7 @@ pub enum DisplayType {
     /// debug mode. These items will be displayed in order of ascending id,
     /// or in order of ascending priority if specified. The text color will
     /// match the rgb value, if specified.  The text will use the highlight
-    /// color for any special animations and when the highlight_state status 
+    /// color for any special animations and when the highlight_state status
     /// is in the listed state (if specified).
     ///
     DisplayDebug {
@@ -245,17 +245,31 @@ pub enum DisplayType {
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>
+        highlight_state: Option<(ItemId, ItemId)>,
+    },
+
+    /// A variant for items which are to be displayed as a label in the control
+    /// area (not as an event triggerable by the user). The text color of the
+    /// label will match the rgb value, if specified. This is useful for status
+    /// labels which need to be monitored by the user, but should not be
+    /// manually changed.
+    ///
+    LabelControl {
+        priority: Option<u32>,
+        color: Option<(u8, u8, u8)>,
+        highlight: Option<(u8, u8, u8)>,
+        highlight_state: Option<(ItemId, ItemId)>,
     },
 
     /// A variant for items which are only to be displayed as a label (not as an
-    /// event triggerable by the user. The text color of the label will match
+    /// event triggerable by the user). The text color of the label will match
     /// the rgb value. This is useful for scene reset events which must match
     /// the id of the scene but are often not directly triggered by the user.
     ///
     LabelHidden {
+        priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
-        highlight: Option<(u8, u8, u8)>
+        highlight: Option<(u8, u8, u8)>,
     },
 
     /// Items which should not be displayed. Typically this includes items
@@ -267,7 +281,9 @@ pub enum DisplayType {
 }
 
 // Reexport the display type variants
-pub use self::DisplayType::{DisplayControl, DisplayDebug, DisplayWith, Hidden, LabelHidden};
+pub use self::DisplayType::{
+    DisplayControl, DisplayDebug, DisplayWith, Hidden, LabelControl, LabelHidden,
+};
 
 /// This structure is a generic description to be paired with the ItemId
 /// identifier. This scruct is a simple wrapper for String.

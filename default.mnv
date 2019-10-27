@@ -1,10 +1,14 @@
 ---
 # Constants for the Configuration
-version: "0.6.2"
+version: "0.7.1"
 identifier:
   id: 0
 server_location: ~
-system_connection: []
+background_process: ~
+system_connection:
+  - ZmqSecondary:
+      send_path: "tcp://192.168.0.210:6666"
+      recv_path: "tcp://192.168.0.210:5555"
 default_scene:
   id: 100
 
@@ -19,6 +23,8 @@ all_scenes:
     - id: 4
     - id: 5
     - id: 6
+    - id: 20
+    - id: 30
     
   # Second Scope
   ? id: 200
@@ -38,6 +44,12 @@ status_map:
         - id: 21
         - id: 22
 
+  ? id: 30
+  : MultiState:
+      current: 
+        id: 31
+      allowed:
+        - id: 31
 
 # Event Lookup
 event_set:
@@ -108,35 +120,101 @@ event_set:
         : id: 6
   ? id: 6
     description: Do Nothing
-    display: Hidden
+    display:
+      DisplayWith:
+        group_id:
+          id: 31
   : TriggerEvents:
       events: []
   ? id: 7
-    description: Placeholder
-    display: Hidden
+    description: Trigger Some Events
+    display:
+      DisplayWith:
+        group_id:
+          id: 31
   : TriggerEvents:
-      events: []
+      events:
+        - delay:
+            secs: 10
+            nanos: 0
+          event_id:
+            id: 8
+        - delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 9
+        - delay:
+            secs: 20
+            nanos: 0
+          event_id:
+            id: 8
+        - delay:
+            secs: 30
+            nanos: 0
+          event_id:
+            id: 8
+        - delay:
+            secs: 40
+            nanos: 0
+          event_id:
+            id: 8
+        - delay:
+            secs: 50
+            nanos: 0
+          event_id:
+            id: 8
   ? id: 8
-    description: Placeholder
-    display: Hidden
+    description: An Empty Event
+    display:
+      DisplayWith:
+        group_id:
+          id: 31
   : TriggerEvents:
       events: []
   ? id: 9
-    description: Placeholder
-    display: Hidden
-  : TriggerEvents:
-      events: []
+    description: Cancel All Empty Events
+    display:
+      DisplayWith:
+        group_id:
+          id: 31
+  : CancelEvents:
+      events:
+        - id: 8
   ? id: 20
     description: Event Status
-    display: Hidden
+    display:
+      LabelControl:
+        priority: ~
+        color: ~
+        highlight: ~
+        highlight_state: ~
   : ~
   ? id: 21
     description: Loading Delayed Events
-    display: Hidden
+    display:
+      LabelHidden:
+        color: [255, 161, 255]
   : ~
   ? id: 22
     description: Doing Nothing
-    display: Hidden
+    display:
+      LabelHidden:
+        color: [51, 161, 255]
+  ? id: 30
+    description: Unchangeable Status
+    display:
+      LabelControl:
+        priority: ~
+        color: ~
+        highlight: ~
+        highlight_state: ~
+  : ~
+  ? id: 31
+    description: Can't Change This
+    display:
+      LabelHidden:
+        color: [255, 161, 255]
   : ~
   ? id: 100
     description: Example Scene One

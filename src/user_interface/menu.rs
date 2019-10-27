@@ -22,9 +22,13 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
-    ClearQueue, Close, ConfigFile, ErrorLog, GameLog, SaveConfig,
+    ClearQueue, Close, ConfigFile, ErrorLog, GameLog, SaveConfig, InterfaceUpdate,
+    LaunchWindow, WindowType, ChangeSettings, DisplaySetting,
 };
 use super::UserInterface;
+
+// Import standard library features
+use std::sync::mpsc;
 
 // Import GTK and GDK libraries
 extern crate gdk_pixbuf;
@@ -51,6 +55,7 @@ impl MenuAbstraction {
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
         user_interface: &UserInterface,
+        interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) {
         // Create the menu bar and the different submenus
         let menu_bar = gio::Menu::new();
@@ -68,44 +73,46 @@ impl MenuAbstraction {
         let modify_section = gio::Menu::new();
 
         // Organize the file section of the menu
-        config_section.append("Choose Configuration", "app.config");
-        config_section.append("Choose Game Log", "app.gamelog");
-        config_section.append("Choose Error Log", "app.errorlog");
-        quit_section.append("Quit", "app.quit");
+        config_section.append(Some("Choose Configuration"), Some("app.config"));
+        config_section.append(Some("Choose Game Log"), Some("app.gamelog"));
+        config_section.append(Some("Choose Error Log"), Some("app.errorlog"));
+        quit_section.append(Some("Quit"), Some("app.quit"));
         file_menu.append_item(&gio::MenuItem::new_section(None, &config_section));
         file_menu.append_item(&gio::MenuItem::new_section(None, &quit_section));
 
         // Organize the edit section of the menu
-        settings_section.append("_Fullscreen", "app.fullscreen");
-        settings_section.append("_Debug Mode", "app.debug_mode");
-        status_section.append("Jump To ...", "app.jump");
-        status_section.append("Modify Status", "app.status");
-        status_section.append("Trigger Event", "app.trigger");
-        status_section.append("Clear Timeline", "app.clear");
+        settings_section.append(Some("_Fullscreen"), Some("app.fullscreen"));
+        settings_section.append(Some("_Debug Mode"), Some("app.debug_mode"));
+        settings_section.append(Some("_Large Font"), Some("app.large_font"));
+        settings_section.append(Some("_High Contrast"), Some("app.contrast"));
+        status_section.append(Some("Jump To ..."), Some("app.jump"));
+        status_section.append(Some("Modify Status"), Some("app.status"));
+        status_section.append(Some("Trigger Event"), Some("app.trigger"));
+        status_section.append(Some("Clear Timeline"), Some("app.clear"));
         run_menu.append_item(&gio::MenuItem::new_section(None, &settings_section));
         run_menu.append_item(&gio::MenuItem::new_section(None, &status_section));
 
         // Organize the run section of the menu
-        edit_section.append("_Edit Mode", "app.edit_mode");
-        edit_section.append("Save Config", "app.save_config");
-        modify_section.append("New Scene", "app.new_scene");
-        modify_section.append("New Status", "app.new_status");
-        modify_section.append("New Event", "app.new_event");
+        edit_section.append(Some("_Edit Mode"), Some("app.edit_mode"));
+        edit_section.append(Some("Save Config"), Some("app.save_config"));
+        modify_section.append(Some("New Scene"), Some("app.new_scene"));
+        modify_section.append(Some("New Status"), Some("app.new_status"));
+        modify_section.append(Some("New Event"), Some("app.new_event"));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &edit_section));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &modify_section));
 
         // Organize the help section of the menu
-        help_menu.append("Help", "app.help");
-        help_menu.append("About", "app.about");
+        help_menu.append(Some("Help"), Some("app.help"));
+        help_menu.append(Some("About"), Some("app.about"));
 
         // Add the sub menus to the menu bar
-        menu_bar.append_submenu("File", &file_menu);
-        menu_bar.append_submenu("Run", &run_menu);
-        menu_bar.append_submenu("Edit", &edit_menu);
-        menu_bar.append_submenu("Help", &help_menu);
+        menu_bar.append_submenu(Some("File"), &file_menu);
+        menu_bar.append_submenu(Some("Run"), &run_menu);
+        menu_bar.append_submenu(Some("Edit"), &edit_menu);
+        menu_bar.append_submenu(Some("Help"), &help_menu);
 
         // Set the menu bar
-        application.set_menubar(&menu_bar);
+        application.set_menubar(Some(&menu_bar));
 
         // Create the config dialog action
         let config = gio::SimpleAction::new("config", None);
@@ -228,7 +235,8 @@ impl MenuAbstraction {
 
         // Create the debug mode action
         let debug = gio::SimpleAction::new_stateful("debug_mode", None, &false.to_variant());
-        debug.connect_activate(clone!(user_interface => move |checkbox, _| {
+        let interface_clone = interface_send.clone();
+        debug.connect_activate(move |checkbox, _| {
 
             // Update the debug status of the program
             let mut is_debug = false;
@@ -238,50 +246,101 @@ impl MenuAbstraction {
                 is_debug = state.get().unwrap_or(false);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                user_interface.select_debug(!is_debug);
+                interface_clone.send(ChangeSettings {
+                    display_setting: DisplaySetting::DebugMode(!is_debug)
+                }).unwrap_or(());
             }
 
             // Invert the checkbox state ourselves because of gio innerworkings
             checkbox.change_state(&(!is_debug).to_variant());
-        }));
+        });
+
+        // Create the large font action
+        let font = gio::SimpleAction::new_stateful("large_font", None, &false.to_variant());
+        let interface_clone = interface_send.clone();
+        font.connect_activate(move |checkbox, _| {
+
+            // Update the font size of the program
+            let mut is_large = false;
+            if let Some(state) = checkbox.get_state() {
+
+                // Default to false if unable to get the current state of checkbox
+                is_large = state.get().unwrap_or(false);
+
+                // Update the rest of the interface (to the opposite of the current state)
+                interface_clone.send(ChangeSettings {
+                    display_setting: DisplaySetting::LargeFont(!is_large)
+                }).unwrap_or(());
+            }
+
+            // Invert the checkbox state ourselves because of gio innerworkings
+            checkbox.change_state(&(!is_large).to_variant());
+        });
+
+        // Create the high contrast action
+        let contrast = gio::SimpleAction::new_stateful("contrast", None, &false.to_variant());
+        let interface_clone = interface_send.clone();
+        contrast.connect_activate(move |checkbox, _| {
+
+            // Update the high contrast state of the program
+            let mut is_hc = false;
+            if let Some(state) = checkbox.get_state() {
+
+                // Default to false if unable to get the current state of checkbox
+                is_hc = state.get().unwrap_or(false);
+
+                // Update the rest of the interface (to the opposite of the current state)
+                interface_clone.send(ChangeSettings {
+                    display_setting: DisplaySetting::HighContrast(!is_hc)
+                }).unwrap_or(());
+            }
+
+            // Invert the checkbox state ourselves because of gio innerworkings
+            checkbox.change_state(&(!is_hc).to_variant());
+        });
 
         // Create the jump to dialog action
         let jump = gio::SimpleAction::new("jump", None);
-        jump.connect_activate(clone!(window, user_interface => move |_, _| {
-
+        let interface_clone = interface_send.clone();
+        jump.connect_activate(move |_, _| {
             // Launch the jump dialog
-            user_interface.launch_jump_dialog(&window);
-        }));
+            interface_clone.send(LaunchWindow {
+                window_type: WindowType::Jump(None)
+            }).unwrap_or(());
+        });
 
         // Create the modify status dialog action
         let status = gio::SimpleAction::new("status", None);
-        status.connect_activate(clone!(window, user_interface => move |_, _| {
-
+        let interface_clone = interface_send.clone();
+        status.connect_activate(move |_, _| {
             // Launch the status modification dialog
-            user_interface.launch_status_dialog(&window);
-        }));
+            interface_clone.send(LaunchWindow {
+                window_type: WindowType::Status(None)
+            }).unwrap_or(());
+        });
 
         // Create the clear timeline action
         let clear = gio::SimpleAction::new("clear", None);
         clear.connect_activate(clone!(user_interface => move |_, _| {
-
             // Launch the trigger event dialog
             user_interface.send(ClearQueue);
         }));
 
         // Create the trigger event to dialog action
         let trigger = gio::SimpleAction::new("trigger", None);
-        trigger.connect_activate(clone!(window, user_interface => move |_, _| {
-
+        let interface_clone = interface_send.clone();
+        trigger.connect_activate(move |_, _| {
             // Launch the trigger event dialog
-            user_interface.launch_trigger_dialog(&window);
-        }));
+            interface_clone.send(LaunchWindow {
+                window_type: WindowType::Trigger(None)
+            }).unwrap_or(());
+        });
 
         // Create the edit mode action
         let edit = gio::SimpleAction::new_stateful("edit_mode", None, &false.to_variant());
         edit.connect_activate(clone!(user_interface => move |checkbox, _| {
 
-            // Update the debug status of the program
+            // Update the edit status of the program
             if let Some(state) = checkbox.get_state() {
 
                 // Default to false if unable to get the current state of checkbox
@@ -421,16 +480,16 @@ impl MenuAbstraction {
             dialog.set_website_label(Some("www.ComedyElectronics.com"));
             dialog.set_website(Some("http://www.ComedyElectronics.com"));
             dialog.set_title("About Minerva");
-            dialog.set_logo_icon_name("Minerva Control Panel");
+            dialog.set_logo_icon_name(Some("Minerva Control Panel"));
             dialog.set_program_name("Minerva Control Panel");
-            dialog.set_version(env!("CARGO_PKG_VERSION"));
+            dialog.set_version(Some(env!("CARGO_PKG_VERSION")));
             dialog.set_license_type(gtk::License::Gpl30);
 
             // Try to add the software logo
             match gdk_pixbuf::Pixbuf::new_from_file(super::super::LOGO_WIDE) {
 
                 // Add the logo if successful
-               Ok(ref pixbuf) => dialog.set_logo(pixbuf),
+               Ok(ref pixbuf) => dialog.set_logo(Some(pixbuf)),
                 _ => (),
             }
 
@@ -447,6 +506,8 @@ impl MenuAbstraction {
         application.add_action(&quit);
         application.add_action(&fullscreen);
         application.add_action(&debug);
+        application.add_action(&font);
+        application.add_action(&contrast);
         application.add_action(&edit);
         application.add_action(&saveconfig);
         application.add_action(&newevent);
@@ -460,4 +521,3 @@ impl MenuAbstraction {
         application.add_action(&about);
     }
 }
-

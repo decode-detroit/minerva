@@ -37,7 +37,8 @@ use std::sync::mpsc;
 use std::thread;
 
 // Import failure features
-#[macro_use] extern crate failure;
+#[macro_use]
+extern crate failure;
 
 // Import GTK and GIO libraries
 extern crate gdk;
@@ -127,4 +128,3 @@ fn main() {
     // Run the application until all the windows are closed
     application.run(&args().collect::<Vec<_>>());
 }
-

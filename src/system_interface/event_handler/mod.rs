@@ -38,8 +38,8 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    EventDelay, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene,
-    SaveData, TriggerEvents, UpcomingEvent,
+    EventDelay, EventDetail, EventUpdate, DataType, GroupedEvent, ModifyStatus, NewScene,
+    SaveData, SendData, TriggerEvents, CancelEvents, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::{ComingEvent, Queue};
@@ -120,7 +120,9 @@ impl EventHandler {
         let queue = Queue::new(general_update.clone());
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, status_pairs, queued_events)) = backup.reload_backup(config.get_status_ids()) {
+        if let Some((current_scene, status_pairs, queued_events)) =
+            backup.reload_backup(config.get_status_ids())
+        {
             // Notify that existing data was found
             update!(err &general_update => "Detected Lingering Backup Data. Reloading ...");
 
@@ -134,10 +136,10 @@ impl EventHandler {
             for event in queued_events {
                 queue.add_event(EventDelay::new(Some(event.remaining), event.event_id));
             }
-            
+
             // Wait 10 nanoseconds for the queued events to process
             thread::sleep(Duration::new(0, 10));
-            
+
             // Trigger a redraw of the window and timeline
             general_update.send_redraw();
 
@@ -162,22 +164,6 @@ impl EventHandler {
     ///
     pub fn system_connection(&self) -> (ConnectionSet, ItemId) {
         self.config.system_connection()
-    }
-
-    /// A method to process a new event in the event handler.
-    ///
-    /// # Errors
-    ///
-    /// This method will not raise any errors. If the module encounters an
-    /// inconsistency when trying to process an event, it will raise a warning
-    /// and otherwise continue processing events.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line.
-    ///
-    pub fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool, ) {
-        // Process the event
-        self.retrieve_event(event_id, checkscene, broadcast);
     }
 
     /// A method to clear the existing events in the timed queue.
@@ -211,7 +197,7 @@ impl EventHandler {
         if let Some(mut events) = self.queue.list_events() {
             // Backup the upcoming events
             self.backup.backup_events(events.clone());
-            
+
             // Repackage the list as upcoming events
             let mut coming_events = Vec::new();
             for event in events.drain(..) {
@@ -300,22 +286,22 @@ impl EventHandler {
         self.config.get_scenes()
     }
 
-    /// A method to return an itempair of all available events in the current
-    /// scene. This method will always return the events from lowest to
+    /// A method to return an itempair of all available items in the current
+    /// scene. This method will always return the items from lowest to
     /// highest id.
     ///
     /// # Errors
     ///
-    /// This method will raise an error if one of the event ids was not found in
+    /// This method will raise an error if one of the item ids was not found in
     /// lookup. This indicates that the configuration file is incomplete.
     ///
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that scene.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
-        // Return a list of available events in the current scene
-        self.config.get_events()
+    pub fn get_items(&self) -> Vec<ItemPair> {
+        // Return a list of available items in the current scene
+        self.config.get_items()
     }
 
     /// A method to return the current scene.
@@ -348,13 +334,13 @@ impl EventHandler {
     ///
     pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // Try to modify the underlying status
-        if self.config.modify_status(status_id, new_state).is_ok() {
+        if let Some(new_id) = self.config.modify_status(status_id, new_state) {
             // Backup the status change
-            self.backup.backup_status(status_id, new_state);
+            self.backup.backup_status(status_id, &new_id);
 
             // Run the change event for the new state (no backup necessary)
             self.queue
-                .add_event(EventDelay::new(None, new_state.clone()));
+                .add_event(EventDelay::new(None, new_id));
         }
     }
 
@@ -401,7 +387,7 @@ impl EventHandler {
     }
 
     /// A method to change the remaining delay for the provided event currently
-    /// in the queue.
+    /// in the queue, or to cancel the event.
     ///
     /// # Errors
     ///
@@ -413,13 +399,29 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by ignoring this failure.
     ///
-    pub fn adjust_event(&self, event_id: ItemId, start_time: Instant, delay: Duration) {
-        // Try to modify the provided event in the current queue
-        self.queue.adjust_event(ComingEvent {
-            event_id,
-            start_time,
-            delay,
-        });
+    pub fn adjust_event(&self, event_id: ItemId, start_time: Instant, new_delay: Option<Duration>) {
+        // Check to see if a delay was specified
+        match new_delay {
+            // If a delay was specified
+            Some(delay) => {
+                // Try to modify the provided event in the current queue
+                self.queue.adjust_event(ComingEvent {
+                    event_id,
+                    start_time,
+                    delay,
+                });
+            },
+            
+            // Otherwise
+            None => {
+                // Try to cancel the event
+                self.queue.cancel_event(ComingEvent {
+                    event_id,
+                    start_time,
+                    delay: Duration::from_secs(0),
+                });
+            }
+        }
     }
 
     /// A method to save the current configuration to the provided file.
@@ -447,9 +449,18 @@ impl EventHandler {
         self.config.to_config(&config_file);
     }
 
-    /// An internal function to try retrieve the event details and act upon them.
+    /// A method to process a new event in the event handler.
     ///
-    fn retrieve_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) {
+    /// # Errors
+    ///
+    /// This method will not raise any errors. If the module encounters an
+    /// inconsistency when trying to process an event, it will raise a warning
+    /// and otherwise continue processing events.
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line.
+    ///
+    pub fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) {
         // Try to retrieve the event details and unpack the event
         let event_detail = match self.config.try_event(event_id, checkscene) {
             // Process a valid event
@@ -460,22 +471,29 @@ impl EventHandler {
         };
 
         // Process and update the system about the event
-        self.unpack_event(event_detail);
+        let data = self.unpack_event(event_detail);
+        let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
         if broadcast {
-            // Broadcast the event
-            let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
-            update!(broadcast &self.general_update => pair);
+            // If there is data to send
+            if let Some(number) = data {
+                // Broadcast the event and data
+                update!(broadcastdata &self.general_update => pair, number);
+            
+            // Broadcast the event only
+            } else {
+                update!(broadcast &self.general_update => pair);
+            }
 
         // Update the system about the event
         } else {
-            let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
             update!(now &self.general_update => pair);
         }
     }
 
-    /// An internal function to unpack the event detail and act on it.
+    /// An internal function to unpack the event detail and act on it. If the
+    /// event results in data to broadcast, the data will be returned.
     ///
-    fn unpack_event(&mut self, event_detail: EventDetail) {
+    fn unpack_event(&mut self, event_detail: EventDetail) -> Option<u32> {
         // Unpack the event
         match event_detail {
             // If there is a new scene, execute the change
@@ -502,10 +520,58 @@ impl EventHandler {
                 }
             }
 
+            // If there are events to cancel, remove them from the queue
+            CancelEvents { events } => {
+                // Unpackage each coming event and add it to the queue
+                for event_id in events {
+                    // Add the triggered events to the queue
+                    self.queue.cancel_all(event_id);
+                }
+            }
+
             // If there is data to save, save it
             SaveData { data } => {
                 // Save the data to the game log
                 update!(save &self.general_update => data);
+            }
+            
+            // If there is data to send, collect and send it
+            SendData ( data_type ) => {
+                // Select for the type of data
+                match data_type {
+                    // Collect time until an event
+                    DataType::TimeUntil { event_id } => {
+                        // Check to see if there is time remaining for the event
+                        if let Some(duration) = self.queue.event_remaining(&event_id) {
+                            // Convert the data to u32 (truncated)
+                            return Some(duration.as_secs() as u32);
+                        
+                        // Otherwise, return empty data
+                        } else {
+                            return Some(0);
+                        }
+                    }
+                    
+                    // Collect time passed until an event
+                    DataType::TimePassedUntil { event_id, total_time } => {
+                        // Check to see if there is time remaining for the event
+                        if let Some(remaining) = self.queue.event_remaining(&event_id) {
+                            // Subtract the remaining time from the total time
+                            if let Some(result) = total_time.checked_sub(remaining) {
+                                // Convert the data to u32 (truncated)
+                                return Some(result.as_secs() as u32);
+                            
+                            // Otherwise, return no duration
+                            } else {
+                                return Some(0);
+                            }
+                        
+                        // Otherwise, return the full duration (truncated)
+                        } else {
+                            return Some(total_time.as_secs() as u32);
+                        }
+                    }
+                }
             }
 
             // If there is a grouped event, trigger the corresponding event
@@ -518,8 +584,8 @@ impl EventHandler {
                     // Try to find the corresponding event in the event_map
                     match event_map.get(&state) {
                         // Trigger the event if it was found
-                        Some(event_id) => self.retrieve_event(event_id, true, true), // check scene and broadcast
-
+                        Some(event_id) => self.queue.add_event(EventDelay::new(None, event_id.clone())),
+                        
                         // Otherwise warn the system the event was not found
                         None => {
                             update!(warn &self.general_update => "Unable To Find State In Grouped Event: {}", state)
@@ -528,6 +594,9 @@ impl EventHandler {
                 }
             }
         }
+        
+        // Return no data for most cases
+        None
     }
 }
 

@@ -23,14 +23,14 @@
 //! handler system via the event_send line.
 
 // Define private submodules
-mod zmq_comm;
-mod dmx_comm;
 mod comedy_comm;
+mod dmx_comm;
+mod zmq_comm;
 
 // Import the relevant structures into the correct namespace
-use self::zmq_comm::{ZmqBind, ZmqConnect};
-use self::dmx_comm::{DmxComm, DmxFade, DmxMap};
 use self::comedy_comm::ComedyComm;
+use self::dmx_comm::{DmxComm, DmxFade, DmxMap};
+use self::zmq_comm::{EventToString, StringToEvent, ZmqBind, ZmqConnect, ZmqLookup};
 use super::event_handler::event::EventUpdate;
 use super::event_handler::item::{ItemId, COMM_ERROR, READ_ERROR};
 use super::GeneralUpdate;
@@ -74,12 +74,23 @@ pub enum ConnectionType {
         recv_path: PathBuf, // the location to connect the ZMQ receiver
     },
 
+    /// A variant to create a ZeroMQ connection. This connection type translates
+    /// event numbers to specific messages (one event for each message).
+    /// Although messages can be sent and received, received messages are not
+    /// echoed back to the system. NOT RECOMMENDED FOR NEW DESIGNS.
+    ZmqTranslate {
+        send_path: PathBuf,          // the location to bind the ZMQ sender
+        recv_path: PathBuf,          // the location to bind the ZMQ receiver
+        event_string: EventToString, // a map of event:string pairs
+        string_event: StringToEvent, // a map of string:event pairs (not every event:string pair will appear in string:event and vice versa)
+    },
+
     /// A variant to connect with a DMX serial port. This connection type allows
     /// messages to be the sent only.
     DmxSerial {
-        path: PathBuf, // the location of the serial port
+        path: PathBuf,              // the location of the serial port
         all_stop_dmx: Vec<DmxFade>, // a vector of dmx fades for all stop
-        dmx_map: DmxMap, // the map of event ids to dmx fades
+        dmx_map: DmxMap,            // the map of event ids to dmx fades
     },
 }
 
@@ -100,21 +111,48 @@ impl ConnectionType {
             }
 
             // Connect to a live version of the zmq port
-            &ConnectionType::ZmqPrimary { ref send_path, ref recv_path } => {
+            &ConnectionType::ZmqPrimary {
+                ref send_path,
+                ref recv_path,
+            } => {
                 // Create the new zmq connection
                 let connection = ZmqBind::new(send_path, recv_path)?;
                 Ok(LiveConnection::ZmqPrimary { connection })
             }
 
             // Connect to a live version of the zmq port
-            &ConnectionType::ZmqSecondary { ref send_path, ref recv_path } => {
+            &ConnectionType::ZmqSecondary {
+                ref send_path,
+                ref recv_path,
+            } => {
                 // Create a new zmq to main connection
                 let connection = ZmqConnect::new(send_path, recv_path)?;
                 Ok(LiveConnection::ZmqSecondary { connection })
             }
-            
+
+            // Connect to a live version of the zmq port
+            &ConnectionType::ZmqTranslate {
+                ref send_path,
+                ref recv_path,
+                ref event_string,
+                ref string_event,
+            } => {
+                // Create a new zmq to main connection
+                let connection = ZmqLookup::new(
+                    send_path,
+                    recv_path,
+                    event_string.clone(),
+                    string_event.clone(),
+                )?;
+                Ok(LiveConnection::ZmqTranslate { connection })
+            }
+
             // Connect to a live version of the DMX serial port
-            &ConnectionType::DmxSerial { ref path, ref all_stop_dmx, ref dmx_map } => {
+            &ConnectionType::DmxSerial {
+                ref path,
+                ref all_stop_dmx,
+                ref dmx_map,
+            } => {
                 // Create the new dmx connection
                 let connection = DmxComm::new(path, all_stop_dmx.clone(), dmx_map.clone())?;
                 Ok(LiveConnection::DmxSerial { connection })
@@ -132,7 +170,6 @@ pub type ConnectionSet = Vec<ConnectionType>;
 /// connection to the underlying system.
 ///
 enum LiveConnection {
-
     /// A variant to connect with a ComedyComm serial port. This implementation
     /// assumes the serial connection uses the ComedyComm protocol.
     ComedySerial {
@@ -153,6 +190,14 @@ enum LiveConnection {
         connection: ZmqConnect, // the zmq connection
     },
 
+    /// A variant to create a ZeroMQ connection. This connection type translates
+    /// event numbers to specific messages (one event for each message).
+    /// Although messages can be sent and received, received messages are not
+    /// echoed back to the system. NOT RECOMMENDED FOR NEW DESIGNS.
+    ZmqTranslate {
+        connection: ZmqLookup, // the zmq connection
+    },
+
     /// A variant to connect with a DMX serial port. The connection type allows
     /// messages to be the sent only.
     DmxSerial {
@@ -169,29 +214,52 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::ComedySerial { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_events(),
+            &mut LiveConnection::ZmqTranslate { ref mut connection } => connection.read_events(),
             &mut LiveConnection::DmxSerial { ref mut connection } => connection.read_events(),
         }
     }
-    
+
     /// The write event method (does not check duplicates)
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Write to the interior connection
         match self {
-            &mut LiveConnection::ComedySerial { ref mut connection } => connection.write_event(id, data1, data2),
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.write_event(id, data1, data2),
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.write_event(id, data1, data2),
-            &mut LiveConnection::DmxSerial { ref mut connection } => connection.write_event(id, data1, data2),
+            &mut LiveConnection::ComedySerial { ref mut connection } => {
+                connection.write_event(id, data1, data2)
+            }
+            &mut LiveConnection::ZmqPrimary { ref mut connection } => {
+                connection.write_event(id, data1, data2)
+            }
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
+                connection.write_event(id, data1, data2)
+            }
+            &mut LiveConnection::ZmqTranslate { ref mut connection } => {
+                connection.write_event(id, data1, data2)
+            }
+            &mut LiveConnection::DmxSerial { ref mut connection } => {
+                connection.write_event(id, data1, data2)
+            }
         }
     }
-    
+
     /// The echo event method (checks for duplicates from recently read events)
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Echo events to the interior connection
         match self {
-            &mut LiveConnection::ComedySerial { ref mut connection } => connection.echo_event(id, data1, data2),
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.echo_event(id, data1, data2),
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.echo_event(id, data1, data2),
-            &mut LiveConnection::DmxSerial { ref mut connection } => connection.echo_event(id, data1, data2),
+            &mut LiveConnection::ComedySerial { ref mut connection } => {
+                connection.echo_event(id, data1, data2)
+            }
+            &mut LiveConnection::ZmqPrimary { ref mut connection } => {
+                connection.echo_event(id, data1, data2)
+            }
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
+                connection.echo_event(id, data1, data2)
+            }
+            &mut LiveConnection::ZmqTranslate { ref mut connection } => {
+                connection.echo_event(id, data1, data2)
+            }
+            &mut LiveConnection::DmxSerial { ref mut connection } => {
+                connection.echo_event(id, data1, data2)
+            }
         }
     }
 }
@@ -201,7 +269,7 @@ impl EventConnection for LiveConnection {
 enum ConnectionUpdate {
     /// A variant to indicate an event should be broadcast
     ///
-    Broadcast(ItemId),
+    Broadcast(ItemId, Option<u32>),
 
     /// A variant to indicate that the connection process should stop
     Stop,
@@ -239,10 +307,10 @@ impl SystemConnection {
             general_update,
             connection_send: None,
         };
-        
+
         // Try to update the system connection using the provided connection type(s)
         system_connection.update_system_connection(connections);
-        
+
         // Return the system connection
         system_connection
     }
@@ -258,10 +326,10 @@ impl SystemConnection {
         if let Some(ref conn_send) = self.connection_send {
             conn_send.send(ConnectionUpdate::Stop).unwrap_or(());
         }
-        
+
         // Reset the connection
         self.connection_send = None;
-        
+
         // Check to see if there is a provided connection set
         if let Some((conn_set, identifier)) = connections {
             // Initialize the system connections
@@ -291,18 +359,18 @@ impl SystemConnection {
             self.connection_send = Some(conn_send);
             return true;
         }
-        
+
         // Otherwise, leave the system disconnected
         true
     }
 
     /// A method to send messages between the underlying system and the program.
     ///
-    pub fn broadcast(&mut self, new_event: ItemId) {
+    pub fn broadcast(&mut self, new_event: ItemId, data: Option<u32>) {
         // Extract the connection, if it exists
         if let Some(ref mut conn) = self.connection_send {
             // Send the new event
-            if let Err(_) = conn.send(ConnectionUpdate::Broadcast(new_event)) {
+            if let Err(_) = conn.send(ConnectionUpdate::Broadcast(new_event, data)) {
                 update!(err &self.general_update => "Unable To Contact The Underlying System.");
             }
         }
@@ -320,7 +388,7 @@ impl SystemConnection {
         loop {
             // Save the start time of the loop
             let loop_start = Instant::now();
-            
+
             // Read all events from the system connections
             let mut events = Vec::new();
             for connection in connections.iter_mut() {
@@ -341,14 +409,16 @@ impl SystemConnection {
                 } else {
                     // Echo the event to every connection
                     for connection in connections.iter_mut() {
-                        connection.echo_event(id.clone(), game_id.clone(), data2.clone()).unwrap_or(());
+                        connection
+                            .echo_event(id.clone(), game_id.clone(), data2.clone())
+                            .unwrap_or(());
                     }
-                
+
                     // Verify the game id is correct
                     if identifier.id() == game_id {
                         // Create a new id and send it to the program
-                        gen_update.send_nobroadcast(id);
-                    
+                        gen_update.send_nobroadcast(id); // FIXME Handle incoming data
+
                     // Otherwise send a notification of an incorrect game number
                     } else {
                         update!(warnevent &gen_update => id => "Game Id Does Not Match. Event Ignored.");
@@ -359,14 +429,20 @@ impl SystemConnection {
             // Send any new events to the system
             match conn_recv.try_recv() {
                 // Send the new event
-                Ok(ConnectionUpdate::Broadcast(id)) => {
+                Ok(ConnectionUpdate::Broadcast(id, data)) => {
+                    // Translate the data to a placeholder, if necessary
+                    let data2 = match data {
+                        Some(number) => number,
+                        None => 0,
+                    };
+                
                     // Try to send the new event to every connection
                     for connection in connections.iter_mut() {
                         // Catch any write errors
-                        if let Err(_) = connection.write_event(id, identifier.id(), 0) {
+                        if let Err(_) = connection.write_event(id, identifier.id(), data2) {
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
-                            if let Err(_) = connection.write_event(id, identifier.id(), 0) {
+                            if let Err(_) = connection.write_event(id, identifier.id(), data2) {
                                 // If failed twice in a row, notify the system
                                 update!(err &gen_update => "Unable To Contact The Underlying System.");
                             }
@@ -381,7 +457,7 @@ impl SystemConnection {
                 // Otherwise continue
                 _ => (),
             }
-        
+
             // Make sure that some time elapses in each loop
             if Duration::from_millis(POLLING_RATE) > loop_start.elapsed() {
                 thread::sleep(Duration::from_millis(POLLING_RATE));
@@ -398,10 +474,10 @@ impl SystemConnection {
 pub trait EventConnection {
     /// The read event method
     fn read_events(&mut self) -> Vec<(ItemId, u32, u32)>;
-    
+
     /// The write event method (does not check duplicates)
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;
-    
+
     /// The echo event method (checks for duplicates from recently read events)
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;
 }

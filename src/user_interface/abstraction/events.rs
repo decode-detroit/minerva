@@ -22,15 +22,15 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, LabelHidden, Hidden,
-    EventGroup, EventWindow, FullStatus, StatusDescription, ItemId,
-    ItemDescription, ItemPair, StatusChange, SystemSend, TriggerEvent,
+    DisplayControl, DisplayDebug, DisplayType, DisplayWith, EventGroup, EventWindow,
+    FullStatus, Hidden, ItemDescription, ItemId, ItemPair, LabelControl, LabelHidden,
+    StatusDescription, SystemSend, TriggerEvent, InterfaceUpdate, LaunchWindow, WindowType,
 };
 use super::super::utils::clean_text;
+use super::{NORMAL_FONT, LARGE_FONT};
 
 // Import standard library features
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::mpsc;
 use std::u32::MAX as u32MAX;
 
 // Import GTK and GDK libraries
@@ -39,8 +39,9 @@ extern crate gtk;
 use self::gtk::prelude::*;
 
 // Define module constants
-const BUTTON_LIMIT: usize = 20; // maximum character width of normal buttons
-const STORY_BUTTON_LIMIT: usize = 40; // maximum character width of story buttons
+const BUTTON_LIMIT: usize = 16; // maximum character width of buttons
+const LABEL_LIMIT: usize = 30; // maximum character width of labels
+const CONTROL_LIMIT: usize = 20; // maximum character width of control panel labels
 
 /// A structure to hold all the event groups in the default interface.
 ///
@@ -49,95 +50,135 @@ const STORY_BUTTON_LIMIT: usize = 40; // maximum character width of story button
 ///
 #[derive(Clone, Debug)]
 pub struct EventAbstraction {
-    window: gtk::ScrolledWindow, // the scrolled window to hold the grid
-    grid: gtk::Grid,             // the grid to hold the underlying elements
+    grid: gtk::Grid,             // the top level grid containing both windows
+    left_grid: gtk::Grid,        // the grid to hold the event elements(left side)
+    right_grid: gtk::Grid,       // the grid to hold the event elements (right side)
     groups: Vec<EventGroupAbstraction>, // a vector of the current event groups
     side_panel: gtk::Grid,       // the container to hold the side panel events
     side_group: Option<EventGroupAbstraction>, // side panel group (for ungrouped events)
-    last_change: Rc<RefCell<Option<ItemId>>>, // a flag to track state changes and prevent double triggering
+    is_font_large: bool,         // a flag to indicate the font size of the items
+    is_high_contrast: bool,      // a flag to indicate if the display is high contrast
 }
 
 // Implement key features for the Event Abstraction
 impl EventAbstraction {
     /// A function to create a new Event Abstration instance.
     ///
-    /// Notifications of new events that are triggered will be posted to the
-    /// status bar with a context id of 0.
-    ///
     pub fn new() -> EventAbstraction {
-        // Create the event grid for holding all the available events
-        let grid = gtk::Grid::new();
+        // Create the left and right grids
+        let left_grid = gtk::Grid::new();
+        left_grid.set_column_homogeneous(false); // set the row and column heterogeneous
+        left_grid.set_row_homogeneous(false);
+        left_grid.set_row_spacing(20); // add some space between the rows
+        let right_grid = gtk::Grid::new();
+        right_grid.set_column_homogeneous(false); // set the row and column heterogeneous
+        right_grid.set_row_homogeneous(false);
+        right_grid.set_row_spacing(20); // add some space between the rows
 
-        // Set the features of the grid
-        grid.set_column_homogeneous(false); // set the row and column heterogeneous
-        grid.set_row_homogeneous(false);
-        grid.set_column_spacing(10); // add some space between the columns
-        grid.set_row_spacing(0);
-        grid.set_margin_top(10); // add some space on the margins
-        grid.set_margin_bottom(10);
-        grid.set_margin_start(10);
-        grid.set_margin_end(10);
-
-        // Create the scrolled window and add the grid
-        let window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
-        // FIXME Broken implementation of ScrolledWindow::new()
-        window.add(&grid);
-        window.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Never);
+        // Create the scrolled windows and add the grids
+        let left_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
+        left_window.add(&left_grid);
+        left_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
         // Format the window
-        window.set_hexpand(true);
-        window.set_vexpand(true);
-        window.set_halign(gtk::Align::Fill);
-        window.set_valign(gtk::Align::Fill);
+        left_window.set_hexpand(true);
+        left_window.set_vexpand(true);
+        left_window.set_halign(gtk::Align::Fill);
+        left_window.set_valign(gtk::Align::Fill);
+
+        // Create the right scrolled window and add the grid
+        let right_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
+        right_window.add(&right_grid);
+        right_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+
+        // Format the window
+        right_window.set_hexpand(true);
+        right_window.set_vexpand(true);
+        right_window.set_halign(gtk::Align::Fill);
+        right_window.set_valign(gtk::Align::Fill);
+        
+        // Create the top grid for holding the two windows and separator
+        let grid = gtk::Grid::new();
+        grid.set_column_homogeneous(false); // set the row and column heterogeneous
+        grid.set_row_homogeneous(false);
+
+        // Create the separator
+        let separator = gtk::Separator::new(gtk::Orientation::Vertical);
+        separator.set_valign(gtk::Align::Fill);
+        separator.set_vexpand(true);
+
+        // Add both windows to the top level grid
+        grid.attach(&left_window, 0, 0, 1, 1);
+        grid.attach(&separator, 1, 0, 1, 1);
+        grid.attach(&right_window, 2, 0, 1, 1);
 
         // Create the side panel grid and set the features
         let side_panel = gtk::Grid::new();
         side_panel.set_column_homogeneous(false); // set the row and column heterogeneous
         side_panel.set_row_homogeneous(false);
-        side_panel.set_column_spacing(10); // add some space between the columns
-        side_panel.set_row_spacing(10);
-        side_panel.set_margin_top(10); // add some space on the margins
-        side_panel.set_margin_bottom(10);
-        side_panel.set_margin_start(10);
-        side_panel.set_margin_end(10);
+        side_panel.set_row_spacing(5); // add some space between the rows
         side_panel.set_vexpand(true); // adjust the expansion parameters of the grid
         side_panel.set_hexpand(false);
 
         // Return the new Event Abstraction
         EventAbstraction {
-            window,
             grid,
+            left_grid,
+            right_grid,
             groups: Vec::new(), // an empty list of event groups
             side_panel,
             side_group: None, // an empty side panel event group
-            last_change: Rc::new(RefCell::new(None)), // an empty list of pending state changes
+            is_font_large: false,
+            is_high_contrast: false,
         }
     }
 
     /// A method to return a reference to the top element of the interface,
-    /// currently the top scrolled window.
+    /// currently the top level grid.
     ///
-    pub fn get_top_element(&self) -> &gtk::ScrolledWindow {
-        &self.window
+    pub fn get_top_element(&self) -> &gtk::Grid {
+        &self.grid
     }
 
-    /// A method to return the side panel container for special events
+    /// A method to return the side panel container for special events.
     ///
     pub fn get_side_panel(&self) -> &gtk::Grid {
         &self.side_panel
+    }
+    
+    /// A method to select the font size of the event array.
+    ///
+    pub fn select_font(&mut self, is_large: bool) {
+        self.is_font_large = is_large;
+    }
+
+    /// A method to select the color contrast of the event array.
+    ///
+    pub fn select_contrast(&mut self, is_hc: bool) {
+        self.is_high_contrast = is_hc;
     }
 
     /// A method to clear the old event groups and event grids to create a fresh
     /// event abstraction.
     ///
     pub fn clear(&mut self) {
-        // Remove all the the children from the primary grid
-        let to_remove = self.grid.get_children();
+        // Remove all the the children from the left and right grids
+        let to_remove = self.left_grid.get_children();
         for item in to_remove {
-            self.grid.remove(&item);
+            self.left_grid.remove(&item);
+        }
+        let to_remove = self.right_grid.get_children();
+        for item in to_remove {
+            self.right_grid.remove(&item);
         }
 
-        // Replace the side panel grid
+        // Remove all the children in the side panel grid
         let to_remove = self.side_panel.get_children();
         for item in to_remove {
             self.side_panel.remove(&item);
@@ -157,20 +198,33 @@ impl EventAbstraction {
     pub fn update_window(
         &mut self,
         current_scene: ItemPair,
+        mut statuses: Vec<ItemPair>,
         mut window: EventWindow,
         full_status: &FullStatus,
         system_send: &SystemSend,
+        interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) {
         // Empty the old event grid
         self.clear();
+        
+        // Set the font size
+        let font_size = match self.is_font_large {
+            false => NORMAL_FONT,
+            true => LARGE_FONT
+        };
 
         // Copy the available groups into new group abstractions
         let mut groups_raw = Vec::new();
         for group in window.drain(..) {
             // Try to load the group into a group abstraction
-            if let Some(grp_abstraction) =
-                EventGroupAbstraction::new(group, system_send, full_status, self.last_change.clone())
-            {
+            if let Some(grp_abstraction) = EventGroupAbstraction::new(
+                group,
+                system_send,
+                interface_send,
+                full_status,
+                font_size,
+                self.is_high_contrast,
+            ) {
                 // If it has an id, add it to the group list
                 if let Some(_) = grp_abstraction.group_id {
                     // Identify the group priority
@@ -201,41 +255,122 @@ impl EventAbstraction {
         }
 
         // Add the current scene detail
-        let current_title = gtk::Label::new(Some("Current Scene:"));
-        current_title.set_halign(gtk::Align::Center);
-        current_title.set_margin_start(60);
-        current_title.set_margin_end(10);
+        let current_title = gtk::Label::new(None);
+        current_title.set_markup(&format!("<span size='{}'>Current Scene:</span>", font_size));
+        current_title.set_halign(gtk::Align::End);
+        current_title.set_margin_end(5);
         current_title.show();
         self.side_panel.attach(&current_title, 0, 1, 1, 1);
-        let current = gtk::Label::new(None);
-        decorate_label(&current, &current_scene.description, current_scene.display, full_status);
-        current.set_halign(gtk::Align::Center);
-        current.set_margin_start(10);
-        current.set_margin_end(40);
-        current.show();
-        self.side_panel.attach(&current, 1, 1, 1, 1);
+        let current_label = gtk::Label::new(None);
+        let current_markup = clean_text(&current_scene.description, CONTROL_LIMIT, true, false, true);
+        decorate_label(
+            &current_label,
+            &current_markup,
+            current_scene.display,
+            full_status,
+            font_size,
+            self.is_high_contrast,
+        );
+        current_label.set_halign(gtk::Align::Start);
+        current_label.set_margin_start(5);
+        current_label.show();
+        self.side_panel.attach(&current_label, 1, 1, 1, 1);
 
-        // Add title and control separators
+        // Add title and control separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
         separator.show();
         self.side_panel.attach(&separator, 0, 2, 2, 1);
 
+        // Sort the statuses
+        let mut paired = Vec::new();
+        for status in statuses.drain(..) {
+            // Extract the priority of the status display
+            if let LabelControl { priority, .. } = status.display.clone() {
+                // Unpack the priority
+                match priority {
+                    // Add the priority if it exists
+                    Some(num) => paired.push((num, status)),
+                    
+                    // Otherwise, use the max available
+                    None => paired.push((u32MAX, status)),
+                }
+            }
+        }
+        
+        // Reorder the statuses to follow priority
+        paired.sort_by_key(|pair| {
+            let &(ref priority, _) = pair;
+            priority.clone()
+        });
+
+        // Strip the raw buttons to remove priority
+        let mut sorted = Vec::new();
+        for (_, status) in paired.drain(..) {
+            sorted.push(status);
+        }
+        
+        // Add the status/state pairs to the side panel
+        let mut status_count: i32 = 0;
+        for status in sorted.drain(..) {
+            // Put the name of the status
+            let status_title = gtk::Label::new(None);
+            let status_markup = clean_text(&status.description, CONTROL_LIMIT, true, false, true);
+            decorate_label(&status_title, &status_markup, status.display, full_status, font_size, self.is_high_contrast);
+            status_title.set_halign(gtk::Align::End);
+            status_title.set_margin_end(5);
+            status_title.show();
+            self.side_panel
+                .attach(&status_title, 0, 3 + status_count, 1, 1);
+
+            // Find the corresponding current state detail
+            let state = gtk::Label::new(Some("Not Available"));
+            if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                &ItemPair::from_item(status.get_id(), ItemDescription::new("", Hidden)),
+            ) {
+                // Decorate the state label
+                let state_markup = clean_text(&current.description, CONTROL_LIMIT, true, false, true);
+                decorate_label(&state, &state_markup, current.display, full_status, font_size, self.is_high_contrast);
+            }
+
+            // Format the state label
+            state.set_halign(gtk::Align::Start);
+            state.set_margin_start(5);
+            state.show();
+            self.side_panel.attach(&state, 1, 3 + status_count, 1, 1);
+
+            // Add a separator
+            status_count = status_count + 1;
+            let new_sep = gtk::Separator::new(gtk::Orientation::Horizontal);
+            new_sep.set_halign(gtk::Align::Fill);
+            new_sep.set_hexpand(true);
+            new_sep.show();
+            self.side_panel.attach(&new_sep, 0, 3 + status_count, 2, 1);
+
+            // Increment and continue
+            status_count = status_count + 1;
+        }
+
         // Try to attach the side panel group to the side panel grid
         if let Some(ref group) = self.side_group {
             // Create the found side panel group
             let grid = group.as_grid();
-            grid.set_halign(gtk::Align::Center);
-            self.side_panel.attach(&grid, 0, 3, 2, 1);
+            grid.set_halign(gtk::Align::Fill);
+            self.side_panel.attach(&grid, 0, 3 + status_count, 2, 1);
         }
 
-        // Attach all the regular event groups to the event grid
-        let mut count: i32 = 0;
-        for group in self.groups.iter() {
-            // Attach the found group to the grid
-            self.grid.attach(&group.as_grid(), count, 0, 1, 1);
-            count = count + 1;
+        // Attach all the regular event groups to the event grid in two columns
+        let half: usize = (self.groups.len() / 2) + (self.groups.len() % 2); // round up
+        for (num, group) in self.groups.iter().enumerate() {
+            // Switch left and right sides, half on each
+            if num < half {
+                // Attach the found group to the left grid
+                self.left_grid.attach(&group.as_grid(), 0, num as i32, 1, 1);
+            } else {
+                // Attach the found group to the right grid
+                self.right_grid.attach(&group.as_grid(), 0, (num - half) as i32, 1, 1);
+            }
         }
     }
 }
@@ -250,7 +385,7 @@ struct EventGroupAbstraction {
     group_id: Option<ItemId>, // the id for the group for rapid identification
     priority: Option<u32>,    // the priority for the group for ordering on the screen
     header: gtk::Label,       // the label attached to the header for the group
-    state_selection: Option<gtk::ComboBoxText>, // the dropdown for switching between states (if it exists)
+    state_selection: Option<gtk::Button>, // the dropdown for switching between states (if it exists)
     buttons: Vec<gtk::Button>,                  // the event buttons for the event group
 }
 
@@ -261,69 +396,55 @@ impl EventGroupAbstraction {
     fn new(
         event_group: EventGroup,
         system_send: &SystemSend,
+        interface_send: &mpsc::Sender<InterfaceUpdate>,
         full_status: &FullStatus,
-        last_change: Rc<RefCell<Option<ItemId>>>,
+        font_size: u32,
+        is_high_contrast: bool,
     ) -> Option<EventGroupAbstraction> {
+        // Create the empty header
+        let header = gtk::Label::new(None);
+        header.set_margin_start(10);
+        header.set_margin_end(10);
+        header.set_hexpand(false);
+        header.set_halign(gtk::Align::End);
+        
         // If there is an id, create the header and id and add it to the group
         let group_id;
         let priority;
-        let button_width;
-        #[cfg(feature = "theater-speak")]
-        let header = gtk::Label::new(Some("Story Controls"));
-        #[cfg(not(feature = "theater-speak"))]
-        let header = gtk::Label::new(Some("Game Controls"));
-        let mut state_selection = None; // create a placeholder for the state selection
+        let mut state_selection = None;
         match event_group.group_id.clone() {
             // Create the group_id and header for the particular group
             Some(id_pair) => {
                 group_id = Some(id_pair.get_id());
-                priority = decorate_label(&header, &id_pair.description, id_pair.display, full_status);
-                button_width = BUTTON_LIMIT;
-                
-                // Create the status selection dropdown (if the status exists)
-                if let Some(&StatusDescription { ref current, ref allowed }) = full_status.get(&id_pair) {
-                    // Create the new state selection
-                    let selection = gtk::ComboBoxText::new();
+                let header_markup = &format!(
+                    "<span size='14000'>{}</span>",
+                    clean_text(&id_pair.description, LABEL_LIMIT, false, false, true))
+                ;
+                priority = decorate_label(&header, &header_markup, id_pair.display, full_status, font_size, is_high_contrast);
 
-                    // Add each of the available states to the dropdown
-                    for state_pair in allowed.iter() {
-                        let id_str: &str = &state_pair.id().to_string();
-                        selection.append(id_str, &state_pair.description());
-                    }
-
-                    // Set the dropdown to the current status state, if it exists
-                    let id_str: &str = &current.id().to_string();
-                    selection.set_active_id(id_str);
-
-                    // Connect the function to trigger when the state selection changes
-                    selection.connect_changed(clone!(system_send, last_change => move |dropdown| {
-
-                        // Identify and forward the selected state
-                        if let Some(id_str) = dropdown.get_active_id() {
-
-                            // Try to parse the requested id
-                            if let Ok(id_number) = id_str.parse::<u32>() {
-
-                                // Try to compose the id into an item
-                                if let Some(state) = ItemId::new(id_number) {
-
-                                    // Check to see if this was an internal change
-                                    if let Ok(mut change) = last_change.try_borrow_mut() {
-
-                                        // If the state matches the flag
-                                        if *change == Some(state) {
-
-                                            // Reset the flag and return before sending to the system
-                                            *change = None;
-                                            return
-                                        }
-                                    }
-
-                                    // Send the new state of the status to the underlying system
-                                    system_send.send(StatusChange { status_id: id_pair.get_id(), state });
-                                }
-                            }
-                        }
+                // Create the status selection button (if the status exists)
+                if let Some(&StatusDescription {
+                    ref current, ..
+                }) = full_status.get(&id_pair)
+                {
+                    // Create the new state selection label
+                    let state_label = gtk::Label::new(None);
+                    let state_markup = clean_text(&current.description, LABEL_LIMIT, true, false, true);
+                    decorate_label(&state_label, &state_markup, current.display, full_status, font_size, is_high_contrast);
+                    
+                    // Create the button and add the label    
+                    state_label.show();
+                    let selection = gtk::Button::new();
+                    selection.add(&state_label);
+                    selection.set_hexpand(false);
+                    selection.set_halign(gtk::Align::Start);
+                    
+                    // Connect the status dialog when clicked
+                    selection.connect_clicked(clone!(interface_send => move |_| {
+                        // Send the status dialog to the user interface
+                        interface_send.send(LaunchWindow {
+                            window_type: WindowType::Status(Some(id_pair.clone()))
+                        }).unwrap_or(());;
                     }));
 
                     // Set the new state selection
@@ -335,21 +456,19 @@ impl EventGroupAbstraction {
             None => {
                 group_id = None;
                 priority = None;
-                button_width = STORY_BUTTON_LIMIT; // allow larger buttons
             }
         }
-
-
 
         // Create a new button for each of the group events
         let mut buttons_raw = Vec::new();
         for event in event_group.group_events {
             // Create a new button
             let button_label = gtk::Label::new(None);
-            let button_markup = clean_text(&event.description(), button_width, true, false, true);
+            let button_markup = clean_text(&event.description, BUTTON_LIMIT, true, false, true);
 
             // Set the markup based on the requested color and extract the priority
-            let button_priority = decorate_label(&button_label, &button_markup, event.display, full_status);
+            let button_priority =
+                decorate_label(&button_label, &button_markup, event.display, full_status, font_size, is_high_contrast);
 
             // Set the features of the new label and place it on the button
             button_label.show();
@@ -357,14 +476,8 @@ impl EventGroupAbstraction {
             let button = gtk::Button::new();
             button.add(&button_label);
 
-            // Set the features of the new button
-            button.set_size_request(80, 30);
-            button.set_margin_start(10);
-            button.set_margin_end(10);
-
             // Create the new button action and connect it
             button.connect_clicked(clone!(system_send => move |_| {
-
                 // Send the event trigger to the underlying system
                 system_send.send(TriggerEvent { event: event.get_id(), checkscene: false });
             }));
@@ -407,8 +520,8 @@ impl EventGroupAbstraction {
         None
     }
 
-    /// A method to compose the event group into a scrollable, vertical grid of
-    /// buttons, with the name and status of the group at the top.
+    /// A method to compose the event group into a scrollable, horiztonal grid 
+    /// with a group title, optional status, and a flowbox of buttons.
     ///
     fn as_grid(&self) -> gtk::Grid {
         // Create the top level grid for this group
@@ -417,56 +530,54 @@ impl EventGroupAbstraction {
         // Define the formatting for this grid
         grid.set_column_homogeneous(false); // set row and column heterogeneous
         grid.set_row_homogeneous(false);
-        grid.set_row_spacing(10); // add some space between the rows
-        grid.set_column_spacing(0);
-        grid.set_margin_top(10); // add margins on all sides
-        grid.set_margin_bottom(10);
-        grid.set_margin_start(5);
-        grid.set_margin_end(5);
+        grid.set_row_spacing(2); // add some space between the rows
 
-        // Create the grid for the buttons
-        let button_grid = gtk::Grid::new();
-
-        // Define the formatting for the button grid
-        button_grid.set_column_homogeneous(false); // set row and column heterogeneous
-        button_grid.set_row_homogeneous(false);
-        button_grid.set_row_spacing(10); // add some space between the rows
-        button_grid.set_column_spacing(0);
+        // Create the flowbox for the buttons
+        let button_box = gtk::FlowBox::new();
+        button_box.set_orientation(gtk::Orientation::Horizontal);
+        button_box.set_selection_mode(gtk::SelectionMode::None);
+        button_box.set_hexpand(true);
+        button_box.set_halign(gtk::Align::Fill);
+        button_box.set_column_spacing(0); // Remove any column spacing
 
         // Populate the button grid
-        for (number, button) in self.buttons.iter().enumerate() {
+        for button in self.buttons.iter() {
             // Add each button to the grid
-            button_grid.attach(button, 0, number as i32, 1, 1);
+            button_box.add(button);
         }
+        
+        // If there is a group id
+        if let Some(_) = self.group_id {
+        
+            // Create a placeholder for expanding along the event buttons
+            let dummy = gtk::Label::new(Some(""));
+            dummy.set_halign(gtk::Align::Fill);
+            dummy.set_hexpand(true);
+            dummy.show();
 
-        // Create the scrollable window for the buttons
-        let window = gtk::ScrolledWindow::new(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0), &gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0));
-        // FIXME Broken implementation of ScrolledWindow::new()
-        window.add(&button_grid);
-        window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+            // Add the label, status, and window to the grid
+            grid.attach(&self.header, 0, 0, 1, 1);
 
-        // Format the window
-        window.set_hexpand(false);
-        window.set_vexpand(true);
-        window.set_valign(gtk::Align::Fill);
+            // Add the status dropdown if it exists
+            if let Some(ref selection) = self.state_selection {
+                grid.attach(selection, 1, 0, 1, 1);
+                grid.attach(&dummy, 2, 0, 1, 1);
+                grid.attach(&button_box, 0, 1, 3, 1);
 
-        // Add the label, status, and window to the grid
-        grid.attach(&self.header, 0, 0, 1, 1);
-
-        // Add the status dropdown if it exists
-        if let Some(ref selection) = self.state_selection {
-            grid.attach(selection, 0, 1, 1, 1);
-            grid.attach(&window, 0, 2, 1, 1);
-
-        // Otherwise just add the window
+            // Otherwise just add the window
+            } else {
+                grid.attach(&dummy, 1, 0, 1, 1);
+                grid.attach(&button_box, 0, 1, 2, 1);
+            }
+        
+        // Otherwise, just attach the button box
         } else {
-            grid.attach(&window, 0, 1, 1, 1);
+            grid.attach(&button_box, 0, 0, 1, 1);
         }
-
+        
         // Show all the elements in the group
         self.show_all();
-        button_grid.show();
-        window.show();
+        button_box.show();
         grid.show();
 
         // Return the new grid
@@ -495,42 +606,56 @@ impl EventGroupAbstraction {
 ///
 /// This function assumes that the text has already been cleaned and sized.
 ///
-fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType, full_status: &FullStatus) -> Option<u32> {
+fn decorate_label(
+    label: &gtk::Label,
+    text: &str,
+    display: DisplayType,
+    full_status: &FullStatus,
+    font_size: u32,
+    high_contrast: bool,
+) -> Option<u32> {
     // Decorate based on the display type
     match display {
         // Match the display control variant
         DisplayControl {
-            color, highlight, highlight_state, priority, ..
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
         } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+            
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                    red, green, blue, text
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
                 ));
 
             // Default to default text color
             } else {
-                label.set_markup(text);
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             }
-            
+
             // Set the highlight color, if specified
             if let Some((red, green, blue)) = highlight {
-                // Check to see if the lowlight state is specified
+                // Check to see if the highlight state is specified
                 if let Some((status_id, state_id)) = highlight_state {
                     // Find the corresponding detail
-                    if let Some(&StatusDescription { ref current, .. })
-                    = full_status.get(&ItemPair::from_item(
-                        status_id,
-                        ItemDescription::new("", Hidden)
-                    ))
-                    {
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
                         // If the current id matches the state id
                         if state_id == current.get_id() {
                             // Set the label to the highlight color
                             label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                                red, green, blue, text
+                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                                red, green, blue, font_size, text
                             ));
                         }
                     }
@@ -543,37 +668,44 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType, full_sta
 
         // Match the display with variant
         DisplayWith {
-            color, highlight, highlight_state, priority, ..
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
         } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+            
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                    red, green, blue, text
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
                 ));
 
             // Default to default text color
             } else {
-                label.set_markup(text);
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             }
-            
+
             // Set the highlight color, if specified
             if let Some((red, green, blue)) = highlight {
-                // Check to see if the lowlight state is specified
+                // Check to see if the highlight state is specified
                 if let Some((status_id, state_id)) = highlight_state {
                     // Find the corresponding detail
-                    if let Some(&StatusDescription { ref current, .. })
-                    = full_status.get(&ItemPair::from_item(
-                        status_id,
-                        ItemDescription::new("", Hidden)
-                    ))
-                    {
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
                         // If the current id matches the state id
                         if state_id == current.get_id() {
                             // Set the label to the highlight color
                             label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                                red, green, blue, text
+                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                                red, green, blue, font_size, text
                             ));
                         }
                     }
@@ -586,37 +718,94 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType, full_sta
 
         // Match the display debug variant
         DisplayDebug {
-            color, highlight, highlight_state, priority, ..
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
         } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+            
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                    red, green, blue, text
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
                 ));
 
             // Default to default text color
             } else {
-                label.set_markup(text);
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             }
-            
+
             // Set the highlight color, if specified
             if let Some((red, green, blue)) = highlight {
-                // Check to see if the lowlight state is specified
+                // Check to see if the highlight state is specified
                 if let Some((status_id, state_id)) = highlight_state {
                     // Find the corresponding detail
-                    if let Some(&StatusDescription { ref current, .. })
-                    = full_status.get(&ItemPair::from_item(
-                        status_id,
-                        ItemDescription::new("", Hidden)
-                    ))
-                    {
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
                         // If the current id matches the state id
                         if state_id == current.get_id() {
                             // Set the label to the highlight color
                             label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                                red, green, blue, text
+                                "<span color='#{:02X}{:02X}{:02X}' size'{}'>{}</span>",
+                                red, green, blue, font_size, text
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Return the priority
+            return priority;
+        }
+
+        // Match the label control variant
+        LabelControl {
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
+        } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+            
+            // Set the markup color, if specified
+            if let Some((red, green, blue)) = color {
+                label.set_markup(&format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                ));
+
+            // Default to default text color
+            } else {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            }
+
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the highlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                                red, green, blue, font_size, text
                             ));
                         }
                     }
@@ -628,30 +817,33 @@ fn decorate_label(label: &gtk::Label, text: &str, display: DisplayType, full_sta
         }
 
         // Set only the color for a hidden label
-        LabelHidden {
-            color, ..
-        } => {
+        LabelHidden { color, priority, .. } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+            
             // Set the markup color
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}'>{}</span>",
-                    red, green, blue, text
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
                 ));
-                
+
             // Default to default text color
             } else {
-                label.set_markup(text);
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             }
-            
-            // Indicate no priority
-            return None;
+
+            // Return the priority
+            return priority;
         }
 
         // Otherwise, use the default color and priority
         Hidden => {
-            label.set_markup(text);
+            label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             return None;
         }
     }
 }
-

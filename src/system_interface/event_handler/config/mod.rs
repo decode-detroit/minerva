@@ -30,7 +30,8 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::GeneralUpdate;
 use super::event::{
-    EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData, TriggerEvents,
+    EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData, SendData,
+    TriggerEvents, CancelEvents,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 
@@ -38,6 +39,11 @@ use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
+use std::path::PathBuf;
+use std::process::{Child, Command};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 // Import the failure crate
 use failure::Error;
@@ -49,9 +55,142 @@ use self::fnv::{FnvHashMap, FnvHashSet};
 // Import YAML processing library
 extern crate serde_yaml;
 
-/// A type definition to clarify the variety of the scene set.
+/// A type definition to clarify the variety of the scene set
 ///
 type Scene = FnvHashSet<ItemId>; // hash set of the events in this scene
+
+// Define module constants
+const BACKGROUND_POLLING: u64 = 100; // the polling rate for the background process in ms
+
+/// A struct definition to clarify the elements of a background process
+///
+#[derive(Clone, Serialize, Deserialize)]
+struct BackgroundProcess {
+    process: PathBuf,       // the location (relative or absolute) of the process to run
+    arguments: Vec<String>, // any arguments to pass to the process
+    keepalive: bool, // a flag to indicate if the process should be restarted if it stops/fails
+}
+
+/// A simple structure to hold and manage the background process
+///
+struct BackgroundThread {
+    background_process: BackgroundProcess, // a copy of the background process info
+    handle: Arc<Mutex<Child>>,             // the handle of the spawned thread
+}
+
+// Implement the BackgroundThread Functions
+impl BackgroundThread {
+    /// Spawn the monitoring thread
+    fn new(
+        background_process: BackgroundProcess,
+        general_update: GeneralUpdate,
+    ) -> Option<BackgroundThread> {
+        // Check to see if the file is valid
+        if let Ok(path) = background_process.process.canonicalize() {
+            // Notify that the background process is starting
+            update!(update general_update => "Starting Background Process ...");
+
+            // Create the child process
+            let child = match Command::new(path.clone())
+                .args(background_process.arguments.clone())
+                .spawn()
+            {
+                // If the child process was created, return it
+                Ok(child) => child,
+
+                // Otherwise, warn of the error and return
+                _ => {
+                    update!(err general_update => "Unable To Run Background Process.");
+                    return None;
+                }
+            };
+
+            // Wrap the child process in an Arc and Mutex
+            let handle = Arc::new(Mutex::new(child));
+            let clone = handle.clone();
+            let arguments = background_process.arguments.clone();
+            let keepalive = background_process.keepalive;
+
+            // Spawn a background thread to monitor the process
+            thread::spawn(move || {
+                // Run indefinitely
+                loop {
+                    // Wait a little bit
+                    thread::sleep(Duration::from_millis(BACKGROUND_POLLING));
+
+                    // Check to see if the child process has exited
+                    match clone.lock().unwrap().try_wait() {
+                        // If the process has terminated
+                        Ok(Some(status)) => {
+                            // Notify that the process was a success and restart
+                            if status.success() {
+                                update!(update general_update => "Background Process Finished Normally.");
+
+                            // Otherwise, notify of a failed process
+                            } else {
+                                update!(err general_update => "Background Process Finished Abnormally.");
+                            }
+                        }
+
+                        // If the process is still going, continue the loop
+                        _ => continue,
+                    }
+
+                    // If the process has finished, and we want to keep it alive
+                    if keepalive {
+                        // Notify that the background process is restarting
+                        update!(update general_update => "Restarting Background Process ...");
+
+                        // Start the process again
+                        let child = match Command::new(path.clone()).args(arguments.clone()).spawn()
+                        {
+                            // If the child process was created, return it
+                            Ok(child) => child,
+
+                            // Otherwise, warn of the error and end the thread
+                            _ => {
+                                update!(err general_update => "Unable To Run Background Process.");
+                                break;
+                            }
+                        };
+
+                        // Wait for mutable access to the handle and then update it
+                        let mut tmp = clone.lock().unwrap();
+                        *tmp = child;
+
+                    // Otherwise, exit the loop and finish the thread
+                    } else {
+                        break;
+                    }
+                }
+            });
+
+            // Return the completed background thread
+            Some(BackgroundThread {
+                background_process,
+                handle,
+            })
+
+        // Warn that the process wasn't found
+        } else {
+            update!(err general_update => "Unable To Find Background Process.");
+            None
+        }
+    }
+
+    /// A helper method to return a copy of the background process info
+    fn background_process(&self) -> BackgroundProcess {
+        self.background_process.clone()
+    }
+}
+
+// Implement drop for BackgroundThread
+impl Drop for BackgroundThread {
+    fn drop(&mut self) {
+        // Wait for access to the handle and then kill the process
+        self.handle.lock().unwrap().kill().unwrap_or(());
+    }
+}
 
 /// A special configuration struct that is designed to allow simple
 /// serialization and deserialization for the program configuration file.
@@ -63,6 +202,7 @@ struct YamlConfig {
     identifier: ItemId, // unique identifier for the program instance
     server_location: Option<String>, // the location of the backup server, if specified
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
+    background_process: Option<BackgroundProcess>, // an option background process to run
     default_scene: Option<ItemId>, // the starting scene for the configuration
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap, // hash map of the default game status
@@ -75,15 +215,16 @@ struct YamlConfig {
 /// current active and modifyable scene of the program.
 ///
 pub struct Config {
-    identifier: ItemId,                // unique identifier for the program instance
+    identifier: ItemId,               // unique identifier for the program instance
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
-    server_location: Option<String>,   // the location of the backup server, if specified
-    current_scene: ItemId,             // identifier for the current scene
+    server_location: Option<String>,  // the location of the backup server, if specified
+    background_thread: Option<BackgroundThread>, // a copy of the background process info
+    current_scene: ItemId,            // identifier for the current scene
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
-    status_handler: StatusHandler,     // status handler for the current game status
+    status_handler: StatusHandler,    // status handler for the current game status
     lookup: FnvHashMap<ItemId, ItemDescription>, // hash map of all the item descriptions
     events: FnvHashMap<ItemId, EventDetail>, // hash map of all the item details
-    general_update: GeneralUpdate,     // line to provide updates to the higher-level system
+    general_update: GeneralUpdate,    // line to provide updates to the higher-level system
 }
 
 // Implement the Config functions
@@ -109,7 +250,10 @@ impl Config {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn from_config(general_update: GeneralUpdate, mut config_file: &File) -> Result<Config, Error> {
+    pub fn from_config(
+        general_update: GeneralUpdate,
+        mut config_file: &File,
+    ) -> Result<Config, Error> {
         // Try to read from the configuration file
         let mut config_string = String::new();
         match config_file.read_to_string(&mut config_string) {
@@ -172,11 +316,19 @@ impl Config {
         // Try to load the default scene
         let mut current_scene = ItemId::all_stop(); // an invalid scene id
         if let Some(scene_id) = yaml_config.default_scene {
-            // Check to see if the scene_id is valid and fail silently
+            // Check to see if the scene_id is valid and warn of an error
             if let Some(..) = all_scenes.get(&scene_id) {
                 // Update the current scene id
                 current_scene = scene_id;
+            } else {
+                update!(warn general_update => "Current Scene Is Not Defined.")
             }
+        }
+
+        // Try to start the background process and monitor it, if specified
+        let mut background_thread = None;
+        if let Some(background_process) = yaml_config.background_process.clone() {
+            background_thread = BackgroundThread::new(background_process, general_update.clone());
         }
 
         // Return the new configuration
@@ -184,6 +336,7 @@ impl Config {
             identifier: yaml_config.identifier,
             system_connection: yaml_config.system_connection,
             server_location: yaml_config.server_location,
+            background_thread,
             current_scene,
             all_scenes,
             status_handler,
@@ -322,44 +475,44 @@ impl Config {
         scenes
     }
 
-    /// A method to return an itempair of all available events in the current
-    /// scene. This method will always return the scenes from lowest to
-    /// highest id.
+    /// A method to return an itempair of all available events and statuses
+    /// in the current scene. This method will always return the items from
+    /// lowest to highest id.
     ///
     /// # Errors
     ///
-    /// This method will raise an error if one of the event ids was not found in
+    /// This method will raise an error if one of the item ids was not found in
     /// lookup. This indicates that the configuration file is incomplete.
     ///
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that scene.
+    /// empty ItemDescription for that item.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
+    pub fn get_items(&self) -> Vec<ItemPair> {
         // Create an empty events vector
-        let mut events = Vec::new();
+        let mut items = Vec::new();
 
         // Try to open the current scene
         if let Some(scene) = self.all_scenes.get(&self.current_scene) {
-            // Compile a list of the available events
+            // Compile a list of the available items
             let mut id_vec = Vec::new();
-            for event_id in scene.iter() {
-                id_vec.push(event_id);
+            for item_id in scene.iter() {
+                id_vec.push(item_id);
             }
 
             // Sort them in order and then pair them with their descriptions
             id_vec.sort_unstable();
-            for event_id in id_vec {
-                // Get the event description and add it to the events list
-                let description = self.get_description(&event_id);
+            for item_id in id_vec {
+                // Get the item description and add it to the items list
+                let description = self.get_description(&item_id);
 
-                // Prefilter the events to remove hidden events
-                events.push(ItemPair::from_item(event_id.clone(), description));
+                // Combine the item id and description
+                items.push(ItemPair::from_item(item_id.clone(), description));
             }
         }
 
         // Return the result
-        events
+        items
     }
 
     /// A method to return an item id of the current state of the provided
@@ -376,7 +529,7 @@ impl Config {
     ///
     pub fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Return the internal state of the status handler
-        self.status_handler.get_id(status_id)
+        self.status_handler.get_state(status_id)
     }
 
     /// A method to return the current scene.
@@ -433,7 +586,8 @@ impl Config {
     }
 
     /// A method to modify a status state within the current scene based
-    /// on the provided status id and new state.
+    /// on the provided status id and new state. Return the new state, or 
+    /// None if the state was not changed successfully.
     ///
     /// # Errors
     ///
@@ -445,22 +599,22 @@ impl Config {
     /// gracefully by notifying of errors on the update line and making no
     /// modifications to the current scene.
     ///
-    pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Result<(), ()> {
+    pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
         // Try to update the underlying status
-        if self.status_handler.modify_status(&status_id, &new_state) {
+        if let Some(new_id) = self.status_handler.modify_status(&status_id, &new_state) {
             // Notify the system of the successful status change
             let status_pair =
                 ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
             let state_pair =
-                ItemPair::from_item(new_state.clone(), self.get_description(&new_state));
+                ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
             update!(status &self.general_update => status_pair, state_pair.clone());
 
             // Indicate success
-            return Ok(());
+            return Some(new_id);
         }
 
         // Indicate failure
-        return Err(());
+        None
     }
 
     /// A method to modify or add the item description within the current
@@ -556,7 +710,7 @@ impl Config {
 
                 // If the event is not listed in the current scene, notify
                 update!(warnevent &self.general_update => id.clone() => "Event Not In Current Scene.");
-                
+
                 // And return none
                 None
 
@@ -565,9 +719,9 @@ impl Config {
                 update!(err &self.general_update => "Scene ID Not Found In Configuration: {}", &self.current_scene);
                 return None;
             }
-        
+
         // Otherwise, try to execute the event without verifying the current scene
-        } else {    
+        } else {
             // Return the event detail for the event
             return match self.events.get(id) {
                 // Return the found event detail
@@ -624,12 +778,19 @@ impl Config {
             }
         }
 
+        // Try to get a copy of the background process
+        let background_process = match &self.background_thread {
+            &Some(ref bt) => Some(bt.background_process()),
+            &None => None,
+        };
+
         // Create a YAML config from the elements
         let yaml_config = YamlConfig {
             version: env!("CARGO_PKG_VERSION").to_string(),
             identifier: self.identifier(),
             server_location: self.server_location.clone(),
             system_connection: self.system_connection.clone(),
+            background_process,
             default_scene: Some(self.current_scene.clone()),
             all_scenes: self.all_scenes.clone(),
             status_map: self.status_handler.get_map(),
@@ -674,7 +835,14 @@ impl Config {
     ) {
         // Verify each scene in the config
         for (id, scene) in all_scenes.iter() {
-            if !Config::verify_scene(general_update, scene, all_scenes, status_map, lookup, events) {
+            if !Config::verify_scene(
+                general_update,
+                scene,
+                all_scenes,
+                status_map,
+                lookup,
+                events,
+            ) {
                 update!(warn general_update => "Broken Scene Definition: {}", id);
             }
 
@@ -723,9 +891,10 @@ impl Config {
                     test = false;
                 }
 
-            // Otherwise warn that the event detail was not found in the events
-            } else {
-                update!(warn general_update => "Event Listed In Scene, But Not Found: {}", id);
+            // Otherwise verify that the item id corresponds to a status
+            } else if let None = status_map.get(id) {
+                // Warn that an invalid event or status was listed in the scene
+                update!(warn general_update => "Item Listed In Scene, But Not Found: {}", id);
                 test = false;
             }
 
@@ -808,7 +977,7 @@ impl Config {
                     // Verify that the event is listed in the current scene
                     if !scene.contains(&event_delay.id()) {
                         update!(warn general_update => "Event Detail Contains Unlisted Triggered Events: {}", &event_delay.id());
-                        return false;
+                        // Do not flag as incorrect
                     }
 
                     // Return false if any event_id is incorrect
@@ -818,9 +987,22 @@ impl Config {
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
             }
+            
+            // If there are events to cancel, verify that they exist
+            &CancelEvents { ref events } => {
+                // Check that all of them exist
+                for event_id in events {
+                    // Return false if any event_id is incorrect
+                    if !event_list.contains_key(&event_id) {
+                        update!(warn general_update => "Event Detail Contains Invalid Cancelled Events: {}", &event_id);
+                        return false;
+                    } // Don't need to check lookup as all valid individual events are already checked. Don't need to check scene validity because cancelled events are not necessarily in the same scene.
+                }
+            }
 
-            // If there is data to save, assume validity
+            // If there is data to save or send, assume validity
             &SaveData { .. } => (),
+            &SendData { .. } => (),
 
             // If there is a grouped event, verify the components of the event
             &GroupedEvent {
@@ -843,7 +1025,7 @@ impl Config {
                             // Verify that the event is listed in the current scene
                             if !scene.contains(&target_event) {
                                 update!(warn general_update => "Event Group Contains Unlisted Triggered Events: {}", &target_event);
-                                return false;
+                                // Do not flag as incorrect
                             }
 
                             // Verify that the event exists

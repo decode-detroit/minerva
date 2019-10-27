@@ -22,9 +22,11 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    DisplayControl, DisplayDebug, DisplayWith, LabelHidden, EventChange, ItemPair, SystemSend, UpcomingEvent,
+    DisplayControl, DisplayDebug, DisplayWith, LabelControl, LabelHidden, EventChange,
+    ItemPair, SystemSend, UpcomingEvent,
 };
 use super::super::utils::clean_text;
+use super::{NORMAL_FONT, LARGE_FONT};
 
 // Import standard library features
 use std::cell::RefCell;
@@ -46,10 +48,12 @@ extern crate gtk;
 use self::gtk::prelude::*;
 
 // Import module constants
-const TIMELINE_LIMIT: usize = 16; // maximum character width of timeline names
+const TIMELINE_LIMIT: usize = 20; // maximum character width of timeline names
 const MINUTES_LIMIT: f64 = 300.0; // maximum number of minutes in an adjustment
-const FONT_SIZE: f64 = 12.0; // font size in pixels
-const LABEL_ADJUSTMENT: f64 = 120.0; // width of timeline labels in pixels
+const LABEL_SIZE: f64 = 180.0; // the size of the event labels in pixels
+const NOW_LOCATION: f64 = 0.02; // the location of "now" on the timeline, from the left
+const TIMELINE_HEIGHT: f64 = 70.0; // the height of the timeline
+const CLICK_PRECISION: f64 = 10.0; // the click precision for selecting events (in pixels
 
 /// An internal structure to hold the events currently in the queue. This allows
 /// easier modification of the individual events as needed.
@@ -61,7 +65,7 @@ struct TimelineEvent {
     delay: Duration,     // the delay of the event (relative to the original start time)
     unique_id: String,   // a unique identifier, composed from both the event id and the start_time
     location: f64,       // the location on the timeline in pixels
-    updated: bool,       // a flag to indicate that this event has been updated
+    in_focus: bool,         // a flag to indicate that this event has been clicked on
 }
 
 // Implement key structure features
@@ -80,7 +84,7 @@ impl TimelineEvent {
             delay,
             unique_id,
             location: 0.0,
-            updated: true,
+            in_focus: false,
         }
     }
 
@@ -106,6 +110,20 @@ impl TimelineEvent {
         let seconds = remaining.as_secs() % 60;
         let minutes = remaining.as_secs() / 60;
         Some((minutes as f64, seconds as f64))
+    }
+    
+    /// A method to return the precise amount of time remaining in the event
+    /// as a float number of seconds.
+    ///
+    fn remaining_precise(&self) -> Option<f64> {
+        // Find the amount of time remaining
+        let remaining = match self.delay.checked_sub(self.start_time.elapsed()) {
+            Some(time) => time,
+            None => return None,
+        };
+
+        // Extract the exact number of seconds remaining
+        Some(remaining.as_secs() as f64 + (remaining.subsec_nanos() as f64 / 1000000000.0))
     }
 }
 
@@ -140,17 +158,20 @@ impl TimelineAdjustment {
             Ok(events) => events,
             Err(_) => return,
         };
+        
+        // Chreate the cancel checkbox
+        let cancel_checkbox = gtk::CheckButton::new_with_label("Cancel Event");
 
         // Create the new spin buttons for minutes and seconds
         let minute_adjustment = gtk::Adjustment::new(0.0, 0.0, MINUTES_LIMIT, 1.0, 1.0, 1.0);
-        let minutes = gtk::SpinButton::new(&minute_adjustment, 1.0, 0);
+        let minutes = gtk::SpinButton::new(Some(&minute_adjustment), 1.0, 0);
         let second_adjustment = gtk::Adjustment::new(0.0, 0.0, 60.0, 1.0, 1.0, 1.0);
-        let seconds = gtk::SpinButton::new(&second_adjustment, 1.0, 0);
+        let seconds = gtk::SpinButton::new(Some(&second_adjustment), 1.0, 0);
 
         // Create the event selection dropdown and populate it
         let selection = gtk::ComboBoxText::new();
         for (_, event) in events.iter() {
-            selection.append(event.unique_id.as_str(), &event.event.description());
+            selection.append(Some(event.unique_id.as_str()), &event.event.description());
         }
 
         // Set the connection change parameters
@@ -180,7 +201,7 @@ impl TimelineAdjustment {
 
         // Change to the provided selection, if specified
         if let Some(id_str) = unique_str {
-            selection.set_active_id(id_str.as_str());
+            selection.set_active_id(Some(id_str.as_str()));
         }
 
         // Access the content area and add the spin buttons
@@ -195,6 +216,7 @@ impl TimelineAdjustment {
         grid.attach(&minutes, 1, 1, 1, 1);
         grid.attach(&gtk::Label::new(Some(" Seconds ")), 2, 1, 1, 1);
         grid.attach(&seconds, 3, 1, 1, 1);
+        grid.attach(&cancel_checkbox, 4, 1, 1, 1);
 
         // Add some space between the rows and columns
         grid.set_column_spacing(10);
@@ -209,7 +231,7 @@ impl TimelineAdjustment {
         // Connect the close event for when the dialog is complete
         let timeline_events = self.timeline_events.clone();
         let system_send = self.system_send.clone();
-        dialog.connect_response(clone!(selection, minutes, seconds => move |modal, reply| {
+        dialog.connect_response(clone!(selection, minutes, seconds, cancel_checkbox => move |modal, reply| {
 
             // Notify the system of the event change
             if reply == gtk::ResponseType::Ok {
@@ -226,12 +248,28 @@ impl TimelineAdjustment {
                     // Look for the corresponding event
                     if let Some(event) = events.get(id.as_str()) {
 
-                        // Use that information to create the new duration
-                        let mut new_delay = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
-                        new_delay += event.start_time.elapsed();
+                        // If the event was selected to be canceled
+                        if cancel_checkbox.get_active() {
+                            // Send an event update to the system
+                            system_send.send(EventChange {
+                                event_id: event.event.get_id(),
+                                start_time: event.start_time.clone(),
+                                new_delay: None,
+                            });
+                        
+                        // Otherwise
+                        } else {
+                            // Use that information to create the new duration
+                            let mut new_delay = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
+                            new_delay += event.start_time.elapsed();
 
-                        // Send an event update to the system
-                        system_send.send(EventChange { event_id: event.event.get_id(), start_time: event.start_time.clone(), new_delay, });
+                            // Send an event update to the system
+                            system_send.send(EventChange {
+                                event_id: event.event.get_id(),
+                                start_time: event.start_time.clone(),
+                                new_delay: Some(new_delay),
+                            });
+                        }
                     }
                 }
             }
@@ -249,10 +287,9 @@ impl TimelineAdjustment {
 ///
 #[derive(Clone, Debug)]
 struct TimelineInfo {
-    pub start: Instant,     // the current start time for the timeline
     pub duration: Duration, // the current duration for the timeline
-    pub is_stale: bool,     // a flag to indicate that there are no longer any active events
-    pub is_debug: bool,     // a flag to indicate if the timeline is in debug mode
+    pub font_size: u32, // the current font size for the timeline
+    pub is_high_contrast: bool, // a flag for the display contrast mode
 }
 
 /// A structure to hold the timeline and queue elements in the default interface.
@@ -277,33 +314,63 @@ impl TimelineAbstraction {
     pub fn new(system_send: &SystemSend, window: &gtk::ApplicationWindow) -> TimelineAbstraction {
         // Create the timeline title
         let timeline_title = gtk::Label::new(None);
-        timeline_title.set_markup("<span color='#338DD6' size='14000'>Timeline</span>");
-        timeline_title.set_halign(gtk::Align::Center);
-        timeline_title.set_margin_top(20);
-        timeline_title.set_margin_bottom(10);
+        timeline_title.set_markup("<span color='#338DD6' size='16000'>Timeline</span>");
         timeline_title.set_hexpand(true);
-        timeline_title.show();
-
-        // Create timeline drawing area
-        let timeline_area = gtk::DrawingArea::new();
-        timeline_area.show_all();
-
-        // Format the area to be the correct size
-        timeline_area.set_property_height_request(50);
-        timeline_area.set_hexpand(true);
-        timeline_area.set_vexpand(false);
-        timeline_area.set_halign(gtk::Align::Fill);
+        timeline_title.set_halign(gtk::Align::Center);
 
         // Create a new set of timeline events
         let timeline_events = Rc::new(RefCell::new(FnvHashMap::default()));
 
         // Create a new instance of timeline info
         let timeline_info = Rc::new(RefCell::new(TimelineInfo {
-            start: Instant::now(),
-            duration: Duration::from_secs(0),
-            is_stale: true,
-            is_debug: false,
+            duration: Duration::from_secs(3600),
+            font_size: NORMAL_FONT,
+            is_high_contrast: false,
         }));
+        
+        // Create the duration buttons
+        let duration_twohours = gtk::Button::new_with_label("2 Hrs");
+        let duration_onehour = gtk::Button::new_with_label("60 Min");
+        let duration_tenmins = gtk::Button::new_with_label("10 Min");
+        let duration_onemin = gtk::Button::new_with_label("60 Secs");
+
+        // Format the buttons
+        duration_twohours.set_halign(gtk::Align::End);
+        duration_onehour.set_halign(gtk::Align::End);
+        duration_tenmins.set_halign(gtk::Align::End);
+        duration_onemin.set_halign(gtk::Align::End);
+
+        // Connect the clicked functions to change the timeline duration
+        duration_twohours.connect_clicked(clone!(timeline_info => move |_| {
+            if let Ok(mut info) = timeline_info.try_borrow_mut() {
+                info.duration = Duration::from_secs(7200);
+            }
+        }));
+        duration_onehour.connect_clicked(clone!(timeline_info => move |_| {
+            if let Ok(mut info) = timeline_info.try_borrow_mut() {
+                info.duration = Duration::from_secs(3600);
+            }
+        }));
+        duration_tenmins.connect_clicked(clone!(timeline_info => move |_| {
+            if let Ok(mut info) = timeline_info.try_borrow_mut() {
+                info.duration = Duration::from_secs(600);
+            }
+        }));
+        duration_onemin.connect_clicked(clone!(timeline_info => move |_| {
+            if let Ok(mut info) = timeline_info.try_borrow_mut() {
+                info.duration = Duration::from_secs(60);
+            }
+        }));
+
+        // Create timeline drawing area
+        let timeline_area = gtk::DrawingArea::new();
+        timeline_area.show_all();
+
+        // Format the area to be the correct size
+        timeline_area.set_property_height_request(TIMELINE_HEIGHT as i32);
+        timeline_area.set_hexpand(true);
+        timeline_area.set_vexpand(false);
+        timeline_area.set_halign(gtk::Align::Fill);
 
         // Connect the draw function for the timeline area
         timeline_area.connect_draw(clone!(timeline_events, timeline_info => move |area, event| {
@@ -327,37 +394,63 @@ impl TimelineAbstraction {
             let (x, _) = press.get_position();
 
             // Try to get a copy of the timeline events
-            let events_clone = adjustment.timeline_events.clone();
-            let events = match events_clone.try_borrow() {
-                Ok(events) => events,
-                Err(_) => return Inhibit(false),
-            };
-
-            // Check to see if the click overlaps with any of the events
             let mut event_id = None;
-            for (_, event) in events.iter() {
-                if x > ((event.location * width) - LABEL_ADJUSTMENT) && x < (event.location * width) {
+            let events_clone = adjustment.timeline_events.clone();
+            match events_clone.try_borrow_mut() {
+                Err(_) => return Inhibit(false),
+                
+                // If the events were able to be extracted
+                Ok(mut events) => {
+                    // Check to see if the click overlaps with one of the events
+                    for (_, event) in events.iter() {
+                        if x > ((event.location * width) - (CLICK_PRECISION / 2.0)) && x < ((event.location * width) + (CLICK_PRECISION / 2.0)) {
+                            // If it's a match with an event
+                            match event_id {
+                                // If one has not already been found, set the event id
+                                None => event_id = Some(event.unique_id.clone()),
 
-                    // If it's a match with an event
-                    match event_id {
+                                // If one was already found
+                                Some(_) => {
+                                    // Reset the event id
+                                    event_id = None;
 
-                        // If one has not already been found, set the event id
-                        None => event_id = Some(event.unique_id.clone()),
-
-                        // If one was already found
-                        Some(_) => {
-
-                            // Reset the event id
-                            event_id = None;
-
-                            // End the search
-                            break;
-                        },
+                                    // End the search
+                                    break;
+                                },
+                            }
+                        }
                     }
-                }
+                    
+                    // Check to see if the event is in focus
+                    let mut launch = false;
+                    if let Some(id) = event_id.clone() {
+                        if let Some(mut event) = events.get_mut(&id) {
+                            if event.in_focus {
+                                // Launch the adjustment window
+                                launch = true;
+                            
+                            // Otherwise put it in focus and do not launch the window
+                            } else {
+                                event.in_focus = true;
+                            }
+                        }
+                                    
+                        // Make sure all the other events are not in focus
+                        for (other_id, mut event) in events.iter_mut() {
+                            if id != *other_id {
+                                event.in_focus = false;
+                            }
+                        }
+                    }
+                    
+                    // Leave if we're not planning the lauch the window
+                    if !launch {
+                        return Inhibit(false);
+                    }
+                },
             }
-
-            // Launch an adjustment with the found id
+            
+            // Open the adjustment window
             adjustment.new_dialog(&window, event_id);
 
             // Allow the signal to propagate
@@ -366,8 +459,15 @@ impl TimelineAbstraction {
 
         // Locate the different elements in the grid
         let grid = gtk::Grid::new();
+        grid.set_column_spacing(10);
+        grid.set_column_homogeneous(false);
+        grid.set_row_homogeneous(false);
         grid.attach(&timeline_title, 0, 0, 1, 1);
-        grid.attach(&timeline_area, 0, 1, 1, 1);
+        grid.attach(&duration_twohours, 1, 0, 1, 1);
+        grid.attach(&duration_onehour, 2, 0, 1, 1);
+        grid.attach(&duration_tenmins, 3, 0, 1, 1);
+        grid.attach(&duration_onemin, 4, 0, 1, 1);
+        grid.attach(&timeline_area, 0, 1, 5, 1);
         grid.show_all();
 
         // Return the new timeline
@@ -386,91 +486,23 @@ impl TimelineAbstraction {
         &self.grid
     }
 
-    /// A method to switch between the debug version of the timeline.
-    ///
-    pub fn select_debug(&self, debug: bool) {
-        // Try to get a mutable copy of timeline info
-        let mut timeline_info = match self.timeline_info.try_borrow_mut() {
-            Ok(info) => info,
-            Err(_) => return,
-        };
-
-        // Change the current debug setting
-        timeline_info.is_debug = debug;
-    }
-
     /// A method to update the timeline and the queue of coming events.
     ///
     pub fn update_events(&mut self, mut events: Vec<UpcomingEvent>) {
-        // Try to get a mutable copy of timeline info
-        let mut timeline_info = match self.timeline_info.try_borrow_mut() {
-            Ok(info) => info,
-            Err(_) => return,
-        };
-
         // Try to get a mutable copy of timeline events
         let mut timeline_events = match self.timeline_events.try_borrow_mut() {
             Ok(events) => events,
             Err(_) => return,
         };
-
-        // Clean out a stale timeline
-        if timeline_info.is_stale && (events.len() > 0) {
-            *timeline_events = FnvHashMap::default();
-            timeline_info.start = Instant::now();
-            timeline_info.duration = Duration::from_secs(0);
-        }
-
-        // Mark the timeline as stale if there are no new events
-        if events.len() > 0 {
-            timeline_info.is_stale = false;
-        } else {
-            timeline_info.is_stale = true;
-            self.timeline_area.queue_draw();
-            return;
-        }
-
-        // Calculate the new start and end time for the timeline
-        for event in events.iter() {
-            // Adjust the start time if it is earlier than the current one
-            if event.start_time < timeline_info.start {
-                timeline_info.duration =
-                    timeline_info.duration + (timeline_info.start - event.start_time); // modify the old duration to match the current start time
-                timeline_info.start = event.start_time;
-            }
-
-            // Adjust the duration if it is later than the current one
-            if (event.start_time + event.delay) > (timeline_info.start + timeline_info.duration) {
-                timeline_info.duration = (event.start_time + event.delay) - timeline_info.start;
-            }
-        }
-
-        // Mark all the timeline events as old
-        for (_, event) in timeline_events.iter_mut() {
-            event.updated = false;
-        }
+        
+        // Empty the exising events FIXME show events in the past and maintin focus
+        *timeline_events = FnvHashMap::default();
 
         // Pass the events into the timeline events
         for event in events.drain(..) {
-            // Check to see if the event is already present
-            let mut existing = false; // to work around the borrow checker
-            if let Some(existing_event) = timeline_events.get_mut(&TimelineEvent::new_unique_id(
-                &event.event,
-                &event.start_time,
-            )) {
-                existing = true; // to work around the borrow checker
-
-                // If so, update the event delay
-                existing_event.delay = event.delay;
-                existing_event.updated = true;
-            }
-
-            // If the event was not found
-            if !existing {
-                // Add the new event to the timeline events
-                let new_event = TimelineEvent::new(event.event, event.start_time, event.delay);
-                timeline_events.insert(new_event.unique_id.clone(), new_event);
-            }
+            // Add the new event to the timeline events
+            let new_event = TimelineEvent::new(event.event, event.start_time, event.delay);
+            timeline_events.insert(new_event.unique_id.clone(), new_event);
         }
 
         // Tell the timeline area to redraw itself
@@ -482,6 +514,31 @@ impl TimelineAbstraction {
     pub fn refresh(&self) {
         self.timeline_area.queue_draw();
     }
+    
+    /// A method to select the font size of the timeline
+    ///
+    pub fn select_font(&mut self, is_large: bool) {
+        // Set the new font size
+        let font_size = match is_large {
+            false => NORMAL_FONT,
+            true => LARGE_FONT
+        };
+        
+        
+        // Try to get a mutable copy of timeline info
+        if let Ok(mut info) = self.timeline_info.try_borrow_mut() {
+            info.font_size = font_size;
+        }
+    }
+    
+    /// A method to select the color contrast of the timeline
+    ///
+    pub fn select_contrast(&mut self, is_hc: bool) {
+        // Try to get a mutable copy of timeline info
+        if let Ok(mut info) = self.timeline_info.try_borrow_mut() {
+            info.is_high_contrast = is_hc;
+        }
+    }
 
     /// A function to draw the timeline with any events
     ///
@@ -491,37 +548,104 @@ impl TimelineAbstraction {
         area: &gtk::DrawingArea,
         cr: &cairo::Context,
     ) -> Inhibit {
+        // Draw the background dark grey
+        cr.set_source_rgb(0.05, 0.05, 0.05);
+        cr.paint();
+        
         // Get and set the size of the window allocation
         let allocation = area.get_allocation();
         let (width, height) = (allocation.width as f64, allocation.height as f64); // create shortcuts
         cr.scale(width, height);
 
-        // Draw the bottom line for the timeline
-        cr.set_source_rgb(0.4, 0.4, 0.4);
-        cr.set_line_width(2.0 / height); // 2 pixels wide
-        cr.move_to(0.0, 1.0);
-        cr.line_to(1.0, 1.0);
-        cr.stroke();
-
-        // Set default color and line width
-        cr.set_source_rgb(0.9, 0.9, 0.9);
-        cr.set_line_width(2.0 / width); // 2 pixels wide
-
+        // Try to get a copy of timeline info
+        let info = match timeline_info.try_borrow() {
+            Ok(info) => info,
+            Err(_) => return Inhibit(false),
+        };
+        
         // Set the font size and ratio
         cr.set_font_matrix(cairo::Matrix {
-            xx: (FONT_SIZE / width),
-            yy: (FONT_SIZE / height),
+            xx: ((info.font_size / 1000) as f64 / width),
+            yy: ((info.font_size / 1000) as f64 / height),
             xy: 0.0,
             yx: 0.0,
             x0: 0.0,
             y0: 0.0,
         });
 
-        // Try to get a mutable copy of timeline info
-        let info = match timeline_info.try_borrow() {
-            Ok(info) => info,
-            Err(_) => return Inhibit(false),
-        };
+        // Draw the center line for the timeline
+        cr.set_source_rgb(0.4, 0.4, 0.4);
+        cr.set_line_width(2.0 / height); // 2 pixels wide
+        cr.move_to(0.0, 0.7);
+        cr.line_to(1.0, 0.7);
+        cr.stroke();
+        
+        // Draw the current time line
+        cr.set_source_rgb(1.0, 1.0, 1.0);
+        cr.set_line_width(2.0 / width); // 2 pixels wide
+        cr.move_to(NOW_LOCATION, 0.0);
+        cr.line_to(NOW_LOCATION, 1.0);
+        cr.stroke();
+        
+        // Add the current time to the timeline
+        let time = time::now();
+        cr.move_to(NOW_LOCATION, 0.95);
+        cr.show_text(
+            format!(" {:02}:{:02}:{:02}", time.tm_hour, time.tm_min, time.tm_sec).as_str(),
+        );
+        
+        // Calculate the time subdivisions
+        let duration_secs = info.duration.as_secs();
+        cr.set_source_rgb(0.5, 0.5, 0.5);
+        cr.set_line_width(1.0 / width); // 1 pixel wide
+        
+        // Change the markers based on the duration
+        let spacing;
+        let increment;
+        let label;
+        // If the time is less than two minutes
+        if duration_secs < 120 {
+            // Use a 10 second marker
+            spacing = (1.0 - NOW_LOCATION) / (duration_secs as f64 / 10.0);
+            increment = 10.0;
+            label = "sec"; 
+        
+        // If the time is between two and twenty minutes
+        } else if duration_secs < 1200 {
+            // Use a 1 minute marker
+            spacing = (1.0 - NOW_LOCATION) / (duration_secs as f64 / 60.0);
+            increment = 1.0;
+            label = "min";
+        
+        // Otherwise, use a fixe minute marker
+        } else {
+            spacing = (1.0 - NOW_LOCATION) / (duration_secs as f64 / 300.0);
+            increment = 5.0;
+            label = "min";
+        }
+        
+        // Draw divisions going to the right
+        let mut count = 1.0;
+        while (count * spacing) < 1.0 {
+            // Calculate the offset
+            let offset = NOW_LOCATION + (count * spacing);
+            
+            // Draw the subdivision
+            cr.move_to(offset, 0.0);
+            cr.line_to(offset, 1.0);
+            cr.stroke();
+            
+            // Add a time label
+            cr.move_to(offset, 0.95);
+            cr.show_text(format!(" {} {}", count * increment, label).as_str());
+            
+            // Increment the count
+            count = count + 1.0;
+        }
+        
+        // Set default color and line width
+        cr.set_source_rgb(0.9, 0.9, 0.9);
+        cr.set_line_width(2.0 / width); // 2 pixels wide
 
         // Try to get a mutable copy of timeline events
         let mut events = match timeline_events.try_borrow_mut() {
@@ -530,56 +654,40 @@ impl TimelineAbstraction {
         };
 
         // Locate all the events in the timeline
-        let mut event_locations = Vec::new();
+        let mut ordered_events = Vec::new();
         for (_, event) in events.iter_mut() {
-            // Calculate the total time for the event
-            let total_time = (event.start_time + event.delay) - info.start;
-
-            // Calculate the location of the event on the timeline
-            event.location = (total_time.as_secs() as f64
-                + (total_time.subsec_nanos() as f64 / 1000000000.0))
-                / (info.duration.as_secs() as f64
+            // Calculate the total time remaining for the event
+            let mut location = 0.0; // default location is "now"
+            if let Some(remaining) = event.remaining_precise() {
+                // Calculate the location of the event on the timeline
+                location = remaining / (info.duration.as_secs() as f64
                     + (info.duration.subsec_nanos() as f64 / 1000000000.0));
-
-            // Add the event location to the tally
-            event_locations.push(event.location.clone());
+            }
+            
+            // Correct for the now location
+            event.location = (location * (1.0 - NOW_LOCATION)) + NOW_LOCATION;
+            
+            // Copy the event into the ordered list
+            ordered_events.push(event.clone());
         }
+        
+        // Reorder the events to follow location, highest to lowest
+        ordered_events.sort_by_key(|event| {
+            ((1.0 - event.location.clone()) * 1000.0) as u64
+        });
 
         // Draw any events for the timeline
-        for (_, event) in events.iter_mut() {
+        for event in ordered_events.iter() {
             // Try to draw the event
             TimelineAbstraction::draw_event(
                 cr,
-                timeline_info.clone(),
                 event,
                 width,
-                &event_locations,
+                info.is_high_contrast
             );
-            
+
             // Reset the color after the event
             cr.set_source_rgb(0.9, 0.9, 0.9);
-        }
-
-        // If the timeline is not stale
-        if !info.is_stale {
-            // Draw the current time bar
-            cr.set_source_rgb(0.0, 1.0, 0.0);
-            let elapsed = info.start.elapsed();
-            let location = (elapsed.as_secs() as f64
-                + (elapsed.subsec_nanos() as f64 / 1000000000.0))
-                / (info.duration.as_secs() as f64
-                    + (info.duration.subsec_nanos() as f64 / 1000000000.0));
-            cr.set_line_width(2.0 / width); // 2 pixels wide
-            cr.move_to(location, 0.0);
-            cr.line_to(location, 1.0);
-            cr.stroke();
-
-            // Add the current time to the timeline
-            let time = time::now();
-            cr.move_to(location, 0.9);
-            cr.show_text(
-                format!(" {:02}:{:02}:{:02}", time.tm_hour, time.tm_min, time.tm_sec).as_str(),
-            );
         }
 
         // Allow the signal to propagate (probably not necessary)
@@ -588,44 +696,42 @@ impl TimelineAbstraction {
 
     /// A function to draw a new event on the timeline.
     ///
-    /// If the event overlaps with another event, this function draws a simple
-    /// line rather than the full event detail.
+    /// If the event is in focus, this function also draws a flag to describe
+    /// the event in brief detail
     ///
     fn draw_event(
         cr: &cairo::Context,
-        timeline_info: Rc<RefCell<TimelineInfo>>,
-        event: &mut TimelineEvent,
+        event: &TimelineEvent,
         width: f64,
-        event_locations: &Vec<f64>,
+        is_high_contrast: bool,
     ) {
         // Extract the event location
         let location = event.location;
-
-        // Try to get a mutable copy of timeline info
-        let info = match timeline_info.try_borrow() {
-            Ok(info) => info,
-            Err(_) => unreachable!(),
-        };
+        
+        // Check that the location is visible
+        if (location < 0.0) | (location > 1.0) {
+            return
+        }
 
         // Change the event color, visibility, and line width, if specified
-        let mut text_visible = true;
         let mut line_width = 2.0; // 2 pixels wide
-        match event.event.display {
-            // Catch the display control variant
-            DisplayControl {
-                color, highlight, ..
-            } => {
-                // If the color is specified
-                if let Some((red, green, blue)) = color {
-                    cr.set_source_rgb(
-                        red as f64 / 255.0,
-                        green as f64 / 255.0,
-                        blue as f64 / 255.0,
-                    );
-                }
-
-                // If the timeline isn't stale
-                if !info.is_stale {
+        
+        // Skip if in high_contrast mode
+        if !is_high_contrast {
+            match event.event.display {
+                // Catch the display control variant
+                DisplayControl {
+                    color, highlight, ..
+                } => {
+                    // If the color is specified
+                    if let Some((red, green, blue)) = color {
+                        cr.set_source_rgb(
+                            red as f64 / 255.0,
+                            green as f64 / 255.0,
+                            blue as f64 / 255.0,
+                        );
+                    }
+                    
                     // TODO Replace when let chains feature becomes stable
                     // If the highlight is specified
                     if let Some((red, green, blue)) = highlight {
@@ -643,48 +749,11 @@ impl TimelineAbstraction {
                         }
                     }
                 }
-            }
 
-            // Catch the display with variant
-            DisplayWith {
-                color, highlight, ..
-            } => {
-                // If the color is specified
-                if let Some((red, green, blue)) = color {
-                    cr.set_source_rgb(
-                        red as f64 / 255.0,
-                        green as f64 / 255.0,
-                        blue as f64 / 255.0,
-                    );
-                }
-
-                // If the timeline isn't stale
-                if !info.is_stale {
-                    // TODO Replace when let chains feature becomes stable
-                    // If the highlight is specified
-                    if let Some((red, green, blue)) = highlight {
-                        // If there are under ten seconds remaining
-                        if let Some((min, sec)) = event.remaining() {
-                            // Flash the highlight color and line width
-                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
-                                cr.set_source_rgb(
-                                    red as f64 / 255.0,
-                                    green as f64 / 255.0,
-                                    blue as f64 / 255.0,
-                                );
-                                line_width = 4.0;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Catch the display debug variant
-            DisplayDebug {
-                color, highlight, ..
-            } => {
-                // If we're in debug mode
-                if info.is_debug {
+                // Catch the display with variant
+                DisplayWith {
+                    color, highlight, ..
+                } => {
                     // If the color is specified
                     if let Some((red, green, blue)) = color {
                         cr.set_source_rgb(
@@ -694,47 +763,6 @@ impl TimelineAbstraction {
                         );
                     }
 
-                    // If the timeline isn't stale
-                    if !info.is_stale {
-                        // TODO Replace when let chains feature becomes stable
-                        // If the highlight is specified
-                        if let Some((red, green, blue)) = highlight {
-                            // If there are under ten seconds remaining
-                            if let Some((min, sec)) = event.remaining() {
-                                // Flash the highlight color and line width
-                                if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
-                                    cr.set_source_rgb(
-                                        red as f64 / 255.0,
-                                        green as f64 / 255.0,
-                                        blue as f64 / 255.0,
-                                    );
-                                    line_width = 4.0;
-                                }
-                            }
-                        }
-                    }
-
-                // Otherwise make the text invisible
-                } else {
-                    text_visible = false;
-                }
-            }
-            
-            // Catch the label hidden variant
-            LabelHidden {
-                color, highlight,
-            } => {
-                // If the color is specified
-                if let Some((red, green, blue)) = color {
-                    cr.set_source_rgb(
-                        red as f64 / 255.0,
-                        green as f64 / 255.0,
-                        blue as f64 / 255.0,
-                    );
-                }
-
-                // If the timeline isn't stale
-                if !info.is_stale {
                     // TODO Replace when let chains feature becomes stable
                     // If the highlight is specified
                     if let Some((red, green, blue)) = highlight {
@@ -752,13 +780,98 @@ impl TimelineAbstraction {
                         }
                     }
                 }
-            }
 
-            // If the event is hidden and the timeline is not in debug mode, hide it
-            _ => {
-                if !info.is_debug {
-                    text_visible = false;
+                // Catch the display debug variant
+                DisplayDebug {
+                    color, highlight, ..
+                } => {
+                    // If the color is specified
+                    if let Some((red, green, blue)) = color {
+                        cr.set_source_rgb(
+                            red as f64 / 255.0,
+                            green as f64 / 255.0,
+                            blue as f64 / 255.0,
+                        );
+                    }
+
+                    // TODO Replace when let chains feature becomes stable
+                    // If the highlight is specified
+                    if let Some((red, green, blue)) = highlight {
+                        // If there are under ten seconds remaining
+                        if let Some((min, sec)) = event.remaining() {
+                            // Flash the highlight color and line width
+                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                cr.set_source_rgb(
+                                    red as f64 / 255.0,
+                                    green as f64 / 255.0,
+                                    blue as f64 / 255.0,
+                                );
+                                line_width = 4.0;
+                            }
+                        }
+                    }
                 }
+
+                // Catch the label control variant
+                LabelControl { color, highlight, .. } => {
+                    // If the color is specified
+                    if let Some((red, green, blue)) = color {
+                        cr.set_source_rgb(
+                            red as f64 / 255.0,
+                            green as f64 / 255.0,
+                            blue as f64 / 255.0,
+                        );
+                    }
+
+                    // TODO Replace when let chains feature becomes stable
+                    // If the highlight is specified
+                    if let Some((red, green, blue)) = highlight {
+                        // If there are under ten seconds remaining
+                        if let Some((min, sec)) = event.remaining() {
+                            // Flash the highlight color and line width
+                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                cr.set_source_rgb(
+                                    red as f64 / 255.0,
+                                    green as f64 / 255.0,
+                                    blue as f64 / 255.0,
+                                );
+                                line_width = 4.0;
+                            }
+                        }
+                    }
+                }
+
+                // Catch the label hidden variant
+                LabelHidden { color, highlight, .. } => {
+                    // If the color is specified
+                    if let Some((red, green, blue)) = color {
+                        cr.set_source_rgb(
+                            red as f64 / 255.0,
+                            green as f64 / 255.0,
+                            blue as f64 / 255.0,
+                        );
+                    }
+
+                    // TODO Replace when let chains feature becomes stable
+                    // If the highlight is specified
+                    if let Some((red, green, blue)) = highlight {
+                        // If there are under ten seconds remaining
+                        if let Some((min, sec)) = event.remaining() {
+                            // Flash the highlight color and line width
+                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                                cr.set_source_rgb(
+                                    red as f64 / 255.0,
+                                    green as f64 / 255.0,
+                                    blue as f64 / 255.0,
+                                );
+                                line_width = 4.0;
+                            }
+                        }
+                    }
+                }
+
+                // If the event is hidden, change nothing
+                _ => (),
             }
         }
 
@@ -768,28 +881,31 @@ impl TimelineAbstraction {
         cr.line_to(location, 1.0);
         cr.stroke();
 
-        // Make sure that the event doesn't overlap other events
-        let label_width = LABEL_ADJUSTMENT as f64 / width;
-        let location_width = location - label_width;
-        for spot in event_locations.iter() {
-            // If the location is within the spot label range
-            if (location > (*spot - label_width) && location < *spot)
-                || (location_width > (*spot - label_width) && location_width < *spot)
-            {
-                return; // Return early
-            }
-        }
-
-        // If the text should be visible
-        if text_visible {
-            // Draw the horizonal line
-            cr.set_line_width(line_width / 50.0);
-            cr.move_to(location - (LABEL_ADJUSTMENT / width), 0.0);
-            cr.line_to(location, 0.0);
+        // If the event is in focus
+        if event.in_focus {
+            // Draw the label flag to the right
+            cr.set_line_width(1.0 / TIMELINE_HEIGHT); // 1 pixel
+            cr.move_to(location, 0.02);
+            cr.line_to(location + (LABEL_SIZE / width), 0.02);
+            cr.stroke();
+            cr.move_to(location, 0.45);
+            cr.line_to(location + (LABEL_SIZE / width), 0.45);
+            cr.stroke();
+            cr.set_line_width(1.0 / width); // 1 pixel
+            cr.move_to(location + (LABEL_SIZE / width), 0.0);
+            cr.line_to(location + (LABEL_SIZE / width), 0.45);
             cr.stroke();
 
+            // Draw the background of the flag
+            cr.set_source_rgb(0.05, 0.05, 0.05);
+            cr.set_line_width(0.4);
+            cr.move_to(location + (4.0 / width), 0.23);
+            cr.line_to(location + ((LABEL_SIZE - 4.0)/ width), 0.23);
+            cr.stroke();
+            
             // Write the event text and the remaining time
-            cr.move_to(location - (LABEL_ADJUSTMENT / width), 0.3);
+            cr.set_source_rgb(1.0, 1.0, 1.0);
+            cr.move_to(location + (4.0 / width), 0.22);
             let text = clean_text(
                 &event.event.description(),
                 TIMELINE_LIMIT,
@@ -799,14 +915,11 @@ impl TimelineAbstraction {
             );
             cr.show_text(&text.as_str());
 
-            // If there is a remaining time and the timeline isn't stale, add that as well
-            if !info.is_stale {
-                if let Some((min, sec)) = event.remaining() {
-                    cr.move_to(location - (LABEL_ADJUSTMENT / width), 0.6);
-                    cr.show_text(format!(" In {:02}:{:02}", min, sec).as_str());
-                }
+            // If there is a remaining time, add that as well
+            if let Some((min, sec)) = event.remaining() {
+                cr.move_to(location + (4.0 / width), 0.4);
+                cr.show_text(format!("In {:02}:{:02}", min, sec).as_str());
             }
         }
     }
 }
-
