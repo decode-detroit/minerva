@@ -424,6 +424,23 @@ impl EventHandler {
         }
     }
 
+    /// A method to change the remaining delay for all the events in the queue.
+    ///
+    /// # Note
+    ///
+    /// This method will drop any events that should have happened in the past.
+    /// In other words, if is_negative is true and the adjustment is longer
+    /// than the last event in the queue, this function is equivalent to
+    /// clearing the queue (none of the events will be triggered).
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by ignoring this failure.
+    ///
+    pub fn adjust_all_events(&self, adjustment: Duration, is_negative: bool) {
+        // Modify the remaining delay for all events in the queue
+        self.queue.adjust_all(adjustment, is_negative);
+    }
+
     /// A method to save the current configuration to the provided file.
     ///
     /// # Errors

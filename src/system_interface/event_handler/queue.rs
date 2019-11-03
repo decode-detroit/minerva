@@ -490,6 +490,75 @@ impl Queue {
             }
         }
     }
+    
+    /// A method to adjust the remaining delay for all the events in the queue.
+    ///
+    /// # Notes
+    ///
+    /// This method will drop any events that should have happened in the past.
+    /// In other words, if is_negative is true and the adjustment is longer
+    /// than the last event in the queue, this function is equivalent to
+    /// clearing the queue (none of the events will be triggered).
+    ///
+    /// While unlikely, this function must wait for the background process to
+    /// release the lock on the queue. If the background process hangs, this
+    /// function may hang as well.
+    ///
+    pub fn adjust_all(&self, adjustment: Duration, is_negative: bool) {
+        // Open the coming events
+        match self.coming_events.lock() {
+            Ok(mut events) => {
+                // If the adjustment is positive
+                if !is_negative {
+                    // Add time to all the events
+                    for event in events.list.iter() {
+                        // Load the new event into the Queue
+                        self.queue_load.send(ComingEvent {
+                            start_time: event.start_time.clone(),
+                            delay: event.delay + adjustment,
+                            event_id: event.id(),
+                        }).unwrap_or(());
+                    }
+                
+                // Otherwise, try to subtract time from the events
+                } else {
+                    // Try to subtract time from all the events
+                    for event in events.list.iter() {
+                        // Ignore events that have already happened
+                        let remaining = match event.remaining() {
+                            Some(time) => time,
+                            None => continue,          
+                        };
+                        
+                        // Calculate the new delay
+                        match remaining.checked_sub(adjustment) {
+                            // Drop the event if not enough time left
+                            None => continue,
+                            Some(_) => {
+                                // Calculate the new duration (should always succeed)
+                                if let Some(delay) = event.delay.checked_sub(adjustment) {
+                                    // Load the new event into the Queue
+                                    self.queue_load.send(ComingEvent {
+                                        start_time: event.start_time.clone(),
+                                        delay,
+                                        event_id: event.id(),
+                                    }).unwrap_or(());
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Clear the coming events (will be reloaded by the background process)
+                events.clear();
+            }
+
+            // Raise an error if the queue has failed
+            _ => {
+                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+            }
+        }
+    }
 
     /// A method to cancel a specific upcoming event.
     ///

@@ -23,7 +23,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     DisplayControl, DisplayDebug, DisplayWith, LabelControl, LabelHidden, EventChange,
-    ItemPair, SystemSend, UpcomingEvent,
+    AllEventChange, ItemPair, SystemSend, UpcomingEvent,
 };
 use super::super::utils::clean_text;
 use super::{NORMAL_FONT, LARGE_FONT};
@@ -53,7 +53,7 @@ const MINUTES_LIMIT: f64 = 300.0; // maximum number of minutes in an adjustment
 const LABEL_SIZE: f64 = 180.0; // the size of the event labels in pixels
 const NOW_LOCATION: f64 = 0.02; // the location of "now" on the timeline, from the left
 const TIMELINE_HEIGHT: f64 = 70.0; // the height of the timeline
-const CLICK_PRECISION: f64 = 10.0; // the click precision for selecting events (in pixels
+const CLICK_PRECISION: f64 = 20.0; // the click precision for selecting events in pixels
 
 /// An internal structure to hold the events currently in the queue. This allows
 /// easier modification of the individual events as needed.
@@ -113,7 +113,7 @@ impl TimelineEvent {
     }
     
     /// A method to return the precise amount of time remaining in the event
-    /// as a float number of seconds.
+    /// as a float number of fractional seconds.
     ///
     fn remaining_precise(&self) -> Option<f64> {
         // Find the amount of time remaining
@@ -170,13 +170,17 @@ impl TimelineAdjustment {
 
         // Create the event selection dropdown and populate it
         let selection = gtk::ComboBoxText::new();
+        selection.append(Some("all"), "Adjust All Events");
         for (_, event) in events.iter() {
             selection.append(Some(event.unique_id.as_str()), &event.event.description());
         }
+        
+        // Create the time label
+        let time_label = gtk::Label::new(Some(" Minutes "));
 
         // Set the connection change parameters
         let clone_events = self.timeline_events.clone();
-        selection.connect_changed(clone!(minutes, seconds => move |dropdown| {
+        selection.connect_changed(clone!(minutes, seconds, time_label, cancel_checkbox => move |dropdown| {
 
             // Get a copy of the available events
             let events = match clone_events.try_borrow() {
@@ -184,12 +188,26 @@ impl TimelineAdjustment {
                 Err(_) => return,
             };
 
-            // Identify and forward the selected id
+            // Identify the selected ID and adjust accordingly
             if let Some(id) = dropdown.get_active_id() {
 
+                // If all events are selected
+                if id == "all" {
+                    // Change the labels
+                    cancel_checkbox.set_label("Subtract Time");
+                    time_label.set_text("  Add Minutes  ");
+                    
+                    // Set the time to zero
+                    minutes.set_value(0.0);
+                    seconds.set_value(0.0);
+                } else 
+                
                 // Identify the selected event
                 if let Some(event) = events.get(id.as_str()) {
-
+                    // Reset the labels
+                    cancel_checkbox.set_label("Cancel Event");
+                    time_label.set_text(" Minutes ");
+                    
                     // Use the information to update the minute and second values
                     if let Some((min, sec)) = event.remaining() {
                         minutes.set_value(min);
@@ -202,6 +220,10 @@ impl TimelineAdjustment {
         // Change to the provided selection, if specified
         if let Some(id_str) = unique_str {
             selection.set_active_id(Some(id_str.as_str()));
+        
+        // Otherwise set it to all
+        } else {
+            selection.set_active_id(Some("all"));
         }
 
         // Access the content area and add the spin buttons
@@ -212,7 +234,7 @@ impl TimelineAdjustment {
         // Add the event label and the spin buttons
         grid.attach(&gtk::Label::new(Some(" Event: ")), 0, 0, 1, 1);
         grid.attach(&selection, 1, 0, 3, 1);
-        grid.attach(&gtk::Label::new(Some(" Minutes ")), 0, 1, 1, 1);
+        grid.attach(&time_label, 0, 1, 1, 1);
         grid.attach(&minutes, 1, 1, 1, 1);
         grid.attach(&gtk::Label::new(Some(" Seconds ")), 2, 1, 1, 1);
         grid.attach(&seconds, 3, 1, 1, 1);
@@ -245,9 +267,19 @@ impl TimelineAdjustment {
                 // Identify and forward the selected event
                 if let Some(id) = selection.get_active_id() {
 
-                    // Look for the corresponding event
-                    if let Some(event) = events.get(id.as_str()) {
+                    // If set to the all event
+                    if id == "all" {
+                        // Use the information to create the time adjustment
+                        let adjustment = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
 
+                        // Send an all event update to the system
+                        system_send.send(AllEventChange {
+                            adjustment,
+                            is_negative: cancel_checkbox.get_active(),
+                        });
+                    
+                    // Look for the corresponding event
+                    } else if let Some(event) = events.get(id.as_str()) {
                         // If the event was selected to be canceled
                         if cancel_checkbox.get_active() {
                             // Send an event update to the system
@@ -441,6 +473,19 @@ impl TimelineAbstraction {
                                 event.in_focus = false;
                             }
                         }
+                    
+                    // If no event was found
+                    } else {
+                        // Make sure no events are in focus
+                        for (_, mut event) in events.iter_mut() {
+                            event.in_focus = false;
+                        }
+                        
+                        // Check to see if the location is near now
+                        if x > ((NOW_LOCATION * width) - (CLICK_PRECISION / 2.0)) && x < ((NOW_LOCATION * width) + (CLICK_PRECISION / 2.0)) {
+                            // Launch the window with no event
+                            launch = true;
+                        }
                     }
                     
                     // Leave if we're not planning the lauch the window
@@ -495,13 +540,22 @@ impl TimelineAbstraction {
             Err(_) => return,
         };
         
-        // Empty the exising events FIXME show events in the past and maintin focus
+        // Copy the old timeline events, and clear the timeline
+        let old_events = timeline_events.clone();
         *timeline_events = FnvHashMap::default();
-
+        
         // Pass the events into the timeline events
         for event in events.drain(..) {
-            // Add the new event to the timeline events
-            let new_event = TimelineEvent::new(event.event, event.start_time, event.delay);
+            // Create the new event
+            let mut new_event = TimelineEvent::new(event.event, event.start_time, event.delay);
+            
+            // Check to see if the event already existed in the timeline
+            if let Some(existing) = old_events.get(&new_event.unique_id) {
+                // Copy the focus
+                new_event.in_focus = existing.in_focus;
+            }
+                
+            // Add the new event to the timeline
             timeline_events.insert(new_event.unique_id.clone(), new_event);
         }
 
@@ -523,7 +577,6 @@ impl TimelineAbstraction {
             false => NORMAL_FONT,
             true => LARGE_FONT
         };
-        
         
         // Try to get a mutable copy of timeline info
         if let Ok(mut info) = self.timeline_info.try_borrow_mut() {
@@ -878,7 +931,7 @@ impl TimelineAbstraction {
         // Draw the vertical line
         cr.set_line_width(line_width / width);
         cr.move_to(location, 0.0);
-        cr.line_to(location, 1.0);
+        cr.line_to(location, 0.7);
         cr.stroke();
 
         // If the event is in focus

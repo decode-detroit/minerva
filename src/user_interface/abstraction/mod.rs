@@ -155,12 +155,6 @@ impl InterfaceAbstraction {
         side_scroll.add(events.get_side_panel());
         side_scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
-        // Format the window
-        //left_window.set_hexpand(true);
-        //left_window.set_vexpand(true);
-        //left_window.set_halign(gtk::Align::Fill);
-        //left_window.set_valign(gtk::Align::Fill);
-
         // Add the title and the side panel
         let title = gtk::Label::new(None);
         title.set_markup("<span color='#338DD6' size='14000'>Game Information</span>");

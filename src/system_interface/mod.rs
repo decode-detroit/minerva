@@ -456,6 +456,28 @@ impl SystemInterface {
                     }
                 }
             }
+            
+            // Change the delay for all events in the queue
+            AllEventChange {
+                adjustment,
+                is_negative,
+            } => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // Adjust the current time of the event
+                    handler.adjust_all_events(adjustment, is_negative);
+
+                    // Wait 10 nanoseconds for the queued events to process
+                    thread::sleep(Duration::new(0, 10));
+
+                    // If the upcoming events have changed, send an update
+                    if let Some(events) = handler.upcoming_events() {
+                        self.interface_send
+                            .send(UpdateQueue { events })
+                            .unwrap_or(());
+                    }
+                }
+            }
 
             // Clear the events currently in the queue
             ClearQueue => {
@@ -831,6 +853,13 @@ pub enum SystemUpdate {
         start_time: Instant, // the start time of the event, for unambiguous identification
         new_delay: Option<Duration>, // new delay relative to the original start time, or None to cancel the event
     },
+    
+    /// A variant to adjust all the events in the timeline
+    /// NOTE: after the adjustment, events that would have already happened are discarded
+    AllEventChange {
+        adjustment: Duration, // the amount of time to add to (or subtract from) all events
+        is_negative: bool, // a flag to indicate if the delay should be subtracted from existing events
+    },
 
     /// A variant to trigger all the queued events to clear
     ClearQueue,
@@ -847,7 +876,7 @@ pub enum SystemUpdate {
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
     AllStop, ClearQueue, Close, ConfigFile, DebugMode, EditDetail, EditMode, ErrorLog,
-    EventChange, GameLog, GetDescription, SaveConfig, SceneChange, StatusChange,
+    EventChange, AllEventChange, GameLog, GetDescription, SaveConfig, SceneChange, StatusChange,
     TriggerEvent, Redraw,
 };
 
