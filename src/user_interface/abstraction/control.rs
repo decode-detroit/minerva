@@ -22,11 +22,11 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, Current, Error, Notification, SystemSend, Update, Warning, LaunchWindow,
-    WindowType, InterfaceUpdate,
+    AllStop, Current, Error, InterfaceUpdate, LaunchWindow, Notification, SystemSend, Update,
+    Warning, WindowType,
 };
 use super::super::utils::clean_text;
-use super::{SMALL_FONT, LARGE_FONT};
+use super::{LARGE_FONT, SMALL_FONT};
 
 // Import standard library features
 use std::sync::mpsc;
@@ -50,7 +50,7 @@ const UPDATE_NUMBER: usize = 50; // maximum number of updates to display
 ///
 #[derive(Clone, Debug)]
 pub struct ControlAbstraction {
-    grid: gtk::Grid,                      // the grid to hold the underlying elements
+    grid: gtk::Grid, // the grid to hold the underlying elements
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of interface send
     notification_area_list: gtk::ListBox, // the notification area list for system notifications
     is_debug_mode: bool, // a flag to indicate whether debug-level notifications should be displayed (not retroctive)
@@ -64,7 +64,10 @@ impl ControlAbstraction {
     /// function loads all the default widgets into the interface and returns
     /// a new copy to allow insertion into higher-level elements.
     ///
-    pub fn new(system_send: &SystemSend, interface_send: &mpsc::Sender<InterfaceUpdate>) -> ControlAbstraction {
+    pub fn new(
+        system_send: &SystemSend,
+        interface_send: &mpsc::Sender<InterfaceUpdate>,
+    ) -> ControlAbstraction {
         // Create the control grid for holding all the universal controls
         let grid = gtk::Grid::new();
 
@@ -213,7 +216,7 @@ impl ControlAbstraction {
     pub fn select_debug(&mut self, is_debug: bool) {
         self.is_debug_mode = is_debug;
     }
-    
+
     /// A method to select the font size of the control items.
     ///
     pub fn select_font(&mut self, is_large: bool) {
@@ -333,9 +336,9 @@ impl ControlAbstraction {
         // Set the font size
         let font_size = match self.is_font_large {
             false => SMALL_FONT,
-            true => LARGE_FONT
+            true => LARGE_FONT,
         };
-        
+
         // Unpack the notification based on its variant
         match notification {
             // Highlight the error variant in bold with red
@@ -395,7 +398,8 @@ impl ControlAbstraction {
                     Some(event_id) => {
                         // Create a label for the button
                         let tmp_label = gtk::Label::new(None);
-                        let markup = format!("<span size='{}'>Trigger The Event Anyway</span>", font_size);
+                        let markup =
+                            format!("<span size='{}'>Trigger The Event Anyway</span>", font_size);
                         tmp_label.set_markup(&markup);
 
                         // Create a button to open the trigger dialog
@@ -407,10 +411,11 @@ impl ControlAbstraction {
                         // Connect the confirmation reveal
                         let interface_clone = self.interface_send.clone();
                         new_button.connect_clicked(move |_| {
-                            interface_clone.send(LaunchWindow {
-                                    window_type: WindowType::Trigger(Some(event_id))
+                            interface_clone
+                                .send(LaunchWindow {
+                                    window_type: WindowType::Trigger(Some(event_id)),
                                 })
-                            .unwrap_or(());
+                                .unwrap_or(());
                         });
 
                         // Return the new button

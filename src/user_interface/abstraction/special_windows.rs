@@ -135,7 +135,7 @@ impl EditDialog {
 #[derive(Clone, Debug)]
 pub struct StatusDialog {
     full_status: Rc<RefCell<FullStatus>>, // a hashmap of status id pairs and status descriptions, stored inside Rc/RefCell
-    window: gtk::ApplicationWindow, // a copy of the primary window
+    window: gtk::ApplicationWindow,       // a copy of the primary window
 }
 
 // Implement key features for the status dialog
@@ -143,10 +143,13 @@ impl StatusDialog {
     /// A function to create a new status dialog structure with the ability to
     /// modify an individual status.
     ///
-    pub fn new(full_status: Rc<RefCell<FullStatus>>, window: &gtk::ApplicationWindow) -> StatusDialog {
+    pub fn new(
+        full_status: Rc<RefCell<FullStatus>>,
+        window: &gtk::ApplicationWindow,
+    ) -> StatusDialog {
         StatusDialog {
             full_status,
-            window: window.clone()
+            window: window.clone(),
         }
     }
 
@@ -220,7 +223,7 @@ impl StatusDialog {
                 }
             }
         }));
-        
+
         // Select the relevant status, if specified
         if let Some(status_id) = status {
             status_selection.set_active_id(Some(status_id.id().to_string().as_str()));
@@ -298,7 +301,7 @@ impl StatusDialog {
 ///
 #[derive(Clone, Debug)]
 pub struct JumpDialog {
-    scenes: Vec<ItemPair>, // a vector of the available scenes
+    scenes: Vec<ItemPair>,          // a vector of the available scenes
     window: gtk::ApplicationWindow, // a copy of the primary window
 }
 
@@ -308,13 +311,16 @@ impl JumpDialog {
     /// change between individual scenes.
     ///
     pub fn new(window: &gtk::ApplicationWindow) -> JumpDialog {
-        JumpDialog { scenes: Vec::new(), window: window.clone() }
+        JumpDialog {
+            scenes: Vec::new(),
+            window: window.clone(),
+        }
     }
 
     /// A method to launch the new jump dialog with the current list of available
     /// scenes in the configuration.
     ///
-    pub fn launch(&self, system_send: &SystemSend) {
+    pub fn launch(&self, system_send: &SystemSend, scene: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
             Some("  Jump To ...  "),
@@ -341,6 +347,11 @@ impl JumpDialog {
             // Do nothing TODO: Consider other scene-specific changes
             ()
         });
+        
+        // Change to the selected scene, if selected
+        if let Some(scene_pair) = scene {
+            scene_selection.set_active_id(Some(&scene_pair.id().to_string()));
+        }
 
         // Access the content area and add the dropdown
         let content = dialog.get_content_area();
@@ -410,7 +421,9 @@ impl TriggerDialog {
     /// A function to create a new trigger dialog structure.
     ///
     pub fn new(window: &gtk::ApplicationWindow) -> TriggerDialog {
-        TriggerDialog { window: window.clone() }
+        TriggerDialog {
+            window: window.clone(),
+        }
     }
 
     /// A method to launch the new edit dialog
@@ -444,7 +457,7 @@ impl TriggerDialog {
 
         // Create the event selection
         let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        
+
         // If an id was specified, use it
         if let Some(id) = event_id {
             event_spin.set_value(id.id() as f64);
@@ -453,8 +466,10 @@ impl TriggerDialog {
         // Create the checkbox
         let event_checkbox = gtk::CheckButton::new_with_label("Check Scene");
         event_checkbox.set_active(true);
-        let event_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let event_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         event_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
         }));
@@ -523,7 +538,8 @@ impl InfoDialog {
 
         // Create grid of information for the item
         let grid = gtk::Grid::new();
-        let id_label = gtk::Label::new(Some(format!("Item Id: {}", item_information.id()).as_str()));
+        let id_label =
+            gtk::Label::new(Some(format!("Item Id: {}", item_information.id()).as_str()));
         let description = gtk::Label::new(Some(item_information.description().as_str()));
         grid.attach(&id_label, 0, 0, 1, 1);
         grid.attach(&description, 0, 1, 1, 1);
@@ -681,7 +697,7 @@ impl EditEventDialog {
                     edit_trigger_events.load_detail(events);
                     edit_overview.choose_detail("events");
                 }
-                
+
                 // Load the cancel events variant
                 EventDetail::CancelEvents { events } => {
                     edit_cancel_events.load_detail(events);
@@ -693,9 +709,9 @@ impl EditEventDialog {
                     edit_save_data.load_detail(data);
                     edit_overview.choose_detail("data");
                 }
-                
+
                 // Ignore the send data variant FIXME
-                EventDetail::SendData ( data_type ) => (),
+                EventDetail::SendData(data_type) => (),
 
                 // Load the grouped event variant
                 EventDetail::GroupedEvent {
@@ -728,7 +744,7 @@ impl EditEventDialog {
 
                     // Pack the trigger events variant
                     "events" => edit_trigger_events.pack_detail(),
-                    
+
                     // Pack the cancel events variant
                     "cancel" => edit_cancel_events.pack_detail(),
 
@@ -846,14 +862,18 @@ impl EditOverview {
             gtk::CheckButton::new_with_label("Status-Based Highlighting");
         let displaycontrol_highstate_status =
             gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaycontrol_highstate_status_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaycontrol_highstate_status_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaycontrol_highstate_status_lookup.connect_clicked(clone!(displaycontrol_highstate_status, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaycontrol_highstate_status.get_value() as u32) });
         }));
         let displaycontrol_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaycontrol_highstate_state_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaycontrol_highstate_state_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaycontrol_highstate_state_lookup.connect_clicked(clone!(displaycontrol_highstate_state, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaycontrol_highstate_state.get_value() as u32) });
         }));
@@ -877,8 +897,10 @@ impl EditOverview {
 
         // Add the displaywith type spin items
         let displaywith_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaywith_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaywith_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaywith_lookup.connect_clicked(clone!(displaywith_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_spin.get_value() as u32) });
         }));
@@ -896,14 +918,18 @@ impl EditOverview {
         let displaywith_highstate_checkbox =
             gtk::CheckButton::new_with_label("Status-Based Highlighting");
         let displaywith_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaywith_highstate_status_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaywith_highstate_status_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaywith_highstate_status_lookup.connect_clicked(clone!(displaywith_highstate_status, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_highstate_status.get_value() as u32) });
         }));
         let displaywith_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaywith_highstate_state_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaywith_highstate_state_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaywith_highstate_state_lookup.connect_clicked(clone!(displaywith_highstate_state, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaywith_highstate_state.get_value() as u32) });
         }));
@@ -930,8 +956,10 @@ impl EditOverview {
         // Add the displaydebug type spin items
         let displaydebug_checkbox = gtk::CheckButton::new_with_label("Display With Group");
         let displaydebug_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaydebug_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaydebug_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaydebug_lookup.connect_clicked(clone!(displaydebug_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_spin.get_value() as u32) });
         }));
@@ -949,14 +977,18 @@ impl EditOverview {
         let displaydebug_highstate_checkbox =
             gtk::CheckButton::new_with_label("Status-Based Highlighting");
         let displaydebug_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaydebug_highstate_status_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaydebug_highstate_status_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaydebug_highstate_status_lookup.connect_clicked(clone!(displaydebug_highstate_status, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_highstate_status.get_value() as u32) });
         }));
         let displaydebug_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let displaydebug_highstate_state_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let displaydebug_highstate_state_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         displaydebug_highstate_state_lookup.connect_clicked(clone!(displaydebug_highstate_state, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(displaydebug_highstate_state.get_value() as u32) });
         }));
@@ -994,14 +1026,18 @@ impl EditOverview {
         let labelcontrol_highstate_checkbox =
             gtk::CheckButton::new_with_label("Status-Based Highlighting");
         let labelcontrol_highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let labelcontrol_highstate_status_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let labelcontrol_highstate_status_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         labelcontrol_highstate_status_lookup.connect_clicked(clone!(labelcontrol_highstate_status, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(labelcontrol_highstate_status.get_value() as u32) });
         }));
         let labelcontrol_highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let labelcontrol_highstate_state_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let labelcontrol_highstate_state_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         labelcontrol_highstate_state_lookup.connect_clicked(clone!(labelcontrol_highstate_state, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(labelcontrol_highstate_state.get_value() as u32) });
         }));
@@ -1435,7 +1471,11 @@ impl EditOverview {
             }
 
             // the label hidden variant
-            LabelHidden { priority, color, highlight } => {
+            LabelHidden {
+                priority,
+                color,
+                highlight,
+            } => {
                 //Switch to the labelhidden type
                 self.display_type.set_active_id(Some("labelhidden"));
 
@@ -1735,7 +1775,7 @@ impl EditOverview {
                 if self.labelhidden_priority_checkbox.get_active() {
                     priority = Some(self.labelhidden_priority.get_value() as u32);
                 }
-                
+
                 // Extract the color, if selected
                 let mut color = None;
                 if self.labelhidden_color_checkbox.get_active() {
@@ -1763,7 +1803,11 @@ impl EditOverview {
                 }
 
                 // Return the completed display type
-                LabelHidden { priority, color, highlight }
+                LabelHidden {
+                    priority,
+                    color,
+                    highlight,
+                }
             }
 
             // For the hidden type
@@ -1808,8 +1852,10 @@ impl EditNewScene {
         let new_scene_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         new_scene_spin.set_size_request(100, 30);
         new_scene_spin.set_hexpand(false);
-        let new_scene_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let new_scene_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         new_scene_lookup.connect_clicked(clone!(new_scene_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(new_scene_spin.get_value() as u32) });
         }));
@@ -1873,8 +1919,10 @@ impl EditModifyStatus {
         let status_id_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         status_id_spin.set_size_request(100, 30);
         status_id_spin.set_hexpand(false);
-        let status_id_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let status_id_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         status_id_lookup.connect_clicked(clone!(status_id_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(status_id_spin.get_value() as u32) });
         }));
@@ -1885,8 +1933,10 @@ impl EditModifyStatus {
         let state_id_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         state_id_spin.set_size_request(100, 30);
         state_id_spin.set_hexpand(false);
-        let state_id_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let state_id_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         state_id_lookup.connect_clicked(clone!(state_id_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(state_id_spin.get_value() as u32) });
         }));
@@ -1952,8 +2002,10 @@ impl EditTriggerEvents {
         trigger_event_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a button to add events to the list
-        let add_button =
-            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
+        let add_button = gtk::Button::new_from_icon_name(
+            Some("list-add-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         add_button.connect_clicked(clone!(trigger_event_list, system_send => move |_| {
 
             // Add an event to the list
@@ -2022,8 +2074,10 @@ impl EditTriggerEvents {
         event_spin.set_hexpand(false);
 
         // Add a lookup button for the event
-        let event_id_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let event_id_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         event_id_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
         }));
@@ -2045,8 +2099,10 @@ impl EditTriggerEvents {
         seconds.set_hexpand(false);
 
         // Add a button to delete the item from the list
-        let delete_button =
-            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
+        let delete_button = gtk::Button::new_from_icon_name(
+            Some("edit-delete-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         delete_button.connect_clicked(clone!(trigger_event_list, event_grid => move |_| {
             if let Some(widget) = event_grid.get_parent() {
                 trigger_event_list.remove(&widget);
@@ -2168,9 +2224,9 @@ impl EditTriggerEvents {
 //
 #[derive(Clone, Debug)]
 struct EditCancelEvents {
-    grid: gtk::Grid,                  // the main grid for this element
+    grid: gtk::Grid,                 // the main grid for this element
     cancel_event_list: gtk::ListBox, // the list for events in this variant
-    system_send: SystemSend,          // the system response sender
+    system_send: SystemSend,         // the system response sender
 }
 
 impl EditCancelEvents {
@@ -2182,8 +2238,10 @@ impl EditCancelEvents {
         cancel_event_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a button to add events to the list
-        let add_button =
-            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
+        let add_button = gtk::Button::new_from_icon_name(
+            Some("list-add-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         add_button.connect_clicked(clone!(cancel_event_list, system_send => move |_| {
 
             // Add an event to the list
@@ -2252,15 +2310,19 @@ impl EditCancelEvents {
         event_spin.set_hexpand(false);
 
         // Add a lookup button for the event
-        let event_id_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let event_id_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         event_id_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
         }));
 
         // Add a button to delete the item from the list
-        let delete_button =
-            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
+        let delete_button = gtk::Button::new_from_icon_name(
+            Some("edit-delete-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         delete_button.connect_clicked(clone!(cancel_event_list, event_grid => move |_| {
             if let Some(widget) = event_grid.get_parent() {
                 cancel_event_list.remove(&widget);
@@ -2333,7 +2395,6 @@ impl EditCancelEvents {
     }
 }
 
-
 // Create the save data variant
 //
 #[derive(Clone, Debug)]
@@ -2351,8 +2412,10 @@ impl EditSaveData {
         save_data_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a button to add data to the list
-        let add_button =
-            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
+        let add_button = gtk::Button::new_from_icon_name(
+            Some("list-add-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         add_button.connect_clicked(clone!(save_data_list => move |_| {
 
             // Add a data item to the list
@@ -2416,8 +2479,10 @@ impl EditSaveData {
         item_spin.set_hexpand(false);
 
         // Add a button to delete the item from the list
-        let delete_button =
-            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
+        let delete_button = gtk::Button::new_from_icon_name(
+            Some("edit-delete-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         delete_button.connect_clicked(clone!(save_data_list, item_grid => move |_| {
             if let Some(widget) = item_grid.get_parent() {
                 save_data_list.remove(&widget);
@@ -2511,8 +2576,10 @@ impl EditGroupedEvent {
         let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         status_spin.set_size_request(100, 30);
         status_spin.set_hexpand(false);
-        let status_id_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let status_id_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         status_id_lookup.connect_clicked(clone!(status_spin, system_send => move |_| {
                 system_send.send(GetDescription { item_id: ItemId::new_unchecked(status_spin.get_value() as u32) });
             }));
@@ -2521,8 +2588,10 @@ impl EditGroupedEvent {
         status_grid.attach(&status_id_lookup, 2, 0, 1, 1);
 
         // Create a button to add events to the list
-        let add_button =
-            gtk::Button::new_from_icon_name(Some("list-add-symbolic"), gtk::IconSize::Button.into());
+        let add_button = gtk::Button::new_from_icon_name(
+            Some("list-add-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         add_button.connect_clicked(clone!(grouped_event_list, system_send => move |_| {
 
             // Add a new blank event to the list
@@ -2601,8 +2670,10 @@ impl EditGroupedEvent {
         state_spin.set_hexpand(false);
 
         // Add a lookup button for the state
-        let state_id_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let state_id_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         state_id_lookup.connect_clicked(clone!(state_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(state_spin.get_value() as u32) });
         }));
@@ -2617,15 +2688,19 @@ impl EditGroupedEvent {
         event_spin.set_hexpand(false);
 
         // Add a lookup button for the event
-        let event_id_lookup =
-            gtk::Button::new_from_icon_name(Some("edit-find-symbolic"), gtk::IconSize::Button.into());
+        let event_id_lookup = gtk::Button::new_from_icon_name(
+            Some("edit-find-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         event_id_lookup.connect_clicked(clone!(event_spin, system_send => move |_| {
             system_send.send(GetDescription { item_id: ItemId::new_unchecked(event_spin.get_value() as u32) });
         }));
 
         // Add a button to delete the item from the list
-        let delete_button =
-            gtk::Button::new_from_icon_name(Some("edit-delete-symbolic"), gtk::IconSize::Button.into());
+        let delete_button = gtk::Button::new_from_icon_name(
+            Some("edit-delete-symbolic"),
+            gtk::IconSize::Button.into(),
+        );
         delete_button.connect_clicked(clone!(grouped_event_list, group_grid => move |_| {
             if let Some(widget) = group_grid.get_parent() {
                 grouped_event_list.remove(&widget);

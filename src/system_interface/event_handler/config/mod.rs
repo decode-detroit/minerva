@@ -30,8 +30,8 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::GeneralUpdate;
 use super::event::{
-    EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData, SendData,
-    TriggerEvents, CancelEvents,
+    CancelEvents, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData,
+    SendData, TriggerEvents,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 
@@ -286,9 +286,7 @@ impl Config {
             // Insert the event description into the lookup
             match lookup.insert(item_pair.get_id(), item_pair.get_description()) {
                 // Warn of events defined multiple times
-                Some(_) => {
-                    update!(warn general_update => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id())
-                }
+                Some(_) => update!(warn general_update => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id()),
                 None => (),
             }
 
@@ -297,9 +295,7 @@ impl Config {
                 // Insert the event detail into the events hash map
                 match events.insert(item_pair.get_id(), event_detail.clone()) {
                     // Warn of an event detail defined multiple times
-                    Some(_) => {
-                        update!(warn general_update => "Item {} Has Multiple Definitions In Event List.", &item_pair.id())
-                    }
+                    Some(_) => update!(warn general_update => "Item {} Has Multiple Definitions In Event List.", &item_pair.id()),
                     None => (),
                 }
             }
@@ -586,7 +582,7 @@ impl Config {
     }
 
     /// A method to modify a status state within the current scene based
-    /// on the provided status id and new state. Return the new state, or 
+    /// on the provided status id and new state. Return the new state, or
     /// None if the state was not changed successfully.
     ///
     /// # Errors
@@ -605,8 +601,7 @@ impl Config {
             // Notify the system of the successful status change
             let status_pair =
                 ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
-            let state_pair =
-                ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
+            let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
             update!(status &self.general_update => status_pair, state_pair.clone());
 
             // Indicate success
@@ -809,9 +804,7 @@ impl Config {
         // Try to write the configuration to the file
         match config_file.write_all(config_string.as_bytes()) {
             Ok(_) => (),
-            Err(error) => {
-                update!(err &self.general_update => "Unable To Write Configuration To File: {}", error)
-            }
+            Err(error) => update!(err &self.general_update => "Unable To Write Configuration To File: {}", error),
         }
     }
 
@@ -987,7 +980,7 @@ impl Config {
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
             }
-            
+
             // If there are events to cancel, verify that they exist
             &CancelEvents { ref events } => {
                 // Check that all of them exist

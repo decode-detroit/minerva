@@ -345,7 +345,7 @@ impl Logger {
                     time: time::now(),
                 }
             }
-            
+
             // Broadcast events with data and display them
             EventUpdate::BroadcastData(id, data) => {
                 // Broadcast the event

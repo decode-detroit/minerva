@@ -195,7 +195,7 @@ impl ComingEvents {
         None
     }
 
-    /// A method to determine the amount of time remaining before an event 
+    /// A method to determine the amount of time remaining before an event
     /// is triggered.
     ///
     /// # Errors
@@ -212,7 +212,7 @@ impl ComingEvents {
                 return coming.remaining();
             }
         }
-        
+
         // Otherwise, indicate the event wasn't found
         None
     }
@@ -246,7 +246,7 @@ impl ComingEvents {
         // If the event wasn't found, return None
         None
     }
-    
+
     /// A method to remove any events that match the event id from the list.
     ///
     /// # Errors
@@ -263,7 +263,7 @@ impl ComingEvents {
                 // Remove the old event and update the flag
                 self.list.remove(index);
                 self.changed = true;
-                // Do not increment, as the index has now changed by one
+            // Do not increment, as the index has now changed by one
 
             // Otherwise, keep looking
             } else {
@@ -350,7 +350,8 @@ impl Queue {
                         None => {
                             // Remove the last event from the list and send it if it matches what we expected. Otherwise, do nothing.
                             if let Some(event_now) = coming_events.lock().unwrap().pop_if(&event) {
-                                general_update.send_event(event_now.id(), true); // checkscene
+                                general_update.send_event(event_now.id(), true);
+                                // checkscene
                             }
                         }
 
@@ -369,7 +370,8 @@ impl Queue {
                                     if let Some(event_now) =
                                         coming_events.lock().unwrap().pop_if(&event)
                                     {
-                                        general_update.send_event(event_now.id(), true); // checkscene
+                                        general_update.send_event(event_now.id(), true);
+                                        // checkscene
                                     }
                                 }
 
@@ -490,7 +492,7 @@ impl Queue {
             }
         }
     }
-    
+
     /// A method to adjust the remaining delay for all the events in the queue.
     ///
     /// # Notes
@@ -513,13 +515,15 @@ impl Queue {
                     // Add time to all the events
                     for event in events.list.iter() {
                         // Load the new event into the Queue
-                        self.queue_load.send(ComingEvent {
-                            start_time: event.start_time.clone(),
-                            delay: event.delay + adjustment,
-                            event_id: event.id(),
-                        }).unwrap_or(());
+                        self.queue_load
+                            .send(ComingEvent {
+                                start_time: event.start_time.clone(),
+                                delay: event.delay + adjustment,
+                                event_id: event.id(),
+                            })
+                            .unwrap_or(());
                     }
-                
+
                 // Otherwise, try to subtract time from the events
                 } else {
                     // Try to subtract time from all the events
@@ -527,9 +531,9 @@ impl Queue {
                         // Ignore events that have already happened
                         let remaining = match event.remaining() {
                             Some(time) => time,
-                            None => continue,          
+                            None => continue,
                         };
-                        
+
                         // Calculate the new delay
                         match remaining.checked_sub(adjustment) {
                             // Drop the event if not enough time left
@@ -538,17 +542,19 @@ impl Queue {
                                 // Calculate the new duration (should always succeed)
                                 if let Some(delay) = event.delay.checked_sub(adjustment) {
                                     // Load the new event into the Queue
-                                    self.queue_load.send(ComingEvent {
-                                        start_time: event.start_time.clone(),
-                                        delay,
-                                        event_id: event.id(),
-                                    }).unwrap_or(());
+                                    self.queue_load
+                                        .send(ComingEvent {
+                                            start_time: event.start_time.clone(),
+                                            delay,
+                                            event_id: event.id(),
+                                        })
+                                        .unwrap_or(());
                                 }
                             }
                         }
                     }
                 }
-                
+
                 // Clear the coming events (will be reloaded by the background process)
                 events.clear();
             }

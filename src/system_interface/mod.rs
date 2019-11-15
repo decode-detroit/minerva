@@ -223,7 +223,7 @@ impl SystemInterface {
             Ok(GeneralUpdateType::Broadcast(event_id)) => {
                 self.system_connection.broadcast(event_id, None);
             }
-            
+
             // If a broadcast data event was received, send it to the system connection
             Ok(GeneralUpdateType::BroadcastData(event_id, data)) => {
                 self.system_connection.broadcast(event_id, Some(data));
@@ -456,7 +456,7 @@ impl SystemInterface {
                     }
                 }
             }
-            
+
             // Change the delay for all events in the queue
             AllEventChange {
                 adjustment,
@@ -526,7 +526,7 @@ impl SystemInterface {
                     }
                 }
             }
-            
+
             // Redraw the user interface
             Redraw => self.general_update.send_redraw(),
         }
@@ -677,7 +677,7 @@ enum GeneralUpdateType {
 
     /// A variant for the broadcast type
     Broadcast(ItemId),
-   
+
     /// A variant for the broadcast data type
     BroadcastData(ItemId, u32),
 
@@ -744,7 +744,7 @@ impl GeneralUpdate {
             .send(GeneralUpdateType::Broadcast(event_id))
             .unwrap_or(());
     }
-    
+
     /// A method to broadcast an event and corresponding data via the system interface.
     ///
     pub fn send_broadcast_data(&self, event_id: ItemId, data: u32) {
@@ -853,7 +853,7 @@ pub enum SystemUpdate {
         start_time: Instant, // the start time of the event, for unambiguous identification
         new_delay: Option<Duration>, // new delay relative to the original start time, or None to cancel the event
     },
-    
+
     /// A variant to adjust all the events in the timeline
     /// NOTE: after the adjustment, events that would have already happened are discarded
     AllEventChange {
@@ -868,16 +868,16 @@ pub enum SystemUpdate {
     /// checkscene flag is no set, the system will not check if the event is
     /// listed in the current scene.
     TriggerEvent { event: ItemId, checkscene: bool },
-    
+
     /// A variant that triggers a redraw of the current event window
     Redraw,
 }
 
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
-    AllStop, ClearQueue, Close, ConfigFile, DebugMode, EditDetail, EditMode, ErrorLog,
-    EventChange, AllEventChange, GameLog, GetDescription, SaveConfig, SceneChange, StatusChange,
-    TriggerEvent, Redraw,
+    AllEventChange, AllStop, ClearQueue, Close, ConfigFile, DebugMode, EditDetail, EditMode,
+    ErrorLog, EventChange, GameLog, GetDescription, Redraw, SaveConfig, SceneChange, StatusChange,
+    TriggerEvent,
 };
 
 /// A structure to list a series of event buttons that are associated with one
@@ -899,10 +899,10 @@ pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong 
 pub enum WindowType {
     /// A variant to launch the status dialog with an optional relevant status of interest
     Status(Option<ItemPair>),
-    
+
     /// A variant to launch the jump dialog with an optional scene of interest
     Jump(Option<ItemPair>),
-    
+
     /// A variant to launch the trigger dialog with an optional event of interest
     /// TODO Should use ItemPair for consistency
     Trigger(Option<ItemId>),
@@ -913,10 +913,10 @@ pub enum WindowType {
 pub enum DisplaySetting {
     /// A variant to change the debug mode of the display
     DebugMode(bool),
-    
+
     /// A variant to change the font size of the display
     LargeFont(bool),
-    
+
     /// A variant to change the color mode of the display
     HighContrast(bool),
 }
@@ -947,34 +947,22 @@ pub enum InterfaceUpdate {
     },
 
     /// A variant indicating that the system notifications should be updated.
-    UpdateNotifications {
-        notifications: Vec<Notification>,
-    },
+    UpdateNotifications { notifications: Vec<Notification> },
 
     /// A variant indicating that the event queue should be updated.
-    UpdateQueue {
-        events: Vec<UpcomingEvent>,
-    },
-    
+    UpdateQueue { events: Vec<UpcomingEvent> },
+
     /// A variant to launch one of the special windows
-    LaunchWindow {
-        window_type: WindowType,
-    },
-    
+    LaunchWindow { window_type: WindowType },
+
     /// A variant to change the display settings
-    ChangeSettings {
-        display_setting: DisplaySetting,
-    },
+    ChangeSettings { display_setting: DisplaySetting },
 
     /// A variant to post a current event to the status bar
-    Notify {
-        message: String,
-    },
+    Notify { message: String },
 
     /// A variant to provide the description of a particular id
-    Description {
-        item_information: ItemPair,
-    },
+    Description { item_information: ItemPair },
 
     /// A variant to provide the current detail of an event to allow modification
     /// as desired.
@@ -986,7 +974,7 @@ pub enum InterfaceUpdate {
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    Description, DetailToModify, Notify, ChangeSettings, LaunchWindow, UpdateConfig,
+    ChangeSettings, Description, DetailToModify, LaunchWindow, Notify, UpdateConfig,
     UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow,
 };
 

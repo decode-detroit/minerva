@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
-    ClearQueue, Close, ConfigFile, ErrorLog, GameLog, SaveConfig, InterfaceUpdate,
-    LaunchWindow, WindowType, ChangeSettings, DisplaySetting,
+    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, ErrorLog, GameLog,
+    InterfaceUpdate, LaunchWindow, SaveConfig, WindowType,
 };
 use super::UserInterface;
 
@@ -237,18 +237,18 @@ impl MenuAbstraction {
         let debug = gio::SimpleAction::new_stateful("debug_mode", None, &false.to_variant());
         let interface_clone = interface_send.clone();
         debug.connect_activate(move |checkbox, _| {
-
             // Update the debug status of the program
             let mut is_debug = false;
             if let Some(state) = checkbox.get_state() {
-
                 // Default to false if unable to get the current state of checkbox
                 is_debug = state.get().unwrap_or(false);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                interface_clone.send(ChangeSettings {
-                    display_setting: DisplaySetting::DebugMode(!is_debug)
-                }).unwrap_or(());
+                interface_clone
+                    .send(ChangeSettings {
+                        display_setting: DisplaySetting::DebugMode(!is_debug),
+                    })
+                    .unwrap_or(());
             }
 
             // Invert the checkbox state ourselves because of gio innerworkings
@@ -259,18 +259,18 @@ impl MenuAbstraction {
         let font = gio::SimpleAction::new_stateful("large_font", None, &false.to_variant());
         let interface_clone = interface_send.clone();
         font.connect_activate(move |checkbox, _| {
-
             // Update the font size of the program
             let mut is_large = false;
             if let Some(state) = checkbox.get_state() {
-
                 // Default to false if unable to get the current state of checkbox
                 is_large = state.get().unwrap_or(false);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                interface_clone.send(ChangeSettings {
-                    display_setting: DisplaySetting::LargeFont(!is_large)
-                }).unwrap_or(());
+                interface_clone
+                    .send(ChangeSettings {
+                        display_setting: DisplaySetting::LargeFont(!is_large),
+                    })
+                    .unwrap_or(());
             }
 
             // Invert the checkbox state ourselves because of gio innerworkings
@@ -281,18 +281,18 @@ impl MenuAbstraction {
         let contrast = gio::SimpleAction::new_stateful("contrast", None, &false.to_variant());
         let interface_clone = interface_send.clone();
         contrast.connect_activate(move |checkbox, _| {
-
             // Update the high contrast state of the program
             let mut is_hc = false;
             if let Some(state) = checkbox.get_state() {
-
                 // Default to false if unable to get the current state of checkbox
                 is_hc = state.get().unwrap_or(false);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                interface_clone.send(ChangeSettings {
-                    display_setting: DisplaySetting::HighContrast(!is_hc)
-                }).unwrap_or(());
+                interface_clone
+                    .send(ChangeSettings {
+                        display_setting: DisplaySetting::HighContrast(!is_hc),
+                    })
+                    .unwrap_or(());
             }
 
             // Invert the checkbox state ourselves because of gio innerworkings
@@ -304,9 +304,11 @@ impl MenuAbstraction {
         let interface_clone = interface_send.clone();
         jump.connect_activate(move |_, _| {
             // Launch the jump dialog
-            interface_clone.send(LaunchWindow {
-                window_type: WindowType::Jump(None)
-            }).unwrap_or(());
+            interface_clone
+                .send(LaunchWindow {
+                    window_type: WindowType::Jump(None),
+                })
+                .unwrap_or(());
         });
 
         // Create the modify status dialog action
@@ -314,9 +316,11 @@ impl MenuAbstraction {
         let interface_clone = interface_send.clone();
         status.connect_activate(move |_, _| {
             // Launch the status modification dialog
-            interface_clone.send(LaunchWindow {
-                window_type: WindowType::Status(None)
-            }).unwrap_or(());
+            interface_clone
+                .send(LaunchWindow {
+                    window_type: WindowType::Status(None),
+                })
+                .unwrap_or(());
         });
 
         // Create the clear timeline action
@@ -331,9 +335,11 @@ impl MenuAbstraction {
         let interface_clone = interface_send.clone();
         trigger.connect_activate(move |_, _| {
             // Launch the trigger event dialog
-            interface_clone.send(LaunchWindow {
-                window_type: WindowType::Trigger(None)
-            }).unwrap_or(());
+            interface_clone
+                .send(LaunchWindow {
+                    window_type: WindowType::Trigger(None),
+                })
+                .unwrap_or(());
         });
 
         // Create the edit mode action

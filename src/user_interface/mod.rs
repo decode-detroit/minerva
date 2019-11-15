@@ -31,9 +31,9 @@ mod menu;
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
-    DebugMode, Description, DetailToModify, EditMode, InterfaceUpdate, Notify, SystemSend,
-    SystemUpdate, UpdateConfig, UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow,
-    LaunchWindow, WindowType, ChangeSettings, DisplaySetting, Redraw,
+    ChangeSettings, DebugMode, Description, DetailToModify, DisplaySetting, EditMode,
+    InterfaceUpdate, LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
+    UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow, WindowType,
 };
 
 // Import standard library features
@@ -130,7 +130,6 @@ impl UserInterface {
                 interface.launch_edit(checkbox);
             }
 
-
         // If the edit setting was not chosen
         } else {
             // Change the internal flag from edit mode
@@ -221,22 +220,22 @@ impl UserInterface {
 
                 // Update the events in the timeline area
                 UpdateQueue { events } => interface.update_events(events),
-                
+
                 // Launch the requested special window
                 LaunchWindow { window_type } => {
                     // Sort for the window type
                     match window_type {
                         // Launch the status dialog
-                        WindowType::Status(status) => interface.launch_status(status),       
-                                                
+                        WindowType::Status(status) => interface.launch_status(status),
+
                         // Launch the jump dialog
-                        WindowType::Jump(scene) => interface.launch_jump(),
-                        
+                        WindowType::Jump(scene) => interface.launch_jump(scene),
+
                         // Launch the trigger dialog
                         WindowType::Trigger(event) => interface.launch_trigger(event),
                     }
                 }
-                
+
                 // Change the internal setting of the user interface
                 ChangeSettings { display_setting } => {
                     // Sort for the display setting
@@ -248,14 +247,14 @@ impl UserInterface {
                             self.send(DebugMode(is_debug));
                             self.send(Redraw);
                         }
-                        
+
                         // Change the font size of the display
                         DisplaySetting::LargeFont(is_large) => {
                             // Update the interface and trigger a redraw
                             interface.select_font(is_large);
                             self.send(Redraw);
                         }
-                                                
+
                         // Change the color mode of the display
                         DisplaySetting::HighContrast(is_hc) => {
                             // Update the interface and trigger a redraw

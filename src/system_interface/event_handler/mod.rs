@@ -38,8 +38,8 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    EventDelay, EventDetail, EventUpdate, DataType, GroupedEvent, ModifyStatus, NewScene,
-    SaveData, SendData, TriggerEvents, CancelEvents, UpcomingEvent,
+    CancelEvents, DataType, EventDelay, EventDetail, EventUpdate, GroupedEvent, ModifyStatus,
+    NewScene, SaveData, SendData, TriggerEvents, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::{ComingEvent, Queue};
@@ -339,8 +339,7 @@ impl EventHandler {
             self.backup.backup_status(status_id, &new_id);
 
             // Run the change event for the new state (no backup necessary)
-            self.queue
-                .add_event(EventDelay::new(None, new_id));
+            self.queue.add_event(EventDelay::new(None, new_id));
         }
     }
 
@@ -410,8 +409,8 @@ impl EventHandler {
                     start_time,
                     delay,
                 });
-            },
-            
+            }
+
             // Otherwise
             None => {
                 // Try to cancel the event
@@ -495,7 +494,7 @@ impl EventHandler {
             if let Some(number) = data {
                 // Broadcast the event and data
                 update!(broadcastdata &self.general_update => pair, number);
-            
+
             // Broadcast the event only
             } else {
                 update!(broadcast &self.general_update => pair);
@@ -551,9 +550,9 @@ impl EventHandler {
                 // Save the data to the game log
                 update!(save &self.general_update => data);
             }
-            
+
             // If there is data to send, collect and send it
-            SendData ( data_type ) => {
+            SendData(data_type) => {
                 // Select for the type of data
                 match data_type {
                     // Collect time until an event
@@ -562,27 +561,30 @@ impl EventHandler {
                         if let Some(duration) = self.queue.event_remaining(&event_id) {
                             // Convert the data to u32 (truncated)
                             return Some(duration.as_secs() as u32);
-                        
+
                         // Otherwise, return empty data
                         } else {
                             return Some(0);
                         }
                     }
-                    
+
                     // Collect time passed until an event
-                    DataType::TimePassedUntil { event_id, total_time } => {
+                    DataType::TimePassedUntil {
+                        event_id,
+                        total_time,
+                    } => {
                         // Check to see if there is time remaining for the event
                         if let Some(remaining) = self.queue.event_remaining(&event_id) {
                             // Subtract the remaining time from the total time
                             if let Some(result) = total_time.checked_sub(remaining) {
                                 // Convert the data to u32 (truncated)
                                 return Some(result.as_secs() as u32);
-                            
+
                             // Otherwise, return no duration
                             } else {
                                 return Some(0);
                             }
-                        
+
                         // Otherwise, return the full duration (truncated)
                         } else {
                             return Some(total_time.as_secs() as u32);
@@ -601,17 +603,17 @@ impl EventHandler {
                     // Try to find the corresponding event in the event_map
                     match event_map.get(&state) {
                         // Trigger the event if it was found
-                        Some(event_id) => self.queue.add_event(EventDelay::new(None, event_id.clone())),
-                        
+                        Some(event_id) => self
+                            .queue
+                            .add_event(EventDelay::new(None, event_id.clone())),
+
                         // Otherwise warn the system the event was not found
-                        None => {
-                            update!(warn &self.general_update => "Unable To Find State In Grouped Event: {}", state)
-                        }
+                        None => update!(warn &self.general_update => "Unable To Find State In Grouped Event: {}", state),
                     }
                 }
             }
         }
-        
+
         // Return no data for most cases
         None
     }

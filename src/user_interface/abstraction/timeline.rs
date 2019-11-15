@@ -22,11 +22,11 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    DisplayControl, DisplayDebug, DisplayWith, LabelControl, LabelHidden, EventChange,
-    AllEventChange, ItemPair, SystemSend, UpcomingEvent,
+    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair, LabelControl,
+    LabelHidden, SystemSend, UpcomingEvent,
 };
 use super::super::utils::clean_text;
-use super::{NORMAL_FONT, LARGE_FONT};
+use super::{LARGE_FONT, NORMAL_FONT};
 
 // Import standard library features
 use std::cell::RefCell;
@@ -65,7 +65,7 @@ struct TimelineEvent {
     delay: Duration,     // the delay of the event (relative to the original start time)
     unique_id: String,   // a unique identifier, composed from both the event id and the start_time
     location: f64,       // the location on the timeline in pixels
-    in_focus: bool,         // a flag to indicate that this event has been clicked on
+    in_focus: bool,      // a flag to indicate that this event has been clicked on
 }
 
 // Implement key structure features
@@ -111,7 +111,7 @@ impl TimelineEvent {
         let minutes = remaining.as_secs() / 60;
         Some((minutes as f64, seconds as f64))
     }
-    
+
     /// A method to return the precise amount of time remaining in the event
     /// as a float number of fractional seconds.
     ///
@@ -158,7 +158,7 @@ impl TimelineAdjustment {
             Ok(events) => events,
             Err(_) => return,
         };
-        
+
         // Chreate the cancel checkbox
         let cancel_checkbox = gtk::CheckButton::new_with_label("Cancel Event");
 
@@ -174,53 +174,55 @@ impl TimelineAdjustment {
         for (_, event) in events.iter() {
             selection.append(Some(event.unique_id.as_str()), &event.event.description());
         }
-        
+
         // Create the time label
         let time_label = gtk::Label::new(Some(" Minutes "));
 
         // Set the connection change parameters
         let clone_events = self.timeline_events.clone();
-        selection.connect_changed(clone!(minutes, seconds, time_label, cancel_checkbox => move |dropdown| {
+        selection.connect_changed(
+            clone!(minutes, seconds, time_label, cancel_checkbox => move |dropdown| {
 
-            // Get a copy of the available events
-            let events = match clone_events.try_borrow() {
-                Ok(events) => events,
-                Err(_) => return,
-            };
+                // Get a copy of the available events
+                let events = match clone_events.try_borrow() {
+                    Ok(events) => events,
+                    Err(_) => return,
+                };
 
-            // Identify the selected ID and adjust accordingly
-            if let Some(id) = dropdown.get_active_id() {
+                // Identify the selected ID and adjust accordingly
+                if let Some(id) = dropdown.get_active_id() {
 
-                // If all events are selected
-                if id == "all" {
-                    // Change the labels
-                    cancel_checkbox.set_label("Subtract Time");
-                    time_label.set_text("  Add Minutes  ");
-                    
-                    // Set the time to zero
-                    minutes.set_value(0.0);
-                    seconds.set_value(0.0);
-                } else 
-                
-                // Identify the selected event
-                if let Some(event) = events.get(id.as_str()) {
-                    // Reset the labels
-                    cancel_checkbox.set_label("Cancel Event");
-                    time_label.set_text(" Minutes ");
-                    
-                    // Use the information to update the minute and second values
-                    if let Some((min, sec)) = event.remaining() {
-                        minutes.set_value(min);
-                        seconds.set_value(sec);
+                    // If all events are selected
+                    if id == "all" {
+                        // Change the labels
+                        cancel_checkbox.set_label("Subtract Time");
+                        time_label.set_text("  Add Minutes  ");
+
+                        // Set the time to zero
+                        minutes.set_value(0.0);
+                        seconds.set_value(0.0);
+                    } else
+
+                    // Identify the selected event
+                    if let Some(event) = events.get(id.as_str()) {
+                        // Reset the labels
+                        cancel_checkbox.set_label("Cancel Event");
+                        time_label.set_text(" Minutes ");
+
+                        // Use the information to update the minute and second values
+                        if let Some((min, sec)) = event.remaining() {
+                            minutes.set_value(min);
+                            seconds.set_value(sec);
+                        }
                     }
                 }
-            }
-        }));
+            }),
+        );
 
         // Change to the provided selection, if specified
         if let Some(id_str) = unique_str {
             selection.set_active_id(Some(id_str.as_str()));
-        
+
         // Otherwise set it to all
         } else {
             selection.set_active_id(Some("all"));
@@ -277,7 +279,7 @@ impl TimelineAdjustment {
                             adjustment,
                             is_negative: cancel_checkbox.get_active(),
                         });
-                    
+
                     // Look for the corresponding event
                     } else if let Some(event) = events.get(id.as_str()) {
                         // If the event was selected to be canceled
@@ -288,7 +290,7 @@ impl TimelineAdjustment {
                                 start_time: event.start_time.clone(),
                                 new_delay: None,
                             });
-                        
+
                         // Otherwise
                         } else {
                             // Use that information to create the new duration
@@ -319,8 +321,8 @@ impl TimelineAdjustment {
 ///
 #[derive(Clone, Debug)]
 struct TimelineInfo {
-    pub duration: Duration, // the current duration for the timeline
-    pub font_size: u32, // the current font size for the timeline
+    pub duration: Duration,     // the current duration for the timeline
+    pub font_size: u32,         // the current font size for the timeline
     pub is_high_contrast: bool, // a flag for the display contrast mode
 }
 
@@ -359,7 +361,7 @@ impl TimelineAbstraction {
             font_size: NORMAL_FONT,
             is_high_contrast: false,
         }));
-        
+
         // Create the duration buttons
         let duration_twohours = gtk::Button::new_with_label("2 Hrs");
         let duration_onehour = gtk::Button::new_with_label("60 Min");
@@ -430,7 +432,7 @@ impl TimelineAbstraction {
             let events_clone = adjustment.timeline_events.clone();
             match events_clone.try_borrow_mut() {
                 Err(_) => return Inhibit(false),
-                
+
                 // If the events were able to be extracted
                 Ok(mut events) => {
                     // Check to see if the click overlaps with one of the events
@@ -452,7 +454,7 @@ impl TimelineAbstraction {
                             }
                         }
                     }
-                    
+
                     // Check to see if the event is in focus
                     let mut launch = false;
                     if let Some(id) = event_id.clone() {
@@ -460,41 +462,40 @@ impl TimelineAbstraction {
                             if event.in_focus {
                                 // Launch the adjustment window
                                 launch = true;
-                            
+
                             // Otherwise put it in focus and do not launch the window
                             } else {
                                 event.in_focus = true;
                             }
                         }
-                                    
                         // Make sure all the other events are not in focus
                         for (other_id, mut event) in events.iter_mut() {
                             if id != *other_id {
                                 event.in_focus = false;
                             }
                         }
-                    
+
                     // If no event was found
                     } else {
                         // Make sure no events are in focus
                         for (_, mut event) in events.iter_mut() {
                             event.in_focus = false;
                         }
-                        
+
                         // Check to see if the location is near now
                         if x > ((NOW_LOCATION * width) - (CLICK_PRECISION / 2.0)) && x < ((NOW_LOCATION * width) + (CLICK_PRECISION / 2.0)) {
                             // Launch the window with no event
                             launch = true;
                         }
                     }
-                    
+
                     // Leave if we're not planning the lauch the window
                     if !launch {
                         return Inhibit(false);
                     }
                 },
             }
-            
+
             // Open the adjustment window
             adjustment.new_dialog(&window, event_id);
 
@@ -539,22 +540,22 @@ impl TimelineAbstraction {
             Ok(events) => events,
             Err(_) => return,
         };
-        
+
         // Copy the old timeline events, and clear the timeline
         let old_events = timeline_events.clone();
         *timeline_events = FnvHashMap::default();
-        
+
         // Pass the events into the timeline events
         for event in events.drain(..) {
             // Create the new event
             let mut new_event = TimelineEvent::new(event.event, event.start_time, event.delay);
-            
+
             // Check to see if the event already existed in the timeline
             if let Some(existing) = old_events.get(&new_event.unique_id) {
                 // Copy the focus
                 new_event.in_focus = existing.in_focus;
             }
-                
+
             // Add the new event to the timeline
             timeline_events.insert(new_event.unique_id.clone(), new_event);
         }
@@ -568,22 +569,22 @@ impl TimelineAbstraction {
     pub fn refresh(&self) {
         self.timeline_area.queue_draw();
     }
-    
+
     /// A method to select the font size of the timeline
     ///
     pub fn select_font(&mut self, is_large: bool) {
         // Set the new font size
         let font_size = match is_large {
             false => NORMAL_FONT,
-            true => LARGE_FONT
+            true => LARGE_FONT,
         };
-        
+
         // Try to get a mutable copy of timeline info
         if let Ok(mut info) = self.timeline_info.try_borrow_mut() {
             info.font_size = font_size;
         }
     }
-    
+
     /// A method to select the color contrast of the timeline
     ///
     pub fn select_contrast(&mut self, is_hc: bool) {
@@ -604,7 +605,7 @@ impl TimelineAbstraction {
         // Draw the background dark grey
         cr.set_source_rgb(0.05, 0.05, 0.05);
         cr.paint();
-        
+
         // Get and set the size of the window allocation
         let allocation = area.get_allocation();
         let (width, height) = (allocation.width as f64, allocation.height as f64); // create shortcuts
@@ -615,7 +616,7 @@ impl TimelineAbstraction {
             Ok(info) => info,
             Err(_) => return Inhibit(false),
         };
-        
+
         // Set the font size and ratio
         cr.set_font_matrix(cairo::Matrix {
             xx: ((info.font_size / 1000) as f64 / width),
@@ -632,26 +633,26 @@ impl TimelineAbstraction {
         cr.move_to(0.0, 0.7);
         cr.line_to(1.0, 0.7);
         cr.stroke();
-        
+
         // Draw the current time line
         cr.set_source_rgb(1.0, 1.0, 1.0);
         cr.set_line_width(2.0 / width); // 2 pixels wide
         cr.move_to(NOW_LOCATION, 0.0);
         cr.line_to(NOW_LOCATION, 1.0);
         cr.stroke();
-        
+
         // Add the current time to the timeline
         let time = time::now();
         cr.move_to(NOW_LOCATION, 0.95);
         cr.show_text(
             format!(" {:02}:{:02}:{:02}", time.tm_hour, time.tm_min, time.tm_sec).as_str(),
         );
-        
+
         // Calculate the time subdivisions
         let duration_secs = info.duration.as_secs();
         cr.set_source_rgb(0.5, 0.5, 0.5);
         cr.set_line_width(1.0 / width); // 1 pixel wide
-        
+
         // Change the markers based on the duration
         let spacing;
         let increment;
@@ -661,41 +662,41 @@ impl TimelineAbstraction {
             // Use a 10 second marker
             spacing = (1.0 - NOW_LOCATION) / (duration_secs as f64 / 10.0);
             increment = 10.0;
-            label = "sec"; 
-        
+            label = "sec";
+
         // If the time is between two and twenty minutes
         } else if duration_secs < 1200 {
             // Use a 1 minute marker
             spacing = (1.0 - NOW_LOCATION) / (duration_secs as f64 / 60.0);
             increment = 1.0;
             label = "min";
-        
+
         // Otherwise, use a fixe minute marker
         } else {
             spacing = (1.0 - NOW_LOCATION) / (duration_secs as f64 / 300.0);
             increment = 5.0;
             label = "min";
         }
-        
+
         // Draw divisions going to the right
         let mut count = 1.0;
         while (count * spacing) < 1.0 {
             // Calculate the offset
             let offset = NOW_LOCATION + (count * spacing);
-            
+
             // Draw the subdivision
             cr.move_to(offset, 0.0);
             cr.line_to(offset, 1.0);
             cr.stroke();
-            
+
             // Add a time label
             cr.move_to(offset, 0.95);
             cr.show_text(format!(" {} {}", count * increment, label).as_str());
-            
+
             // Increment the count
             count = count + 1.0;
         }
-        
+
         // Set default color and line width
         cr.set_source_rgb(0.9, 0.9, 0.9);
         cr.set_line_width(2.0 / width); // 2 pixels wide
@@ -713,31 +714,25 @@ impl TimelineAbstraction {
             let mut location = 0.0; // default location is "now"
             if let Some(remaining) = event.remaining_precise() {
                 // Calculate the location of the event on the timeline
-                location = remaining / (info.duration.as_secs() as f64
-                    + (info.duration.subsec_nanos() as f64 / 1000000000.0));
+                location = remaining
+                    / (info.duration.as_secs() as f64
+                        + (info.duration.subsec_nanos() as f64 / 1000000000.0));
             }
-            
+
             // Correct for the now location
             event.location = (location * (1.0 - NOW_LOCATION)) + NOW_LOCATION;
-            
+
             // Copy the event into the ordered list
             ordered_events.push(event.clone());
         }
-        
+
         // Reorder the events to follow location, highest to lowest
-        ordered_events.sort_by_key(|event| {
-            ((1.0 - event.location.clone()) * 1000.0) as u64
-        });
+        ordered_events.sort_by_key(|event| ((1.0 - event.location.clone()) * 1000.0) as u64);
 
         // Draw any events for the timeline
         for event in ordered_events.iter() {
             // Try to draw the event
-            TimelineAbstraction::draw_event(
-                cr,
-                event,
-                width,
-                info.is_high_contrast
-            );
+            TimelineAbstraction::draw_event(cr, event, width, info.is_high_contrast);
 
             // Reset the color after the event
             cr.set_source_rgb(0.9, 0.9, 0.9);
@@ -752,23 +747,18 @@ impl TimelineAbstraction {
     /// If the event is in focus, this function also draws a flag to describe
     /// the event in brief detail
     ///
-    fn draw_event(
-        cr: &cairo::Context,
-        event: &TimelineEvent,
-        width: f64,
-        is_high_contrast: bool,
-    ) {
+    fn draw_event(cr: &cairo::Context, event: &TimelineEvent, width: f64, is_high_contrast: bool) {
         // Extract the event location
         let location = event.location;
-        
+
         // Check that the location is visible
         if (location < 0.0) | (location > 1.0) {
-            return
+            return;
         }
 
         // Change the event color, visibility, and line width, if specified
         let mut line_width = 2.0; // 2 pixels wide
-        
+
         // Skip if in high_contrast mode
         if !is_high_contrast {
             match event.event.display {
@@ -784,7 +774,7 @@ impl TimelineAbstraction {
                             blue as f64 / 255.0,
                         );
                     }
-                    
+
                     // TODO Replace when let chains feature becomes stable
                     // If the highlight is specified
                     if let Some((red, green, blue)) = highlight {
@@ -866,7 +856,9 @@ impl TimelineAbstraction {
                 }
 
                 // Catch the label control variant
-                LabelControl { color, highlight, .. } => {
+                LabelControl {
+                    color, highlight, ..
+                } => {
                     // If the color is specified
                     if let Some((red, green, blue)) = color {
                         cr.set_source_rgb(
@@ -895,7 +887,9 @@ impl TimelineAbstraction {
                 }
 
                 // Catch the label hidden variant
-                LabelHidden { color, highlight, .. } => {
+                LabelHidden {
+                    color, highlight, ..
+                } => {
                     // If the color is specified
                     if let Some((red, green, blue)) = color {
                         cr.set_source_rgb(
@@ -941,21 +935,21 @@ impl TimelineAbstraction {
             cr.move_to(location, 0.02);
             cr.line_to(location + (LABEL_SIZE / width), 0.02);
             cr.stroke();
-            cr.move_to(location, 0.45);
-            cr.line_to(location + (LABEL_SIZE / width), 0.45);
+            cr.move_to(location, 0.65);
+            cr.line_to(location + (LABEL_SIZE / width), 0.65);
             cr.stroke();
             cr.set_line_width(1.0 / width); // 1 pixel
             cr.move_to(location + (LABEL_SIZE / width), 0.0);
-            cr.line_to(location + (LABEL_SIZE / width), 0.45);
+            cr.line_to(location + (LABEL_SIZE / width), 0.65);
             cr.stroke();
 
             // Draw the background of the flag
             cr.set_source_rgb(0.05, 0.05, 0.05);
-            cr.set_line_width(0.4);
-            cr.move_to(location + (4.0 / width), 0.23);
-            cr.line_to(location + ((LABEL_SIZE - 4.0)/ width), 0.23);
+            cr.set_line_width(0.6);
+            cr.move_to(location + (4.0 / width), 0.34);
+            cr.line_to(location + ((LABEL_SIZE - 4.0) / width), 0.34);
             cr.stroke();
-            
+
             // Write the event text and the remaining time
             cr.set_source_rgb(1.0, 1.0, 1.0);
             cr.move_to(location + (4.0 / width), 0.22);
@@ -972,6 +966,17 @@ impl TimelineAbstraction {
             if let Some((min, sec)) = event.remaining() {
                 cr.move_to(location + (4.0 / width), 0.4);
                 cr.show_text(format!("In {:02}:{:02}", min, sec).as_str());
+
+                // Show what time the event will happen
+                let now = time::now();
+                let minute =
+                    (((now.tm_sec as f64 + sec) / 60.0 + now.tm_min as f64 + min) % 60.0) as u64;
+                let hour = (((now.tm_sec as f64 + sec) / 3600.0
+                    + (now.tm_min as f64 + min) / 60.0
+                    + now.tm_hour as f64)
+                    % 24.0) as u64;
+                cr.move_to(location + (4.0 / width), 0.6);
+                cr.show_text(format!("At {:02}:{:02}", hour, minute).as_str());
             }
         }
     }

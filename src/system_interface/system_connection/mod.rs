@@ -435,7 +435,7 @@ impl SystemConnection {
                         Some(number) => number,
                         None => 0,
                     };
-                
+
                     // Try to send the new event to every connection
                     for connection in connections.iter_mut() {
                         // Catch any write errors

@@ -22,12 +22,12 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, EventGroup, EventWindow,
-    FullStatus, Hidden, ItemDescription, ItemId, ItemPair, LabelControl, LabelHidden,
-    StatusDescription, SystemSend, TriggerEvent, InterfaceUpdate, LaunchWindow, WindowType,
+    DisplayControl, DisplayDebug, DisplayType, DisplayWith, EventGroup, EventWindow, FullStatus,
+    Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair, LabelControl, LabelHidden,
+    LaunchWindow, StatusDescription, SystemSend, TriggerEvent, WindowType,
 };
 use super::super::utils::clean_text;
-use super::{NORMAL_FONT, LARGE_FONT};
+use super::{LARGE_FONT, NORMAL_FONT};
 
 // Import standard library features
 use std::sync::mpsc;
@@ -50,14 +50,14 @@ const CONTROL_LIMIT: usize = 20; // maximum character width of control panel lab
 ///
 #[derive(Clone, Debug)]
 pub struct EventAbstraction {
-    grid: gtk::Grid,             // the top level grid containing both windows
-    left_grid: gtk::Grid,        // the grid to hold the event elements(left side)
-    right_grid: gtk::Grid,       // the grid to hold the event elements (right side)
+    grid: gtk::Grid,                    // the top level grid containing both windows
+    left_grid: gtk::Grid,               // the grid to hold the event elements(left side)
+    right_grid: gtk::Grid,              // the grid to hold the event elements (right side)
     groups: Vec<EventGroupAbstraction>, // a vector of the current event groups
-    side_panel: gtk::Grid,       // the container to hold the side panel events
+    side_panel: gtk::Grid,              // the container to hold the side panel events
     side_group: Option<EventGroupAbstraction>, // side panel group (for ungrouped events)
-    is_font_large: bool,         // a flag to indicate the font size of the items
-    is_high_contrast: bool,      // a flag to indicate if the display is high contrast
+    is_font_large: bool,                // a flag to indicate the font size of the items
+    is_high_contrast: bool,             // a flag to indicate if the display is high contrast
 }
 
 // Implement key features for the Event Abstraction
@@ -102,7 +102,7 @@ impl EventAbstraction {
         right_window.set_vexpand(true);
         right_window.set_halign(gtk::Align::Fill);
         right_window.set_valign(gtk::Align::Fill);
-        
+
         // Create the top grid for holding the two windows and separator
         let grid = gtk::Grid::new();
         grid.set_column_homogeneous(false); // set the row and column heterogeneous
@@ -151,7 +151,7 @@ impl EventAbstraction {
     pub fn get_side_panel(&self) -> &gtk::Grid {
         &self.side_panel
     }
-    
+
     /// A method to select the font size of the event array.
     ///
     pub fn select_font(&mut self, is_large: bool) {
@@ -206,11 +206,11 @@ impl EventAbstraction {
     ) {
         // Empty the old event grid
         self.clear();
-        
+
         // Set the font size
         let font_size = match self.is_font_large {
             false => NORMAL_FONT,
-            true => LARGE_FONT
+            true => LARGE_FONT,
         };
 
         // Copy the available groups into new group abstractions
@@ -262,7 +262,8 @@ impl EventAbstraction {
         current_title.show();
         self.side_panel.attach(&current_title, 0, 1, 1, 1);
         let current_label = gtk::Label::new(None);
-        let current_markup = clean_text(&current_scene.description, CONTROL_LIMIT, true, false, true);
+        let current_markup =
+            clean_text(&current_scene.description, CONTROL_LIMIT, true, false, true);
         decorate_label(
             &current_label,
             &current_markup,
@@ -292,13 +293,13 @@ impl EventAbstraction {
                 match priority {
                     // Add the priority if it exists
                     Some(num) => paired.push((num, status)),
-                    
+
                     // Otherwise, use the max available
                     None => paired.push((u32MAX, status)),
                 }
             }
         }
-        
+
         // Reorder the statuses to follow priority
         paired.sort_by_key(|pair| {
             let &(ref priority, _) = pair;
@@ -310,14 +311,21 @@ impl EventAbstraction {
         for (_, status) in paired.drain(..) {
             sorted.push(status);
         }
-        
+
         // Add the status/state pairs to the side panel
         let mut status_count: i32 = 0;
         for status in sorted.drain(..) {
             // Put the name of the status
             let status_title = gtk::Label::new(None);
             let status_markup = clean_text(&status.description, CONTROL_LIMIT, true, false, true);
-            decorate_label(&status_title, &status_markup, status.display, full_status, font_size, self.is_high_contrast);
+            decorate_label(
+                &status_title,
+                &status_markup,
+                status.display,
+                full_status,
+                font_size,
+                self.is_high_contrast,
+            );
             status_title.set_halign(gtk::Align::End);
             status_title.set_margin_end(5);
             status_title.show();
@@ -330,8 +338,16 @@ impl EventAbstraction {
                 &ItemPair::from_item(status.get_id(), ItemDescription::new("", Hidden)),
             ) {
                 // Decorate the state label
-                let state_markup = clean_text(&current.description, CONTROL_LIMIT, true, false, true);
-                decorate_label(&state, &state_markup, current.display, full_status, font_size, self.is_high_contrast);
+                let state_markup =
+                    clean_text(&current.description, CONTROL_LIMIT, true, false, true);
+                decorate_label(
+                    &state,
+                    &state_markup,
+                    current.display,
+                    full_status,
+                    font_size,
+                    self.is_high_contrast,
+                );
             }
 
             // Format the state label
@@ -369,7 +385,8 @@ impl EventAbstraction {
                 self.left_grid.attach(&group.as_grid(), 0, num as i32, 1, 1);
             } else {
                 // Attach the found group to the right grid
-                self.right_grid.attach(&group.as_grid(), 0, (num - half) as i32, 1, 1);
+                self.right_grid
+                    .attach(&group.as_grid(), 0, (num - half) as i32, 1, 1);
             }
         }
     }
@@ -386,7 +403,7 @@ struct EventGroupAbstraction {
     priority: Option<u32>,    // the priority for the group for ordering on the screen
     header: gtk::Label,       // the label attached to the header for the group
     state_selection: Option<gtk::Button>, // the dropdown for switching between states (if it exists)
-    buttons: Vec<gtk::Button>,                  // the event buttons for the event group
+    buttons: Vec<gtk::Button>,            // the event buttons for the event group
 }
 
 // Implement key features for the Event Group Abstraction
@@ -407,7 +424,7 @@ impl EventGroupAbstraction {
         header.set_margin_end(10);
         header.set_hexpand(false);
         header.set_halign(gtk::Align::End);
-        
+
         // If there is an id, create the header and id and add it to the group
         let group_id;
         let priority;
@@ -418,27 +435,39 @@ impl EventGroupAbstraction {
                 group_id = Some(id_pair.get_id());
                 let header_markup = &format!(
                     "<span size='14000'>{}</span>",
-                    clean_text(&id_pair.description, LABEL_LIMIT, false, false, true))
-                ;
-                priority = decorate_label(&header, &header_markup, id_pair.display, full_status, font_size, is_high_contrast);
+                    clean_text(&id_pair.description, LABEL_LIMIT, false, false, true)
+                );
+                priority = decorate_label(
+                    &header,
+                    &header_markup,
+                    id_pair.display,
+                    full_status,
+                    font_size,
+                    is_high_contrast,
+                );
 
                 // Create the status selection button (if the status exists)
-                if let Some(&StatusDescription {
-                    ref current, ..
-                }) = full_status.get(&id_pair)
-                {
+                if let Some(&StatusDescription { ref current, .. }) = full_status.get(&id_pair) {
                     // Create the new state selection label
                     let state_label = gtk::Label::new(None);
-                    let state_markup = clean_text(&current.description, LABEL_LIMIT, true, false, true);
-                    decorate_label(&state_label, &state_markup, current.display, full_status, font_size, is_high_contrast);
-                    
-                    // Create the button and add the label    
+                    let state_markup =
+                        clean_text(&current.description, LABEL_LIMIT, true, false, true);
+                    decorate_label(
+                        &state_label,
+                        &state_markup,
+                        current.display,
+                        full_status,
+                        font_size,
+                        is_high_contrast,
+                    );
+
+                    // Create the button and add the label
                     state_label.show();
                     let selection = gtk::Button::new();
                     selection.add(&state_label);
                     selection.set_hexpand(false);
                     selection.set_halign(gtk::Align::Start);
-                    
+
                     // Connect the status dialog when clicked
                     selection.connect_clicked(clone!(interface_send => move |_| {
                         // Send the status dialog to the user interface
@@ -467,8 +496,14 @@ impl EventGroupAbstraction {
             let button_markup = clean_text(&event.description, BUTTON_LIMIT, true, false, true);
 
             // Set the markup based on the requested color and extract the priority
-            let button_priority =
-                decorate_label(&button_label, &button_markup, event.display, full_status, font_size, is_high_contrast);
+            let button_priority = decorate_label(
+                &button_label,
+                &button_markup,
+                event.display,
+                full_status,
+                font_size,
+                is_high_contrast,
+            );
 
             // Set the features of the new label and place it on the button
             button_label.show();
@@ -520,7 +555,7 @@ impl EventGroupAbstraction {
         None
     }
 
-    /// A method to compose the event group into a scrollable, horiztonal grid 
+    /// A method to compose the event group into a scrollable, horiztonal grid
     /// with a group title, optional status, and a flowbox of buttons.
     ///
     fn as_grid(&self) -> gtk::Grid {
@@ -545,10 +580,9 @@ impl EventGroupAbstraction {
             // Add each button to the grid
             button_box.add(button);
         }
-        
+
         // If there is a group id
         if let Some(_) = self.group_id {
-        
             // Create a placeholder for expanding along the event buttons
             let dummy = gtk::Label::new(Some(""));
             dummy.set_halign(gtk::Align::Fill);
@@ -569,12 +603,12 @@ impl EventGroupAbstraction {
                 grid.attach(&dummy, 1, 0, 1, 1);
                 grid.attach(&button_box, 0, 1, 2, 1);
             }
-        
+
         // Otherwise, just attach the button box
         } else {
             grid.attach(&button_box, 0, 0, 1, 1);
         }
-        
+
         // Show all the elements in the group
         self.show_all();
         button_box.show();
@@ -629,7 +663,7 @@ fn decorate_label(
                 label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
                 return priority;
             }
-            
+
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
@@ -679,7 +713,7 @@ fn decorate_label(
                 label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
                 return priority;
             }
-            
+
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
@@ -729,7 +763,7 @@ fn decorate_label(
                 label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
                 return priority;
             }
-            
+
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
@@ -779,7 +813,7 @@ fn decorate_label(
                 label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
                 return priority;
             }
-            
+
             // Set the markup color, if specified
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(
@@ -817,13 +851,15 @@ fn decorate_label(
         }
 
         // Set only the color for a hidden label
-        LabelHidden { color, priority, .. } => {
+        LabelHidden {
+            color, priority, ..
+        } => {
             // If high contrast mode, just set the size and return the priority
             if high_contrast {
                 label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
                 return priority;
             }
-            
+
             // Set the markup color
             if let Some((red, green, blue)) = color {
                 label.set_markup(&format!(

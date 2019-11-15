@@ -370,13 +370,13 @@ impl EventConnection for ZmqLookup {
         if let Some(text) = self.event_string.get(&id) {
             // Make a copy of the string
             let mut string = text.clone();
-            
+
             // If data2 is not zero, convert it and append it to the string
             if data2 > 0 {
                 let result = (((data2 / 60) * 100) + (data2 % 60)) as u32;
                 string.push_str(&format!("{:04}", result));
             }
-            
+
             // Try to send the string
             self.zmq_send.send_str(&string, 0)?;
         }

@@ -34,15 +34,15 @@ use self::special_windows::{
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventDetail, EventWindow, FullStatus, Hidden, ItemPair, ItemId, Notification,
-    StatusDescription, SystemSend, UpcomingEvent, InterfaceUpdate,
+    EventDetail, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemId, ItemPair, Notification,
+    StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
 
 // Import standard library features
-use std::sync::mpsc;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::mpsc;
 
 // Import GTK and GDK libraries
 extern crate gdk;
@@ -160,7 +160,7 @@ impl InterfaceAbstraction {
         title.set_markup("<span color='#338DD6' size='14000'>Game Information</span>");
         title.set_halign(gtk::Align::Center);
         title.show();
-        
+
         primary_grid.attach(&title, 0, 1, 1, 1);
         primary_grid.attach(&side_scroll, 0, 2, 1, 1);
 
@@ -207,7 +207,7 @@ impl InterfaceAbstraction {
         &self.primary_grid
     }
 
-    /// A method to change the notification level to (or from) debug. If 
+    /// A method to change the notification level to (or from) debug. If
     /// notification level is not debug, only updates, warnings, and errors will
     /// be displayed.
     ///
@@ -368,8 +368,8 @@ impl InterfaceAbstraction {
     //
     /// A method to launch the jump dialog
     ///
-    pub fn launch_jump(&self) {
-        self.jump_dialog.launch(&self.system_send);
+    pub fn launch_jump(&self, scene: Option<ItemPair>) {
+        self.jump_dialog.launch(&self.system_send, scene);
     }
     //
     /// A method to update the scenes in the jump dialog

@@ -117,12 +117,12 @@ impl StatusHandler {
             match status_detail.update(new_state.clone()) {
                 // If the update was successful, return the new state
                 Some(new_id) => Some(new_id),
-                
+
                 // If the update failed, warn the system
                 None => {
                     update!(warn &self.update_line => "Selected State Was Not Valid: {}", new_state);
                     None
-                },
+                }
             }
 
         // Warn the system that this is not a valid id
@@ -343,7 +343,7 @@ impl StatusDetail {
                 if new_state == *reset {
                     *count = *default_count; // reset the count
                     *current = *anti_trigger; // reset the current state
-                    
+
                     // Return the current state
                     Some(current.clone())
 
@@ -351,7 +351,7 @@ impl StatusDetail {
                 } else if new_state == *anti_trigger {
                     *count = *count + 1; // increase the count
                     *current = *anti_trigger; // reset the current state
-                    
+
                     // Return the current state
                     Some(current.clone())
 
@@ -366,7 +366,7 @@ impl StatusDetail {
                     if *count == 0 {
                         *current = *trigger;
                     }
-                    
+
                     // Return the current state
                     Some(current.clone())
 
