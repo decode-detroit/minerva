@@ -72,7 +72,7 @@ impl Minerva {
         // Launch the background thread to monitor and handle events
         let (interface_send, interface_receive) = mpsc::channel();
         let (system_interface, system_send) = SystemInterface::new(interface_send.clone())
-            .expect("Unable to create the system interface module.");
+            .expect("Unable To Create System Interface.");
 
         // Open the system interface in a new thread
         thread::spawn(move || {
