@@ -354,26 +354,6 @@ impl SystemInterface {
                 }
             }
 
-            // Return an id description to the user interface
-            GetDescription { item_id } => {
-                // Find the description of the id
-                if let Some(ref handler) = self.event_handler {
-                    // Return the available description to the interface
-                    self.interface_send
-                        .send(Description {
-                            item_information: ItemPair::from_item(
-                                item_id.clone(),
-                                handler.get_description(&item_id),
-                            ),
-                        })
-                        .unwrap_or(());
-
-                // If there is no handler, raise a warning
-                } else {
-                    update!(warn &self.general_update => "No Detail Available: There Is No Current Configuration.");
-                }
-            }
-
             // Update the configuration provided to the underlying system
             ConfigFile { filepath } => {
                 // Try to clear all the events in the queue
@@ -822,9 +802,6 @@ pub enum SystemUpdate {
         event_detail: EventDetail,
     },
 
-    /// A variant to request the description of a particular id
-    GetDescription { item_id: ItemId },
-
     /// A variant that provides a new configuration file for the system interface.
     /// If None is provided as the filepath, no configuration will be loaded.
     /// This is the correct way to deconstruct the system before shutting down.
@@ -876,7 +853,7 @@ pub enum SystemUpdate {
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
     AllEventChange, AllStop, ClearQueue, Close, ConfigFile, DebugMode, EditDetail, EditMode,
-    ErrorLog, EventChange, GameLog, GetDescription, Redraw, SaveConfig, SceneChange, StatusChange,
+    ErrorLog, EventChange, GameLog, Redraw, SaveConfig, SceneChange, StatusChange,
     TriggerEvent,
 };
 
@@ -904,8 +881,7 @@ pub enum WindowType {
     Jump(Option<ItemPair>),
 
     /// A variant to launch the trigger dialog with an optional event of interest
-    /// TODO Should use ItemPair for consistency
-    Trigger(Option<ItemId>),
+    Trigger(Option<ItemPair>),
 }
 
 /// An enum to change one of the display settings of the user interface
@@ -961,9 +937,6 @@ pub enum InterfaceUpdate {
     /// A variant to post a current event to the status bar
     Notify { message: String },
 
-    /// A variant to provide the description of a particular id
-    Description { item_information: ItemPair },
-
     /// A variant to provide the current detail of an event to allow modification
     /// as desired.
     DetailToModify {
@@ -974,7 +947,7 @@ pub enum InterfaceUpdate {
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    ChangeSettings, Description, DetailToModify, LaunchWindow, Notify, UpdateConfig,
+    ChangeSettings, DetailToModify, LaunchWindow, Notify, UpdateConfig,
     UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow,
 };
 

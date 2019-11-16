@@ -30,11 +30,11 @@ mod timeline;
 use self::control::ControlAbstraction;
 use self::events::EventAbstraction;
 use self::special_windows::{
-    EditDialog, EditEventDialog, InfoDialog, JumpDialog, StatusDialog, TriggerDialog,
+    EditDialog, EditEventDialog, JumpDialog, StatusDialog, TriggerDialog,
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventDetail, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemId, ItemPair, Notification,
+    EventDetail, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, Notification,
     StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
@@ -80,7 +80,6 @@ pub struct InterfaceAbstraction {
     status_dialog: StatusDialog, // the status dialog for the system to change individual statuses
     jump_dialog: JumpDialog,  // the jump dialog for the system to switch between individual scenes
     trigger_dialog: TriggerDialog, // the trigger dialog for the system to trigger a custom event
-    info_dialog: InfoDialog,  // the information dialog for displaying information about items
     edit_event_dialog: EditEventDialog, // the edit event dialog for the editing event details
     is_debug: bool,           // a flag to indicate whether or not the program is in debug mode
 }
@@ -172,7 +171,6 @@ impl InterfaceAbstraction {
         let status_dialog = StatusDialog::new(full_status.clone(), window);
         let jump_dialog = JumpDialog::new(window);
         let trigger_dialog = TriggerDialog::new(window);
-        let info_dialog = InfoDialog::new(window);
         let edit_event_dialog = EditEventDialog::new(window);
 
         // Return a copy of the interface abstraction
@@ -194,7 +192,6 @@ impl InterfaceAbstraction {
             status_dialog,
             jump_dialog,
             trigger_dialog,
-            info_dialog,
             edit_event_dialog,
             is_debug: false,
         }
@@ -380,14 +377,8 @@ impl InterfaceAbstraction {
 
     /// A method to launch the trigger event dialog
     ///
-    pub fn launch_trigger(&self, event: Option<ItemId>) {
+    pub fn launch_trigger(&self, event: Option<ItemPair>) {
         self.trigger_dialog.launch(&self.system_send, event);
-    }
-
-    /// A method to launch the information window FIXME replace with in-window context
-    ///
-    pub fn launch_info(&self, item_information: &ItemPair) {
-        self.info_dialog.launch(item_information);
     }
 
     /// A method to launch the edit event dialog

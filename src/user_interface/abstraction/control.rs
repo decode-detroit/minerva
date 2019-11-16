@@ -345,15 +345,15 @@ impl ControlAbstraction {
             Error {
                 message,
                 time,
-                event_id,
+                event,
             } => {
                 // Format the time appropriately
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
 
                 // Extract the id, if specified
-                match event_id {
+                match event {
                     // If there's an id, include it in the message
-                    Some(id) => {
+                    Some(event_pair) => {
                         // Combine the message and the time
                         (
                             format!(
@@ -361,7 +361,7 @@ impl ControlAbstraction {
                                 font_size,
                                 timestr,
                                 clean_text(&message, UPDATE_LIMIT, true, true, true),
-                                id
+                                event_pair.id()
                             ),
                             None,
                         )
@@ -387,15 +387,15 @@ impl ControlAbstraction {
             Warning {
                 message,
                 time,
-                event_id,
+                event,
             } => {
                 // Format the time appropriately
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
 
                 // Assemble a button if there should be one
-                let button_opt = match event_id {
+                let button_opt = match event {
                     // If an event was specified, create a launch info button
-                    Some(event_id) => {
+                    Some(event_pair) => {
                         // Create a label for the button
                         let tmp_label = gtk::Label::new(None);
                         let markup =
@@ -413,7 +413,7 @@ impl ControlAbstraction {
                         new_button.connect_clicked(move |_| {
                             interface_clone
                                 .send(LaunchWindow {
-                                    window_type: WindowType::Trigger(Some(event_id)),
+                                    window_type: WindowType::Trigger(Some(event_pair.clone())),
                                 })
                                 .unwrap_or(());
                         });

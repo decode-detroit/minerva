@@ -695,7 +695,7 @@ impl Config {
                         // Return None if the id doesn't exist
                         None => {
                             // Notify of an invalid event
-                            update!(errevent &self.general_update => id.clone() => "Event Not Found.");
+                            update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id)) => "Event Not Found.");
 
                             // Return None
                             None
@@ -704,7 +704,7 @@ impl Config {
                 }
 
                 // If the event is not listed in the current scene, notify
-                update!(warnevent &self.general_update => id.clone() => "Event Not In Current Scene.");
+                update!(warnevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not In Current Scene.");
 
                 // And return none
                 None
@@ -725,7 +725,7 @@ impl Config {
                 // Return None if the id doesn't exist
                 None => {
                     // Notify of an invalid event
-                    update!(errevent &self.general_update => id.clone() => "Event Not Found.");
+                    update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not Found.");
 
                     // Return None
                     None

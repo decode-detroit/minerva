@@ -23,7 +23,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::event_handler::event::EventUpdate;
-use super::{GeneralUpdate, InterfaceUpdate, ItemId, UpdateStatus};
+use super::{GeneralUpdate, InterfaceUpdate, ItemPair, UpdateStatus};
 
 // Import standard library modules
 use std::fmt;
@@ -52,14 +52,14 @@ pub enum Notification {
     Error {
         message: String,
         time: time::Tm,
-        event_id: Option<ItemId>,
+        event: Option<ItemPair>,
     },
 
     /// A warning type of notification
     Warning {
         message: String,
         time: time::Tm,
-        event_id: Option<ItemId>,
+        event: Option<ItemPair>,
     },
 
     /// A current event type of notification
@@ -294,7 +294,7 @@ impl Logger {
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
-            EventUpdate::Error(error, event_id) => {
+            EventUpdate::Error(error, event) => {
                 // Note the current time
                 let now = time::now();
 
@@ -319,15 +319,15 @@ impl Logger {
                 Error {
                     message: error,
                     time: now,
-                    event_id,
+                    event,
                 }
             }
 
             // Simply display warnings and updates
-            EventUpdate::Warning(warning, event_id) => Warning {
+            EventUpdate::Warning(warning, event) => Warning {
                 message: warning,
                 time: time::now(),
-                event_id,
+                event,
             },
             EventUpdate::Update(update) => Update {
                 message: update,

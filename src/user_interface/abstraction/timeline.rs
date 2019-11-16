@@ -48,7 +48,8 @@ extern crate gtk;
 use self::gtk::prelude::*;
 
 // Import module constants
-const TIMELINE_LIMIT: usize = 20; // maximum character width of timeline names
+const TIMELINE_LIMIT: usize = 26; // maximum character width of timeline names
+const TIMELINE_LIMIT_SHORT: usize = 21; // maximum character width of timeline names
 const MINUTES_LIMIT: f64 = 300.0; // maximum number of minutes in an adjustment
 const LABEL_SIZE: f64 = 180.0; // the size of the event labels in pixels
 const NOW_LOCATION: f64 = 0.02; // the location of "now" on the timeline, from the left
@@ -323,6 +324,7 @@ impl TimelineAdjustment {
 struct TimelineInfo {
     pub duration: Duration,     // the current duration for the timeline
     pub font_size: u32,         // the current font size for the timeline
+    pub label_limit: usize,     // the current character limit for timeline flags
     pub is_high_contrast: bool, // a flag for the display contrast mode
 }
 
@@ -359,6 +361,7 @@ impl TimelineAbstraction {
         let timeline_info = Rc::new(RefCell::new(TimelineInfo {
             duration: Duration::from_secs(3600),
             font_size: NORMAL_FONT,
+            label_limit: TIMELINE_LIMIT,
             is_high_contrast: false,
         }));
 
@@ -579,9 +582,16 @@ impl TimelineAbstraction {
             true => LARGE_FONT,
         };
 
+        // Set the new label character limit
+        let label_limit = match is_large {
+            false => TIMELINE_LIMIT,
+            true => TIMELINE_LIMIT_SHORT,
+        };
+
         // Try to get a mutable copy of timeline info
         if let Ok(mut info) = self.timeline_info.try_borrow_mut() {
             info.font_size = font_size;
+            info.label_limit = label_limit;
         }
     }
 
@@ -732,7 +742,7 @@ impl TimelineAbstraction {
         // Draw any events for the timeline
         for event in ordered_events.iter() {
             // Try to draw the event
-            TimelineAbstraction::draw_event(cr, event, width, info.is_high_contrast);
+            TimelineAbstraction::draw_event(cr, event, width, info.label_limit, info.is_high_contrast);
 
             // Reset the color after the event
             cr.set_source_rgb(0.9, 0.9, 0.9);
@@ -747,7 +757,7 @@ impl TimelineAbstraction {
     /// If the event is in focus, this function also draws a flag to describe
     /// the event in brief detail
     ///
-    fn draw_event(cr: &cairo::Context, event: &TimelineEvent, width: f64, is_high_contrast: bool) {
+    fn draw_event(cr: &cairo::Context, event: &TimelineEvent, width: f64, label_limit: usize, is_high_contrast: bool) {
         // Extract the event location
         let location = event.location;
 
@@ -955,7 +965,7 @@ impl TimelineAbstraction {
             cr.move_to(location + (4.0 / width), 0.22);
             let text = clean_text(
                 &event.event.description(),
-                TIMELINE_LIMIT,
+                label_limit,
                 false,
                 false,
                 false,

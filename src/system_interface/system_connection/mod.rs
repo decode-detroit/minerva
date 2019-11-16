@@ -421,7 +421,7 @@ impl SystemConnection {
 
                     // Otherwise send a notification of an incorrect game number
                     } else {
-                        update!(warnevent &gen_update => id => "Game Id Does Not Match. Event Ignored.");
+                        update!(warn &gen_update => "Game Id Does Not Match. Event Ignored. ({})", id);
                     }
                 }
             }

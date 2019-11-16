@@ -31,8 +31,8 @@ mod menu;
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
-    ChangeSettings, DebugMode, Description, DetailToModify, DisplaySetting, EditMode,
-    InterfaceUpdate, LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
+    ChangeSettings, DebugMode, DetailToModify, DisplaySetting, EditMode, InterfaceUpdate,
+    LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
     UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow, WindowType,
 };
 
@@ -266,9 +266,6 @@ impl UserInterface {
 
                 // Show a one line notification in the status bar
                 Notify { message } => interface.notify(&message),
-
-                // Show the item description in a new window
-                Description { item_information } => interface.launch_info(&item_information),
 
                 // Launch the event detail modification window
                 DetailToModify {
