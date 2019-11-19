@@ -60,10 +60,11 @@ use super::WINDOW_TITLE; // the window title
 #[derive(Clone, Debug)]
 pub struct UserInterface {
     interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
-    edit_mode: Rc<RefCell<bool>>, // a flag to indicate whether edit mode it active
-    system_send: SystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
-    interface_send: mpsc::Sender<InterfaceUpdate>, // the interface update sender for the user interface, included here for easy access from the menu and other closures
-    window: gtk::ApplicationWindow,                // the gkt application window
+    edit_mode: Rc<RefCell<bool>>,   // a flag to indicate whether edit mode is active
+    system_send: SystemSend,        // the system update sender for the system interface, included here for easy access from the menu and other closures
+    // FIXME Not neededninterface_send: mpsc::Sender<InterfaceUpdate>, // the interface update sender for the user interface, included here for easy access from the menu and other closures
+    menu_abstraction: Rc<RefCell<MenuAbstraction>>,  // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
+    window: gtk::ApplicationWindow, // the gtk application window
 }
 
 // Implement key UserInterface functionality
@@ -88,17 +89,20 @@ impl UserInterface {
         // Wrap the interface abstraction in a rc and refcell
         let interface_abstraction = Rc::new(RefCell::new(interface_abstraction));
 
+        // Create the menu bar for the window
+        let menu = MenuAbstraction::build_menu(application, window, &system_send, &interface_send);
+        
+        // Wrap the menu abstraction in a rc and refcell
+        let menu_abstraction = Rc::new(RefCell::new(menu));
+
         // Create the User Interface with the abstraction reference
         let user_interface = UserInterface {
             interface_abstraction,
             edit_mode,
             system_send,
-            interface_send: interface_send.clone(),
+            menu_abstraction,
             window: window.clone(),
         };
-
-        // Create the menu bar for the window
-        MenuAbstraction::build_menu(application, window, &user_interface, &interface_send);
 
         // Launch the interface monitoring interrupt, currently set to ten times a second
         let update_interface = clone!(user_interface => move || {
@@ -238,10 +242,34 @@ impl UserInterface {
 
                 // Change the internal setting of the user interface
                 ChangeSettings { display_setting } => {
+                    // Attempt to get a mutable copy of the menu abstraction
+                    let mut menu = match self.menu_abstraction.try_borrow_mut() {
+                        Ok(menu) => menu,
+
+                        // If unable, exit immediately
+                        Err(_) => return,
+                    };
+                    
                     // Sort for the display setting
                     match display_setting {
+                        // Change the fullscreen mode of the display
+                        DisplaySetting::FullScreen(is_fullscreen) => {
+                            // Set the menu checkbox
+                            menu.set_fullscreen(is_fullscreen);
+                            
+                            // Change the window fullscreen setting
+                            if is_fullscreen {
+                                self.window.fullscreen();
+                            } else {
+                                self.window.unfullscreen();
+                            }
+                        }
+                        
                         // Change the debug mode of the display
                         DisplaySetting::DebugMode(is_debug) => {
+                            // Set the menu checkbox
+                            menu.set_debug(is_debug);
+                            
                             // Update the interface and trigger a redraw.
                             interface.select_debug(is_debug);
                             self.send(DebugMode(is_debug));
@@ -250,6 +278,9 @@ impl UserInterface {
 
                         // Change the font size of the display
                         DisplaySetting::LargeFont(is_large) => {
+                            // Set the menu checkbox
+                            menu.set_font(is_large);
+                            
                             // Update the interface and trigger a redraw
                             interface.select_font(is_large);
                             self.send(Redraw);
@@ -257,6 +288,9 @@ impl UserInterface {
 
                         // Change the color mode of the display
                         DisplaySetting::HighContrast(is_hc) => {
+                            // Set the menu checkbox
+                            menu.set_contrast(is_hc);
+                            
                             // Update the interface and trigger a redraw
                             interface.select_contrast(is_hc);
                             self.send(Redraw);

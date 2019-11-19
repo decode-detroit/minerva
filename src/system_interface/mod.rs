@@ -887,6 +887,9 @@ pub enum WindowType {
 /// An enum to change one of the display settings of the user interface
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum DisplaySetting {
+    /// A variant to change the fullscreen mode of the display
+    FullScreen(bool),
+    
     /// A variant to change the debug mode of the display
     DebugMode(bool),
 

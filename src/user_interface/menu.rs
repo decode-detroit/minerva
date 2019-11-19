@@ -23,9 +23,8 @@
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
     ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, ErrorLog, GameLog,
-    InterfaceUpdate, LaunchWindow, SaveConfig, WindowType,
+    InterfaceUpdate, LaunchWindow, SaveConfig, WindowType, SystemSend,
 };
-use super::UserInterface;
 
 // Import standard library features
 use std::sync::mpsc;
@@ -46,7 +45,12 @@ use self::gtk::{
 /// interaction between the menu and the rest of the interface.
 ///
 #[derive(PartialEq, Eq, Clone, Debug)]
-pub struct MenuAbstraction;
+pub struct MenuAbstraction {
+    fullscreen: gio::SimpleAction, // checkbox for fullscreen
+    debug: gio::SimpleAction, // checkbox for debug mode
+    font: gio::SimpleAction, // checkbox for large font
+    contrast: gio::SimpleAction, // checkbox for high contrast
+}
 
 impl MenuAbstraction {
     /// A function to build a new default menu for the application.
@@ -54,9 +58,9 @@ impl MenuAbstraction {
     pub fn build_menu(
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
-        user_interface: &UserInterface,
+        system_send: &SystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
-    ) {
+    ) -> MenuAbstraction {
         // Create the menu bar and the different submenus
         let menu_bar = gio::Menu::new();
         let file_menu = gio::Menu::new();
@@ -116,7 +120,7 @@ impl MenuAbstraction {
 
         // Create the config dialog action
         let config = gio::SimpleAction::new("config", None);
-        config.connect_activate(clone!(window, user_interface => move |_, _| {
+        config.connect_activate(clone!(window, system_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Configuration"), Some(&window), gtk::FileChooserAction::Open);
@@ -125,12 +129,12 @@ impl MenuAbstraction {
             // Connect the close event for when the dialog is complete
             dialog.add_button("Cancel", gtk::ResponseType::Cancel);
             dialog.add_button("Confirm", gtk::ResponseType::Ok);
-            dialog.connect_response(clone!(user_interface => move |chooser, id| {
+            dialog.connect_response(clone!(system_send => move |chooser, id| {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        user_interface.send(ConfigFile { filepath: Some(filepath), });
+                        system_send.send(ConfigFile { filepath: Some(filepath), });
                     }
                 }
 
@@ -144,7 +148,7 @@ impl MenuAbstraction {
 
         // Create the game log dialog action
         let gamelog = gio::SimpleAction::new("gamelog", None);
-        gamelog.connect_activate(clone!(window, user_interface => move |_, _| {
+        gamelog.connect_activate(clone!(window, system_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Game Log File"), Some(&window), gtk::FileChooserAction::Save);
@@ -153,12 +157,12 @@ impl MenuAbstraction {
             // Connect the close event for when the dialog is complete
             dialog.add_button("Cancel", gtk::ResponseType::Cancel);
             dialog.add_button("Confirm", gtk::ResponseType::Ok);
-            dialog.connect_response(clone!(user_interface => move |chooser, id| {
+            dialog.connect_response(clone!(system_send => move |chooser, id| {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        user_interface.send(GameLog { filepath, });
+                        system_send.send(GameLog { filepath, });
                     }
                 }
 
@@ -172,7 +176,7 @@ impl MenuAbstraction {
 
         // Create the error log dialog action
         let errorlog = gio::SimpleAction::new("errorlog", None);
-        errorlog.connect_activate(clone!(window, user_interface => move |_, _| {
+        errorlog.connect_activate(clone!(window, system_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Error Log File"), Some(&window), gtk::FileChooserAction::Save);
@@ -181,12 +185,12 @@ impl MenuAbstraction {
             // Connect the close event for when the dialog is complete
             dialog.add_button("Cancel", gtk::ResponseType::Cancel);
             dialog.add_button("Confirm", gtk::ResponseType::Ok);
-            dialog.connect_response(clone!(user_interface => move |chooser, id| {
+            dialog.connect_response(clone!(system_send => move |chooser, id| {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        user_interface.send(ErrorLog { filepath, });
+                        system_send.send(ErrorLog { filepath, });
                     }
                 }
 
@@ -200,104 +204,84 @@ impl MenuAbstraction {
 
         // Create the quit action
         let quit = gio::SimpleAction::new("quit", None);
-        quit.connect_activate(clone!(user_interface, window => move |_, _| {
+        quit.connect_activate(clone!(system_send, window => move |_, _| {
 
             // Tell the system interface to close
-            user_interface.send(Close);
+            system_send.send(Close);
 
             // Close the window for the program
             window.destroy();
         }));
 
         // Create the fullscreen action
-        let fullscreen = gio::SimpleAction::new_stateful("fullscreen", None, &true.to_variant());
-        window.fullscreen(); // default to fullscreen
-        fullscreen.connect_activate(clone!(window => move |checkbox, _| {
+        let fullscreen = gio::SimpleAction::new_stateful("fullscreen", None, &false.to_variant());
+        fullscreen.connect_activate(clone!(interface_send => move |checkbox, _| {
 
             // Update the fullscreen status of the window
-            let mut is_fullscreen = false;
             if let Some(state) = checkbox.get_state() {
 
                 // Default to false if unable to get the current state of checkbox
-                is_fullscreen = state.get().unwrap_or(false);
+                let is_fullscreen = state.get().unwrap_or(false);
 
-                // Set the window to be fullscreen (to the opposite of the current state
-                if !is_fullscreen {
-                    window.fullscreen();
-                } else {
-                    window.unfullscreen();
-                }
+                // Update the interface (to the opposite of the current state)
+                interface_send
+                    .send(ChangeSettings {
+                        display_setting: DisplaySetting::FullScreen(!is_fullscreen),
+                    })
+                    .unwrap_or(());
             }
-
-            // Invert the checkbox state ourselves because of gio innerworkings
-            checkbox.change_state(&(!is_fullscreen).to_variant());
         }));
 
         // Create the debug mode action
         let debug = gio::SimpleAction::new_stateful("debug_mode", None, &false.to_variant());
-        let interface_clone = interface_send.clone();
-        debug.connect_activate(move |checkbox, _| {
+        debug.connect_activate(clone!(interface_send => move |checkbox, _| {
             // Update the debug status of the program
-            let mut is_debug = false;
             if let Some(state) = checkbox.get_state() {
                 // Default to false if unable to get the current state of checkbox
-                is_debug = state.get().unwrap_or(false);
+                let is_debug = state.get().unwrap_or(false);
 
-                // Update the rest of the interface (to the opposite of the current state)
-                interface_clone
+                // Update the interface (to the opposite of the current state)
+                interface_send
                     .send(ChangeSettings {
                         display_setting: DisplaySetting::DebugMode(!is_debug),
                     })
                     .unwrap_or(());
             }
-
-            // Invert the checkbox state ourselves because of gio innerworkings
-            checkbox.change_state(&(!is_debug).to_variant());
-        });
+        }));
 
         // Create the large font action
         let font = gio::SimpleAction::new_stateful("large_font", None, &false.to_variant());
-        let interface_clone = interface_send.clone();
-        font.connect_activate(move |checkbox, _| {
+        font.connect_activate(clone!(interface_send => move |checkbox, _| {
             // Update the font size of the program
-            let mut is_large = false;
             if let Some(state) = checkbox.get_state() {
                 // Default to false if unable to get the current state of checkbox
-                is_large = state.get().unwrap_or(false);
+                let is_large = state.get().unwrap_or(false);
 
-                // Update the rest of the interface (to the opposite of the current state)
-                interface_clone
+                // Update the interface (to the opposite of the current state)
+                interface_send
                     .send(ChangeSettings {
                         display_setting: DisplaySetting::LargeFont(!is_large),
                     })
                     .unwrap_or(());
             }
-
-            // Invert the checkbox state ourselves because of gio innerworkings
-            checkbox.change_state(&(!is_large).to_variant());
-        });
+        }));
 
         // Create the high contrast action
         let contrast = gio::SimpleAction::new_stateful("contrast", None, &false.to_variant());
-        let interface_clone = interface_send.clone();
-        contrast.connect_activate(move |checkbox, _| {
+        contrast.connect_activate(clone!(interface_send => move |checkbox, _| {
             // Update the high contrast state of the program
-            let mut is_hc = false;
             if let Some(state) = checkbox.get_state() {
                 // Default to false if unable to get the current state of checkbox
-                is_hc = state.get().unwrap_or(false);
+                let is_hc = state.get().unwrap_or(false);
 
-                // Update the rest of the interface (to the opposite of the current state)
-                interface_clone
+                // Update the interface (to the opposite of the current state)
+                interface_send
                     .send(ChangeSettings {
                         display_setting: DisplaySetting::HighContrast(!is_hc),
                     })
                     .unwrap_or(());
             }
-
-            // Invert the checkbox state ourselves because of gio innerworkings
-            checkbox.change_state(&(!is_hc).to_variant());
-        });
+        }));
 
         // Create the jump to dialog action
         let jump = gio::SimpleAction::new("jump", None);
@@ -325,9 +309,9 @@ impl MenuAbstraction {
 
         // Create the clear timeline action
         let clear = gio::SimpleAction::new("clear", None);
-        clear.connect_activate(clone!(user_interface => move |_, _| {
+        clear.connect_activate(clone!(system_send => move |_, _| {
             // Launch the trigger event dialog
-            user_interface.send(ClearQueue);
+            system_send.send(ClearQueue);
         }));
 
         // Create the trigger event to dialog action
@@ -344,7 +328,7 @@ impl MenuAbstraction {
 
         // Create the edit mode action
         let edit = gio::SimpleAction::new_stateful("edit_mode", None, &false.to_variant());
-        edit.connect_activate(clone!(user_interface => move |checkbox, _| {
+        edit.connect_activate(clone!(system_send => move |checkbox, _| {
 
             // Update the edit status of the program
             if let Some(state) = checkbox.get_state() {
@@ -353,13 +337,13 @@ impl MenuAbstraction {
                 let is_edit = state.get().unwrap_or(false);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                user_interface.select_edit(!is_edit, &checkbox);
+                // FIXME user_interface.select_edit(!is_edit, &checkbox);
             }
         }));
 
         // Create the game log dialog action
         let saveconfig = gio::SimpleAction::new("save_config", None);
-        saveconfig.connect_activate(clone!(window, user_interface, edit => move |_, _| {
+        saveconfig.connect_activate(clone!(window, system_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -375,12 +359,12 @@ impl MenuAbstraction {
                     // Connect the close event for when the dialog is complete
                     dialog.add_button("Cancel", gtk::ResponseType::Cancel);
                     dialog.add_button("Confirm", gtk::ResponseType::Ok);
-                    dialog.connect_response(clone!(user_interface => move |chooser, id| {
+                    dialog.connect_response(clone!(system_send => move |chooser, id| {
 
                         // Notify the system of the new configuration file
                         if id == gtk::ResponseType::Ok {
                             if let Some(filepath) = chooser.get_filename() {
-                                user_interface.send(SaveConfig { filepath, });
+                                system_send.send(SaveConfig { filepath, });
                             }
                         }
 
@@ -395,14 +379,14 @@ impl MenuAbstraction {
                 } else {
 
                     // Prompt the use to switch to edit mode
-                    user_interface.select_edit(true, &edit);
+                    // FIXME user_interface.select_edit(true, &edit);
                 }
             }
         }));
 
         // Create the new event dialog action
         let newevent = gio::SimpleAction::new("new_event", None);
-        newevent.connect_activate(clone!(user_interface, edit => move |_, _| {
+        newevent.connect_activate(clone!(system_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -412,20 +396,20 @@ impl MenuAbstraction {
                 if is_edit {
 
                     // Launch the edit event dialog
-                    user_interface.launch_new_event_dialog();
+                    // FIXME user_interface.launch_new_event_dialog();
 
                 // If not in edit mode, prompt the user to switch to edit mode
                 } else {
 
                     // Prompt the use to switch to edit mode
-                    user_interface.select_edit(true, &edit);
+                    // FIXME user_interface.select_edit(true, &edit);
                 }
             }
         }));
 
         // Create the new status dialog action
         let newstatus = gio::SimpleAction::new("new_status", None);
-        newstatus.connect_activate(clone!(user_interface, edit => move |_, _| {
+        newstatus.connect_activate(clone!(system_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -441,14 +425,14 @@ impl MenuAbstraction {
                 } else {
 
                     // Prompt the use to switch to edit mode
-                    user_interface.select_edit(true, &edit);
+                    // FIXME user_interface.select_edit(true, &edit);
                 }
             }
         }));
 
         // Create the new scene dialog action
         let newscene = gio::SimpleAction::new("new_scene", None);
-        newscene.connect_activate(clone!(user_interface, edit => move |_, _| {
+        newscene.connect_activate(clone!(system_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -464,7 +448,7 @@ impl MenuAbstraction {
                 } else {
 
                     // Prompt the use to switch to edit mode
-                    user_interface.select_edit(true, &edit);
+                    // FIXME user_interface.select_edit(true, &edit);
                 }
             }
         }));
@@ -514,16 +498,44 @@ impl MenuAbstraction {
         application.add_action(&debug);
         application.add_action(&font);
         application.add_action(&contrast);
-        application.add_action(&edit);
-        application.add_action(&saveconfig);
-        application.add_action(&newevent);
-        application.add_action(&newstatus);
-        application.add_action(&newscene);
+        // FIXME application.add_action(&edit);
+        // FIXME application.add_action(&saveconfig);
+        // FIXME application.add_action(&newevent);
+        // FIXME application.add_action(&newstatus);
+        // FIXME application.add_action(&newscene);
         application.add_action(&status);
         application.add_action(&jump);
         application.add_action(&trigger);
         application.add_action(&clear);
         application.add_action(&help);
         application.add_action(&about);
+    
+        // Return the completed menu
+        MenuAbstraction {
+            fullscreen,
+            debug,
+            font,
+            contrast,
+        }
+    }
+    
+    /// Helper function to change the current state of the fullscreen checkbox
+    pub fn set_fullscreen(&mut self, is_fullscreen: bool) {
+        self.fullscreen.change_state(&(is_fullscreen).to_variant());
+    }
+    
+    /// Helper function to change the current state of the debug checkbox
+    pub fn set_debug(&mut self, is_debug: bool) {
+        self.debug.change_state(&(is_debug).to_variant());
+    }
+    
+    /// Helper function to change the current state of the font checkbox
+    pub fn set_font(&mut self, is_large: bool) {
+        self.font.change_state(&(is_large).to_variant());
+    }
+    
+    /// Helper function to change the current state of the high contrast checkbox
+    pub fn set_contrast(&mut self, is_hc: bool) {
+        self.contrast.change_state(&(is_hc).to_variant());
     }
 }
