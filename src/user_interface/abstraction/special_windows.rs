@@ -636,7 +636,8 @@ impl PromptStringDialog {
                     let mut bytes = gtext.to_string().into_bytes();
                          
                     // Save the length of the new vector
-                    let mut data = vec![bytes.len() as u32];
+                    let length = bytes.len() as u32;
+                    let mut data = vec![length];
                     
                     // Convert the bytes into a u32 Vec
                     let (mut first, mut second, mut third, mut fourth) = (0, 0, 0, 0);
@@ -654,8 +655,10 @@ impl PromptStringDialog {
                         }
                     }
                     
-                    // Save the last bit of data
-                    data.push((first << 24) | (second << 16) | (third << 8) | fourth);
+                    // Save the last bit of data if the total doesn't add to 4
+                    if (length % 4) != 0 {
+                       data.push((first << 24) | (second << 16) | (third << 8) | fourth);
+                    }
                     
                     // Send each bit of data to the system
                     for num in data.drain(..) {
