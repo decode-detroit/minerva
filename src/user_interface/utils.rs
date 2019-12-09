@@ -15,8 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A module to create a macro and function that simplifies the steps of
+//! A module to create a macro and several functions that simplify the steps of
 //! creating and updating the user interface.
+
+// Import the relevant structures into the correct namespace
+use super::super::system_interface::{
+    DisplayControl, DisplayDebug, DisplayType, DisplayWith, FullStatus, Hidden, ItemDescription,
+    ItemPair, LabelControl, LabelHidden, StatusDescription,
+};
+
+// Import GTK library
+extern crate gtk;
+use self::gtk::prelude::*;
 
 /// A macro to make moving clones into closures more convenient
 ///
@@ -153,4 +163,254 @@ pub fn clean_text(
         final_text.push_str(safe_character);
     }
     final_text
+}
+
+/// A helper function to properly decorate a label. The function
+/// sets the markup for the existing label and returns the priority from
+/// the DisplayType, if it exists.
+///
+/// This function assumes that the text has already been cleaned and sized.
+///
+pub fn decorate_label(
+    label: &gtk::Label,
+    text: &str,
+    display: DisplayType,
+    full_status: &FullStatus,
+    font_size: u32,
+    high_contrast: bool,
+) -> Option<u32> {
+    // Decorate based on the display type
+    match display {
+        // Match the display control variant
+        DisplayControl {
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
+        } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+
+            // Set the markup color, if specified
+            if let Some((red, green, blue)) = color {
+                label.set_markup(&format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                ));
+
+            // Default to default text color
+            } else {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            }
+
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the highlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                                red, green, blue, font_size, text
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Return the priority
+            return priority;
+        }
+
+        // Match the display with variant
+        DisplayWith {
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
+        } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+
+            // Set the markup color, if specified
+            if let Some((red, green, blue)) = color {
+                label.set_markup(&format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                ));
+
+            // Default to default text color
+            } else {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            }
+
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the highlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                                red, green, blue, font_size, text
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Return the priority
+            return priority;
+        }
+
+        // Match the display debug variant
+        DisplayDebug {
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
+        } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+
+            // Set the markup color, if specified
+            if let Some((red, green, blue)) = color {
+                label.set_markup(&format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                ));
+
+            // Default to default text color
+            } else {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            }
+
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the highlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}' size'{}'>{}</span>",
+                                red, green, blue, font_size, text
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Return the priority
+            return priority;
+        }
+
+        // Match the label control variant
+        LabelControl {
+            color,
+            highlight,
+            highlight_state,
+            priority,
+            ..
+        } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+
+            // Set the markup color, if specified
+            if let Some((red, green, blue)) = color {
+                label.set_markup(&format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                ));
+
+            // Default to default text color
+            } else {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            }
+
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the highlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                                red, green, blue, font_size, text
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Return the priority
+            return priority;
+        }
+
+        // Set only the color for a hidden label
+        LabelHidden {
+            color, priority, ..
+        } => {
+            // If high contrast mode, just set the size and return the priority
+            if high_contrast {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+                return priority;
+            }
+
+            // Set the markup color
+            if let Some((red, green, blue)) = color {
+                label.set_markup(&format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                ));
+
+            // Default to default text color
+            } else {
+                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            }
+
+            // Return the priority
+            return priority;
+        }
+
+        // Otherwise, use the default color and priority
+        Hidden => {
+            label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            return None;
+        }
+    }
 }

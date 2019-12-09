@@ -23,11 +23,13 @@
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
     ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, ErrorLog, GameLog,
-    InterfaceUpdate, LaunchWindow, SaveConfig, WindowType, SystemSend,
+    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType,
 };
 
 // Import standard library features
 use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 // Import GTK and GDK libraries
 extern crate gdk_pixbuf;
@@ -47,9 +49,9 @@ use self::gtk::{
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct MenuAbstraction {
     fullscreen: gio::SimpleAction, // checkbox for fullscreen
-    debug: gio::SimpleAction, // checkbox for debug mode
-    font: gio::SimpleAction, // checkbox for large font
-    contrast: gio::SimpleAction, // checkbox for high contrast
+    debug: gio::SimpleAction,      // checkbox for debug mode
+    font: gio::SimpleAction,       // checkbox for large font
+    contrast: gio::SimpleAction,   // checkbox for high contrast
 }
 
 impl MenuAbstraction {
@@ -208,6 +210,9 @@ impl MenuAbstraction {
 
             // Tell the system interface to close
             system_send.send(Close);
+
+            // Wait 100 nanoseconds for the process to complete
+            thread::sleep(Duration::new(0, 100));
 
             // Close the window for the program
             window.destroy();
@@ -509,7 +514,7 @@ impl MenuAbstraction {
         application.add_action(&clear);
         application.add_action(&help);
         application.add_action(&about);
-    
+
         // Return the completed menu
         MenuAbstraction {
             fullscreen,
@@ -518,22 +523,22 @@ impl MenuAbstraction {
             contrast,
         }
     }
-    
+
     /// Helper function to change the current state of the fullscreen checkbox
     pub fn set_fullscreen(&mut self, is_fullscreen: bool) {
         self.fullscreen.change_state(&(is_fullscreen).to_variant());
     }
-    
+
     /// Helper function to change the current state of the debug checkbox
     pub fn set_debug(&mut self, is_debug: bool) {
         self.debug.change_state(&(is_debug).to_variant());
     }
-    
+
     /// Helper function to change the current state of the font checkbox
     pub fn set_font(&mut self, is_large: bool) {
         self.font.change_state(&(is_large).to_variant());
     }
-    
+
     /// Helper function to change the current state of the high contrast checkbox
     pub fn set_contrast(&mut self, is_hc: bool) {
         self.contrast.change_state(&(is_hc).to_variant());

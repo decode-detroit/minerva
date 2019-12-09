@@ -30,7 +30,8 @@ mod timeline;
 use self::control::ControlAbstraction;
 use self::events::EventAbstraction;
 use self::special_windows::{
-    EditDialog, EditEventDialog, JumpDialog, StatusDialog, TriggerDialog,
+    EditDialog, EditEventDialog, JumpDialog, PromptStringDialog, StatusDialog,
+    TriggerDialog
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
@@ -80,6 +81,7 @@ pub struct InterfaceAbstraction {
     status_dialog: StatusDialog, // the status dialog for the system to change individual statuses
     jump_dialog: JumpDialog,  // the jump dialog for the system to switch between individual scenes
     trigger_dialog: TriggerDialog, // the trigger dialog for the system to trigger a custom event
+    prompt_string_dialog: PromptStringDialog, // the prompty string dialog to solicit information from the user
     edit_event_dialog: EditEventDialog, // the edit event dialog for the editing event details
     is_debug: bool,           // a flag to indicate whether or not the program is in debug mode
 }
@@ -171,6 +173,7 @@ impl InterfaceAbstraction {
         let status_dialog = StatusDialog::new(full_status.clone(), window);
         let jump_dialog = JumpDialog::new(window);
         let trigger_dialog = TriggerDialog::new(window);
+        let prompt_string_dialog = PromptStringDialog::new(window);
         let edit_event_dialog = EditEventDialog::new(window);
 
         // Return a copy of the interface abstraction
@@ -192,6 +195,7 @@ impl InterfaceAbstraction {
             status_dialog,
             jump_dialog,
             trigger_dialog,
+            prompt_string_dialog,
             edit_event_dialog,
             is_debug: false,
         }
@@ -379,6 +383,11 @@ impl InterfaceAbstraction {
     ///
     pub fn launch_trigger(&self, event: Option<ItemPair>) {
         self.trigger_dialog.launch(&self.system_send, event);
+    }
+    
+    /// A method to launch the prompt string dialog
+    pub fn launch_prompt_string(&self, event: ItemPair) {
+        self.prompt_string_dialog.launch(&self.system_send, event);
     }
 
     /// A method to launch the edit event dialog

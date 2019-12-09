@@ -350,11 +350,33 @@ impl ControlAbstraction {
                 // Format the time appropriately
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
 
-                // Extract the id, if specified
+                // Assemble a button if there should be one
                 match event {
-                    // If there's an id, include it in the message
+                    // If an event was specified, create a launch info button
                     Some(event_pair) => {
-                        // Combine the message and the time
+                        // Create a label for the button
+                        let tmp_label = gtk::Label::new(None);
+                        let markup =
+                            format!("<span size='{}'>Trigger The Event Manually</span>", font_size);
+                        tmp_label.set_markup(&markup);
+
+                        // Create a button to open the trigger dialog
+                        let new_button = gtk::Button::new();
+                        new_button.add(&tmp_label);
+                        new_button.set_hexpand(false);
+                        new_button.set_vexpand(false);
+
+                        // Connect the confirmation reveal
+                        let interface_clone = self.interface_send.clone();
+                        new_button.connect_clicked(clone!(event_pair => move |_| {
+                            interface_clone
+                                .send(LaunchWindow {
+                                    window_type: WindowType::Trigger(Some(event_pair.clone())),
+                                })
+                                .unwrap_or(());
+                        }));
+
+                        // Return the message and new button
                         (
                             format!(
                                 "<span size='{}'>{} — <span color='#FF3333'><b>Error: {} ({})</b></span></span>",
@@ -363,13 +385,12 @@ impl ControlAbstraction {
                                 clean_text(&message, UPDATE_LIMIT, true, true, true),
                                 event_pair.id()
                             ),
-                            None,
+                            Some(new_button),
                         )
                     }
 
-                    // Otherwise, just include the message
+                    // Otherwise just return the message
                     None => {
-                        // Combine the message and the time
                         (
                             format!(
                                 "<span size='{}'>{} — <span color='#FF3333'><b>Error: {}</b></span></span>",
@@ -382,7 +403,7 @@ impl ControlAbstraction {
                     }
                 }
             }
-
+            
             // Highlight the warning variant with yellow
             Warning {
                 message,
@@ -393,13 +414,13 @@ impl ControlAbstraction {
                 let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
 
                 // Assemble a button if there should be one
-                let button_opt = match event {
+                match event {
                     // If an event was specified, create a launch info button
                     Some(event_pair) => {
                         // Create a label for the button
                         let tmp_label = gtk::Label::new(None);
                         let markup =
-                            format!("<span size='{}'>Trigger The Event Anyway</span>", font_size);
+                            format!("<span size='{}'>Trigger The Event Manually</span>", font_size);
                         tmp_label.set_markup(&markup);
 
                         // Create a button to open the trigger dialog
@@ -410,31 +431,40 @@ impl ControlAbstraction {
 
                         // Connect the confirmation reveal
                         let interface_clone = self.interface_send.clone();
-                        new_button.connect_clicked(move |_| {
+                        new_button.connect_clicked(clone!(event_pair => move |_| {
                             interface_clone
                                 .send(LaunchWindow {
                                     window_type: WindowType::Trigger(Some(event_pair.clone())),
                                 })
                                 .unwrap_or(());
-                        });
+                        }));
 
-                        // Return the new button
-                        Some(new_button)
+                        // Return the message and new button
+                        (
+                            format!(
+                                "<span size='{}'>{} — <span color='#FFEE44'>Warning: {} ({})</span></span>",
+                                font_size,
+                                timestr,
+                                clean_text(&message, UPDATE_LIMIT, true, true, true),
+                                event_pair.id()
+                            ),
+                            Some(new_button),
+                        )
                     }
 
-                    None => None,
-                };
-
-                // Combine the message and the time
-                (
-                    format!(
-                        "<span size='{}'>{} — <span color='#FFEE44'>Warning: {}</span></span>",
-                        font_size,
-                        timestr,
-                        clean_text(&message, UPDATE_LIMIT, true, true, true)
-                    ),
-                    button_opt,
-                )
+                    // Otherwise just return the message
+                    None => {
+                        (
+                            format!(
+                                "<span size='{}'>{} — <span color='#FFEE44'>Warning: {}</span></span>",
+                                font_size,
+                                timestr,
+                                clean_text(&message, UPDATE_LIMIT, true, true, true)
+                            ),
+                            None,
+                        )
+                    }
+                }
             }
 
             // Add a prefix to the current variant and highlight with blue

@@ -20,10 +20,13 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, DisplayControl, DisplayDebug, DisplayWith, EditDetail, EditMode, EventDelay,
-    EventDetail, FullStatus, Hidden, ItemDescription, ItemId, ItemPair, LabelControl,
-    LabelHidden, SceneChange, StatusChange, StatusDescription, SystemSend, TriggerEvent,
+    AllStop, BroadcastEvent, DisplayControl, DisplayDebug, DisplayWith, EditDetail,
+    EditMode, EventDelay, EventDetail, FullStatus, Hidden, ItemDescription, ItemId,
+    ItemPair, LabelControl, LabelHidden, SceneChange, StatusChange, StatusDescription,
+    SystemSend, TriggerEvent,
 };
+use super::super::utils::{clean_text, decorate_label};
+use super::NORMAL_FONT;
 
 // Import standard library features
 use std::cell::RefCell;
@@ -44,6 +47,7 @@ use self::gtk::GridExt;
 
 // Define and import constants
 const MINUTES_LIMIT: f64 = 300.0; // maximum number of minutes in a delay
+const STATE_LIMIT: usize = 20; // maximum character width of states
 use super::super::WINDOW_TITLE; // the window title
 
 /// A structure to contain the dialog for confirming the edit selection.
@@ -183,15 +187,31 @@ impl StatusDialog {
             status_selection.append(Some(id_str), &status_pair.description());
         }
 
-        // Create the state selection dropdown
-        let state_selection = gtk::ComboBoxText::new();
+        // Create the state selection flowbox
+        let state_box = gtk::FlowBox::new();
+        state_box.set_orientation(gtk::Orientation::Horizontal);
+        state_box.set_selection_mode(gtk::SelectionMode::Single);
+        state_box.set_hexpand(true);
+        state_box.set_halign(gtk::Align::Fill);
+        state_box.set_size_request(400, 10);
+
+        // Create the state hashmap
+        let state_map = Rc::new(RefCell::new(FnvHashMap::default()));
 
         // Connect the function to trigger when the status selection changes
         let protected_status = self.full_status.clone();
-        status_selection.connect_changed(clone!(state_selection => move |dropdown| {
+        status_selection.connect_changed(clone!(state_box, state_map => move |dropdown| {
 
-            // Remove all the existing items in the state dropdown
-            state_selection.remove_all();
+            // Remove all the existing items in the state box and vector
+            let to_remove = state_box.get_children();
+            for item in to_remove {
+                state_box.remove(&item);
+            }
+            let mut map = match state_map.try_borrow_mut() {
+                Ok(map) => map,
+                Err(_) => return,
+            };
+            map.clear();
 
             // Identify and forward the selected event
             if let Some(id_str) = dropdown.get_active_id() {
@@ -207,15 +227,37 @@ impl StatusDialog {
 
                             // Find the corresponding detail
                             if let Some(&StatusDescription { ref current, ref allowed }) = full_status.get(&id) {
-                                // Extract the allowed ids and add them to the dropdown
-                                for state_pair in allowed.iter() {
-                                    let id_str: &str = &state_pair.id().to_string();
-                                    state_selection.append(Some(id_str), &state_pair.description());
+                                // Extract the allowed ids and add them to the states
+                                for (num, state_pair) in allowed.iter().enumerate() {
+
+                                    // Create a new flow box child and add the label
+                                    let child = gtk::FlowBoxChild::new();
+                                    let text = clean_text(&state_pair.description, STATE_LIMIT, false, false, true);
+                                    let label = gtk::Label::new(None);
+                                    decorate_label(&label, &text, state_pair.display, &full_status, NORMAL_FONT, false);
+                                    let button = gtk::Button::new();
+                                    button.connect_clicked(clone!(state_box, child => move |_| {
+                                        state_box.select_child(&child);
+                                    }));
+                                    button.add(&label);
+                                    child.add(&button);
+
+                                    // Add the child to the state box
+                                    state_box.insert(&child, num as i32);
+
+                                    // Add the location and id number to the map
+                                    map.insert(state_pair.get_id(), num as i32);
                                 }
 
-                                // Extract the current id and set it properly
-                                let id_str: &str = &current.id().to_string();
-                                state_selection.set_active_id(Some(id_str));
+                                // Show all the state box items
+                                state_box.show_all();
+
+                                // Set the current state
+                                if let Some(num) = map.get(&current.get_id()) {
+                                    if let Some(child) = state_box.get_child_at_index(num.clone()) {
+                                        state_box.select_child(&child);
+                                    }
+                                }
                             }
                         }
                     }
@@ -237,7 +279,7 @@ impl StatusDialog {
         grid.attach(&gtk::Label::new(Some("  Status  ")), 0, 0, 1, 1);
         grid.attach(&status_selection, 1, 0, 1, 1);
         grid.attach(&gtk::Label::new(Some("  State  ")), 2, 0, 1, 1);
-        grid.attach(&state_selection, 3, 0, 1, 1);
+        grid.attach(&state_box, 3, 0, 1, 1);
 
         // Add some space between the rows and columns
         grid.set_column_spacing(10);
@@ -250,44 +292,50 @@ impl StatusDialog {
         grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(
-            clone!(status_selection, state_selection, system_send => move |modal, id| {
+        dialog.connect_response(clone!(system_send =>
+        move |modal, id| {
 
-                // Notify the system of the event change
-                if id == gtk::ResponseType::Ok {
+            // Try to get a mutable copy of the event
+            let map = match state_map.try_borrow() {
+                Ok(map) => map,
+                Err(_) => return,
+            };
 
-                    // Identify and forward the selected status
-                    if let Some(id_status) = status_selection.get_active_id() {
+            // Notify the system of the event change
+            if id == gtk::ResponseType::Ok {
 
-                        // Try to parse the requested id
-                        if let Ok(status_number) = id_status.parse::<u32>() {
+                // Identify and forward the selected status
+                if let Some(id_status) = status_selection.get_active_id() {
 
-                            // Try to compose the id as an item
-                            if let Some(status_id) = ItemId::new(status_number) {
+                    // Try to parse the requested id
+                    if let Ok(status_number) = id_status.parse::<u32>() {
 
-                                // Identify and forward the selected state
-                                if let Some(id_state) = state_selection.get_active_id() {
+                        // Try to compose the id as an item
+                        if let Some(status_id) = ItemId::new(status_number) {
 
-                                    // Try to parse the requested id
-                                    if let Ok(state_number) = id_state.parse::<u32>() {
+                            // Identify and forward the selected state
+                            let mut state = ItemId::new_unchecked(0);
+                            for child in state_box.get_selected_children() {
 
-                                        // Try to compose the id as an item
-                                        if let Some(state) = ItemId::new(state_number) {
-
-                                            // Send the new state update to the system
-                                            system_send.send(StatusChange { status_id, state });
-                                        }
+                                // Match the child to the id number
+                                let index = child.get_index();
+                                for (id, num) in map.iter() {
+                                    if *num == index {
+                                        state = id.clone();
                                     }
                                 }
                             }
+
+                            // Send the new state update to the system
+                            system_send.send(StatusChange { status_id, state });
                         }
                     }
                 }
+            }
 
-                // Close the window either way
-                modal.destroy();
-            }),
-        );
+            // Close the window either way
+            modal.destroy();
+        }));
 
         // Show the dialog and return
         dialog.show_all();
@@ -332,21 +380,21 @@ impl JumpDialog {
         );
         dialog.set_position(gtk::WindowPosition::Center);
 
-        // Create the status selection dropdown
+        // Create the scene selection dropdown
         let scene_selection = gtk::ComboBoxText::new();
 
-        // Add each of the available status to the dropdown
+        // Add each of the available scene to the dropdown
         for scene_pair in self.scenes.iter() {
             let id_str: &str = &scene_pair.id().to_string();
             scene_selection.append(Some(id_str), &scene_pair.description());
         }
 
-        // Connect the function to trigger when the status selection changes
+        // Connect the function to trigger when the scene selection changes
         scene_selection.connect_changed(move |_| {
             // Do nothing TODO: Consider other scene-specific changes
             ()
         });
-        
+
         // Change to the selected scene, if selected
         if let Some(scene_pair) = scene {
             scene_selection.set_active_id(Some(&scene_pair.id().to_string()));
@@ -425,7 +473,7 @@ impl TriggerDialog {
         }
     }
 
-    /// A method to launch the new edit dialog
+    /// A method to launch the new trigger dialog
     ///
     pub fn launch(&self, system_send: &SystemSend, event: Option<ItemPair>) {
         // Create the new dialog
@@ -449,7 +497,7 @@ impl TriggerDialog {
         let label = gtk::Label::new(Some(
             " Warning: Triggering A Custom Event May Cause Undesired Behaviour. ",
         ));
-        grid.attach(&label, 0, 0, 3, 1);
+        grid.attach(&label, 0, 0, 4, 1);
 
         // Description label for the current event
         let event_description = gtk::Label::new(Some(""));
@@ -463,12 +511,105 @@ impl TriggerDialog {
             event_description.set_text(&event_pair.description());
         }
 
-        // Create the checkbox
-        let event_checkbox = gtk::CheckButton::new_with_label("Check Scene");
-        event_checkbox.set_active(true);
+        // Create the checkboxes
+        let scene_checkbox = gtk::CheckButton::new_with_label("Check Scene");
+        scene_checkbox.set_active(true);
+        let broadcast_checkbox = gtk::CheckButton::new_with_label("Skip All Checks");
+        broadcast_checkbox.set_active(false);
         grid.attach(&event_spin, 0, 1, 1, 1);
         grid.attach(&event_description, 1, 1, 1, 1);
-        grid.attach(&event_checkbox, 2, 1, 1, 1);
+        grid.attach(&scene_checkbox, 2, 1, 1, 1);
+        grid.attach(&broadcast_checkbox, 3, 1, 1, 1);
+
+        // Add some space between the rows and columns
+        grid.set_column_spacing(10);
+        grid.set_row_spacing(10);
+
+        // Add some space on all the sides
+        grid.set_margin_top(10);
+        grid.set_margin_bottom(10);
+        grid.set_margin_start(10);
+        grid.set_margin_end(10);
+        
+        // Make sure the scene checkbox is false when broadcast is selected
+        broadcast_checkbox.connect_toggled(clone!(scene_checkbox => move | checkbox | {
+            if checkbox.get_active() {
+                scene_checkbox.set_active(false);
+            }
+        }));
+
+        // Connect the close event for when the dialog is complete
+        dialog.connect_response(clone!(system_send, event_spin, scene_checkbox, broadcast_checkbox => move |modal, id| {
+
+            // Notify the system of the event change
+            if id == gtk::ResponseType::Ok {
+
+                // If broadcast is selected, just send a broadcast event
+                if broadcast_checkbox.get_active() {
+                    system_send.send(BroadcastEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), data: None});
+                
+                // Otherwise, send the selected event to the system
+                } else { system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active()});
+                }
+            }
+
+            // Close the window either way
+            modal.destroy();
+        }));
+
+        // Show the dialog and return
+        dialog.show_all();
+    }
+}
+
+/// A structure to contain the dialog for soliciting a string from the user.
+///
+#[derive(Clone, Debug)]
+pub struct PromptStringDialog {
+    window: gtk::ApplicationWindow, // a copy of the primary window
+}
+
+// Implement key features for the prompt string dialog
+impl PromptStringDialog {
+    /// A function to create a new prompt string dialog structure.
+    ///
+    pub fn new(window: &gtk::ApplicationWindow) -> PromptStringDialog {
+        PromptStringDialog {
+            window: window.clone(),
+        }
+    }
+
+    /// A method to launch the new prompt string dialog
+    ///
+    pub fn launch(&self, system_send: &SystemSend, event: ItemPair) {
+        // Create the new dialog
+        let dialog = gtk::Dialog::new_with_buttons(
+            Some(&clean_text(&event.description, STATE_LIMIT, false, false, true)),
+            Some(&self.window),
+            gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
+            &[
+                ("Cancel", gtk::ResponseType::Cancel),
+                ("Confirm", gtk::ResponseType::Ok),
+            ],
+        );
+        dialog.set_position(gtk::WindowPosition::Center);
+
+        // Access the content area and add the dropdown
+        let content = dialog.get_content_area();
+        let grid = gtk::Grid::new();
+        content.add(&grid);
+
+        // Add the dropdown and label
+        let label = gtk::Label::new(Some(
+            " Enter Text ",
+        ));
+        grid.attach(&label, 0, 0, 1, 1);
+
+        // Create the text entry area of the dialog
+        let buffer = gtk::TextBuffer::new(Some(&gtk::TextTagTable::new())); // because gtk struggles with typing
+        let view = gtk::TextView::new_with_buffer(&buffer);
+        view.set_size_request(200, 100);
+        grid.attach(&view, 0, 1, 1, 1);
 
         // Add some space between the rows and columns
         grid.set_column_spacing(10);
@@ -481,13 +622,46 @@ impl TriggerDialog {
         grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(system_send, event_spin, event_checkbox => move |modal, id| {
+        dialog.connect_response(clone!(system_send, buffer => move |modal, id| {
 
             // Notify the system of the event change
             if id == gtk::ResponseType::Ok {
 
-                // Send the selected event to the system
-                system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), checkscene: event_checkbox.get_active()});
+                // Extract the completed text
+                let start = buffer.get_start_iter();
+                let end = buffer.get_end_iter();
+                if let Some(gtext) = buffer.get_text(&start, &end, false) {
+                    
+                    // Convert the text into bytes
+                    let mut bytes = gtext.to_string().into_bytes();
+                         
+                    // Save the length of the new vector
+                    let mut data = vec![bytes.len() as u32];
+                    
+                    // Convert the bytes into a u32 Vec
+                    let (mut first, mut second, mut third, mut fourth) = (0, 0, 0, 0);
+                    for (num, byte) in bytes.drain(..).enumerate() {
+                        
+                        // Repack the data efficiently
+                        match num % 4 {
+                            0 => first = byte as u32,
+                            1 => second = byte as u32,
+                            2 => third = byte as u32,
+                            _ => {
+                                fourth = byte as u32;
+                                data.push((first << 24) | (second << 16) | (third << 8) | fourth);
+                            }
+                        }
+                    }
+                    
+                    // Save the last bit of data
+                    data.push((first << 24) | (second << 16) | (third << 8) | fourth);
+                    
+                    // Send each bit of data to the system
+                    for num in data.drain(..) {
+                        system_send.send(BroadcastEvent { event: event.get_id(), data: Some(num)});
+                    }
+                }
             }
 
             // Close the window either way
@@ -498,7 +672,6 @@ impl TriggerDialog {
         dialog.show_all();
     }
 }
-
 
 /// A structure to contain the dialog for modifying an individual event. This
 /// dialog is currently rather inconvenient to use as it is not made for use
@@ -1882,10 +2055,7 @@ impl EditTriggerEvents {
 
     // A helper function to add an event to the data list
     //
-    fn add_event(
-        trigger_event_list: &gtk::ListBox,
-        event: Option<EventDelay>,
-    ) {
+    fn add_event(trigger_event_list: &gtk::ListBox, event: Option<EventDelay>) {
         // Create an empty spin box for the list
         let event_grid = gtk::Grid::new();
         let event_label = gtk::Label::new(Some("Event"));
@@ -2105,10 +2275,7 @@ impl EditCancelEvents {
 
     // A helper function to add an event to the data list
     //
-    fn add_event(
-        cancel_event_list: &gtk::ListBox,
-        event_id: Option<ItemId>,
-    ) {
+    fn add_event(cancel_event_list: &gtk::ListBox, event_id: Option<ItemId>) {
         // Create an empty spin box for the list
         let event_grid = gtk::Grid::new();
         let event_label = gtk::Label::new(Some("Event"));
@@ -2442,11 +2609,7 @@ impl EditGroupedEvent {
     }
 
     // A helper function to add a grouped event to the list
-    fn add_event(
-        grouped_event_list: &gtk::ListBox,
-        state_id: Option<u32>,
-        event_id: Option<u32>,
-    ) {
+    fn add_event(grouped_event_list: &gtk::ListBox, state_id: Option<u32>, event_id: Option<u32>) {
         // Create a state spin box for the list
         let group_grid = gtk::Grid::new();
         let state_label = gtk::Label::new(Some("State"));

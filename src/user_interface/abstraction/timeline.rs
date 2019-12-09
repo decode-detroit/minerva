@@ -51,10 +51,11 @@ use self::gtk::prelude::*;
 const TIMELINE_LIMIT: usize = 26; // maximum character width of timeline names
 const TIMELINE_LIMIT_SHORT: usize = 21; // maximum character width of timeline names
 const MINUTES_LIMIT: f64 = 300.0; // maximum number of minutes in an adjustment
-const LABEL_SIZE: f64 = 180.0; // the size of the event labels in pixels
+const LABEL_SIZE: f64 = 240.0; // the size of the event labels in pixels
 const NOW_LOCATION: f64 = 0.02; // the location of "now" on the timeline, from the left
-const TIMELINE_HEIGHT: f64 = 70.0; // the height of the timeline
+const TIMELINE_HEIGHT: f64 = 80.0; // the height of the timeline
 const CLICK_PRECISION: f64 = 20.0; // the click precision for selecting events in pixels
+const HIGHLIGHT_WIDTH: f64 = 16.0; // the width of an event when highlighted
 
 /// An internal structure to hold the events currently in the queue. This allows
 /// easier modification of the individual events as needed.
@@ -629,19 +630,19 @@ impl TimelineAbstraction {
 
         // Set the font size and ratio
         cr.set_font_matrix(cairo::Matrix {
-            xx: ((info.font_size / 1000) as f64 / width),
-            yy: ((info.font_size / 1000) as f64 / height),
+            xx: ((info.font_size / 800) as f64 / width),
+            yy: ((info.font_size / 800) as f64 / height),
             xy: 0.0,
             yx: 0.0,
             x0: 0.0,
             y0: 0.0,
         });
 
-        // Draw the center line for the timeline
+        // Draw the base line for the timeline
         cr.set_source_rgb(0.4, 0.4, 0.4);
         cr.set_line_width(2.0 / height); // 2 pixels wide
-        cr.move_to(0.0, 0.7);
-        cr.line_to(1.0, 0.7);
+        cr.move_to(0.0, 0.75);
+        cr.line_to(1.0, 0.75);
         cr.stroke();
 
         // Draw the current time line
@@ -742,7 +743,13 @@ impl TimelineAbstraction {
         // Draw any events for the timeline
         for event in ordered_events.iter() {
             // Try to draw the event
-            TimelineAbstraction::draw_event(cr, event, width, info.label_limit, info.is_high_contrast);
+            TimelineAbstraction::draw_event(
+                cr,
+                event,
+                width,
+                info.label_limit,
+                info.is_high_contrast,
+            );
 
             // Reset the color after the event
             cr.set_source_rgb(0.9, 0.9, 0.9);
@@ -757,7 +764,13 @@ impl TimelineAbstraction {
     /// If the event is in focus, this function also draws a flag to describe
     /// the event in brief detail
     ///
-    fn draw_event(cr: &cairo::Context, event: &TimelineEvent, width: f64, label_limit: usize, is_high_contrast: bool) {
+    fn draw_event(
+        cr: &cairo::Context,
+        event: &TimelineEvent,
+        width: f64,
+        label_limit: usize,
+        is_high_contrast: bool,
+    ) {
         // Extract the event location
         let location = event.location;
 
@@ -791,13 +804,13 @@ impl TimelineAbstraction {
                         // If there are under ten seconds remaining
                         if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 15.0) & (sec as u32 % 2 == 0) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,
                                     blue as f64 / 255.0,
                                 );
-                                line_width = 4.0;
+                                line_width = HIGHLIGHT_WIDTH;
                             }
                         }
                     }
@@ -822,13 +835,13 @@ impl TimelineAbstraction {
                         // If there are under ten seconds remaining
                         if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 15.0) & (sec as u32 % 2 == 0) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,
                                     blue as f64 / 255.0,
                                 );
-                                line_width = 4.0;
+                                line_width = HIGHLIGHT_WIDTH;
                             }
                         }
                     }
@@ -853,13 +866,13 @@ impl TimelineAbstraction {
                         // If there are under ten seconds remaining
                         if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 15.0) & (sec as u32 % 2 == 0) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,
                                     blue as f64 / 255.0,
                                 );
-                                line_width = 4.0;
+                                line_width = HIGHLIGHT_WIDTH;
                             }
                         }
                     }
@@ -884,13 +897,13 @@ impl TimelineAbstraction {
                         // If there are under ten seconds remaining
                         if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 15.0) & (sec as u32 % 2 == 0) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,
                                     blue as f64 / 255.0,
                                 );
-                                line_width = 4.0;
+                                line_width = HIGHLIGHT_WIDTH;
                             }
                         }
                     }
@@ -915,13 +928,13 @@ impl TimelineAbstraction {
                         // If there are under ten seconds remaining
                         if let Some((min, sec)) = event.remaining() {
                             // Flash the highlight color and line width
-                            if (min == 0.0) & (sec < 10.0) & (sec as u32 % 2 == 1) {
+                            if (min == 0.0) & (sec < 15.0) & (sec as u32 % 2 == 0) {
                                 cr.set_source_rgb(
                                     red as f64 / 255.0,
                                     green as f64 / 255.0,
                                     blue as f64 / 255.0,
                                 );
-                                line_width = 4.0;
+                                line_width = HIGHLIGHT_WIDTH;
                             }
                         }
                     }
@@ -935,46 +948,40 @@ impl TimelineAbstraction {
         // Draw the vertical line
         cr.set_line_width(line_width / width);
         cr.move_to(location, 0.0);
-        cr.line_to(location, 0.7);
+        cr.line_to(location, 0.75);
         cr.stroke();
 
         // If the event is in focus
         if event.in_focus {
             // Draw the label flag to the right
             cr.set_line_width(1.0 / TIMELINE_HEIGHT); // 1 pixel
-            cr.move_to(location, 0.02);
-            cr.line_to(location + (LABEL_SIZE / width), 0.02);
+            cr.move_to(location, 0.01);
+            cr.line_to(location + (LABEL_SIZE / width), 0.01);
             cr.stroke();
-            cr.move_to(location, 0.65);
-            cr.line_to(location + (LABEL_SIZE / width), 0.65);
+            cr.move_to(location, 0.72);
+            cr.line_to(location + (LABEL_SIZE / width), 0.72);
             cr.stroke();
             cr.set_line_width(1.0 / width); // 1 pixel
             cr.move_to(location + (LABEL_SIZE / width), 0.0);
-            cr.line_to(location + (LABEL_SIZE / width), 0.65);
+            cr.line_to(location + (LABEL_SIZE / width), 0.72);
             cr.stroke();
 
             // Draw the background of the flag
             cr.set_source_rgb(0.05, 0.05, 0.05);
-            cr.set_line_width(0.6);
-            cr.move_to(location + (4.0 / width), 0.34);
-            cr.line_to(location + ((LABEL_SIZE - 4.0) / width), 0.34);
+            cr.set_line_width(0.7);
+            cr.move_to(location + (2.0 / width), 0.36);
+            cr.line_to(location + ((LABEL_SIZE - 2.0) / width), 0.36);
             cr.stroke();
 
             // Write the event text and the remaining time
             cr.set_source_rgb(1.0, 1.0, 1.0);
             cr.move_to(location + (4.0 / width), 0.22);
-            let text = clean_text(
-                &event.event.description(),
-                label_limit,
-                false,
-                false,
-                false,
-            );
+            let text = clean_text(&event.event.description(), label_limit, false, false, false);
             cr.show_text(&text.as_str());
 
             // If there is a remaining time, add that as well
             if let Some((min, sec)) = event.remaining() {
-                cr.move_to(location + (4.0 / width), 0.4);
+                cr.move_to(location + (4.0 / width), 0.45);
                 cr.show_text(format!("In {:02}:{:02}", min, sec).as_str());
 
                 // Show what time the event will happen
@@ -985,7 +992,7 @@ impl TimelineAbstraction {
                     + (now.tm_min as f64 + min) / 60.0
                     + now.tm_hour as f64)
                     % 24.0) as u64;
-                cr.move_to(location + (4.0 / width), 0.6);
+                cr.move_to(location + (4.0 / width), 0.68);
                 cr.show_text(format!("At {:02}:{:02}", hour, minute).as_str());
             }
         }

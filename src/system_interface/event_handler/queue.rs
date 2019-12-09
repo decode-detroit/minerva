@@ -21,7 +21,7 @@
 //! that events with a longer delay always arrive later than earlier events.
 
 // Import the relevant structures into the correct namespace
-use super::super::{EventUpdate, GeneralUpdate};
+use super::super::{EventUpdate, GeneralUpdate, SystemUpdate};
 use super::event::EventDelay;
 use super::item::ItemId;
 
@@ -80,19 +80,28 @@ impl ComingEvent {
 /// addition of new events but quick removal.
 ///
 struct ComingEvents {
-    list: Vec<ComingEvent>, // a vector to hold the coming events
-    changed: bool,          // a flag to indicate when the coming events have changed
+    list: Vec<ComingEvent>,        // a vector to hold the coming events
+    general_update: GeneralUpdate, // the general update line for passing current events back to the rest of the system
 }
 
 // Implement key features for the coming events
 impl ComingEvents {
     /// A function to create a new, empty ComingEvents structure.
     ///
-    fn new() -> ComingEvents {
+    fn new(general_update: GeneralUpdate) -> ComingEvents {
         ComingEvents {
             list: Vec::new(),
-            changed: true,
+            general_update,
         }
+    }
+
+    /// A method to update the rest of the system with the current events in
+    /// the queue
+    ///
+    fn send_current(&self) {
+        self.general_update.send_system(SystemUpdate::ComingEvents {
+            events: self.list.clone(),
+        });
     }
 
     /// A method to load an additional coming event.
@@ -129,31 +138,15 @@ impl ComingEvents {
             self.list.push(event);
         }
 
-        // Update the changed flag
-        self.changed = true;
+        // Update the system
+        self.send_current();
     }
 
     /// A method to clear the events in the queue.
     ///
     fn clear(&mut self) {
         self.list = Vec::new(); // drop the old list
-        self.changed = true; // update the flag
-    }
-
-    /// A method that returns a list of all the events if (and only if) the
-    /// list of events has changed since the last call to this function.
-    ///
-    /// If no changes have occured since the last call, it returns None.
-    ///
-    fn list_events(&mut self) -> Option<Vec<ComingEvent>> {
-        // If the events have changed, return a clone of the list
-        if self.changed {
-            self.changed = false; // reset the flag
-            return Some(self.list.clone());
-        }
-
-        // Otherwise return none
-        None
+        self.send_current();
     }
 
     /// A method that returns a copy of the last coming event in the list,
@@ -164,14 +157,6 @@ impl ComingEvents {
             Some(event) => Some(event.clone()),
             None => None,
         }
-    }
-
-    /// A method that removes the last event in the list and returns it to the
-    /// caller. If there are no events in the list, this function returns None.
-    ///
-    fn pop(&mut self) -> Option<ComingEvent> {
-        self.changed = true; // update the flag first
-        self.list.pop()
     }
 
     /// A method that removes the last event in the list if it matches the
@@ -186,9 +171,11 @@ impl ComingEvents {
             result = event.compare_with(test_event);
         }
 
-        // If the event is correct, pop it from the list
+        // If the event is correct, pop it from the list and notify the system
         if result {
-            return self.pop();
+            let tmp = self.list.pop(); // technically could be None, but isn't because of the logic above
+            self.send_current();
+            return tmp;
         }
 
         // Otherwise return None
@@ -233,7 +220,7 @@ impl ComingEvents {
             if self.list[index].compare_with(&new_event) {
                 // Remove the old event and update the flag
                 self.list.remove(index);
-                self.changed = true;
+                self.send_current();
 
                 // Return the new event
                 return Some(new_event);
@@ -262,8 +249,10 @@ impl ComingEvents {
             if self.list[index].event_id == event_id {
                 // Remove the old event and update the flag
                 self.list.remove(index);
-                self.changed = true;
-            // Do not increment, as the index has now changed by one
+                // Do not increment, as the index has now changed by one
+
+                // Update the current events
+                self.send_current();
 
             // Otherwise, keep looking
             } else {
@@ -297,7 +286,7 @@ impl Queue {
         let (queue_load, queue_receive) = mpsc::channel();
 
         // Create the new queue data
-        let coming_events = Arc::new(Mutex::new(ComingEvents::new()));
+        let coming_events = Arc::new(Mutex::new(ComingEvents::new(general_update.clone())));
         let coming_clone = coming_events.clone();
 
         // Launch the background process with the queue data
@@ -402,29 +391,6 @@ impl Queue {
 
             // Immediately return any events that have no delay
             None => self.general_update.send_event(event.id(), true), // checkscene
-        }
-    }
-
-    /// A method to return a list of events currently in the queue if they have
-    /// changed since the last call to this function. If the events have not
-    /// changed, this function returns None.
-    ///
-    /// # Note
-    ///
-    /// While unlikely, this function must wait for the background process to
-    /// release the lock on the queue. If the background process hangs, this
-    /// function may hang as well.
-    ///
-    pub fn list_events(&self) -> Option<Vec<ComingEvent>> {
-        // Return a copy of the events in the queue, when available
-        match self.coming_events.lock() {
-            Ok(mut events) => events.list_events(),
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-                None
-            }
         }
     }
 

@@ -291,6 +291,8 @@ pub struct ZmqLookup {
     zmq_recv: Socket,            // the ZMQ receive connection
     event_string: EventToString, // the event -> string dictionary
     string_event: StringToEvent, // the string -> event dictionary
+    pending_size: u32,           // the size of the new pending string
+    pending: Vec<u8>,            // a pending vector which may be converted to a string
 }
 
 // Implement key functionality for the ZMQ structure
@@ -326,6 +328,8 @@ impl ZmqLookup {
             zmq_recv,
             event_string,
             string_event,
+            pending: Vec::new(),
+            pending_size: 0,
         })
     }
 }
@@ -370,11 +374,77 @@ impl EventConnection for ZmqLookup {
         if let Some(text) = self.event_string.get(&id) {
             // Make a copy of the string
             let mut string = text.clone();
+            
+            // If the string ends with the time notation
+            if string.ends_with("%t") {
+                // Strip the ending from the string
+                string.pop();
+                string.pop();
 
-            // If data2 is not zero, convert it and append it to the string
-            if data2 > 0 {
+                // Convert data2 and append it to the string
                 let result = (((data2 / 60) * 100) + (data2 % 60)) as u32;
                 string.push_str(&format!("{:04}", result));
+            
+            // If the string ends with the data notation
+            } else if string.ends_with("%d") {
+                // Strip the ending from the string
+                string.pop();
+                string.pop();
+
+                // Append the raw data2 to the string
+                string.push_str(&format!("{}", data2));
+            
+            // If the string ends with the string notaion
+            } else if string.ends_with("%s") {
+                // If there isn't a pending string, save the length
+                if self.pending_size == 0 {
+                    self.pending_size = data2;
+                    return Ok(());
+                
+                // Otherwise, decrease the pending length and append the bytes
+                } else {
+                    // Append the first byte and decrement
+                    self.pending.push((data2 >> 24) as u8);
+                    self.pending_size = self.pending_size - 1;
+                    
+                    // If there are still bytes pending
+                    if self.pending_size > 0 {
+                        // Append the second byte and decrement
+                        self.pending.push((data2 >> 16) as u8);
+                        self.pending_size = self.pending_size - 1;
+
+                        // If there are still bytes pending
+                        if self.pending_size > 0 {
+                            // Append the third byte and decrement
+                            self.pending.push((data2 >> 8) as u8);
+                            self.pending_size = self.pending_size - 1;
+                        
+                            // If there are still bytes pending
+                            if self.pending_size > 0 {
+                                // Append the fourth byte and decrement
+                                self.pending.push(data2 as u8);
+                                self.pending_size = self.pending_size - 1;
+                            }
+                        }
+                    }
+                }
+                
+                // If there are no more pending, try to send the string
+                if self.pending_size == 0 {
+                    // Should always succeed
+                    if let Ok(new_string) = String::from_utf8(self.pending.drain(..).collect()) {
+                        // Strip the ending from the string
+                        string.pop();
+                        string.pop();
+                        
+                        // Append the new string to the existing one
+                        string.push_str(&new_string);
+                    }
+                
+                // Otherwise, return
+                } else {
+                    return Ok(());
+                }
             }
 
             // Try to send the string

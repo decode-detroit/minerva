@@ -90,7 +90,7 @@ impl UpcomingEvent {
 }
 
 /// An enum with the types of data available to be saved and sent
-/// FIXME Currently only two types, which should be expanded
+/// FIXME Currently only three types, which should be expanded
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum DataType {
@@ -105,6 +105,14 @@ pub enum DataType {
         total_time: Duration, // the total duration until the event is normally triggered
     },
     // FIXME Figure out how to implement time since an event
+    
+    /// A variant for a predetermined string
+    StaticString {
+        string: String, // the string, hardcoded into the data
+    },
+    
+    /// A variant for a string collected from the user
+    UserString,
 }
 
 /// An enum with various options for the detail of each event.

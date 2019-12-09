@@ -28,7 +28,7 @@ mod status;
 // Import the relevant structures into the correct namespace
 use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
-use super::super::GeneralUpdate;
+use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
 use super::event::{
     CancelEvents, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData,
     SendData, TriggerEvents,
@@ -41,6 +41,7 @@ use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, Command};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -204,6 +205,7 @@ struct YamlConfig {
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
     default_scene: Option<ItemId>, // the starting scene for the configuration
+    fullscreen: Option<bool>, // whether the interface should begin fullscreen
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap, // hash map of the default game status
     event_set: FnvHashMap<ItemPair, Option<EventDetail>>, // hash map of all the item pairs and event details
@@ -252,6 +254,7 @@ impl Config {
     ///
     pub fn from_config(
         general_update: GeneralUpdate,
+        interface_send: mpsc::Sender<InterfaceUpdate>,
         mut config_file: &File,
     ) -> Result<Config, Error> {
         // Try to read from the configuration file
@@ -325,6 +328,15 @@ impl Config {
         let mut background_thread = None;
         if let Some(background_process) = yaml_config.background_process.clone() {
             background_thread = BackgroundThread::new(background_process, general_update.clone());
+        }
+
+        // Adjust fullscreen, if specified
+        if let Some(fullscreen) = yaml_config.fullscreen {
+            interface_send
+                .send(ChangeSettings {
+                    display_setting: DisplaySetting::FullScreen(fullscreen),
+                })
+                .unwrap_or(());
         }
 
         // Return the new configuration
@@ -787,6 +799,7 @@ impl Config {
             system_connection: self.system_connection.clone(),
             background_process,
             default_scene: Some(self.current_scene.clone()),
+            fullscreen: None, // default to no entry, must be manually changed
             all_scenes: self.all_scenes.clone(),
             status_map: self.status_handler.get_map(),
             event_set,

@@ -23,6 +23,7 @@
 
 // Reexport the key structures and types
 pub use self::config::{FullStatus, StatusDescription};
+pub use self::queue::ComingEvent;
 
 // Define public submodules
 pub mod item;
@@ -42,13 +43,14 @@ use self::event::{
     NewScene, SaveData, SendData, TriggerEvents, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
-use self::queue::{ComingEvent, Queue};
+use self::queue::Queue;
 use super::system_connection::ConnectionSet;
-use super::GeneralUpdate;
+use super::{GeneralUpdate, InterfaceUpdate, GetUserString};
 
 // Import standard library modules
 use std::fs::File;
 use std::path::PathBuf;
+use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -92,6 +94,7 @@ impl EventHandler {
     pub fn new(
         config_path: PathBuf,
         general_update: GeneralUpdate,
+        interface_send: mpsc::Sender<InterfaceUpdate>,
         log_failure: bool,
     ) -> Result<EventHandler, Error> {
         // Attempt to open the configuration file
@@ -107,7 +110,7 @@ impl EventHandler {
         };
 
         // Attempt to process the configuration file
-        let mut config = Config::from_config(general_update.clone(), &config_file)?;
+        let mut config = Config::from_config(general_update.clone(), interface_send, &config_file)?;
 
         // Attempt to create the backup handler
         let backup = BackupHandler::new(
@@ -138,7 +141,7 @@ impl EventHandler {
             }
 
             // Wait 10 nanoseconds for the queued events to process
-            thread::sleep(Duration::new(0, 10));
+            thread::sleep(Duration::new(0, 20));
 
             // Trigger a redraw of the window and timeline
             general_update.send_redraw();
@@ -177,45 +180,31 @@ impl EventHandler {
         self.queue.clear();
     }
 
-    /// A method to return a list upcoming events.
-    ///
-    /// This method returns an Option depending on when the last update update
-    /// occured to the upcoming events. If the upcoming events have changed
-    /// since this method was last called, the method returns Some with a vector
-    /// of UpcomingEvent inside which correspond to upcoming delayed events
-    /// in the event handler. Otherwise, the method returns None.
+    /// A method to repackage a list of coming events as upcoming events.
     ///
     /// # Notes
     ///
-    /// The order of the provided list does correspond to the order they events
-    /// will occur (last event first). In addition, the method may return
-    /// Some with an empty vector inside (i.e. the status changed to have no
-    /// upcoming events).
+    /// The order of the provided list does correspond to the order the events
+    /// will occur (last event first). The coming events are backed up (if
+    /// the backup feature is active).
     ///
-    pub fn upcoming_events(&self) -> Option<Vec<UpcomingEvent>> {
-        // If there are upcoming events, repackage them
-        if let Some(mut events) = self.queue.list_events() {
-            // Backup the upcoming events
-            self.backup.backup_events(events.clone());
+    pub fn repackage_events(&self, mut events: Vec<ComingEvent>) -> Vec<UpcomingEvent> {
+        // Backup the coming events
+        self.backup.backup_events(events.clone());
 
-            // Repackage the list as upcoming events
-            let mut coming_events = Vec::new();
-            for event in events.drain(..) {
-                // Find the description and add it
-                coming_events.push(UpcomingEvent {
-                    start_time: event.start_time,
-                    delay: event.delay,
-                    event: ItemPair::from_item(event.id(), self.get_description(&event.id())),
-                });
-            }
-
-            // Return the completed list
-            return Some(coming_events);
-
-        // Otherwise, return none
-        } else {
-            return None;
+        // Repackage the list as upcoming events
+        let mut upcoming_events = Vec::new();
+        for event in events.drain(..) {
+            // Find the description and add it
+            upcoming_events.push(UpcomingEvent {
+                start_time: event.start_time,
+                delay: event.delay,
+                event: ItemPair::from_item(event.id(), self.get_description(&event.id())),
+            });
         }
+
+        // Return the completed list
+        upcoming_events
     }
 
     /// A method to return a copy of the detail of the provided event id.
@@ -486,30 +475,49 @@ impl EventHandler {
             None => return,
         };
 
-        // Process and update the system about the event
-        let data = self.unpack_event(event_detail);
+        // Compose the item into an item pair
         let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
-        if broadcast {
-            // If there is data to send
-            if let Some(number) = data {
-                // Broadcast the event and data
-                update!(broadcastdata &self.general_update => pair, number);
-
-            // Broadcast the event only
-            } else {
-                update!(broadcast &self.general_update => pair);
+        
+        // Switch based on the result of unpacking the event
+        match self.unpack_event(event_detail) {
+        
+            // No additional action required
+            UnpackResult::None => {
+                // If we should broadcast the event
+                if broadcast {
+                    // Send it to the system
+                    update!(broadcast &self.general_update => pair);
+                    
+                // Otherwise just update the system about the event
+                } else {
+                    update!(now &self.general_update => pair);
+                }
+            }
+            
+            // Send data to the system
+            UnpackResult::Data(mut data) => {
+                // If we should broadcast the event
+                if broadcast {
+                    // Broadcast the event and each piece of data
+                    for number in data.drain(..) {
+                        update!(broadcastdata &self.general_update => pair.clone(), number);
+                    }
+                    
+                // Otherwise just update the system about the event
+                } else {
+                    update!(now &self.general_update => pair);
+                }
             }
 
-        // Update the system about the event
-        } else {
-            update!(now &self.general_update => pair);
+            // Solicit a string from the user
+            UnpackResult::String => self.general_update.send_system(GetUserString { event: pair }),
         }
     }
 
     /// An internal function to unpack the event detail and act on it. If the
     /// event results in data to broadcast, the data will be returned.
     ///
-    fn unpack_event(&mut self, event_detail: EventDetail) -> Option<u32> {
+    fn unpack_event(&mut self, event_detail: EventDetail) -> UnpackResult {
         // Unpack the event
         match event_detail {
             // If there is a new scene, execute the change
@@ -560,11 +568,11 @@ impl EventHandler {
                         // Check to see if there is time remaining for the event
                         if let Some(duration) = self.queue.event_remaining(&event_id) {
                             // Convert the data to u32 (truncated)
-                            return Some(duration.as_secs() as u32);
+                            return UnpackResult::Data(vec![duration.as_secs() as u32]);
 
                         // Otherwise, return empty data
                         } else {
-                            return Some(0);
+                            return UnpackResult::Data(vec![0]);
                         }
                     }
 
@@ -578,18 +586,52 @@ impl EventHandler {
                             // Subtract the remaining time from the total time
                             if let Some(result) = total_time.checked_sub(remaining) {
                                 // Convert the data to u32 (truncated)
-                                return Some(result.as_secs() as u32);
+                                return UnpackResult::Data(vec![result.as_secs() as u32]);
 
                             // Otherwise, return no duration
                             } else {
-                                return Some(0);
+                                return UnpackResult::Data(vec![0]);
                             }
 
                         // Otherwise, return the full duration (truncated)
                         } else {
-                            return Some(total_time.as_secs() as u32);
+                            return UnpackResult::Data(vec![total_time.as_secs() as u32]);
                         }
                     }
+                    
+                    // Send the static string to the event
+                    DataType::StaticString { string } => {
+                        // Convert the string into bytes
+                        let mut bytes = string.into_bytes();
+                         
+                        // Save the length of the new vector
+                        let mut data = vec![bytes.len() as u32];
+                        
+                        // Convert the bytes into a u32 Vec
+                        let (mut first, mut second, mut third, mut fourth) = (0, 0, 0, 0);
+                        for (num, byte) in bytes.drain(..).enumerate() {
+                            
+                            // Repack the data efficiently
+                            match num % 4 {
+                                0 => first = byte as u32,
+                                1 => second = byte as u32,
+                                2 => third = byte as u32,
+                                _ => {
+                                    fourth = byte as u32;
+                                    data.push((first << 24) | (second << 16) | (third << 8) | fourth);
+                                }
+                            }
+                        }
+                        
+                        // Save the last bit of data
+                        data.push((first << 24) | (second << 16) | (third << 8) | fourth);
+                        
+                        // Return the complete data
+                        return UnpackResult::Data(data);
+                    }
+                    
+                    // Solicit a string from the user
+                    DataType::UserString => return UnpackResult::String,
                 }
             }
 
@@ -614,9 +656,24 @@ impl EventHandler {
             }
         }
 
-        // Return no data for most cases
-        None
+        // Return none for most cases
+        UnpackResult::None
     }
+}
+
+/// A helper enum to return the different results of unpacking an event detail
+///
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum UnpackResult {
+    /// A variant indicating there is no additional information needed for this
+    /// event (the most common result).
+    None,
+    
+    /// A variant indicating that some data that should be broadcast to the system.
+    Data (Vec<u32>),
+    
+    /// A variant indicating that a string should be solicited from the user.
+    String,
 }
 
 // Tests of the event handler module

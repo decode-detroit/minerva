@@ -32,8 +32,8 @@ use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
     ChangeSettings, DebugMode, DetailToModify, DisplaySetting, EditMode, InterfaceUpdate,
-    LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
-    UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow, WindowType,
+    LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig, UpdateNotifications,
+    UpdateQueue, UpdateStatus, UpdateWindow, WindowType,
 };
 
 // Import standard library features
@@ -60,11 +60,10 @@ use super::WINDOW_TITLE; // the window title
 #[derive(Clone, Debug)]
 pub struct UserInterface {
     interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
-    edit_mode: Rc<RefCell<bool>>,   // a flag to indicate whether edit mode is active
-    system_send: SystemSend,        // the system update sender for the system interface, included here for easy access from the menu and other closures
-    // FIXME Not neededninterface_send: mpsc::Sender<InterfaceUpdate>, // the interface update sender for the user interface, included here for easy access from the menu and other closures
-    menu_abstraction: Rc<RefCell<MenuAbstraction>>,  // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
-    window: gtk::ApplicationWindow, // the gtk application window
+    edit_mode: Rc<RefCell<bool>>, // a flag to indicate whether edit mode is active
+    system_send: SystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
+    menu_abstraction: Rc<RefCell<MenuAbstraction>>, // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
+    window: gtk::ApplicationWindow,                 // the gtk application window
 }
 
 // Implement key UserInterface functionality
@@ -91,7 +90,7 @@ impl UserInterface {
 
         // Create the menu bar for the window
         let menu = MenuAbstraction::build_menu(application, window, &system_send, &interface_send);
-        
+
         // Wrap the menu abstraction in a rc and refcell
         let menu_abstraction = Rc::new(RefCell::new(menu));
 
@@ -237,6 +236,9 @@ impl UserInterface {
 
                         // Launch the trigger dialog
                         WindowType::Trigger(event) => interface.launch_trigger(event),
+                        
+                        // FIXME Launch the prompt string dialog
+                        WindowType::PromptString(event) => interface.launch_prompt_string(event),
                     }
                 }
 
@@ -249,14 +251,14 @@ impl UserInterface {
                         // If unable, exit immediately
                         Err(_) => return,
                     };
-                    
+
                     // Sort for the display setting
                     match display_setting {
                         // Change the fullscreen mode of the display
                         DisplaySetting::FullScreen(is_fullscreen) => {
                             // Set the menu checkbox
                             menu.set_fullscreen(is_fullscreen);
-                            
+
                             // Change the window fullscreen setting
                             if is_fullscreen {
                                 self.window.fullscreen();
@@ -264,12 +266,12 @@ impl UserInterface {
                                 self.window.unfullscreen();
                             }
                         }
-                        
+
                         // Change the debug mode of the display
                         DisplaySetting::DebugMode(is_debug) => {
                             // Set the menu checkbox
                             menu.set_debug(is_debug);
-                            
+
                             // Update the interface and trigger a redraw.
                             interface.select_debug(is_debug);
                             self.send(DebugMode(is_debug));
@@ -280,7 +282,7 @@ impl UserInterface {
                         DisplaySetting::LargeFont(is_large) => {
                             // Set the menu checkbox
                             menu.set_font(is_large);
-                            
+
                             // Update the interface and trigger a redraw
                             interface.select_font(is_large);
                             self.send(Redraw);
@@ -290,7 +292,7 @@ impl UserInterface {
                         DisplaySetting::HighContrast(is_hc) => {
                             // Set the menu checkbox
                             menu.set_contrast(is_hc);
-                            
+
                             // Update the interface and trigger a redraw
                             interface.select_contrast(is_hc);
                             self.send(Redraw);

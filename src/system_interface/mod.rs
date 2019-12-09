@@ -37,7 +37,7 @@ mod event_handler;
 mod system_connection;
 
 // Import the relevant structures into the correct namespace
-use self::event_handler::EventHandler;
+use self::event_handler::{ComingEvent, EventHandler};
 use self::system_connection::SystemConnection;
 
 // Import standard library features
@@ -45,7 +45,6 @@ use std::env;
 use std::fs::DirBuilder;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::thread;
 use std::time::{Duration, Instant};
 
 // Import the failure features
@@ -151,11 +150,11 @@ impl SystemInterface {
         // Check for any of the updates
         match self.general_receive.recv() {
             // If an event to process was recieved, pass it to the event handler
-            Ok(GeneralUpdateType::Event(event_id, checkscene)) => {
+            Ok(GeneralUpdateType::Event(event_id, check_scene)) => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Process the event
-                    handler.process_event(&event_id, checkscene, true);
+                    handler.process_event(&event_id, check_scene, true);
 
                     // Notify the user interface of the event
                     let description = handler.get_description(&event_id);
@@ -164,16 +163,6 @@ impl SystemInterface {
                             message: format!("Event: {}", description.description),
                         })
                         .unwrap_or(());
-
-                    // Wait 20 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 20));
-
-                    // If the upcoming events have changed, send an update
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
 
                 // Otherwise noity the user that a configuration faild to load
                 } else {
@@ -195,16 +184,10 @@ impl SystemInterface {
                             message: format!("Event: {}", description.description),
                         })
                         .unwrap_or(());
-
-                    // Wait 10 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 10));
-
-                    // If the upcoming events have changed, send an update
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
+                
+                // Otherwise noity the user that a configuration faild to load
+                } else {
+                    update!(err &self.general_update => "Event Could Not Be Processed. No Active Configuration.");
                 }
             }
 
@@ -254,13 +237,6 @@ impl SystemInterface {
                             statuses,
                         })
                         .unwrap_or(());
-
-                    // If the upcoming events have changed, send an update
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
                 }
             }
 
@@ -307,16 +283,6 @@ impl SystemInterface {
                 // Try to clear all the events in the queue
                 if let Some(ref mut handler) = self.event_handler {
                     handler.clear_events();
-
-                    // Wait 10 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 10));
-
-                    // Send an update that there are no upcoming events
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
                 }
 
                 // Send the all stop command directly to the system
@@ -359,16 +325,6 @@ impl SystemInterface {
                 // Try to clear all the events in the queue
                 if let Some(ref mut handler) = self.event_handler {
                     handler.clear_events();
-
-                    // Wait 10 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 10));
-
-                    // Send an update that there are no upcoming events
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
                 }
 
                 // Drop the old event handler
@@ -424,16 +380,6 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Adjust the current time of the event
                     handler.adjust_event(event_id, start_time, new_delay);
-
-                    // Wait 10 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 10));
-
-                    // If the upcoming events have changed, send an update
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
                 }
             }
 
@@ -446,16 +392,6 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Adjust the current time of the event
                     handler.adjust_all_events(adjustment, is_negative);
-
-                    // Wait 10 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 10));
-
-                    // If the upcoming events have changed, send an update
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
                 }
             }
 
@@ -464,24 +400,14 @@ impl SystemInterface {
                 // Try to clear all the events in the queue
                 if let Some(ref mut handler) = self.event_handler {
                     handler.clear_events();
-
-                    // Wait 10 nanoseconds for the queued events to process
-                    thread::sleep(Duration::new(0, 10));
-
-                    // Send an update that there are no upcoming events
-                    if let Some(events) = handler.upcoming_events() {
-                        self.interface_send
-                            .send(UpdateQueue { events })
-                            .unwrap_or(());
-                    }
                 }
             }
 
             // Pass a triggered event to the event_handler, if it exists
-            TriggerEvent { event, checkscene } => {
+            TriggerEvent { event, check_scene } => {
                 // Operate normally when not in edit mode
                 if !self.is_edit_mode {
-                    self.general_update.send_event(event, checkscene);
+                    self.general_update.send_event(event, check_scene);
 
                 // Return the event detail if in edit mode
                 } else {
@@ -506,6 +432,43 @@ impl SystemInterface {
                     }
                 }
             }
+            
+            // Pass a broadcast event to the system connection
+            BroadcastEvent { event, data } => {
+                // If data was included, broadcast the event and data
+                if let Some(num) = data {
+                    self.general_update.send_broadcast_data(event, num);
+                
+                // Otherwise, simply broadcast the event
+                } else {
+                    self.general_update.send_broadcast(event);
+                }
+            }
+            
+            // Solicit a string from the user
+            GetUserString { event } => {
+                self.interface_send
+                    .send(LaunchWindow {
+                        window_type: WindowType::PromptString(event),
+                    })
+                    .unwrap_or(());
+            }
+
+            // Update the queue with the new list of coming events
+            ComingEvents { events } => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // Repackage the coming events into upcoming events
+                    let upcoming_events = handler.repackage_events(events);
+
+                    // Send the new events to the interface
+                    self.interface_send
+                        .send(UpdateQueue {
+                            events: upcoming_events,
+                        })
+                        .unwrap_or(());
+                }
+            }
 
             // Redraw the user interface
             Redraw => self.general_update.send_redraw(),
@@ -524,11 +487,15 @@ impl SystemInterface {
     ///
     fn load_config(&mut self, filepath: PathBuf, log_failure: bool) {
         // Create a new event handler
-        let mut event_handler =
-            match EventHandler::new(filepath, self.general_update.clone(), log_failure) {
-                Ok(evnt_hdlr) => evnt_hdlr,
-                Err(_) => return, // errors will be logged separately if log_failure is true
-            };
+        let mut event_handler = match EventHandler::new(
+            filepath,
+            self.general_update.clone(),
+            self.interface_send.clone(),
+            log_failure,
+        ) {
+            Ok(evnt_hdlr) => evnt_hdlr,
+            Err(_) => return, // errors will be logged separately if log_failure is true
+        };
 
         // Create a new connection to the underlying system
         if !self
@@ -677,6 +644,10 @@ pub struct GeneralUpdate {
 
 // Implement the key features of the general update struct
 // FIXME Consider moving this and the Interface update type to "neutral territory"
+// FIXME Reorganize this so that types that should have external access are in
+// SystemSend, and types that should only have internal access are in general send
+// with an eye to reducing the prevalence of looping back from system send types
+// to general send types
 impl GeneralUpdate {
     /// A function to create the new General Update structure.
     ///
@@ -842,19 +813,32 @@ pub enum SystemUpdate {
     ClearQueue,
 
     /// A variant that triggers a new event with the given item id. If the
-    /// checkscene flag is no set, the system will not check if the event is
+    /// checkscene flag is not set, the system will not check if the event is
     /// listed in the current scene.
-    TriggerEvent { event: ItemId, checkscene: bool },
+    TriggerEvent { event: ItemId, check_scene: bool },
+    
+    /// A variant that broadcasts an event with the given item id. This event id
+    /// is not processed or otherwise checked for validity. If data is provided
+    /// it will be broadcast with the event.
+    BroadcastEvent { event: ItemId, data: Option<u32> },
+    
+    /// A variant that solicies a string of data from the user to send to the
+    /// system. The string will be sent as a series of events with the same
+    /// item id.
+    GetUserString { event: ItemPair },
 
     /// A variant that triggers a redraw of the current event window
     Redraw,
+
+    /// A variant that notifies the system of a change in the coming events
+    ComingEvents { events: Vec<ComingEvent> },
 }
 
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
-    AllEventChange, AllStop, ClearQueue, Close, ConfigFile, DebugMode, EditDetail, EditMode,
-    ErrorLog, EventChange, GameLog, Redraw, SaveConfig, SceneChange, StatusChange,
-    TriggerEvent,
+    AllEventChange, AllStop, ClearQueue, Close, ComingEvents, ConfigFile, DebugMode,
+    EditDetail, EditMode, ErrorLog, EventChange, GameLog, GetUserString, Redraw, SaveConfig,
+    SceneChange, StatusChange, TriggerEvent, BroadcastEvent,
 };
 
 /// A structure to list a series of event buttons that are associated with one
@@ -882,6 +866,10 @@ pub enum WindowType {
 
     /// A variant to launch the trigger dialog with an optional event of interest
     Trigger(Option<ItemPair>),
+    
+    /// A variant to solicit a string from the user. The string will be sent as
+    /// a series of events to the system
+    PromptString(ItemPair),
 }
 
 /// An enum to change one of the display settings of the user interface
@@ -889,7 +877,7 @@ pub enum WindowType {
 pub enum DisplaySetting {
     /// A variant to change the fullscreen mode of the display
     FullScreen(bool),
-    
+
     /// A variant to change the debug mode of the display
     DebugMode(bool),
 
@@ -950,8 +938,8 @@ pub enum InterfaceUpdate {
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    ChangeSettings, DetailToModify, LaunchWindow, Notify, UpdateConfig,
-    UpdateNotifications, UpdateQueue, UpdateStatus, UpdateWindow,
+    ChangeSettings, DetailToModify, LaunchWindow, Notify, UpdateConfig, UpdateNotifications,
+    UpdateQueue, UpdateStatus, UpdateWindow,
 };
 
 // Tests of the system_interface module
