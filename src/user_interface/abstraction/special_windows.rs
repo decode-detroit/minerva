@@ -1501,6 +1501,7 @@ impl EditOverview {
                 priority,
                 color,
                 highlight,
+                highlight_state,
             } => {
                 //Switch to the labelhidden type
                 self.display_type.set_active_id(Some("labelhidden"));
@@ -1833,6 +1834,7 @@ impl EditOverview {
                     priority,
                     color,
                     highlight,
+                    highlight_state: None, // FIXME need additional parameters for this
                 }
             }
 

@@ -263,13 +263,15 @@ pub enum DisplayType {
 
     /// A variant for items which are only to be displayed as a label (not as an
     /// event triggerable by the user). The text color of the label will match
-    /// the rgb value. This is useful for scene reset events which must match
-    /// the id of the scene but are often not directly triggered by the user.
+    /// the rgb value, if specified. This is useful for status labels for
+    /// organizing events but which are not events themselves to be triggered
+    /// by the user.
     ///
     LabelHidden {
         priority: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
+        highlight_state: Option<(ItemId, ItemId)>,
     },
 
     /// Items which should not be displayed. Typically this includes items

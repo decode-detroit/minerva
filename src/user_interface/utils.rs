@@ -187,7 +187,6 @@ pub fn decorate_label(
             highlight,
             highlight_state,
             priority,
-            ..
         } => {
             // If high contrast mode, just set the size and return the priority
             if high_contrast {
@@ -337,7 +336,6 @@ pub fn decorate_label(
             highlight,
             highlight_state,
             priority,
-            ..
         } => {
             // If high contrast mode, just set the size and return the priority
             if high_contrast {
@@ -381,9 +379,12 @@ pub fn decorate_label(
             return priority;
         }
 
-        // Set only the color for a hidden label
+        // Match the label hidden variant
         LabelHidden {
-            color, priority, ..
+            color,
+            highlight,
+            highlight_state,
+            priority,
         } => {
             // If high contrast mode, just set the size and return the priority
             if high_contrast {
@@ -401,6 +402,26 @@ pub fn decorate_label(
             // Default to default text color
             } else {
                 label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            }
+            
+            // Set the highlight color, if specified
+            if let Some((red, green, blue)) = highlight {
+                // Check to see if the highlight state is specified
+                if let Some((status_id, state_id)) = highlight_state {
+                    // Find the corresponding detail
+                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                    ) {
+                        // If the current id matches the state id
+                        if state_id == current.get_id() {
+                            // Set the label to the highlight color
+                            label.set_markup(&format!(
+                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                                red, green, blue, font_size, text
+                            ));
+                        }
+                    }
+                }
             }
 
             // Return the priority

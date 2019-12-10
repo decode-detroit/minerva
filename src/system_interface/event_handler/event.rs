@@ -90,7 +90,7 @@ impl UpcomingEvent {
 }
 
 /// An enum with the types of data available to be saved and sent
-/// FIXME Currently only three types, which should be expanded
+/// FIXME Currently only four types, which should be expanded
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum DataType {
