@@ -480,25 +480,19 @@ impl EventHandler {
         let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
         
         // Unpack and process each action of the event
+        let mut is_sent = false;
         for action in event_detail {
             // Switch based on the result of unpacking the action
             match self.unpack_action(action) {
             
                 // No additional action required
-                UnpackResult::None => {
-                    // If we should broadcast the event
-                    if broadcast {
-                        // Send it to the system
-                        update!(broadcast &self.general_update => pair.clone());
-                        
-                    // Otherwise just update the system about the event
-                    } else {
-                        update!(now &self.general_update => pair.clone());
-                    }
-                }
+                UnpackResult::None => (),
                 
                 // Send data to the system
                 UnpackResult::Data(mut data) => {
+                    // Save that the event has been sent
+                    is_sent = true;
+                    
                     // If we should broadcast the event
                     if broadcast {
                         // Broadcast the event and each piece of data
@@ -513,7 +507,26 @@ impl EventHandler {
                 }
 
                 // Solicit a string from the user
-                UnpackResult::String => self.general_update.send_system(GetUserString { event: pair.clone() }),
+                UnpackResult::String => {
+                    // Save that the event was sent
+                    is_sent = true;
+                    
+                    // Solicit a string
+                    self.general_update.send_system(GetUserString { event: pair.clone() });
+                }
+            }
+        }
+        
+        // Send the event (if it hasn't been sent yet
+        if !is_sent {
+            // If we should broadcast the event
+            if broadcast {
+                // Send it to the system
+                update!(broadcast &self.general_update => pair.clone());
+                
+            // Otherwise just update the system about the event
+            } else {
+                update!(now &self.general_update => pair.clone());
             }
         }
     }
