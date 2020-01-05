@@ -30,8 +30,8 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
 use super::event::{
-    CancelEvents, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData,
-    SendData, TriggerEvents,
+    CancelEvent, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData,
+    SendData, QueueEvent,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 
@@ -931,126 +931,123 @@ impl Config {
         lookup: &FnvHashMap<ItemId, ItemDescription>,
         event_list: &FnvHashMap<ItemId, EventDetail>,
     ) -> bool {
-        // Unpack the event detail
-        match event_detail {
-            // If there is a new scene, verify the id is valid
-            &NewScene { ref new_scene } => {
-                // If the desired scene does exist
-                if all_scenes.contains_key(new_scene) {
-                    // Verify that the newscene event exists in the new scene
-                    if !event_list.contains_key(new_scene) {
-                        update!(warn general_update => "Reset Scene Event Missing From Scene: {}", new_scene);
+        // Unpack each action in the event detail
+        for action in event_detail {
+            // Check each action, exiting early if any action fails the check
+            match action {
+                // If there is a new scene, verify the id is valid
+                &NewScene { ref new_scene } => {
+                    // If the desired scene does exist
+                    if all_scenes.contains_key(new_scene) {
+                        // Verify that the newscene event exists in the new scene
+                        if !event_list.contains_key(new_scene) {
+                            update!(warn general_update => "Reset Scene Event Missing From Scene: {}", new_scene);
+                            return false;
+                        }
+
+                    // If the desired scene does not exist
+                    } else {
+                        // Warn the system and indicate failure
+                        update!(warn general_update => "Event Contains Invalid Scene: {}", new_scene);
                         return false;
                     }
 
-                // If the desired scene does not exist
-                } else {
-                    // Warn the system and indicate failure
-                    update!(warn general_update => "Event Detail Contains Invalid Scene: {}", new_scene);
-                    return false;
+                    // If the scene exists, verify the scene is described
+                    return Config::verify_lookup(general_update, lookup, new_scene);
                 }
 
-                // If the scene exists, verify the scene is described
-                return Config::verify_lookup(general_update, lookup, new_scene);
-            }
-
-            // If there is a status modification, verify both components of the modification
-            &ModifyStatus {
-                ref status_id,
-                ref new_state,
-            } => {
-                // Check that the status_id is valid
-                if let Some(detail) = status_map.get(status_id) {
-                    // Also verify the new state
-                    if !detail.is_allowed(new_state) {
-                        update!(warn general_update => "Event Detail Contains Invalid New State: {}", &new_state);
+                // If there is a status modification, verify both components of the modification
+                &ModifyStatus {
+                    ref status_id,
+                    ref new_state,
+                } => {
+                    // Check that the status_id is valid
+                    if let Some(detail) = status_map.get(status_id) {
+                        // Also verify the new state
+                        if !detail.is_allowed(new_state) {
+                            update!(warn general_update => "Event Contains Invalid New State: {}", &new_state);
+                            return false;
+                        }
+                    } else {
+                        update!(warn general_update => "Event Contains Invalid Status Id: {}", &status_id);
                         return false;
                     }
-                } else {
-                    update!(warn general_update => "Event Detail Contains Invalid Status Id: {}", &status_id);
-                    return false;
+
+                    // If the status exists, verify the status and state are described
+                    return Config::verify_lookup(general_update, lookup, status_id)
+                        & Config::verify_lookup(general_update, lookup, new_state);
                 }
 
-                // If the status exists, verify the status and state are described
-                return Config::verify_lookup(general_update, lookup, status_id)
-                    & Config::verify_lookup(general_update, lookup, new_state);
-            }
-
-            // If there are triggered events to load, verify that they exist
-            &TriggerEvents { ref events } => {
-                // Check that all of them exist
-                for event_delay in events {
+                // If there is an event to queue, verify that it exists
+                &QueueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
-                    if !scene.contains(&event_delay.id()) {
-                        update!(warn general_update => "Event Detail Contains Unlisted Triggered Events: {}", &event_delay.id());
+                    if !scene.contains(&event.id()) {
+                        update!(warn general_update => "Event Contains Unlisted Queue Event: {}", &event.id());
                         // Do not flag as incorrect
                     }
 
-                    // Return false if any event_id is incorrect
-                    if !event_list.contains_key(&event_delay.id()) {
-                        update!(warn general_update => "Event Detail Contains Invalid Triggered Events: {}", &event_delay.id());
+                    // Return false if the event_id is incorrect
+                    if !event_list.contains_key(&event.id()) {
+                        update!(warn general_update => "Event Contains Invalid Queue Event: {}", &event.id());
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
-            }
 
-            // If there are events to cancel, verify that they exist
-            &CancelEvents { ref events } => {
-                // Check that all of them exist
-                for event_id in events {
-                    // Return false if any event_id is incorrect
-                    if !event_list.contains_key(&event_id) {
-                        update!(warn general_update => "Event Detail Contains Invalid Cancelled Events: {}", &event_id);
+                // If there are events to cancel, verify that they exist
+                &CancelEvent { ref event } => {
+                    // Return false if the event doesn't exist
+                    if !event_list.contains_key(&event) {
+                        update!(warn general_update => "Event Contains Invalid Cancelled Events: {}", &event);
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked. Don't need to check scene validity because cancelled events are not necessarily in the same scene.
                 }
-            }
 
-            // If there is data to save or send, assume validity
-            &SaveData { .. } => (),
-            &SendData { .. } => (),
+                // If there is data to save or send, assume validity
+                &SaveData { .. } => (),
+                &SendData { .. } => (),
 
-            // If there is a grouped event, verify the components of the event
-            &GroupedEvent {
-                ref status_id,
-                ref event_map,
-            } => {
-                // Check that the status_id is valid
-                if let Some(detail) = status_map.get(status_id) {
-                    // Verify that the allowed states vector isn't empty
-                    let allowed = detail.allowed();
-                    if allowed.is_empty() {
-                        update!(warn general_update => "Event Detail Contains Empty Grouped Event: {}", status_id);
-                        return false;
-                    }
-
-                    // Verify each state is represented in the event_map
-                    for state in allowed.iter() {
-                        // If there is a matching event, verify that it exists
-                        if let Some(target_event) = event_map.get(state) {
-                            // Verify that the event is listed in the current scene
-                            if !scene.contains(&target_event) {
-                                update!(warn general_update => "Event Group Contains Unlisted Triggered Events: {}", &target_event);
-                                // Do not flag as incorrect
-                            }
-
-                            // Verify that the event exists
-                            if !event_list.contains_key(&target_event) {
-                                update!(warn general_update => "Event Group Contains Invalid Target Event: {}", &target_event);
-                                return false;
-                            }
-
-                        // If there isn't a match event, raise a warning
-                        } else {
-                            update!(warn general_update => "Event Group Does Not Specify Target Event: {}", state);
+                // If there is a grouped event, verify the components of the event
+                &GroupedEvent {
+                    ref status_id,
+                    ref event_map,
+                } => {
+                    // Check that the status_id is valid
+                    if let Some(detail) = status_map.get(status_id) {
+                        // Verify that the allowed states vector isn't empty
+                        let allowed = detail.allowed();
+                        if allowed.is_empty() {
+                            update!(warn general_update => "Event Contains Empty Grouped Event: {}", status_id);
                             return false;
                         }
-                    }
 
-                // If the status doesn't exist, raise a warning
-                } else {
-                    update!(warn general_update => "Event Detail Contains Invalid Status: {}", status_id);
-                    return false;
+                        // Verify each state is represented in the event_map
+                        for state in allowed.iter() {
+                            // If there is a matching event, verify that it exists
+                            if let Some(target_event) = event_map.get(state) {
+                                // Verify that the event is listed in the current scene
+                                if !scene.contains(&target_event) {
+                                    update!(warn general_update => "Event Group Contains Unlisted Triggered Events: {}", &target_event);
+                                    // Do not flag as incorrect
+                                }
+
+                                // Verify that the event exists
+                                if !event_list.contains_key(&target_event) {
+                                    update!(warn general_update => "Event Group Contains Invalid Target Event: {}", &target_event);
+                                    return false;
+                                }
+
+                            // If there isn't a match event, raise a warning
+                            } else {
+                                update!(warn general_update => "Event Group Does Not Specify Target Event: {}", state);
+                                return false;
+                            }
+                        }
+
+                    // If the status doesn't exist, raise a warning
+                    } else {
+                        update!(warn general_update => "Event Contains Invalid Status: {}", status_id);
+                        return false;
+                    }
                 }
             }
         }

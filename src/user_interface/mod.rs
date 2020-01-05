@@ -237,7 +237,7 @@ impl UserInterface {
                         // Launch the trigger dialog
                         WindowType::Trigger(event) => interface.launch_trigger(event),
                         
-                        // FIXME Launch the prompt string dialog
+                        // Launch the prompt string dialog
                         WindowType::PromptString(event) => interface.launch_prompt_string(event),
                     }
                 }

@@ -248,9 +248,6 @@ impl InterfaceAbstraction {
     pub fn refresh_all(&self) {
         // Refresh the timeline
         self.timeline.refresh();
-
-        // Refresh the notification area
-        self.control.refresh_notifications();
     }
 
     /// A method to update the timeline of coming events

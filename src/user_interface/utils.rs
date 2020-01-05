@@ -24,9 +24,17 @@ use super::super::system_interface::{
     ItemPair, LabelControl, LabelHidden, StatusDescription,
 };
 
+// Import standard library features
+use std::u32::MAX as U32_MAX;
+use std::cell::RefCell;
+use std::rc::Rc;
+
 // Import GTK library
 extern crate gtk;
 use self::gtk::prelude::*;
+
+// Define module constants
+const FLASH_RATE: u32 = 700;
 
 /// A macro to make moving clones into closures more convenient
 ///
@@ -166,7 +174,7 @@ pub fn clean_text(
 }
 
 /// A helper function to properly decorate a label. The function
-/// sets the markup for the existing label and returns the priority from
+/// sets the markup for the existing label and returns the position from
 /// the DisplayType, if it exists.
 ///
 /// This function assumes that the text has already been cleaned and sized.
@@ -178,6 +186,7 @@ pub fn decorate_label(
     full_status: &FullStatus,
     font_size: u32,
     high_contrast: bool,
+    spotlight_expiration: Option<Rc<RefCell<u32>>>,
 ) -> Option<u32> {
     // Decorate based on the display type
     match display {
@@ -186,226 +195,62 @@ pub fn decorate_label(
             color,
             highlight,
             highlight_state,
-            priority,
-        } => {
-            // If high contrast mode, just set the size and return the priority
-            if high_contrast {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-                return priority;
-            }
-
-            // Set the markup color, if specified
-            if let Some((red, green, blue)) = color {
-                label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                    red, green, blue, font_size, text
-                ));
-
-            // Default to default text color
-            } else {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-            }
-
-            // Set the highlight color, if specified
-            if let Some((red, green, blue)) = highlight {
-                // Check to see if the highlight state is specified
-                if let Some((status_id, state_id)) = highlight_state {
-                    // Find the corresponding detail
-                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
-                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
-                    ) {
-                        // If the current id matches the state id
-                        if state_id == current.get_id() {
-                            // Set the label to the highlight color
-                            label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                                red, green, blue, font_size, text
-                            ));
-                        }
-                    }
-                }
-            }
-
-            // Return the priority
-            return priority;
-        }
-
-        // Match the display with variant
-        DisplayWith {
+            spotlight,
+            position,
+        } | DisplayWith {
             color,
             highlight,
             highlight_state,
-            priority,
+            spotlight,
+            position,
             ..
-        } => {
-            // If high contrast mode, just set the size and return the priority
-            if high_contrast {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-                return priority;
-            }
-
-            // Set the markup color, if specified
-            if let Some((red, green, blue)) = color {
-                label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                    red, green, blue, font_size, text
-                ));
-
-            // Default to default text color
-            } else {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-            }
-
-            // Set the highlight color, if specified
-            if let Some((red, green, blue)) = highlight {
-                // Check to see if the highlight state is specified
-                if let Some((status_id, state_id)) = highlight_state {
-                    // Find the corresponding detail
-                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
-                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
-                    ) {
-                        // If the current id matches the state id
-                        if state_id == current.get_id() {
-                            // Set the label to the highlight color
-                            label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                                red, green, blue, font_size, text
-                            ));
-                        }
-                    }
-                }
-            }
-
-            // Return the priority
-            return priority;
-        }
-
-        // Match the display debug variant
-        DisplayDebug {
+        } | DisplayDebug {
             color,
             highlight,
             highlight_state,
-            priority,
+            spotlight,
+            position,
             ..
-        } => {
-            // If high contrast mode, just set the size and return the priority
-            if high_contrast {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-                return priority;
-            }
-
-            // Set the markup color, if specified
-            if let Some((red, green, blue)) = color {
-                label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                    red, green, blue, font_size, text
-                ));
-
-            // Default to default text color
-            } else {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-            }
-
-            // Set the highlight color, if specified
-            if let Some((red, green, blue)) = highlight {
-                // Check to see if the highlight state is specified
-                if let Some((status_id, state_id)) = highlight_state {
-                    // Find the corresponding detail
-                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
-                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
-                    ) {
-                        // If the current id matches the state id
-                        if state_id == current.get_id() {
-                            // Set the label to the highlight color
-                            label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}' size'{}'>{}</span>",
-                                red, green, blue, font_size, text
-                            ));
-                        }
-                    }
-                }
-            }
-
-            // Return the priority
-            return priority;
-        }
-
-        // Match the label control variant
-        LabelControl {
+        } | LabelControl {
             color,
             highlight,
             highlight_state,
-            priority,
-        } => {
-            // If high contrast mode, just set the size and return the priority
-            if high_contrast {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-                return priority;
-            }
-
-            // Set the markup color, if specified
-            if let Some((red, green, blue)) = color {
-                label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                    red, green, blue, font_size, text
-                ));
-
-            // Default to default text color
-            } else {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-            }
-
-            // Set the highlight color, if specified
-            if let Some((red, green, blue)) = highlight {
-                // Check to see if the highlight state is specified
-                if let Some((status_id, state_id)) = highlight_state {
-                    // Find the corresponding detail
-                    if let Some(&StatusDescription { ref current, .. }) = full_status.get(
-                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
-                    ) {
-                        // If the current id matches the state id
-                        if state_id == current.get_id() {
-                            // Set the label to the highlight color
-                            label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                                red, green, blue, font_size, text
-                            ));
-                        }
-                    }
-                }
-            }
-
-            // Return the priority
-            return priority;
-        }
-
-        // Match the label hidden variant
-        LabelHidden {
+            spotlight,
+            position,
+        } | LabelHidden {
             color,
             highlight,
             highlight_state,
-            priority,
+            spotlight,
+            position,
         } => {
-            // If high contrast mode, just set the size and return the priority
-            if high_contrast {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-                return priority;
-            }
-
-            // Set the markup color
-            if let Some((red, green, blue)) = color {
-                label.set_markup(&format!(
-                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                    red, green, blue, font_size, text
-                ));
-
-            // Default to default text color
-            } else {
-                label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-            }
+            // Define the default markup
+            let mut markup = format!("<span size='{}'>{}</span>", font_size, text);
             
-            // Set the highlight color, if specified
+            // If high contrast mode, just set the size and return the position
+            if high_contrast {
+                label.set_markup(&markup);
+                return position;
+            }
+
+            // Set the markup color, if specified
+            if let Some((red, green, blue)) = color {
+                markup = format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                );
+            }
+            // Set the markup (using the default above if no color was specified)
+            label.set_markup(&markup);
+
+            // Set the highlight color, if specified (overrides default color)
             if let Some((red, green, blue)) = highlight {
+                // Create the highlight markup
+                let highlight_markup = format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                );
+            
                 // Check to see if the highlight state is specified
                 if let Some((status_id, state_id)) = highlight_state {
                     // Find the corresponding detail
@@ -415,23 +260,120 @@ pub fn decorate_label(
                         // If the current id matches the state id
                         if state_id == current.get_id() {
                             // Set the label to the highlight color
-                            label.set_markup(&format!(
-                                "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                                red, green, blue, font_size, text
-                            ));
+                            label.set_markup(&highlight_markup);
                         }
+                    }
+                }
+                            
+                // Set the spotlight color, if specified (overrides highlight color)
+                if let Some(count) = spotlight {
+                    // Ignore this option if spotlight is not relevant for this label
+                    if let Some(expiration) = spotlight_expiration {
+                        // Change the count on the expiration if it is u32::MAX
+                        if let Ok(mut current) = expiration.try_borrow_mut() {
+                            if *current == U32_MAX {
+                                *current = count * 2; // once each for on and off
+                            }
+                        }
+                        
+                        // Launch a recurring message
+                        let spotlight_update = clone!(label, markup, highlight_markup, expiration => move || {
+                            spotlight_label(label.clone(), markup.clone(), highlight_markup.clone(), expiration.clone())
+                        });
+                        gtk::timeout_add(FLASH_RATE, spotlight_update);
                     }
                 }
             }
 
-            // Return the priority
-            return priority;
+            // Return the position
+            return position;
         }
 
-        // Otherwise, use the default color and priority
+        // Otherwise, use the default color and position
         Hidden => {
             label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             return None;
         }
     }
 }
+
+/// A private helper function to properly spotlight the highlight color on a label
+/// until the provided expiration is complete. The function sets the markup for
+/// the existing label to or from the highlight color until expiration equals
+/// one. If expiration equals zero or u32::MAX, the function will return true
+/// indefinitely.
+///
+/// This function assumes that the two provided label markups have been prepared.
+///
+fn spotlight_label(label: gtk::Label, default_markup: String, highlight_markup: String, expiration: Rc<RefCell<u32>>) -> gtk::Continue {
+    // Make sure the label is still visible
+    if !label.is_visible() {
+        return gtk::Continue(false);
+    }
+    
+    // Try to extract the expiration count
+    if let Ok(mut count) = expiration.try_borrow_mut() {
+        // Act based on the count of the expiration
+        match *count {
+        
+            // If the count is zero, set it to u32::Max
+            0 => {
+                *count = U32_MAX;
+                
+                // Set the label to the default markup
+                label.set_markup(&default_markup);
+                
+                // Return true
+                return gtk::Continue(true);
+            }
+        
+            // If the count is u32::MAX, set it back to zero
+            U32_MAX => {
+                *count = 0;
+                
+                // Set the label to the highlight markup
+                label.set_markup(&highlight_markup);
+                
+                // Return true
+                return gtk::Continue(true);
+            }
+            
+            // If the count is one, return false
+            1 => {
+                // Set the label to the default markup
+                label.set_markup(&default_markup);
+                
+                // Return true
+                return gtk::Continue(false);
+            }
+            
+            // If the count is any other number, check for even/odd
+            _ => {
+                // Decrease the count
+                *count = *count - 1;
+            
+                // if count is even
+                if (*count % 2) == 0 {
+                    // Set the label to the default markup
+                    label.set_markup(&default_markup);
+                    
+                    // Return true
+                    return gtk::Continue(true);
+                
+                // Otherwise
+                } else {
+                    // Set the label to the highlight markup
+                    label.set_markup(&highlight_markup);
+                    
+                    // Return true
+                    return gtk::Continue(true);
+                }
+            }
+        }
+    }
+    
+    // Stop the closure on failure
+    gtk::Continue(false)
+}
+
+

@@ -39,8 +39,9 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    CancelEvents, DataType, EventDelay, EventDetail, EventUpdate, GroupedEvent, ModifyStatus,
-    NewScene, SaveData, SendData, TriggerEvents, UpcomingEvent,
+    CancelEvent, DataType, EventDelay, EventAction, EventDetail, EventUpdate,
+    GroupedEvent, ModifyStatus, NewScene, SaveData, SendData, QueueEvent,
+    UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::Queue;
@@ -478,48 +479,51 @@ impl EventHandler {
         // Compose the item into an item pair
         let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
         
-        // Switch based on the result of unpacking the event
-        match self.unpack_event(event_detail) {
-        
-            // No additional action required
-            UnpackResult::None => {
-                // If we should broadcast the event
-                if broadcast {
-                    // Send it to the system
-                    update!(broadcast &self.general_update => pair);
-                    
-                // Otherwise just update the system about the event
-                } else {
-                    update!(now &self.general_update => pair);
-                }
-            }
+        // Unpack and process each action of the event
+        for action in event_detail {
+            // Switch based on the result of unpacking the action
+            match self.unpack_action(action) {
             
-            // Send data to the system
-            UnpackResult::Data(mut data) => {
-                // If we should broadcast the event
-                if broadcast {
-                    // Broadcast the event and each piece of data
-                    for number in data.drain(..) {
-                        update!(broadcastdata &self.general_update => pair.clone(), number);
+                // No additional action required
+                UnpackResult::None => {
+                    // If we should broadcast the event
+                    if broadcast {
+                        // Send it to the system
+                        update!(broadcast &self.general_update => pair.clone());
+                        
+                    // Otherwise just update the system about the event
+                    } else {
+                        update!(now &self.general_update => pair.clone());
                     }
-                    
-                // Otherwise just update the system about the event
-                } else {
-                    update!(now &self.general_update => pair);
                 }
-            }
+                
+                // Send data to the system
+                UnpackResult::Data(mut data) => {
+                    // If we should broadcast the event
+                    if broadcast {
+                        // Broadcast the event and each piece of data
+                        for number in data.drain(..) {
+                            update!(broadcastdata &self.general_update => pair.clone(), number);
+                        }
+                        
+                    // Otherwise just update the system about the event
+                    } else {
+                        update!(now &self.general_update => pair.clone());
+                    }
+                }
 
-            // Solicit a string from the user
-            UnpackResult::String => self.general_update.send_system(GetUserString { event: pair }),
+                // Solicit a string from the user
+                UnpackResult::String => self.general_update.send_system(GetUserString { event: pair.clone() }),
+            }
         }
     }
 
     /// An internal function to unpack the event detail and act on it. If the
     /// event results in data to broadcast, the data will be returned.
     ///
-    fn unpack_event(&mut self, event_detail: EventDetail) -> UnpackResult {
+    fn unpack_action(&mut self, event_action: EventAction) -> UnpackResult {
         // Unpack the event
-        match event_detail {
+        match event_action {
             // If there is a new scene, execute the change
             NewScene { new_scene } => {
                 // Try to change the scene current scene
@@ -535,34 +539,80 @@ impl EventHandler {
                 self.modify_status(&status_id, &new_state);
             }
 
-            // If there are triggered events to load, load them into the queue
-            TriggerEvents { events } => {
-                // Unpackage each coming event and add it to the queue
-                for event_delay in events {
-                    // Add the triggered events to the queue
-                    self.queue.add_event(event_delay);
-                }
+            // If there is a queued event to load, load it into the queue
+            QueueEvent { event } => {
+                // Add the event to the queue
+                self.queue.add_event(event);
             }
 
-            // If there are events to cancel, remove them from the queue
-            CancelEvents { events } => {
-                // Unpackage each coming event and add it to the queue
-                for event_id in events {
-                    // Add the triggered events to the queue
-                    self.queue.cancel_all(event_id);
-                }
+            // If there is an event to cancel, remove it from the queue
+            CancelEvent { event } => {
+                // Cancel any events with the matching id in the queue
+                self.queue.cancel_all(event);
             }
 
             // If there is data to save, save it
             SaveData { data } => {
-                // Save the data to the game log
-                update!(save &self.general_update => data);
+                // Select for the type of data
+                match data {
+                    // Collect time until an event
+                    DataType::TimeUntil { event_id } => {
+                        // Check to see if there is time remaining for the event
+                        if let Some(duration) = self.queue.event_remaining(&event_id) {
+                            // Convert the duration to minutes and seconds
+                            let minutes = duration.as_secs() / 60;
+                            let seconds = duration.as_secs() % 60;
+                            
+                            // Compose a string for the log
+                            let data_string = format!("Time {}:{}", minutes, seconds);
+                            
+                            // Save the data to the game log
+                            update!(save &self.general_update => data_string);
+                        }
+                    }
+
+                    // Collect time passed until an event
+                    DataType::TimePassedUntil {
+                        event_id,
+                        total_time,
+                    } => {
+                        // Check to see if there is time remaining for the event
+                        if let Some(remaining) = self.queue.event_remaining(&event_id) {
+                            // Subtract the remaining time from the total time
+                            if let Some(result) = total_time.checked_sub(remaining) {
+                                // Convert the duration to minutes and seconds
+                                let minutes = result.as_secs() / 60;
+                                let seconds = result.as_secs() % 60;
+                                
+                                // Compose a string for the log
+                                let data_string = format!("Time {}:{}", minutes, seconds);
+                                
+                                // Save the data to the game log
+                                update!(save &self.general_update => data_string);
+                            }
+                        }
+                    }
+                    
+                    // Send the static string to the event
+                    DataType::StaticString { string } => {
+                        // Save the string to the game log
+                        update!(save &self.general_update => string);
+                    }
+                    
+                    // Solicit a string from the user
+                    DataType::UserString => {
+                        // Error that this is not yet implemented
+                        update!(err &self.general_update => "Saving a User String is not yet implemented.");
+                    }
+                }
+            
+                
             }
 
             // If there is data to send, collect and send it
-            SendData(data_type) => {
+            SendData { data } => {
                 // Select for the type of data
-                match data_type {
+                match data {
                     // Collect time until an event
                     DataType::TimeUntil { event_id } => {
                         // Check to see if there is time remaining for the event
@@ -779,7 +829,7 @@ mod tests {
                     "Load Events Or Save Data (Grouped Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
-                        priority: None,
+                        position: None,
                         color: None,
                         highlight: None,
                     }
@@ -798,7 +848,7 @@ mod tests {
                     "Load Events Or Save Data (Grouped Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
-                        priority: None,
+                        position: None,
                         color: None,
                         highlight: None,
                     }
@@ -823,7 +873,7 @@ mod tests {
                     "Load Events Or Save Data (Grouped Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
-                        priority: None,
+                        position: None,
                         color: None,
                         highlight: None,
                     }

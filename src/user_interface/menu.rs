@@ -23,7 +23,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
     ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, ErrorLog, GameLog,
-    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType,
+    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType, EditMode,
 };
 
 // Import standard library features
@@ -342,7 +342,7 @@ impl MenuAbstraction {
                 let is_edit = state.get().unwrap_or(false);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                // FIXME user_interface.select_edit(!is_edit, &checkbox);
+                system_send.send(EditMode(true));
             }
         }));
 

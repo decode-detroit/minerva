@@ -109,7 +109,7 @@ impl Minerva {
     }
 }
 
-/// The main function of the program, simplified to as high a levet as possible
+/// The main function of the program, simplified to as high a level as possible
 /// to allow GTK+ to work its startup magic.
 ///
 fn main() {

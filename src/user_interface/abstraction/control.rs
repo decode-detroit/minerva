@@ -229,12 +229,6 @@ impl ControlAbstraction {
         self.is_high_contrast = is_hc;
     }
 
-    /// A method to refresh the notification area to allow for highlighted events
-    ///
-    pub fn refresh_notifications(&self) {
-        // FIXME: This currently does nothing
-    }
-
     /// A method to update the notification area with system notifications
     ///
     pub fn update_notifications(&mut self, mut notifications: Vec<Notification>) {

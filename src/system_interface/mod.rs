@@ -20,7 +20,9 @@
 //! to the application window.
 
 // Reexport the key structures and types
-pub use self::event_handler::event::{EventDelay, EventDetail, EventUpdate, UpcomingEvent};
+pub use self::event_handler::event::{
+    DataType, EventAction, EventDelay, EventDetail, EventUpdate, UpcomingEvent
+};
 pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
     ItemPair, LabelControl, LabelHidden,
@@ -403,7 +405,7 @@ impl SystemInterface {
                 }
             }
 
-            // Pass a triggered event to the event_handler, if it exists
+            // Pass an event to the event_handler, if it exists
             TriggerEvent { event, check_scene } => {
                 // Operate normally when not in edit mode
                 if !self.is_edit_mode {

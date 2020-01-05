@@ -22,15 +22,22 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription, ItemId,
-    ItemPair, LabelControl, LaunchWindow, StatusDescription, SystemSend, TriggerEvent, WindowType,
+    EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription,
+    ItemId, ItemPair, LabelControl, LaunchWindow, StatusDescription, SystemSend,
+    TriggerEvent, WindowType,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::{LARGE_FONT, NORMAL_FONT};
 
 // Import standard library features
 use std::sync::mpsc;
-use std::u32::MAX as u32MAX;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::u32::MAX as U32_MAX;
+
+// Import FNV HashMap
+extern crate fnv;
+use self::fnv::FnvHashMap;
 
 // Import GTK and GDK libraries
 extern crate gdk;
@@ -55,6 +62,9 @@ pub struct EventAbstraction {
     groups: Vec<EventGroupAbstraction>, // a vector of the current event groups
     side_panel: gtk::Grid,              // the container to hold the side panel events
     side_group: Option<EventGroupAbstraction>, // side panel group (for ungrouped events)
+    spotlight_control: FnvHashMap<ItemId, Rc<RefCell<u32>>>, // holders for current spotlight counters
+    spotlight_state: FnvHashMap<ItemId, Rc<RefCell<u32>>>,
+    spotlight_button: FnvHashMap<ItemId, Rc<RefCell<u32>>>,
     is_font_large: bool,                // a flag to indicate the font size of the items
     is_high_contrast: bool,             // a flag to indicate if the display is high contrast
 }
@@ -133,6 +143,9 @@ impl EventAbstraction {
             groups: Vec::new(), // an empty list of event groups
             side_panel,
             side_group: None, // an empty side panel event group
+            spotlight_control: FnvHashMap::default(),
+            spotlight_state: FnvHashMap::default(),
+            spotlight_button: FnvHashMap::default(),
             is_font_large: false,
             is_high_contrast: false,
         }
@@ -170,16 +183,19 @@ impl EventAbstraction {
         // Remove all the the children from the left and right grids
         let to_remove = self.left_grid.get_children();
         for item in to_remove {
+            item.hide(); // necessary for proper functioning of the spotlight feature
             self.left_grid.remove(&item);
         }
         let to_remove = self.right_grid.get_children();
         for item in to_remove {
+            item.hide(); // necessary for proper functioning of the spotlight feature
             self.right_grid.remove(&item);
         }
 
         // Remove all the children in the side panel grid
         let to_remove = self.side_panel.get_children();
         for item in to_remove {
+            item.hide(); // necessary for proper functioning of the spotlight feature
             self.side_panel.remove(&item);
         }
 
@@ -206,6 +222,11 @@ impl EventAbstraction {
         // Empty the old event grid
         self.clear();
 
+        // Copy the spotlight counts and drain them
+        let spotlight_control: FnvHashMap<ItemId, Rc<RefCell<u32>>> = self.spotlight_control.drain().collect();
+        let spotlight_state: FnvHashMap<ItemId, Rc<RefCell<u32>>> = self.spotlight_state.drain().collect();
+        let spotlight_button: FnvHashMap<ItemId, Rc<RefCell<u32>>> = self.spotlight_button.drain().collect();
+
         // Set the font size
         let font_size = match self.is_font_large {
             false => NORMAL_FONT,
@@ -223,16 +244,20 @@ impl EventAbstraction {
                 full_status,
                 font_size,
                 self.is_high_contrast,
+                &spotlight_state,
+                &mut self.spotlight_state,
+                &spotlight_button,
+                &mut self.spotlight_button,
             ) {
                 // If it has an id, add it to the group list
                 if let Some(_) = grp_abstraction.group_id {
-                    // Identify the group priority
-                    match grp_abstraction.priority.clone() {
-                        // If the priority is defined, set it
+                    // Identify the group position
+                    match grp_abstraction.position.clone() {
+                        // If the position is defined, set it
                         Some(number) => groups_raw.push((number, grp_abstraction)),
 
-                        // Otherwise, set the maximum default priority
-                        None => groups_raw.push((u32MAX, grp_abstraction)),
+                        // Otherwise, set the maximum default position
+                        None => groups_raw.push((U32_MAX, grp_abstraction)),
                     }
 
                 // Otherwise place it in the default group
@@ -242,13 +267,13 @@ impl EventAbstraction {
             }
         }
 
-        // Reorder the groups to follow priority
+        // Reorder the groups to follow position
         groups_raw.sort_by_key(|pair| {
-            let &(ref priority, _) = pair;
-            priority.clone()
+            let &(ref position, _) = pair;
+            position.clone()
         });
 
-        // Strip the raw groups to remove priority
+        // Strip the raw groups to remove position
         for (_, group) in groups_raw.drain(..) {
             self.groups.push(group);
         }
@@ -270,6 +295,7 @@ impl EventAbstraction {
             full_status,
             font_size,
             self.is_high_contrast,
+            None, // No spotlight
         );
         current_label.set_halign(gtk::Align::Start);
         current_label.set_margin_start(5);
@@ -286,26 +312,26 @@ impl EventAbstraction {
         // Sort the statuses
         let mut paired = Vec::new();
         for status in statuses.drain(..) {
-            // Extract the priority of the status display
-            if let LabelControl { priority, .. } = status.display.clone() {
-                // Unpack the priority
-                match priority {
-                    // Add the priority if it exists
+            // Extract the position of the status display
+            if let LabelControl { position, .. } = status.display.clone() {
+                // Unpack the position
+                match position {
+                    // Add the position if it exists
                     Some(num) => paired.push((num, status)),
 
                     // Otherwise, use the max available
-                    None => paired.push((u32MAX, status)),
+                    None => paired.push((U32_MAX, status)),
                 }
             }
         }
 
-        // Reorder the statuses to follow priority
+        // Reorder the statuses to follow position
         paired.sort_by_key(|pair| {
-            let &(ref priority, _) = pair;
-            priority.clone()
+            let &(ref position, _) = pair;
+            position.clone()
         });
 
-        // Strip the raw buttons to remove priority
+        // Strip the raw buttons to remove position
         let mut sorted = Vec::new();
         for (_, status) in paired.drain(..) {
             sorted.push(status);
@@ -324,18 +350,26 @@ impl EventAbstraction {
                 full_status,
                 font_size,
                 self.is_high_contrast,
+                None, // No spotlight
             );
             status_title.set_halign(gtk::Align::End);
             status_title.set_margin_end(5);
             status_title.show();
-            self.side_panel
-                .attach(&status_title, 0, 3 + status_count, 1, 1);
+            self.side_panel.attach(&status_title, 0, 3 + status_count, 1, 1);
 
             // Find the corresponding current state detail
             let state = gtk::Label::new(Some("Not Available"));
             if let Some(&StatusDescription { ref current, .. }) = full_status.get(
                 &ItemPair::from_item(status.get_id(), ItemDescription::new("", Hidden)),
             ) {
+                // See if there is an existing spotlight expiration for this state
+                let expiration = match spotlight_control.get(&current.get_id()) {
+                    Some(exp) => {
+                        exp.clone()
+                    },
+                    None => Rc::new(RefCell::new(U32_MAX)),
+                };
+                
                 // Decorate the state label
                 let state_markup =
                     clean_text(&current.description, CONTROL_LIMIT, true, false, true);
@@ -346,7 +380,13 @@ impl EventAbstraction {
                     full_status,
                     font_size,
                     self.is_high_contrast,
+                    Some(expiration.clone()), // spotlight
                 );
+                
+                // If the expiration was used, save it
+                if Rc::strong_count(&expiration) > 1 {
+                    self.spotlight_control.insert(current.get_id(), expiration);
+                }
             }
 
             // Format the state label
@@ -384,8 +424,7 @@ impl EventAbstraction {
                 self.left_grid.attach(&group.as_grid(), 0, num as i32, 1, 1);
             } else {
                 // Attach the found group to the right grid
-                self.right_grid
-                    .attach(&group.as_grid(), 0, (num - half) as i32, 1, 1);
+                self.right_grid.attach(&group.as_grid(), 0, (num - half) as i32, 1, 1);
             }
         }
     }
@@ -399,7 +438,7 @@ impl EventAbstraction {
 #[derive(Clone, Debug)]
 struct EventGroupAbstraction {
     group_id: Option<ItemId>, // the id for the group for rapid identification
-    priority: Option<u32>,    // the priority for the group for ordering on the screen
+    position: Option<u32>,    // the position for the group for ordering on the screen
     header: gtk::Label,       // the label attached to the header for the group
     state_selection: Option<gtk::Button>, // the dropdown for switching between states (if it exists)
     buttons: Vec<gtk::Button>,            // the event buttons for the event group
@@ -416,6 +455,10 @@ impl EventGroupAbstraction {
         full_status: &FullStatus,
         font_size: u32,
         is_high_contrast: bool,
+        old_spotlight_state: &FnvHashMap<ItemId, Rc<RefCell<u32>>>,
+        spotlight_state: &mut FnvHashMap<ItemId, Rc<RefCell<u32>>>,
+        old_spotlight_button: &FnvHashMap<ItemId, Rc<RefCell<u32>>>,
+        spotlight_button: &mut FnvHashMap<ItemId, Rc<RefCell<u32>>>,
     ) -> Option<EventGroupAbstraction> {
         // Create the empty header
         let header = gtk::Label::new(None);
@@ -426,7 +469,7 @@ impl EventGroupAbstraction {
 
         // If there is an id, create the header and id and add it to the group
         let group_id;
-        let priority;
+        let position;
         let mut state_selection = None;
         match event_group.group_id.clone() {
             // Create the group_id and header for the particular group
@@ -436,17 +479,26 @@ impl EventGroupAbstraction {
                     "<span size='14000'>{}</span>",
                     clean_text(&id_pair.description, LABEL_LIMIT, false, false, true)
                 );
-                priority = decorate_label(
+                position = decorate_label(
                     &header,
                     &header_markup,
                     id_pair.display,
                     full_status,
                     font_size,
                     is_high_contrast,
+                    None, // No spotlight
                 );
 
                 // Create the status selection button (if the status exists)
                 if let Some(&StatusDescription { ref current, .. }) = full_status.get(&id_pair) {
+                    // See if there is an existing spotlight expiration for this state
+                    let expiration = match old_spotlight_state.get(&current.get_id()) {
+                        Some(exp) => {
+                            exp.clone()
+                        },
+                        None => Rc::new(RefCell::new(U32_MAX)),
+                    };
+
                     // Create the new state selection label
                     let state_label = gtk::Label::new(None);
                     let state_markup =
@@ -458,7 +510,13 @@ impl EventGroupAbstraction {
                         full_status,
                         font_size,
                         is_high_contrast,
+                        Some(expiration.clone()), // spotlight
                     );
+                    
+                    // If the expiration was used, save it
+                    if Rc::strong_count(&expiration) > 1 {
+                        spotlight_state.insert(current.get_id(), expiration);
+                    }
 
                     // Create the button and add the label
                     state_label.show();
@@ -483,7 +541,7 @@ impl EventGroupAbstraction {
             // Create the default id and header
             None => {
                 group_id = None;
-                priority = None;
+                position = None;
             }
         }
 
@@ -494,14 +552,21 @@ impl EventGroupAbstraction {
             let button_label = gtk::Label::new(None);
             let button_markup = clean_text(&event.description, BUTTON_LIMIT, true, false, true);
 
-            // Set the markup based on the requested color and extract the priority
-            let button_priority = decorate_label(
+            // See if there is an existing spotlight expiration for this state
+            let expiration = match old_spotlight_button.get(&event.get_id()) {
+                Some(exp) => exp.clone(),
+                None => Rc::new(RefCell::new(U32_MAX)),
+            };
+            
+            // Set the markup based on the requested color and extract the position
+            let button_position = decorate_label(
                 &button_label,
                 &button_markup,
                 event.display,
                 full_status,
                 font_size,
                 is_high_contrast,
+                Some(expiration.clone()),
             );
 
             // Set the features of the new label and place it on the button
@@ -510,29 +575,47 @@ impl EventGroupAbstraction {
             let button = gtk::Button::new();
             button.add(&button_label);
 
-            // Create the new button action and connect it
-            button.connect_clicked(clone!(system_send => move |_| {
-                // Send the event trigger to the underlying system
-                system_send.send(TriggerEvent { event: event.get_id(), check_scene: true});
-            }));
+            // If the expiration was used, save it and use it in button clicked
+            if Rc::strong_count(&expiration) > 1 {
+                spotlight_button.insert(event.get_id(), expiration.clone());
+                
+                // Create the new button action and connect it
+                button.connect_clicked(clone!(system_send => move |_| {
+                    // Send the event trigger to the underlying system
+                    system_send.send(TriggerEvent { event: event.get_id(), check_scene: true});
+                    
+                    // Stop the button from flashing, if it is
+                    if let Ok(mut count) = expiration.try_borrow_mut() {
+                        *count = 1;
+                    }
+                }));
+            
+            // Otherwise, just set the button click normally
+            } else {
+                // Create the new button action and connect it
+                button.connect_clicked(clone!(system_send => move |_| {
+                    // Send the event trigger to the underlying system
+                    system_send.send(TriggerEvent { event: event.get_id(), check_scene: true});
+                }));
+            }
 
-            // Add the priority and button to the list
-            match button_priority {
-                // Use the priority, if provided
+            // Add the position and button to the list
+            match button_position {
+                // Use the position, if provided
                 Some(number) => buttons_raw.push((number, button)),
 
                 // Otherwise, default to the maximum possible
-                None => buttons_raw.push((u32MAX, button)),
+                None => buttons_raw.push((U32_MAX, button)),
             }
         }
 
-        // Reorder the buttons to follow priority
+        // Reorder the buttons to follow position
         buttons_raw.sort_by_key(|pair| {
-            let &(ref priority, _) = pair;
-            priority.clone()
+            let &(ref position, _) = pair;
+            position.clone()
         });
 
-        // Strip the raw buttons to remove priority
+        // Strip the raw buttons to remove position
         let mut buttons = Vec::new();
         for (_, button) in buttons_raw.drain(..) {
             buttons.push(button);
@@ -543,7 +626,7 @@ impl EventGroupAbstraction {
             // Return the new group abstraction
             return Some(EventGroupAbstraction {
                 group_id,
-                priority,
+                position,
                 header,
                 state_selection,
                 buttons,

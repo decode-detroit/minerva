@@ -209,10 +209,20 @@ impl Logger {
 
         // Attempt to open the error log file
         let error_log = match error_path {
-            // If a file was specified, try to load it
-            Some(filepath) => match File::create(filepath.to_str().unwrap_or("")) {
+            // If a file was specified, try to open it first
+            Some(filepath) => match File::open(filepath.to_str().unwrap_or("")) {
                 Ok(file) => Some(file),
-                Err(_) => return Err(format_err!("Unable to create error log file.")),
+                
+                // If the file does not exist
+                Err(_) => {
+                    // Try to create the filepath instead
+                    match File::create(filepath.to_str().unwrap_or("")) {
+                        Ok(file) => Some(file),
+                        Err(_) => {
+                            return Err(format_err!("Unable to create error log file."));
+                        }
+                    }
+                }
             },
 
             // If a file was not specified, run without a log file
@@ -300,7 +310,8 @@ impl Logger {
 
                 // Try to write it to the file
                 if let Some(ref mut file) = self.error_log {
-                    file.write(
+                    // Ignore errors writing to the file
+                    file.write_all(
                         format!(
                             "{:04}-{:02}-{:02} {:02}:{:02} — ERROR: {}\n",
                             now.tm_year + 1900,
@@ -311,8 +322,15 @@ impl Logger {
                             &error
                         )
                         .as_bytes(),
-                    )
-                    .unwrap_or(0);
+                    ).unwrap_or(());
+                
+                // Warn that there is no file
+                } else {
+                    return Warning {
+                        message: "No Active Error Log.".to_string(),
+                        time: now,
+                        event: None,
+                    };
                 }
 
                 // Return the error either way
@@ -394,9 +412,10 @@ impl Logger {
 
                 // Try to write the data to the game log
                 if let Some(ref mut file) = self.game_log {
-                    file.write(
+                    // Ignore errors writing to the file
+                    file.write_all(
                         format!(
-                            "{:04}-{:02}-{:02} {:02}:{:02} — {:?}\n",
+                            "{:04}-{:02}-{:02} {:02}:{:02} — {}\n",
                             now.tm_year + 1900,
                             now.tm_mon + 1,
                             now.tm_mday,
@@ -405,23 +424,22 @@ impl Logger {
                             &data
                         )
                         .as_bytes(),
-                    )
-                    .unwrap_or(0);
+                    ).unwrap_or(());
+                
+                // Warn that there is no file
+                } else {
+                    return Warning {
+                        message: "No Active Game Log.".to_string(),
+                        time: now,
+                        event: None,
+                    };
                 }
 
                 // Print the full data to the notification area
-                #[cfg(test)]
-                return Current {
-                    message: format!("Got Data: {:?}", data),
+                Update {
+                    message: format!("Recorded: {}", data),
                     time: now,
-                };
-
-                // Otherwise return a message about saving the data
-                #[cfg(not(test))]
-                return Current {
-                    message: "Saved Data To Game Log.".to_string(),
-                    time: now,
-                };
+                }
             }
         }
     }

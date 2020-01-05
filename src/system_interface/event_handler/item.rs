@@ -201,16 +201,20 @@ impl fmt::Display for ItemId {
 pub enum DisplayType {
     /// A variant for items which are displayed in the top level control group.
     /// These items will be displayed in the story control area in order of
-    /// ascending  id, or in order of ascending priority if specified. The text
+    /// ascending  id, or in order of ascending position if specified. The text
     /// color will match the rgb value, if specified. The text will use the
     /// highlight color for any special animations and when the highlight_state
-    /// status is in the listed state (if specified).
+    /// status is in the listed state (if specified). If spotlight is set,
+    /// the text will flash the highlight color the specified number of times
+    /// when changed to this state or when this button is present but has not
+    /// yet been pressed. A value of zero implies indefinite flashing.
     ///
     DisplayControl {
-        priority: Option<u32>,
+        position: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
+        spotlight: Option<u32>,
     },
 
     /// A variant to indicatie items which to be displayed with a specific group
@@ -219,65 +223,81 @@ pub enum DisplayType {
     /// with the description DisplayWith are expected to have a corresponding
     /// group id in the configuration lookup. Events will be displayed in
     /// order of ascending id within their group, or in order of ascending
-    /// priority if specified. The text color will match the rgb value, if
+    /// position if specified. The text color will match the rgb value, if
     /// specified. The text will use the highlight color for any special
     /// animations and when the highlight_state status is in the listed state
-    /// (if specified).
+    /// (if specified). If spotlight is set, the text will flash the highlight color
+    /// the specified number of times when changed to this state or when this
+    /// button is present but has not yet been pressed. A value of zero implies
+    /// indefinite flashing.
     ///
     DisplayWith {
         group_id: ItemId,
-        priority: Option<u32>,
+        position: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
+        spotlight: Option<u32>,
     },
 
     /// A variant for items which are displayed with a particular group (if
     /// specified) or with the control group, but only when the program is in
     /// debug mode. These items will be displayed in order of ascending id,
-    /// or in order of ascending priority if specified. The text color will
-    /// match the rgb value, if specified.  The text will use the highlight
+    /// or in order of ascending position if specified. The text color will
+    /// match the rgb value, if specified. The text will use the highlight
     /// color for any special animations and when the highlight_state status
-    /// is in the listed state (if specified).
+    /// is in the listed state (if specified). If spotlight is set,
+    /// the text will flash the highlight color the specified number of times
+    /// when changed to this state or when this button is present but has not
+    /// yet been pressed. A value of zero implies indefinite flashing.
     ///
     DisplayDebug {
         group_id: Option<ItemId>,
-        priority: Option<u32>,
+        position: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
+        spotlight: Option<u32>,
     },
 
     /// A variant for items which are to be displayed as a label in the control
     /// area (not as an event triggerable by the user). The text color of the
-    /// label will match the rgb value, if specified. This is useful for status
-    /// labels which need to be monitored by the user, but should not be
-    /// manually changed.
+    /// label will match the rgb value if specified. The text will use the highlight
+    /// color for any special animations and when the highlight_state status
+    /// is in the listed state (if specified). If spotlight is set,
+    /// the text will flash the highlight color the specified number of times
+    /// when changed to this state or when this button is present but has not
+    /// yet been pressed. A value of zero implies indefinite flashing.
     ///
     LabelControl {
-        priority: Option<u32>,
+        position: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
+        spotlight: Option<u32>,
     },
 
     /// A variant for items which are only to be displayed as a label (not as an
     /// event triggerable by the user). The text color of the label will match
-    /// the rgb value, if specified. This is useful for status labels for
-    /// organizing events but which are not events themselves to be triggered
-    /// by the user.
+    /// the rgb value, if specified. The text will use the highlight
+    /// color for any special animations and when the highlight_state status
+    /// is in the listed state (if specified). If spotlight is set,
+    /// the text will flash the highlight color the specified number of times
+    /// when changed to this state or when this button is present but has not
+    /// yet been pressed. A value of zero implies indefinite flashing.
     ///
     LabelHidden {
-        priority: Option<u32>,
+        position: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
+        spotlight: Option<u32>,
     },
 
     /// Items which should not be displayed. Typically this includes items
     /// internal to the system or not designed to be directly accessible to the
-    /// user. If this item is a label, it will be given default priority and
-    /// color.
+    /// user. If this item is a label, it will be given default position
+    /// (std::u32::MAX) and text color.
     ///
     Hidden,
 }

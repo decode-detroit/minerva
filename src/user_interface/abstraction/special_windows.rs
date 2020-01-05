@@ -21,9 +21,9 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     AllStop, BroadcastEvent, DisplayControl, DisplayDebug, DisplayWith, EditDetail,
-    EditMode, EventDelay, EventDetail, FullStatus, Hidden, ItemDescription, ItemId,
-    ItemPair, LabelControl, LabelHidden, SceneChange, StatusChange, StatusDescription,
-    SystemSend, TriggerEvent,
+    EditMode, EventAction, EventDelay, EventDetail, FullStatus, Hidden, ItemDescription,
+    ItemId, ItemPair, LabelControl, LabelHidden, SceneChange, StatusChange,
+    StatusDescription, SystemSend, TriggerEvent, DataType,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -234,7 +234,7 @@ impl StatusDialog {
                                     let child = gtk::FlowBoxChild::new();
                                     let text = clean_text(&state_pair.description, STATE_LIMIT, false, false, true);
                                     let label = gtk::Label::new(None);
-                                    decorate_label(&label, &text, state_pair.display, &full_status, NORMAL_FONT, false);
+                                    decorate_label(&label, &text, state_pair.display, &full_status, NORMAL_FONT, false, None);
                                     let button = gtk::Button::new();
                                     button.connect_clicked(clone!(state_box, child => move |_| {
                                         state_box.select_child(&child);
@@ -737,11 +737,11 @@ impl EditEventDialog {
         detail_stack.add_named(edit_modify_status.get_top_element(), "status");
 
         // Create and add the trigger event variant to the detail stack
-        let edit_trigger_events = EditTriggerEvents::new();
+        let edit_trigger_events = EditQueueEvent::new();
         detail_stack.add_named(edit_trigger_events.get_top_element(), "events");
 
         // Create and add the cancel event variant to the detail stack
-        let edit_cancel_events = EditCancelEvents::new();
+        let edit_cancel_events = EditCancelEvent::new();
         detail_stack.add_named(edit_cancel_events.get_top_element(), "cancel");
 
         // Create and add the save data variant to the detail stack
@@ -781,52 +781,56 @@ impl EditEventDialog {
 
         // If there is an old detail, load it into the window
         if let Some(detail) = old_detail {
-            // Load the correct detail into the window
-            match detail {
-                // Load the new scene variant
-                EventDetail::NewScene { new_scene } => {
-                    edit_new_scene.load_detail(new_scene);
-                    edit_overview.choose_detail("scene")
-                }
+            // Load the first action into the window
+            for action in detail {
+                match action {
+                    // Load the new scene variant
+                    EventAction::NewScene { new_scene } => {
+                        edit_new_scene.load_detail(new_scene);
+                        edit_overview.choose_detail("scene")
+                    }
 
-                // Load the modify status variant
-                EventDetail::ModifyStatus {
-                    status_id,
-                    new_state,
-                } => {
-                    edit_modify_status.load_detail(status_id, new_state);
-                    edit_overview.choose_detail("status");
-                }
+                    // Load the modify status variant
+                    EventAction::ModifyStatus {
+                        status_id,
+                        new_state,
+                    } => {
+                        edit_modify_status.load_detail(status_id, new_state);
+                        edit_overview.choose_detail("status");
+                    }
 
-                // Load the trigger events variant
-                EventDetail::TriggerEvents { events } => {
-                    edit_trigger_events.load_detail(events);
-                    edit_overview.choose_detail("events");
-                }
+                    // Load the trigger event variant
+                    EventAction::QueueEvent { event } => {
+                        edit_trigger_events.load_detail(vec!(event));
+                        edit_overview.choose_detail("events");
+                    }
 
-                // Load the cancel events variant
-                EventDetail::CancelEvents { events } => {
-                    edit_cancel_events.load_detail(events);
-                    edit_overview.choose_detail("cancel");
-                }
+                    // Load the cancel events variant
+                    EventAction::CancelEvent { event } => {
+                        edit_cancel_events.load_detail(vec!(event));
+                        edit_overview.choose_detail("cancel");
+                    }
 
-                // Load the save data variant
-                EventDetail::SaveData { data } => {
-                    edit_save_data.load_detail(data);
-                    edit_overview.choose_detail("data");
-                }
+                    // Load the save data variant
+                    EventAction::SaveData { data } => {
+                        // FIXME edit_save_data.load_detail(data);
+                        edit_overview.choose_detail("data");
+                    }
 
-                // Ignore the send data variant FIXME
-                EventDetail::SendData(data_type) => (),
+                    // Ignore the send data variant FIXME
+                    EventAction::SendData { data } => (),
 
-                // Load the grouped event variant
-                EventDetail::GroupedEvent {
-                    status_id,
-                    event_map,
-                } => {
-                    edit_grouped_event.load_detail(status_id, event_map);
-                    edit_overview.choose_detail("grouped");
+                    // Load the grouped event variant
+                    EventAction::GroupedEvent {
+                        status_id,
+                        event_map,
+                    } => {
+                        edit_grouped_event.load_detail(status_id, event_map);
+                        edit_overview.choose_detail("grouped");
+                    }
                 }
+                // FIXME
+                break
             }
         }
 
@@ -848,7 +852,7 @@ impl EditEventDialog {
                     // Pack the modify status variant
                     "status" => edit_modify_status.pack_detail(),
 
-                    // Pack the trigger events variant
+                    // Pack the trigger event variant
                     "events" => edit_trigger_events.pack_detail(),
 
                     // Pack the cancel events variant
@@ -885,8 +889,8 @@ struct EditOverview {
     id_spin: gtk::SpinButton,                            // the spin selection for the event id
     description: gtk::Entry,                             // the description of the event
     display_type: gtk::ComboBoxText,                     // the display type selection for the event
-    displaycontrol_priority_checkbox: gtk::CheckButton,  // the priority checkbox
-    displaycontrol_priority: gtk::SpinButton,            // the spin selection for priority
+    displaycontrol_position_checkbox: gtk::CheckButton,  // the position checkbox
+    displaycontrol_position: gtk::SpinButton,            // the spin selection for position
     displaycontrol_color_checkbox: gtk::CheckButton,     // the color checkbox
     displaycontrol_color: gtk::ColorButton,              // the color selection button
     displaycontrol_highlight_checkbox: gtk::CheckButton, // the highlight checkbox
@@ -895,8 +899,8 @@ struct EditOverview {
     displaycontrol_highstate_status: gtk::SpinButton,    // the highlight state status spin
     displaycontrol_highstate_state: gtk::SpinButton,     // the highlight state state spin
     displaywith_spin: gtk::SpinButton,                   // the spin selection for the group id
-    displaywith_priority_checkbox: gtk::CheckButton,     // the priority checkbox
-    displaywith_priority: gtk::SpinButton,               // the spin selection for the priority
+    displaywith_position_checkbox: gtk::CheckButton,     // the position checkbox
+    displaywith_position: gtk::SpinButton,               // the spin selection for the position
     displaywith_color_checkbox: gtk::CheckButton,        // the color checkbox
     displaywith_color: gtk::ColorButton,                 // the color selection button
     displaywith_highlight_checkbox: gtk::CheckButton,    // the highlight checkbox
@@ -906,8 +910,8 @@ struct EditOverview {
     displaywith_highstate_state: gtk::SpinButton,        // the highlight state state spin
     displaydebug_checkbox: gtk::CheckButton,             // the checkbox for group id
     displaydebug_spin: gtk::SpinButton,                  // the spin selection for the group id
-    displaydebug_priority_checkbox: gtk::CheckButton,    // the priority checkbox
-    displaydebug_priority: gtk::SpinButton,              // the spin selection for priority
+    displaydebug_position_checkbox: gtk::CheckButton,    // the position checkbox
+    displaydebug_position: gtk::SpinButton,              // the spin selection for position
     displaydebug_color_checkbox: gtk::CheckButton,       // the color checkbox
     displaydebug_color: gtk::ColorButton,                // the color selection button
     displaydebug_highlight_checkbox: gtk::CheckButton,   // the highlight checkbox
@@ -915,8 +919,8 @@ struct EditOverview {
     displaydebug_highstate_checkbox: gtk::CheckButton,   // the highlight state checkbox
     displaydebug_highstate_status: gtk::SpinButton,      // the highlight state status spin
     displaydebug_highstate_state: gtk::SpinButton,       // the highlight state state spin
-    labelcontrol_priority_checkbox: gtk::CheckButton,    // the priority checkbox
-    labelcontrol_priority: gtk::SpinButton,              // the spin selection for priority
+    labelcontrol_position_checkbox: gtk::CheckButton,    // the position checkbox
+    labelcontrol_position: gtk::SpinButton,              // the spin selection for position
     labelcontrol_color_checkbox: gtk::CheckButton,       // the color checkbox
     labelcontrol_color: gtk::ColorButton,                // the color selection button
     labelcontrol_highlight_checkbox: gtk::CheckButton,   // the highlight checkbox
@@ -924,8 +928,8 @@ struct EditOverview {
     labelcontrol_highstate_checkbox: gtk::CheckButton,   // the highlight state checkbox
     labelcontrol_highstate_status: gtk::SpinButton,      // the highlight state status spin
     labelcontrol_highstate_state: gtk::SpinButton,       // the highlight state state spin
-    labelhidden_priority_checkbox: gtk::CheckButton,     // the priority checkbox
-    labelhidden_priority: gtk::SpinButton,               // the spin selection for priority
+    labelhidden_position_checkbox: gtk::CheckButton,     // the position checkbox
+    labelhidden_position: gtk::SpinButton,               // the spin selection for position
     labelhidden_color_checkbox: gtk::CheckButton,        // the color check
     labelhidden_color: gtk::ColorButton,                 // the color selection button
     labelhidden_highlight_checkbox: gtk::CheckButton,    // the highlight checkbox
@@ -954,9 +958,9 @@ impl EditOverview {
         display_type.append(Some("labelhidden"), "Label Hidden");
         display_type.append(Some("hidden"), "Hidden");
 
-        // Add the displaycontrol type priority, color, and highlight items
-        let displaycontrol_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
-        let displaycontrol_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Add the displaycontrol type position, color, and highlight items
+        let displaycontrol_position_checkbox = gtk::CheckButton::new_with_label("Display Position");
+        let displaycontrol_position = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaycontrol_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaycontrol_color = gtk::ColorButton::new();
         displaycontrol_color.set_title("Text Color");
@@ -972,8 +976,8 @@ impl EditOverview {
 
         // Compose the displaycontrol grid
         let displaycontrol_grid = gtk::Grid::new();
-        displaycontrol_grid.attach(&displaycontrol_priority_checkbox, 0, 0, 1, 1);
-        displaycontrol_grid.attach(&displaycontrol_priority, 1, 0, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_position_checkbox, 0, 0, 1, 1);
+        displaycontrol_grid.attach(&displaycontrol_position, 1, 0, 1, 1);
         displaycontrol_grid.attach(&displaycontrol_color_checkbox, 0, 1, 1, 1);
         displaycontrol_grid.attach(&displaycontrol_color, 1, 1, 1, 1);
         displaycontrol_grid.attach(&displaycontrol_highlight_checkbox, 0, 2, 1, 1);
@@ -988,9 +992,9 @@ impl EditOverview {
         // Add the displaywith type spin items
         let displaywith_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
-        // Add the displaywith type priority and color items
-        let displaywith_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
-        let displaywith_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Add the displaywith type position and color items
+        let displaywith_position_checkbox = gtk::CheckButton::new_with_label("Display Position");
+        let displaywith_position = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaywith_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaywith_color = gtk::ColorButton::new();
         displaywith_color.set_title("Text Color");
@@ -1006,8 +1010,8 @@ impl EditOverview {
         // Compose the displaywith grid
         let displaywith_grid = gtk::Grid::new();
         displaywith_grid.attach(&displaywith_spin, 0, 0, 1, 1);
-        displaywith_grid.attach(&displaywith_priority_checkbox, 0, 1, 1, 1);
-        displaywith_grid.attach(&displaywith_priority, 1, 1, 1, 1);
+        displaywith_grid.attach(&displaywith_position_checkbox, 0, 1, 1, 1);
+        displaywith_grid.attach(&displaywith_position, 1, 1, 1, 1);
         displaywith_grid.attach(&displaywith_color_checkbox, 0, 2, 1, 1);
         displaywith_grid.attach(&displaywith_color, 1, 2, 1, 1);
         displaywith_grid.attach(&displaywith_highlight_checkbox, 0, 3, 1, 1);
@@ -1023,9 +1027,9 @@ impl EditOverview {
         let displaydebug_checkbox = gtk::CheckButton::new_with_label("Display With Group");
         let displaydebug_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
-        // Add the displaydebug type priority and color items
-        let displaydebug_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
-        let displaydebug_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Add the displaydebug type position and color items
+        let displaydebug_position_checkbox = gtk::CheckButton::new_with_label("Display Position");
+        let displaydebug_position = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let displaydebug_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let displaydebug_color = gtk::ColorButton::new();
         displaydebug_color.set_title("Text Color");
@@ -1042,8 +1046,8 @@ impl EditOverview {
         let displaydebug_grid = gtk::Grid::new();
         displaydebug_grid.attach(&displaydebug_checkbox, 0, 0, 1, 1);
         displaydebug_grid.attach(&displaydebug_spin, 1, 0, 1, 1);
-        displaydebug_grid.attach(&displaydebug_priority_checkbox, 0, 1, 1, 1);
-        displaydebug_grid.attach(&displaydebug_priority, 1, 1, 1, 1);
+        displaydebug_grid.attach(&displaydebug_position_checkbox, 0, 1, 1, 1);
+        displaydebug_grid.attach(&displaydebug_position, 1, 1, 1, 1);
         displaydebug_grid.attach(&displaydebug_color_checkbox, 0, 2, 1, 1);
         displaydebug_grid.attach(&displaydebug_color, 1, 2, 1, 1);
         displaydebug_grid.attach(&displaydebug_highlight_checkbox, 0, 3, 1, 1);
@@ -1055,9 +1059,9 @@ impl EditOverview {
         displaydebug_grid.set_row_spacing(10);
         displaydebug_grid.show_all();
 
-        // Add the labelcontrol type priority, color, and highlight items
-        let labelcontrol_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
-        let labelcontrol_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Add the labelcontrol type position, color, and highlight items
+        let labelcontrol_position_checkbox = gtk::CheckButton::new_with_label("Display Position");
+        let labelcontrol_position = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let labelcontrol_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let labelcontrol_color = gtk::ColorButton::new();
         labelcontrol_color.set_title("Text Color");
@@ -1072,8 +1076,8 @@ impl EditOverview {
 
         // Compose the labelcontrol grid
         let labelcontrol_grid = gtk::Grid::new();
-        labelcontrol_grid.attach(&labelcontrol_priority_checkbox, 0, 0, 1, 1);
-        labelcontrol_grid.attach(&labelcontrol_priority, 1, 0, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_position_checkbox, 0, 0, 1, 1);
+        labelcontrol_grid.attach(&labelcontrol_position, 1, 0, 1, 1);
         labelcontrol_grid.attach(&labelcontrol_color_checkbox, 0, 1, 1, 1);
         labelcontrol_grid.attach(&labelcontrol_color, 1, 1, 1, 1);
         labelcontrol_grid.attach(&labelcontrol_highlight_checkbox, 0, 2, 1, 1);
@@ -1085,9 +1089,9 @@ impl EditOverview {
         labelcontrol_grid.set_row_spacing(10);
         labelcontrol_grid.show_all();
 
-        // Add the labelhidden priority, color, and highlight items
-        let labelhidden_priority_checkbox = gtk::CheckButton::new_with_label("Display Priority");
-        let labelhidden_priority = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Add the labelhidden position, color, and highlight items
+        let labelhidden_position_checkbox = gtk::CheckButton::new_with_label("Display Position");
+        let labelhidden_position = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let labelhidden_color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let labelhidden_color = gtk::ColorButton::new();
         labelhidden_color.set_title("Text Color");
@@ -1100,8 +1104,8 @@ impl EditOverview {
 
         // Compose the labelhidden grid
         let labelhidden_grid = gtk::Grid::new();
-        labelhidden_grid.attach(&labelhidden_priority_checkbox, 0, 0, 1, 1);
-        labelhidden_grid.attach(&labelhidden_priority, 1, 0, 1, 1);
+        labelhidden_grid.attach(&labelhidden_position_checkbox, 0, 0, 1, 1);
+        labelhidden_grid.attach(&labelhidden_position, 1, 0, 1, 1);
         labelhidden_grid.attach(&labelhidden_color_checkbox, 0, 1, 1, 1);
         labelhidden_grid.attach(&labelhidden_color, 1, 1, 1, 1);
         labelhidden_grid.attach(&labelhidden_highlight_checkbox, 0, 2, 1, 1);
@@ -1170,8 +1174,8 @@ impl EditOverview {
             id_spin,
             description,
             display_type,
-            displaycontrol_priority_checkbox,
-            displaycontrol_priority,
+            displaycontrol_position_checkbox,
+            displaycontrol_position,
             displaycontrol_color_checkbox,
             displaycontrol_color,
             displaycontrol_highlight_checkbox,
@@ -1180,8 +1184,8 @@ impl EditOverview {
             displaycontrol_highstate_status,
             displaycontrol_highstate_state,
             displaywith_spin,
-            displaywith_priority_checkbox,
-            displaywith_priority,
+            displaywith_position_checkbox,
+            displaywith_position,
             displaywith_color_checkbox,
             displaywith_color,
             displaywith_highlight_checkbox,
@@ -1191,8 +1195,8 @@ impl EditOverview {
             displaywith_highstate_state,
             displaydebug_checkbox,
             displaydebug_spin,
-            displaydebug_priority_checkbox,
-            displaydebug_priority,
+            displaydebug_position_checkbox,
+            displaydebug_position,
             displaydebug_color_checkbox,
             displaydebug_color,
             displaydebug_highlight_checkbox,
@@ -1200,8 +1204,8 @@ impl EditOverview {
             displaydebug_highstate_checkbox,
             displaydebug_highstate_status,
             displaydebug_highstate_state,
-            labelcontrol_priority_checkbox,
-            labelcontrol_priority,
+            labelcontrol_position_checkbox,
+            labelcontrol_position,
             labelcontrol_color_checkbox,
             labelcontrol_color,
             labelcontrol_highlight_checkbox,
@@ -1209,8 +1213,8 @@ impl EditOverview {
             labelcontrol_highstate_checkbox,
             labelcontrol_highstate_status,
             labelcontrol_highstate_state,
-            labelhidden_priority_checkbox,
-            labelhidden_priority,
+            labelhidden_position_checkbox,
+            labelhidden_position,
             labelhidden_color_checkbox,
             labelhidden_color,
             labelhidden_highlight_checkbox,
@@ -1238,20 +1242,21 @@ impl EditOverview {
         match pair.display {
             // the displaycontrol variant
             DisplayControl {
-                priority,
+                position,
                 color,
                 highlight,
                 highlight_state,
+                spotlight,
             } => {
                 // Switch to the displaycontrol type
                 self.display_type.set_active_id(Some("displaycontrol"));
 
-                // If there is a priority, set it
-                match priority {
-                    None => self.displaycontrol_priority_checkbox.set_active(false),
+                // If there is a position, set it
+                match position {
+                    None => self.displaycontrol_position_checkbox.set_active(false),
                     Some(number) => {
-                        self.displaycontrol_priority_checkbox.set_active(true);
-                        self.displaycontrol_priority.set_value(number as f64);
+                        self.displaycontrol_position_checkbox.set_active(true);
+                        self.displaycontrol_position.set_value(number as f64);
                     }
                 }
 
@@ -1301,21 +1306,22 @@ impl EditOverview {
             // the displaywith variant
             DisplayWith {
                 group_id,
-                priority,
+                position,
                 color,
                 highlight,
                 highlight_state,
+                spotlight,
             } => {
                 // Switch to the displaywith type and set the group id
                 self.display_type.set_active_id(Some("displaywith"));
                 self.displaywith_spin.set_value(group_id.id() as f64);
 
-                // If there is a priority, set it
-                match priority {
-                    None => self.displaywith_priority_checkbox.set_active(false),
+                // If there is a position, set it
+                match position {
+                    None => self.displaywith_position_checkbox.set_active(false),
                     Some(number) => {
-                        self.displaywith_priority_checkbox.set_active(true);
-                        self.displaywith_priority.set_value(number as f64);
+                        self.displaywith_position_checkbox.set_active(true);
+                        self.displaywith_position.set_value(number as f64);
                     }
                 }
 
@@ -1365,10 +1371,11 @@ impl EditOverview {
             // the displaydebug variant
             DisplayDebug {
                 group_id,
-                priority,
+                position,
                 color,
                 highlight,
                 highlight_state,
+                spotlight,
             } => {
                 // Switch to the displaydebug type
                 self.display_type.set_active_id(Some("displaydebug"));
@@ -1382,12 +1389,12 @@ impl EditOverview {
                     }
                 }
 
-                // If there is a priority, set it
-                match priority {
-                    None => self.displaydebug_priority_checkbox.set_active(false),
+                // If there is a position, set it
+                match position {
+                    None => self.displaydebug_position_checkbox.set_active(false),
                     Some(number) => {
-                        self.displaydebug_priority_checkbox.set_active(true);
-                        self.displaydebug_priority.set_value(number as f64);
+                        self.displaydebug_position_checkbox.set_active(true);
+                        self.displaydebug_position.set_value(number as f64);
                     }
                 }
 
@@ -1436,20 +1443,21 @@ impl EditOverview {
 
             // the labelcontrol variant
             LabelControl {
-                priority,
+                position,
                 color,
                 highlight,
                 highlight_state,
+                spotlight,
             } => {
                 // Switch to the labelcontrol type
                 self.display_type.set_active_id(Some("labelcontrol"));
 
-                // If there is a priority, set it
-                match priority {
-                    None => self.labelcontrol_priority_checkbox.set_active(false),
+                // If there is a position, set it
+                match position {
+                    None => self.labelcontrol_position_checkbox.set_active(false),
                     Some(number) => {
-                        self.labelcontrol_priority_checkbox.set_active(true);
-                        self.labelcontrol_priority.set_value(number as f64);
+                        self.labelcontrol_position_checkbox.set_active(true);
+                        self.labelcontrol_position.set_value(number as f64);
                     }
                 }
 
@@ -1498,20 +1506,21 @@ impl EditOverview {
 
             // the label hidden variant
             LabelHidden {
-                priority,
+                position,
                 color,
                 highlight,
                 highlight_state,
+                spotlight,
             } => {
                 //Switch to the labelhidden type
                 self.display_type.set_active_id(Some("labelhidden"));
 
-                // If there is a priority, set it
-                match priority {
-                    None => self.labelhidden_priority_checkbox.set_active(false),
+                // If there is a position, set it
+                match position {
+                    None => self.labelhidden_position_checkbox.set_active(false),
                     Some(number) => {
-                        self.labelhidden_priority_checkbox.set_active(true);
-                        self.labelhidden_priority.set_value(number as f64);
+                        self.labelhidden_position_checkbox.set_active(true);
+                        self.labelhidden_position.set_value(number as f64);
                     }
                 }
 
@@ -1575,10 +1584,10 @@ impl EditOverview {
         let tmp_disp = match tmp_disp_id.as_str() {
             // For the displaycontrol type
             "displaycontrol" => {
-                // Extract the priority, if selected
-                let mut priority = None;
-                if self.displaycontrol_priority_checkbox.get_active() {
-                    priority = Some(self.displaycontrol_priority.get_value() as u32);
+                // Extract the position, if selected
+                let mut position = None;
+                if self.displaycontrol_position_checkbox.get_active() {
+                    position = Some(self.displaycontrol_position.get_value() as u32);
                 }
 
                 // Extract the color, if selected
@@ -1622,19 +1631,20 @@ impl EditOverview {
 
                 // Return the completed display type
                 DisplayControl {
-                    priority,
+                    position,
                     color,
                     highlight,
                     highlight_state,
+                    spotlight: None, // FIXME
                 }
             }
 
             // For the displaywith type
             "displaywith" => {
-                // Extract the priority, if selected
-                let mut priority = None;
-                if self.displaywith_priority_checkbox.get_active() {
-                    priority = Some(self.displaywith_priority.get_value() as u32);
+                // Extract the position, if selected
+                let mut position = None;
+                if self.displaywith_position_checkbox.get_active() {
+                    position = Some(self.displaywith_position.get_value() as u32);
                 }
 
                 // Extract the color, if selected
@@ -1675,10 +1685,11 @@ impl EditOverview {
                 // Return the completed display type
                 DisplayWith {
                     group_id: ItemId::new_unchecked(self.displaywith_spin.get_value() as u32),
-                    priority,
+                    position,
                     color,
                     highlight,
                     highlight_state,
+                    spotlight: None, // FIXME
                 }
             }
 
@@ -1686,16 +1697,16 @@ impl EditOverview {
             "displaydebug" => {
                 // Extract the group id, if selected
                 let mut group_id = None;
-                if self.displaydebug_priority_checkbox.get_active() {
+                if self.displaydebug_position_checkbox.get_active() {
                     group_id = Some(ItemId::new_unchecked(
                         self.displaydebug_spin.get_value() as u32
                     ));
                 }
 
-                // Extract the priority, if selected
-                let mut priority = None;
-                if self.displaydebug_priority_checkbox.get_active() {
-                    priority = Some(self.displaydebug_priority.get_value() as u32);
+                // Extract the position, if selected
+                let mut position = None;
+                if self.displaydebug_position_checkbox.get_active() {
+                    position = Some(self.displaydebug_position.get_value() as u32);
                 }
 
                 // Extract the color, if selected
@@ -1736,19 +1747,20 @@ impl EditOverview {
                 // Return the completed display type
                 DisplayDebug {
                     group_id,
-                    priority,
+                    position,
                     color,
                     highlight,
                     highlight_state,
+                    spotlight: None, // FIXME
                 }
             }
 
             // For the labelcontrol type
             "labelcontrol" => {
-                // Extract the priority, if selected
-                let mut priority = None;
-                if self.labelcontrol_priority_checkbox.get_active() {
-                    priority = Some(self.labelcontrol_priority.get_value() as u32);
+                // Extract the position, if selected
+                let mut position = None;
+                if self.labelcontrol_position_checkbox.get_active() {
+                    position = Some(self.labelcontrol_position.get_value() as u32);
                 }
 
                 // Extract the color, if selected
@@ -1788,19 +1800,20 @@ impl EditOverview {
 
                 // Return the completed display type
                 LabelControl {
-                    priority,
+                    position,
                     color,
                     highlight,
                     highlight_state,
+                    spotlight: None, // FIXME
                 }
             }
 
             // For the labelhidden type
             "labelhidden" => {
-                // Extract the priority, if selected
-                let mut priority = None;
-                if self.labelhidden_priority_checkbox.get_active() {
-                    priority = Some(self.labelhidden_priority.get_value() as u32);
+                // Extract the position, if selected
+                let mut position = None;
+                if self.labelhidden_position_checkbox.get_active() {
+                    position = Some(self.labelhidden_position.get_value() as u32);
                 }
 
                 // Extract the color, if selected
@@ -1831,10 +1844,11 @@ impl EditOverview {
 
                 // Return the completed display type
                 LabelHidden {
-                    priority,
+                    position,
                     color,
                     highlight,
                     highlight_state: None, // FIXME need additional parameters for this
+                    spotlight: None, // FIXME
                 }
             }
 
@@ -1908,10 +1922,10 @@ impl EditNewScene {
     // A function to pack and return the event detail
     //
     fn pack_detail(&self) -> EventDetail {
-        // Pack the new scene id into a detail
-        EventDetail::NewScene {
+        // Pack the new scene id into a detail FIXME
+        vec!(EventAction::NewScene {
             new_scene: ItemId::new_unchecked(self.new_scene_spin.get_value() as u32),
-        }
+        })
     }
 }
 
@@ -1980,26 +1994,26 @@ impl EditModifyStatus {
     // A function to pack and return the event detail
     //
     fn pack_detail(&self) -> EventDetail {
-        // Pack the new scene id into a detail
-        EventDetail::ModifyStatus {
+        // Pack the new scene id into a detail FIXME
+        vec!(EventAction::ModifyStatus {
             status_id: ItemId::new_unchecked(self.status_spin.get_value() as u32),
             new_state: ItemId::new_unchecked(self.state_spin.get_value() as u32),
-        }
+        })
     }
 }
 
-// Create the trigger events variant
+// Create the queue event variant
 //
 #[derive(Clone, Debug)]
-struct EditTriggerEvents {
+struct EditQueueEvent {
     grid: gtk::Grid,                  // the main grid for this element
     trigger_event_list: gtk::ListBox, // the list for events in this variant
 }
 
-impl EditTriggerEvents {
+impl EditQueueEvent {
     // A function to ceate a trigger events variant
     //
-    fn new() -> EditTriggerEvents {
+    fn new() -> EditQueueEvent {
         // Create the list for the trigger events variant
         let trigger_event_list = gtk::ListBox::new();
         trigger_event_list.set_selection_mode(gtk::SelectionMode::None);
@@ -2012,7 +2026,7 @@ impl EditTriggerEvents {
         add_button.connect_clicked(clone!(trigger_event_list => move |_| {
 
             // Add an event to the list
-            EditTriggerEvents::add_event(&trigger_event_list, None);
+            EditQueueEvent::add_event(&trigger_event_list, None);
         }));
 
         // Create the scrollable window for the list
@@ -2037,7 +2051,7 @@ impl EditTriggerEvents {
 
         // Create and return the trigger events variant
         trigger_event_grid.show_all();
-        EditTriggerEvents {
+        EditQueueEvent {
             grid: trigger_event_grid,
             trigger_event_list,
         }
@@ -2054,7 +2068,7 @@ impl EditTriggerEvents {
     fn load_detail(&self, events: Vec<EventDelay>) {
         // Add each event to the list
         for event in events {
-            EditTriggerEvents::add_event(&self.trigger_event_list, Some(event));
+            EditQueueEvent::add_event(&self.trigger_event_list, Some(event));
         }
     }
 
@@ -2204,22 +2218,26 @@ impl EditTriggerEvents {
         }
 
         // Pack the new scene id into a detail
-        EventDetail::TriggerEvents { events }
+        let mut tmp = Vec::new();
+        for event in events {
+            tmp.push(EventAction::QueueEvent { event });
+        }
+        tmp
     }
 }
 
 // Create the cancel events variant
 //
 #[derive(Clone, Debug)]
-struct EditCancelEvents {
+struct EditCancelEvent {
     grid: gtk::Grid,                 // the main grid for this element
     cancel_event_list: gtk::ListBox, // the list for events in this variant
 }
 
-impl EditCancelEvents {
+impl EditCancelEvent {
     // A function to ceate a cancel events variant
     //
-    fn new() -> EditCancelEvents {
+    fn new() -> EditCancelEvent {
         // Create the list for the cancel events variant
         let cancel_event_list = gtk::ListBox::new();
         cancel_event_list.set_selection_mode(gtk::SelectionMode::None);
@@ -2232,7 +2250,7 @@ impl EditCancelEvents {
         add_button.connect_clicked(clone!(cancel_event_list => move |_| {
 
             // Add an event to the list
-            EditCancelEvents::add_event(&cancel_event_list, None);
+            EditCancelEvent::add_event(&cancel_event_list, None);
         }));
 
         // Create the scrollable window for the list
@@ -2257,7 +2275,7 @@ impl EditCancelEvents {
 
         // Create and return the cancel events variant
         cancel_event_grid.show_all();
-        EditCancelEvents {
+        EditCancelEvent {
             grid: cancel_event_grid,
             cancel_event_list,
         }
@@ -2274,7 +2292,7 @@ impl EditCancelEvents {
     fn load_detail(&self, events: Vec<ItemId>) {
         // Add each event to the list
         for event in events {
-            EditCancelEvents::add_event(&self.cancel_event_list, Some(event));
+            EditCancelEvent::add_event(&self.cancel_event_list, Some(event));
         }
     }
 
@@ -2363,7 +2381,11 @@ impl EditCancelEvents {
         }
 
         // Pack the new scene id into a detail
-        EventDetail::CancelEvents { events }
+        let mut tmp = Vec::new();
+        for event in events {
+            tmp.push(EventAction::CancelEvent { event });
+        }
+        tmp
     }
 }
 
@@ -2516,8 +2538,8 @@ impl EditSaveData {
             }
         }
 
-        // Pack the new scene id into a detail
-        EventDetail::SaveData { data }
+        // Pack the new scene id into a detail FIXME
+        vec!(EventAction::SaveData { data: DataType::UserString })
     }
 }
 
@@ -2724,10 +2746,10 @@ impl EditGroupedEvent {
             }
         }
 
-        // Pack the new scene id into a detail
-        EventDetail::GroupedEvent {
+        // Pack the new scene id into a detail FIXME
+        vec!(EventAction::GroupedEvent {
             status_id,
             event_map,
-        }
+        })
     }
 }

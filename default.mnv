@@ -1,30 +1,21 @@
 ---
 # Constants for the Configuration
-version: "0.7.2"
+version: "0.8.0"
 identifier:
   id: 0
 server_location: ~
 background_process: ~
-system_connection:
-  - ZmqSecondary:
-      send_path: "tcp://192.168.0.210:6666"
-      recv_path: "tcp://192.168.0.210:5555"
+system_connection: []
 default_scene:
   id: 100
 
 # Scope Definitions
 all_scenes:
 
-  # Default scope
+  # Introduction scope
   ? id: 100
   : - id: 100
-    - id: 2
-    - id: 3
-    - id: 4
-    - id: 5
-    - id: 6
-    - id: 20
-    - id: 30
+    - id: 1
     
   # Second Scope
   ? id: 200
@@ -51,115 +42,116 @@ status_map:
       allowed:
         - id: 31
 
-# Event Lookup
+# Item Lookup
 event_set:
-  ? id: 2
-    description: Load Delayed Events
+  ? id: 100
+    description: Introduction
+    display: Hidden
+  : []
+  ? id: 1
+    description: NEXT
     display:
       DisplayWith:
         group_id:
-          id: 20
-        priority: ~
-        color: [115, 210, 22]
-        highlight: [238, 204, 68]
-  : TriggerEvents:
-      events:
-        - delay:
-            secs: 20
-            nanos: 0
-          event_id:
-            id: 3
-        - delay:
-            secs: 40
-            nanos: 0
-          event_id:
-            id: 4
-        - delay:
-            secs: 60
-            nanos: 0
-          event_id:
-            id: 5
+          id: 2
+        highlight: [100, 250, 0]
+        spotlight: 0
+  : - NewScene:
+        new_scene:
+          id: 200
+  ? id: 2
+    description: Welcome! Click next to begin
+    display: Hidden
+  : ~
   ? id: 3
     description: Event Triggered (Visible)
     display:
       DisplayWith:
         group_id:
           id: 20
-        priority: ~
+        position: ~
         color: ~
         highlight: ~
-  : TriggerEvents:
-      events: []
+  : []
   ? id: 4
     description: Event Triggered (Debug)
     display:
       DisplayDebug:
         group_id:
           id: 20
-        priority: ~
+        position: ~
         color: [238, 204, 68]
         highlight: ~
-  : TriggerEvents:
-      events: []
+  : []
   ? id: 5
     description: Reload Events Or Do Nothing
     display: 
       DisplayWith:
         group_id:
           id: 20
-        priority: ~
+        position: ~
         color: ~
-        highlight: ~
-  : GroupedEvent:
-      status_id:
-        id: 20
-      event_map:
-        ? id: 21
-        : id: 2
-        ? id: 22
-        : id: 6
+        highlight: [0, 255, 0]
+        spotlight: 0
+  : - GroupedEvent:
+        status_id:
+          id: 20
+        event_map:
+          ? id: 21
+          : id: 2
+          ? id: 22
+          : id: 6
   ? id: 6
     description: Do Nothing
     display:
       DisplayWith:
         group_id:
           id: 31
-  : TriggerEvents:
-      events: []
+  : []
   ? id: 7
     description: Trigger Some Events
     display:
       DisplayWith:
         group_id:
           id: 31
-  : TriggerEvents:
-      events:
-        - delay:
+  : - QueueEvent:
+        event:
+          delay:
             secs: 10
             nanos: 0
           event_id:
             id: 8
-        - delay:
+    - QueueEvent:
+        event:
+          delay:
             secs: 11
             nanos: 0
           event_id:
             id: 9
-        - delay:
+    - QueueEvent:
+        event:
+          delay:
             secs: 20
             nanos: 0
           event_id:
             id: 8
-        - delay:
+    - QueueEvent:
+        event:
+          delay:
             secs: 30
             nanos: 0
           event_id:
             id: 8
-        - delay:
+    - QueueEvent:
+        event:
+          delay:
             secs: 40
             nanos: 0
           event_id:
             id: 8
-        - delay:
+    - QueueEvent:
+        event:
+          delay:
             secs: 50
             nanos: 0
           event_id:
@@ -170,71 +162,54 @@ event_set:
       DisplayWith:
         group_id:
           id: 31
-  : TriggerEvents:
-      events: []
+  : []
   ? id: 9
     description: Cancel All Empty Events
     display:
       DisplayWith:
         group_id:
           id: 31
-  : CancelEvents:
-      events:
-        - id: 8
+  : - CancelEvent:
+        event:
+          id: 8
   ? id: 20
     description: Event Status
     display:
       LabelControl:
-        priority: ~
+        position: ~
         color: ~
         highlight: ~
         highlight_state: ~
-  : ~
   ? id: 21
     description: Loading Delayed Events
     display:
       LabelHidden:
         color: [255, 161, 255]
-  : ~
   ? id: 22
     description: Doing Nothing
     display:
       LabelHidden:
         color: [51, 161, 255]
+        highlight: [255, 0, 0]
+        spotlight: 5
   ? id: 30
     description: Unchangeable Status
     display:
       LabelControl:
-        priority: ~
+        position: ~
         color: ~
         highlight: ~
         highlight_state: ~
-  : ~
   ? id: 31
     description: Can't Change This
     display:
       LabelHidden:
         color: [255, 161, 255]
-  : ~
-  ? id: 100
-    description: Example Scene One
-    display:
-      LabelHidden:
-        priority: ~
-        color: [51, 161, 255]
-  : TriggerEvents:
-      events:
-        - delay:
-            secs: 20
-            nanos: 0
-          event_id:
-            id: 2
   ? id: 200
     description: Example Scene Two
     display:
       LabelHidden:
-        priority: ~
+        position: ~
         color: [115, 210, 22]
-  : TriggerEvents:
-      events: []
+  : []
 

@@ -109,8 +109,8 @@ impl TimelineEvent {
         };
 
         // Extract the minutes and seconds and return it
-        let seconds = remaining.as_secs() % 60;
         let minutes = remaining.as_secs() / 60;
+        let seconds = remaining.as_secs() % 60;
         Some((minutes as f64, seconds as f64))
     }
 

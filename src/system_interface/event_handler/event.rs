@@ -90,7 +90,6 @@ impl UpcomingEvent {
 }
 
 /// An enum with the types of data available to be saved and sent
-/// FIXME Currently only four types, which should be expanded
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum DataType {
@@ -104,7 +103,6 @@ pub enum DataType {
         event_id: ItemId,     // the event of interest
         total_time: Duration, // the total duration until the event is normally triggered
     },
-    // FIXME Figure out how to implement time since an event
     
     /// A variant for a predetermined string
     StaticString {
@@ -115,14 +113,11 @@ pub enum DataType {
     UserString,
 }
 
-/// An enum with various options for the detail of each event.
-///
-/// # Warning
-///
-/// The available fields may change substantially as the software is improved.
+
+/// An enum with various action options for each event.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub enum EventDetail {
+pub enum EventAction {
     /// A variant indicating a complete change in scene.
     NewScene { new_scene: ItemId },
 
@@ -132,22 +127,22 @@ pub enum EventDetail {
         new_state: ItemId,
     },
 
-    /// A variant that links to one or more events to trigger. These events may
+    /// A variant that links to one event to add to the queue These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
-    TriggerEvents { events: Vec<EventDelay> },
+    QueueEvent { event: EventDelay },
 
     /// A variant that links to one or more events to cancel. All upcoming
     /// events that match the specified id(s) will be cancelled.
-    CancelEvents { events: Vec<ItemId> },
+    CancelEvent { event: ItemId },
 
     /// A variant which contains a vector of data to save in the current game
     /// logging file.
-    SaveData { data: Vec<u32> },
+    SaveData { data: DataType },
 
     /// A variant which contains a type of data to include with the event
     /// when broadcast to the system
-    SendData(DataType),
+    SendData { data: DataType },
 
     /// A variant which indicates a grouped event. This event changes its
     /// event detail based on the state of the corresponding status.
@@ -157,9 +152,14 @@ pub enum EventDetail {
     },
 }
 
-// Reexport the event detail type variants
-pub use self::EventDetail::{
-    CancelEvents, GroupedEvent, ModifyStatus, NewScene, SaveData, SendData, TriggerEvents,
+
+/// A convenient type definition to specify the detail of each event
+///
+pub type EventDetail = Vec<EventAction>;
+
+// Reexport the event action type variants
+pub use self::EventAction::{
+    CancelEvent, GroupedEvent, ModifyStatus, NewScene, SaveData, SendData, QueueEvent,
 };
 
 /// An enum for updating the rest of the system on changes to the scene and
@@ -190,7 +190,7 @@ pub enum EventUpdate {
     Status(ItemPair, ItemPair), // first field is the status id, second is the new state
 
     /// A variant that notifies the system logger to log data to the game log
-    Save(Vec<u32>), // the data to save
+    Save(String), // the data to save, formatted as a string
 
     /// A variant which can send any other type of update to the system.
     Update(String),
