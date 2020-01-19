@@ -20,10 +20,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, BroadcastEvent, DisplayControl, DisplayDebug, DisplayWith, EditDetail,
-    EditMode, EventAction, EventDelay, EventDetail, FullStatus, Hidden, ItemDescription,
-    ItemId, ItemPair, LabelControl, LabelHidden, SceneChange, StatusChange,
-    StatusDescription, SystemSend, TriggerEvent, DataType,
+    AllStop, BroadcastEvent, EditMode, FullStatus, Hidden, ItemId, ItemPair,
+    KeyMap, SceneChange, StatusChange, StatusDescription, SystemSend, TriggerEvent,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -31,7 +29,7 @@ use super::NORMAL_FONT;
 // Import standard library features
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::Duration;
+use std::mem;
 
 // Import FNV HashMap
 extern crate fnv;
@@ -41,18 +39,18 @@ use self::fnv::FnvHashMap;
 extern crate gdk;
 extern crate gio;
 extern crate gtk;
+extern crate glib;
 use self::gio::{ActionExt, SimpleAction};
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
 
 // Define and import constants
-const MINUTES_LIMIT: f64 = 300.0; // maximum number of minutes in a delay
 const STATE_LIMIT: usize = 20; // maximum character width of states
+const DESCRIPTION_LIMIT: usize = 40; // shortcut event descriptions character limit
 use super::super::WINDOW_TITLE; // the window title
 
 /// A structure to contain the dialog for confirming the edit selection.
 ///
-#[derive(Clone, Debug)]
 pub struct EditDialog {
     edit_mode: Rc<RefCell<bool>>, // a flag to indicate edit mode for the system
     window: gtk::ApplicationWindow, // a reference to the primary window
@@ -131,11 +129,8 @@ impl EditDialog {
     }
 }
 
-/// A structure to contain the dialog for modifying an individual status. This
-/// dialog is currently rather inconvenient to use as it is not made for use
-/// during typical operations.
+/// A structure to contain the dialog for modifying an individual status.
 ///
-#[derive(Clone, Debug)]
 pub struct StatusDialog {
     full_status: Rc<RefCell<FullStatus>>, // a hashmap of status id pairs and status descriptions, stored inside Rc/RefCell
     window: gtk::ApplicationWindow,       // a copy of the primary window
@@ -162,7 +157,7 @@ impl StatusDialog {
     pub fn launch(&self, system_send: &SystemSend, status: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
-            Some("  Modify System Status  "),
+            Some("Modify Status"),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
@@ -343,10 +338,7 @@ impl StatusDialog {
 }
 
 /// A structure to contain the dialog for jumping between individual scenes.
-/// This dialog is currently rather inconvenient to use as it is not made for use
-/// during typical operations.
 ///
-#[derive(Clone, Debug)]
 pub struct JumpDialog {
     scenes: Vec<ItemPair>,          // a vector of the available scenes
     window: gtk::ApplicationWindow, // a copy of the primary window
@@ -370,7 +362,7 @@ impl JumpDialog {
     pub fn launch(&self, system_send: &SystemSend, scene: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
-            Some("  Jump To ...  "),
+            Some("Jump To ..."),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
@@ -388,12 +380,6 @@ impl JumpDialog {
             let id_str: &str = &scene_pair.id().to_string();
             scene_selection.append(Some(id_str), &scene_pair.description());
         }
-
-        // Connect the function to trigger when the scene selection changes
-        scene_selection.connect_changed(move |_| {
-            // Do nothing TODO: Consider other scene-specific changes
-            ()
-        });
 
         // Change to the selected scene, if selected
         if let Some(scene_pair) = scene {
@@ -456,9 +442,129 @@ impl JumpDialog {
     }
 }
 
+/// A structure to contain the dialog for the keyboard shortcuts.
+///
+pub struct ShortcutsDialog {
+    key_press_handler: Option<glib::signal::SignalHandlerId>, // the active handler
+    key_map: KeyMap, // the map of key codes to event ids
+    system_send: SystemSend, // a copy of system send
+    window: gtk::ApplicationWindow, // a copy of the primary window
+}
+
+// Implement key features for the shortcuts dialog
+impl ShortcutsDialog {
+    /// A function to create a new shortcuts dialog structure with the ability 
+    /// to bind and display keyboard shortcuts
+    ///
+    pub fn new(system_send: &SystemSend, window: &gtk::ApplicationWindow) -> ShortcutsDialog {
+        ShortcutsDialog {
+            key_press_handler: None,
+            key_map: KeyMap::default(),
+            system_send: system_send.clone(),
+            window: window.clone(),
+        }
+    }
+
+    /// A method to launch the new jump dialog with the current list of available
+    /// scenes in the configuration.
+    ///
+    pub fn launch(&self) {
+        // Create the new dialog
+        let dialog = gtk::Dialog::new_with_buttons(
+            Some("Keyboard Shortcuts"),
+            Some(&self.window),
+            gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
+            &[
+                ("Close", gtk::ResponseType::Ok),
+            ],
+        );
+        dialog.set_position(gtk::WindowPosition::Center);
+
+        // Access the content area and add the primary grid
+        let content = dialog.get_content_area();
+        let grid = gtk::Grid::new();
+        content.add(&grid);
+
+        // Add the grid columns
+        grid.attach(&gtk::Label::new(Some("  Event  ")), 0, 0, 1, 1);
+        grid.attach(&gtk::Label::new(Some("  Shortcut  ")), 1, 0, 1, 1);
+
+        // Populate the grid with any shortcuts
+        let mut count = 1;
+        for (key, id) in self.key_map.iter() {
+            // Add the event description
+            let description = clean_text(&id.description, DESCRIPTION_LIMIT, false, false, true);
+            grid.attach(&gtk::Label::new(Some(&description)), 0, count, 1, 1);
+            
+            // Add the shortcut description
+            let key = match gdk::keyval_name(key.clone()) {
+                Some(gstring) => String::from(gstring),
+                None => String::from("Invalid Key Code"),
+            };
+            grid.attach(&gtk::Label::new(Some(&format!("  {}  ", key))), 1, count, 1, 1);
+            
+            // Increment the count
+            count = count + 1;
+        }
+        
+        // Add the none label if there are no shortcuts
+        if count == 1 {
+            grid.attach(&gtk::Label::new(Some("No Active Shortcuts")), 0, 1, 2, 1);
+        }
+
+        // Add some space between the rows and columns
+        grid.set_column_spacing(20);
+        grid.set_row_spacing(20);
+
+        // Add some space on all the sides
+        grid.set_margin_top(20);
+        grid.set_margin_bottom(20);
+        grid.set_margin_start(20);
+        grid.set_margin_end(20);
+
+        // Connect the close event for when the dialog is complete
+        dialog.connect_response(|modal, _| {
+            // Close the window
+            modal.destroy();
+        });
+
+        // Show the dialog and return
+        dialog.show_all();
+    }
+
+    /// A method to update the keyboard shortcuts.
+    ///
+    pub fn update_shortcuts(&mut self, key_map: KeyMap) {
+        // Clear the old key press handler
+        let mut tmp = None;
+        mem::swap(&mut tmp, &mut self.key_press_handler);
+        if let Some(handler) = tmp {
+            self.window.disconnect(handler);
+        }
+        
+        // Create a new handler (prevents any errant key presses if empty)
+        let key_clone = key_map.clone();
+        let send_clone = self.system_send.clone();
+        self.key_press_handler = Some(
+            // Attach the handler
+            self.window.connect_key_press_event(move |_, key_press| {
+                // Check to see if it matches one of our events
+                if let Some(id) = key_clone.get(&key_press.get_keyval()) {
+                    send_clone.send(TriggerEvent { event: id.get_id(), check_scene: true});
+                }
+                
+                // Prevent any other handlers from running
+                gtk::Inhibit(true)
+            })
+        );
+        
+        // Save the key map to be displayed
+        self.key_map = key_map;
+   }
+}
+
 /// A structure to contain the dialog for triggering a custom event.
 ///
-#[derive(Clone, Debug)]
 pub struct TriggerDialog {
     window: gtk::ApplicationWindow, // a copy of the primary window
 }
@@ -478,7 +584,7 @@ impl TriggerDialog {
     pub fn launch(&self, system_send: &SystemSend, event: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
-            Some("Trigger Custom Event"),
+            Some("Manually Trigger Event"),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
@@ -564,7 +670,6 @@ impl TriggerDialog {
 
 /// A structure to contain the dialog for soliciting a string from the user.
 ///
-#[derive(Clone, Debug)]
 pub struct PromptStringDialog {
     window: gtk::ApplicationWindow, // a copy of the primary window
 }
@@ -676,7 +781,7 @@ impl PromptStringDialog {
     }
 }
 
-/// A structure to contain the dialog for modifying an individual event. This
+/*/// A structure to contain the dialog for modifying an individual event. This
 /// dialog is currently rather inconvenient to use as it is not made for use
 /// during typical operations.
 ///
@@ -2752,4 +2857,4 @@ impl EditGroupedEvent {
             event_map,
         })
     }
-}
+}*/

@@ -869,6 +869,9 @@ pub enum WindowType {
 
     /// A variant to launch the trigger dialog with an optional event of interest
     Trigger(Option<ItemPair>),
+
+    /// A variant to show the shortcuts window
+    Shortcuts,
     
     /// A variant to solicit a string from the user. The string will be sent as
     /// a series of events to the system

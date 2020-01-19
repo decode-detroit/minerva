@@ -30,13 +30,13 @@ mod timeline;
 use self::control::ControlAbstraction;
 use self::events::EventAbstraction;
 use self::special_windows::{
-    EditDialog, EditEventDialog, JumpDialog, PromptStringDialog, StatusDialog,
-    TriggerDialog
+    EditDialog, JumpDialog, PromptStringDialog, ShortcutsDialog, StatusDialog,
+    TriggerDialog,
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventDetail, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, KeyMap,
-    Notification, StatusDescription, SystemSend, TriggerEvent, UpcomingEvent,
+    EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, KeyMap,
+    Notification, StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
 
@@ -44,13 +44,11 @@ use super::utils::clean_text;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
-use std::mem;
 
 // Import GTK and GDK libraries
 extern crate gdk;
 extern crate gio;
 extern crate gtk;
-extern crate glib;
 use self::gio::SimpleAction;
 use self::gtk::prelude::*;
 
@@ -68,12 +66,9 @@ const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 /// This structure allows easier modification of the gtk interface to simplify
 /// interaction between the interface and the underlying program.
 ///
-#[derive(Debug)]
 pub struct InterfaceAbstraction {
     system_send: SystemSend, // a copy of system send held in the interface abstraction
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
-    window: gtk::ApplicationWindow, // the top level window for the application
-    key_press_handler: Option<glib::signal::SignalHandlerId>, // the active handler
     primary_grid: gtk::Grid, // the top-level grid that contains the control and event grids
     full_status: Rc<RefCell<FullStatus>>, // user interface storage of the current full status of the system (for use by the event labels and the status dialog)
     current_window: (ItemPair, Vec<ItemPair>, EventWindow), // user interface storage of the current event window
@@ -82,11 +77,11 @@ pub struct InterfaceAbstraction {
     events: EventAbstraction, // the event abstraction that holds the events selectable in the current scene
     notification_bar: gtk::Statusbar, // the status bar where one line notifications are posted
     edit_dialog: EditDialog,  // the edit dialog for the system to confirm a change to edit mode
-    status_dialog: StatusDialog, // the status dialog for the system to change individual statuses
     jump_dialog: JumpDialog,  // the jump dialog for the system to switch between individual scenes
+    status_dialog: StatusDialog, // the status dialog for the system to change individual statuses
+    shortcuts_dialog: ShortcutsDialog,  // the shortcuts dialog to show the current keyboard shortcuts
     trigger_dialog: TriggerDialog, // the trigger dialog for the system to trigger a custom event
     prompt_string_dialog: PromptStringDialog, // the prompty string dialog to solicit information from the user
-    edit_event_dialog: EditEventDialog, // the edit event dialog for the editing event details
     is_debug: bool,           // a flag to indicate whether or not the program is in debug mode
 }
 
@@ -174,18 +169,16 @@ impl InterfaceAbstraction {
 
         // Create the special windows for the user interface
         let edit_dialog = EditDialog::new(edit_mode, window);
-        let status_dialog = StatusDialog::new(full_status.clone(), window);
         let jump_dialog = JumpDialog::new(window);
+        let status_dialog = StatusDialog::new(full_status.clone(), window);
+        let shortcuts_dialog = ShortcutsDialog::new(system_send, window);
         let trigger_dialog = TriggerDialog::new(window);
         let prompt_string_dialog = PromptStringDialog::new(window);
-        let edit_event_dialog = EditEventDialog::new(window);
 
         // Return a copy of the interface abstraction
         InterfaceAbstraction {
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
-            window: window.clone(),
-            key_press_handler: None,
             primary_grid,
             full_status,
             current_window: (
@@ -198,11 +191,11 @@ impl InterfaceAbstraction {
             events,
             notification_bar,
             edit_dialog,
-            status_dialog,
             jump_dialog,
+            status_dialog,
+            shortcuts_dialog,
             trigger_dialog,
             prompt_string_dialog,
-            edit_event_dialog,
             is_debug: false,
         }
     }
@@ -283,7 +276,6 @@ impl InterfaceAbstraction {
         current_scene: ItemPair,
         statuses: Vec<ItemPair>,
         window: EventWindow,
-        key_map: KeyMap,
     ) {
         // Save a copy of the current scene and event window
         self.current_window = (current_scene.clone(), statuses.clone(), window.clone());
@@ -300,32 +292,6 @@ impl InterfaceAbstraction {
                 &self.interface_send,
             );
         }
-        
-        // Clear the old key press handler
-        let mut tmp = None;
-        mem::swap(&mut tmp, &mut self.key_press_handler);
-        if let Some(handler) = tmp {
-            self.window.disconnect(handler);
-        }
-        
-        // Create a new handler (prevents any errant key presses if empty)
-        let key_clone = key_map.clone();
-        let send_clone = self.system_send.clone();
-        self.key_press_handler = Some(
-            // Attach the handler
-            self.window.connect_key_press_event(move |_, key_press| {
-                // Check to see if it matches one of our events
-                if let Some(id) = key_clone.get(&key_press.get_keyval()) {
-                    send_clone.send(TriggerEvent { event: id.get_id(), check_scene: true});
-                }
-                
-                // Prevent any other handlers from running
-                gtk::Inhibit(true)
-            })
-        );
-        
-        // FIXME Save the binding somewhere to be displayed to the user
-        
     }
 
     /// A method to update the status bar
@@ -387,14 +353,6 @@ impl InterfaceAbstraction {
         self.edit_dialog.launch(&self.system_send, checkbox);
     }
 
-    // Methods to update the status dialog
-    //
-    /// A method to launch the status dialog
-    ///
-    pub fn launch_status(&self, status: Option<ItemPair>) {
-        self.status_dialog.launch(&self.system_send, status);
-    }
-
     // Methods to update the jump dialog
     //
     /// A method to launch the jump dialog
@@ -409,6 +367,28 @@ impl InterfaceAbstraction {
         self.jump_dialog.update_scenes(scenes);
     }
 
+    // Methods to update the status dialog
+    //
+    /// A method to launch the status dialog
+    ///
+    pub fn launch_status(&self, status: Option<ItemPair>) {
+        self.status_dialog.launch(&self.system_send, status);
+    }
+    
+    // Methods to update the shortcuts dialog
+    //
+    /// A method to launch the shortcuts dialog
+    ///
+    pub fn launch_shortcuts(&self) {
+        self.shortcuts_dialog.launch();
+    }
+    //
+    /// A method to update the scenes in the jump dialog
+    ///
+    pub fn update_shortcuts(&mut self, key_map: KeyMap) {
+        self.shortcuts_dialog.update_shortcuts(key_map);
+    }
+
     /// A method to launch the trigger event dialog
     ///
     pub fn launch_trigger(&self, event: Option<ItemPair>) {
@@ -418,12 +398,5 @@ impl InterfaceAbstraction {
     /// A method to launch the prompt string dialog
     pub fn launch_prompt_string(&self, event: ItemPair) {
         self.prompt_string_dialog.launch(&self.system_send, event);
-    }
-
-    /// A method to launch the edit event dialog
-    ///
-    pub fn launch_edit_event(&self, event_id: Option<ItemPair>, event_detail: Option<EventDetail>) {
-        self.edit_event_dialog
-            .launch(&self.system_send, event_id, event_detail);
     }
 }

@@ -74,7 +74,7 @@ impl MenuAbstraction {
         let config_section = gio::Menu::new();
         let quit_section = gio::Menu::new();
         let settings_section = gio::Menu::new();
-        let status_section = gio::Menu::new();
+        let window_section = gio::Menu::new();
         let edit_section = gio::Menu::new();
         let modify_section = gio::Menu::new();
 
@@ -91,12 +91,13 @@ impl MenuAbstraction {
         settings_section.append(Some("_Debug Mode"), Some("app.debug_mode"));
         settings_section.append(Some("_Large Font"), Some("app.large_font"));
         settings_section.append(Some("_High Contrast"), Some("app.contrast"));
-        status_section.append(Some("Jump To ..."), Some("app.jump"));
-        status_section.append(Some("Modify Status"), Some("app.status"));
-        status_section.append(Some("Trigger Event"), Some("app.trigger"));
-        status_section.append(Some("Clear Timeline"), Some("app.clear"));
+        window_section.append(Some("Show Shortcuts"), Some("app.shortcuts"));
+        window_section.append(Some("Jump To ..."), Some("app.jump"));
+        window_section.append(Some("Modify Status"), Some("app.status"));
+        window_section.append(Some("Trigger Event"), Some("app.trigger"));
+        window_section.append(Some("Clear Timeline"), Some("app.clear"));
         run_menu.append_item(&gio::MenuItem::new_section(None, &settings_section));
-        run_menu.append_item(&gio::MenuItem::new_section(None, &status_section));
+        run_menu.append_item(&gio::MenuItem::new_section(None, &window_section));
 
         // Organize the run section of the menu
         edit_section.append(Some("_Edit Mode"), Some("app.edit_mode"));
@@ -287,6 +288,18 @@ impl MenuAbstraction {
                     .unwrap_or(());
             }
         }));
+
+        // Create the jump to dialog action
+        let shortcuts = gio::SimpleAction::new("shortcuts", None);
+        let interface_clone = interface_send.clone();
+        shortcuts.connect_activate(move |_, _| {
+            // Launch the shortcuts dialog
+            interface_clone
+                .send(LaunchWindow {
+                    window_type: WindowType::Shortcuts,
+                })
+                .unwrap_or(());
+        });
 
         // Create the jump to dialog action
         let jump = gio::SimpleAction::new("jump", None);
@@ -508,8 +521,9 @@ impl MenuAbstraction {
         // FIXME application.add_action(&newevent);
         // FIXME application.add_action(&newstatus);
         // FIXME application.add_action(&newscene);
-        application.add_action(&status);
+        application.add_action(&shortcuts);
         application.add_action(&jump);
+        application.add_action(&status);
         application.add_action(&trigger);
         application.add_action(&clear);
         application.add_action(&help);

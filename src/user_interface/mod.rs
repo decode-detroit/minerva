@@ -57,7 +57,7 @@ use super::WINDOW_TITLE; // the window title
 /// A structure to contain the user interface and handle all updates to the
 /// to the interface.
 ///
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct UserInterface {
     interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
     edit_mode: Rc<RefCell<bool>>, // a flag to indicate whether edit mode is active
@@ -152,14 +152,10 @@ impl UserInterface {
     }
 
     /// A method to launch the new event dialog to edit event details
-    /// Only available in edit mode.
+    /// Only available in edit mode. FIXME
     ///
     pub fn launch_new_event_dialog(&self) {
-        // Attempt to get a copy of the interface abstraction
-        if let Ok(interface) = self.interface_abstraction.try_borrow() {
-            // Launch the dialog
-            interface.launch_edit_event(None, None);
-        }
+        ();
     }
 
     /// A method to listen for modifications to the user interface.
@@ -209,7 +205,13 @@ impl UserInterface {
                     statuses,
                     window,
                     key_map,
-                } => interface.update_window(current_scene, statuses, window, key_map),
+                } => {
+                    // Update the current event window
+                    interface.update_window(current_scene, statuses, window);
+                    
+                    // Update the keyboard shortcuts
+                    interface.update_shortcuts(key_map);
+                }
 
                 // Update the state of a particular status
                 UpdateStatus {
@@ -229,11 +231,14 @@ impl UserInterface {
                 LaunchWindow { window_type } => {
                     // Sort for the window type
                     match window_type {
+                        // Launch the jump dialog
+                        WindowType::Jump(scene) => interface.launch_jump(scene),
+
                         // Launch the status dialog
                         WindowType::Status(status) => interface.launch_status(status),
 
                         // Launch the jump dialog
-                        WindowType::Jump(scene) => interface.launch_jump(scene),
+                        WindowType::Shortcuts => interface.launch_shortcuts(),
 
                         // Launch the trigger dialog
                         WindowType::Trigger(event) => interface.launch_trigger(event),
@@ -304,12 +309,11 @@ impl UserInterface {
                 // Show a one line notification in the status bar
                 Notify { message } => interface.notify(&message),
 
-                // Launch the event detail modification window
+                // Launch the event detail modification window FIXME
                 DetailToModify {
                     event_id,
                     event_detail,
-                } => interface.launch_edit_event(Some(event_id), Some(event_detail)),
-                // FIXME Add other modification tools here
+                } => (),
             }
         }
     }
