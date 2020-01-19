@@ -27,7 +27,7 @@ pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
     ItemPair, LabelControl, LabelHidden,
 };
-pub use self::event_handler::{FullStatus, StatusDescription};
+pub use self::event_handler::{FullStatus, StatusDescription, KeyMap};
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 
 // Define private submodules
@@ -237,6 +237,7 @@ impl SystemInterface {
                             current_scene: handler.get_current_scene(),
                             window,
                             statuses,
+                            key_map: handler.get_key_map(),
                         })
                         .unwrap_or(());
                 }
@@ -907,6 +908,7 @@ pub enum InterfaceUpdate {
         current_scene: ItemPair,
         statuses: Vec<ItemPair>,
         window: EventWindow,
+        key_map: KeyMap,
     },
 
     /// A variant to update the state of a partiular status.

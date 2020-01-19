@@ -14,15 +14,25 @@ all_scenes:
 
   # Introduction scope
   ? id: 100
-  : - id: 100
-    - id: 1
+  : events:
+      - id: 100
+      - id: 1
+    key_map:
+      ? 32
+      : id: 1
     
   # Second Scope
   ? id: 200
-  : - id: 200
-    - id: 7
-    - id: 8
-    - id: 9
+  : events:
+      - id: 200
+      - id: 7
+      - id: 8
+      - id: 9
+    key_map:
+      ? 32
+      : id: 7
+      ? 104
+      : id: 9
 
 
 # Status Map

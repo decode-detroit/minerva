@@ -56,14 +56,22 @@ use self::fnv::{FnvHashMap, FnvHashSet};
 // Import YAML processing library
 extern crate serde_yaml;
 
-/// A type definition to clarify the variety of the scene set
-///
-type Scene = FnvHashSet<ItemId>; // hash set of the events in this scene
-
 // Define module constants
 const BACKGROUND_POLLING: u64 = 100; // the polling rate for the background process in ms
 
-/// A struct definition to clarify the elements of a background process
+/// Define the itemid and itempair definition of a key map
+type KeyMapId = FnvHashMap<u32, ItemId>;
+pub type KeyMap = FnvHashMap<u32, ItemPair>;
+
+/// A structure to define the parameters of a scene
+///
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Scene {
+    pub events: FnvHashSet<ItemId>, // hash set of the events in this scene
+    pub key_map: Option<KeyMapId>, // an optional mapping of key codes to events
+}
+
+/// A struct to define the elements of a background process
 ///
 #[derive(Clone, Serialize, Deserialize)]
 struct BackgroundProcess {
@@ -504,14 +512,14 @@ impl Config {
         if let Some(scene) = self.all_scenes.get(&self.current_scene) {
             // Compile a list of the available items
             let mut id_vec = Vec::new();
-            for item_id in scene.iter() {
+            for item_id in scene.events.iter() {
                 id_vec.push(item_id);
             }
 
             // Sort them in order and then pair them with their descriptions
             id_vec.sort_unstable();
             for item_id in id_vec {
-                // Get the item description and add it to the items list
+                // Get the item description
                 let description = self.get_description(&item_id);
 
                 // Combine the item id and description
@@ -521,6 +529,41 @@ impl Config {
 
         // Return the result
         items
+    }
+    
+    /// A method to return an key map for the current scene, with all items
+    /// as an itempair.
+    ///
+    /// # Errors
+    ///
+    /// This method will raise an error if one of the item ids was not found in
+    /// lookup. This indicates that the configuration file is incomplete.
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line and returning an
+    /// empty ItemDescription for that item.
+    ///
+    pub fn get_key_map(&self) -> KeyMap {
+        // Create an empty key map
+        let mut map = FnvHashMap::default();
+
+        // Try to open the current scene
+        if let Some(scene) = self.all_scenes.get(&self.current_scene) {
+            // If the key map exists
+            if let Some(key_map) = &scene.key_map {            
+                // Iterate through the key map for this scene
+                for (key, id) in key_map.iter() {
+                    // Get the item description
+                    let description = self.get_description(&id);
+
+                    // Combine the item id and description
+                    map.insert(key.clone(), ItemPair::from_item(id.clone(), description));
+                }
+            }
+        }
+
+        // Return the result
+        map
     }
 
     /// A method to return an item id of the current state of the provided
@@ -698,7 +741,7 @@ impl Config {
             // Try to open the current scene
             if let Some(scene) = self.all_scenes.get(&self.current_scene) {
                 // Check to see if the event is listed in the current scene
-                if scene.contains(id) {
+                if scene.events.contains(id) {
                     // Return the event detail for the event
                     return match self.events.get(id) {
                         // Return the found event detail
@@ -880,7 +923,7 @@ impl Config {
     ) -> bool {
         // Verify that each event detail in the scene is valid
         let mut test = true;
-        for id in scene.iter() {
+        for id in scene.events.iter() {
             // Find the matching event detail
             if let Some(event_detail) = events.get(id) {
                 // Verify the event detail
@@ -906,6 +949,19 @@ impl Config {
 
             // Verify that the event is described in the event lookup
             test = test & Config::verify_lookup(general_update, lookup, id);
+        }
+        
+        
+        // If the key map is specified
+        if let Some(key_map) = &scene.key_map {
+            // Verify that each key mapping matches a valid event
+            for (_, id) in key_map.iter() {
+                // Make sure the event is listed in the scene
+                if !scene.events.contains(id) {
+                    update!(warn general_update => "Event In Keymapping, But Not In Scene: {}", id);
+                    test = false;
+                } // Events in the scene have already been tested for other validity
+            }
         }
         test // return the result
     }
@@ -981,8 +1037,8 @@ impl Config {
                 // If there is an event to queue, verify that it exists
                 &QueueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
-                    if !scene.contains(&event.id()) {
-                        update!(warn general_update => "Event Contains Unlisted Queue Event: {}", &event.id());
+                    if !scene.events.contains(&event.id()) {
+                        update!(warn general_update => "Event Contains Queue Event, But Not In Scene: {}", &event.id());
                         // Do not flag as incorrect
                     }
 
@@ -1025,8 +1081,8 @@ impl Config {
                             // If there is a matching event, verify that it exists
                             if let Some(target_event) = event_map.get(state) {
                                 // Verify that the event is listed in the current scene
-                                if !scene.contains(&target_event) {
-                                    update!(warn general_update => "Event Group Contains Unlisted Triggered Events: {}", &target_event);
+                                if !scene.events.contains(&target_event) {
+                                    update!(warn general_update => "Event Group Contains Event, But It Is Not Listed In Scene: {}", &target_event);
                                     // Do not flag as incorrect
                                 }
 

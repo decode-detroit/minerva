@@ -35,8 +35,8 @@ use self::special_windows::{
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventDetail, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, Notification,
-    StatusDescription, SystemSend, UpcomingEvent,
+    EventDetail, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, KeyMap,
+    Notification, StatusDescription, SystemSend, TriggerEvent, UpcomingEvent,
 };
 use super::utils::clean_text;
 
@@ -44,11 +44,13 @@ use super::utils::clean_text;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
+use std::mem;
 
 // Import GTK and GDK libraries
 extern crate gdk;
 extern crate gio;
 extern crate gtk;
+extern crate glib;
 use self::gio::SimpleAction;
 use self::gtk::prelude::*;
 
@@ -66,10 +68,12 @@ const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 /// This structure allows easier modification of the gtk interface to simplify
 /// interaction between the interface and the underlying program.
 ///
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct InterfaceAbstraction {
     system_send: SystemSend, // a copy of system send held in the interface abstraction
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
+    window: gtk::ApplicationWindow, // the top level window for the application
+    key_press_handler: Option<glib::signal::SignalHandlerId>, // the active handler
     primary_grid: gtk::Grid, // the top-level grid that contains the control and event grids
     full_status: Rc<RefCell<FullStatus>>, // user interface storage of the current full status of the system (for use by the event labels and the status dialog)
     current_window: (ItemPair, Vec<ItemPair>, EventWindow), // user interface storage of the current event window
@@ -137,7 +141,7 @@ impl InterfaceAbstraction {
         primary_grid.attach(&separator_vertical, 1, 1, 1, 3);
         primary_grid.attach(&separator_horizontal, 0, 4, 3, 1);
 
-        // Create the status bar and add it to the primary grid
+        // Create the notification bar and add it to the primary grid
         let notification_bar = gtk::Statusbar::new();
         notification_bar.set_vexpand(false);
         notification_bar.set_hexpand(true);
@@ -180,6 +184,8 @@ impl InterfaceAbstraction {
         InterfaceAbstraction {
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
+            window: window.clone(),
+            key_press_handler: None,
             primary_grid,
             full_status,
             current_window: (
@@ -277,6 +283,7 @@ impl InterfaceAbstraction {
         current_scene: ItemPair,
         statuses: Vec<ItemPair>,
         window: EventWindow,
+        key_map: KeyMap,
     ) {
         // Save a copy of the current scene and event window
         self.current_window = (current_scene.clone(), statuses.clone(), window.clone());
@@ -293,6 +300,32 @@ impl InterfaceAbstraction {
                 &self.interface_send,
             );
         }
+        
+        // Clear the old key press handler
+        let mut tmp = None;
+        mem::swap(&mut tmp, &mut self.key_press_handler);
+        if let Some(handler) = tmp {
+            self.window.disconnect(handler);
+        }
+        
+        // Create a new handler (prevents any errant key presses if empty)
+        let key_clone = key_map.clone();
+        let send_clone = self.system_send.clone();
+        self.key_press_handler = Some(
+            // Attach the handler
+            self.window.connect_key_press_event(move |_, key_press| {
+                // Check to see if it matches one of our events
+                if let Some(id) = key_clone.get(&key_press.get_keyval()) {
+                    send_clone.send(TriggerEvent { event: id.get_id(), check_scene: true});
+                }
+                
+                // Prevent any other handlers from running
+                gtk::Inhibit(true)
+            })
+        );
+        
+        // FIXME Save the binding somewhere to be displayed to the user
+        
     }
 
     /// A method to update the status bar

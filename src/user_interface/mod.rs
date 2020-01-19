@@ -208,7 +208,8 @@ impl UserInterface {
                     current_scene,
                     statuses,
                     window,
-                } => interface.update_window(current_scene, statuses, window),
+                    key_map,
+                } => interface.update_window(current_scene, statuses, window, key_map),
 
                 // Update the state of a particular status
                 UpdateStatus {

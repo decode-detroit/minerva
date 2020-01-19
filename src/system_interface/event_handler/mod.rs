@@ -22,7 +22,7 @@
 //! of the program.
 
 // Reexport the key structures and types
-pub use self::config::{FullStatus, StatusDescription};
+pub use self::config::{FullStatus, StatusDescription, KeyMap};
 pub use self::queue::ComingEvent;
 
 // Define public submodules
@@ -287,11 +287,28 @@ impl EventHandler {
     ///
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that scene.
+    /// empty ItemDescription for that item.
     ///
     pub fn get_items(&self) -> Vec<ItemPair> {
         // Return a list of available items in the current scene
         self.config.get_items()
+    }
+    
+    /// A method to return an key map for the current scene, with all items
+    /// as an itempair.
+    ///
+    /// # Errors
+    ///
+    /// This method will raise an error if one of the item ids was not found in
+    /// lookup. This indicates that the configuration file is incomplete.
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line and returning an
+    /// empty ItemDescription for that item.
+    ///
+    pub fn get_key_map(&self) -> KeyMap {
+        // Return the key mapping for this scene
+        self.config.get_key_map()
     }
 
     /// A method to return the current scene.

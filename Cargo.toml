@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "0.8.0"
+version = "0.8.1"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Program And Synchronize Your Internet Of Things In One Step."
 license = "GPL-3.0-or-later"
@@ -17,6 +17,7 @@ serde = {version = "1.0", features = ["derive"]}
 serde_yaml = "0.7"
 gdk = "^0"
 gdk-pixbuf = "^0"
+glib = "^0"
 cairo-rs = "^0"
 redis = "0.10.0"
 serial = "0.4.0"
