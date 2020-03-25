@@ -23,9 +23,9 @@
 extern crate serde;
 
 // Define program modules
-pub mod system_interface;
+mod system_interface;
 #[macro_use]
-pub mod user_interface;
+mod user_interface;
 
 // Import the relevant structures into the correct namespace
 use self::system_interface::SystemInterface;
@@ -89,11 +89,8 @@ impl Minerva {
         window.set_default_size(1500, 800);
         window.set_icon_from_file(LOGO_SQUARE).unwrap_or(()); // give up if unsuccessful
 
-        // Connect the delete event for the window
-        window.connect_delete_event(clone!(window => move |_, _| {
-            window.destroy();
-            Inhibit(false)
-        }));
+        // Disable the delete button for the window
+        window.set_deletable(false);
 
         // Create the user interface structure to handle user interface updates
         UserInterface::new(

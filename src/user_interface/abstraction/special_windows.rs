@@ -21,7 +21,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     AllStop, BroadcastEvent, EditMode, FullStatus, Hidden, ItemId, ItemPair,
-    KeyMap, SceneChange, StatusChange, StatusDescription, SystemSend, TriggerEvent,
+    KeyMap, ProcessEvent, SceneChange, StatusChange, StatusDescription, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -486,22 +486,32 @@ impl ShortcutsDialog {
         content.add(&grid);
 
         // Add the grid columns
-        grid.attach(&gtk::Label::new(Some("  Event  ")), 0, 0, 1, 1);
-        grid.attach(&gtk::Label::new(Some("  Shortcut  ")), 1, 0, 1, 1);
+        let tmp = gtk::Label::new(None);
+        tmp.set_markup("<span size='13000'>Shortcut Key</span>");
+        grid.attach(&tmp, 0, 0, 1, 1);
+        let tmp = gtk::Label::new(None);
+        tmp.set_markup("<span size='13000'>Event Description</span>");
+        grid.attach(&tmp, 1, 0, 1, 1);
+        
+        // Add a separator
+        let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+        separator.set_halign(gtk::Align::Fill);
+        separator.set_hexpand(true);
+        grid.attach(&separator, 0, 1, 2, 1);
 
         // Populate the grid with any shortcuts
-        let mut count = 1;
+        let mut count = 2;
         for (key, id) in self.key_map.iter() {
             // Add the event description
             let description = clean_text(&id.description, DESCRIPTION_LIMIT, false, false, true);
-            grid.attach(&gtk::Label::new(Some(&description)), 0, count, 1, 1);
+            grid.attach(&gtk::Label::new(Some(&description)), 1, count, 1, 1);
             
             // Add the shortcut description
             let key = match gdk::keyval_name(key.clone()) {
                 Some(gstring) => String::from(gstring),
                 None => String::from("Invalid Key Code"),
             };
-            grid.attach(&gtk::Label::new(Some(&format!("  {}  ", key))), 1, count, 1, 1);
+            grid.attach(&gtk::Label::new(Some(&format!("  {}  ", key))), 0, count, 1, 1);
             
             // Increment the count
             count = count + 1;
@@ -514,7 +524,7 @@ impl ShortcutsDialog {
 
         // Add some space between the rows and columns
         grid.set_column_spacing(20);
-        grid.set_row_spacing(20);
+        grid.set_row_spacing(10);
 
         // Add some space on all the sides
         grid.set_margin_top(20);
@@ -550,7 +560,7 @@ impl ShortcutsDialog {
             self.window.connect_key_press_event(move |_, key_press| {
                 // Check to see if it matches one of our events
                 if let Some(id) = key_clone.get(&key_press.get_keyval()) {
-                    send_clone.send(TriggerEvent { event: id.get_id(), check_scene: true});
+                    send_clone.send(ProcessEvent { event: id.get_id(), check_scene: true, broadcast: true});
                 }
                 
                 // Prevent any other handlers from running
@@ -652,10 +662,10 @@ impl TriggerDialog {
 
                 // If broadcast is selected, just send a broadcast event
                 if broadcast_checkbox.get_active() {
-                    system_send.send(BroadcastEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), data: None});
+                    system_send.send(BroadcastEvent { event: ItemPair::new_unchecked(event_spin.get_value() as u32, "", Hidden), data: None});
                 
                 // Otherwise, send the selected event to the system
-                } else { system_send.send(TriggerEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active()});
+                } else { system_send.send(ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
                 }
             }
 
@@ -767,7 +777,7 @@ impl PromptStringDialog {
                     
                     // Send each bit of data to the system
                     for num in data.drain(..) {
-                        system_send.send(BroadcastEvent { event: event.get_id(), data: Some(num)});
+                        system_send.send(BroadcastEvent { event: event.clone(), data: Some(num)});
                     }
                 }
             }

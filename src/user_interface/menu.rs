@@ -212,8 +212,8 @@ impl MenuAbstraction {
             // Tell the system interface to close
             system_send.send(Close);
 
-            // Wait 100 nanoseconds for the process to complete
-            thread::sleep(Duration::new(0, 100));
+            // Wait 1000 nanoseconds for the process to complete
+            thread::sleep(Duration::new(0, 1000));
 
             // Close the window for the program
             window.destroy();

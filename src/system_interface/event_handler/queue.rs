@@ -21,7 +21,7 @@
 //! that events with a longer delay always arrive later than earlier events.
 
 // Import the relevant structures into the correct namespace
-use super::super::{EventUpdate, GeneralUpdate, SystemUpdate};
+use super::super::{EventUpdate, GeneralUpdate};
 use super::event::EventDelay;
 use super::item::ItemId;
 
@@ -99,9 +99,7 @@ impl ComingEvents {
     /// the queue
     ///
     fn send_current(&self) {
-        self.general_update.send_system(SystemUpdate::ComingEvents {
-            events: self.list.clone(),
-        });
+        self.general_update.send_coming_events(self.list.clone());
     }
 
     /// A method to load an additional coming event.
@@ -339,8 +337,7 @@ impl Queue {
                         None => {
                             // Remove the last event from the list and send it if it matches what we expected. Otherwise, do nothing.
                             if let Some(event_now) = coming_events.lock().unwrap().pop_if(&event) {
-                                general_update.send_event(event_now.id(), true);
-                                // checkscene
+                                general_update.send_event(event_now.id(), true, true);
                             }
                         }
 
@@ -359,8 +356,7 @@ impl Queue {
                                     if let Some(event_now) =
                                         coming_events.lock().unwrap().pop_if(&event)
                                     {
-                                        general_update.send_event(event_now.id(), true);
-                                        // checkscene
+                                        general_update.send_event(event_now.id(), true, true);
                                     }
                                 }
 
@@ -390,7 +386,7 @@ impl Queue {
             }
 
             // Immediately return any events that have no delay
-            None => self.general_update.send_event(event.id(), true), // checkscene
+            None => self.general_update.send_event(event.id(), true, true),
         }
     }
 

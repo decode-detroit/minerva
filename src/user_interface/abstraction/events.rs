@@ -23,8 +23,8 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription,
-    ItemId, ItemPair, LabelControl, LaunchWindow, StatusDescription, SystemSend,
-    TriggerEvent, WindowType,
+    ItemId, ItemPair, LabelControl, LaunchWindow, ProcessEvent, StatusDescription,
+    SystemSend, WindowType,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::{LARGE_FONT, NORMAL_FONT};
@@ -582,7 +582,7 @@ impl EventGroupAbstraction {
                 // Create the new button action and connect it
                 button.connect_clicked(clone!(system_send => move |_| {
                     // Send the event trigger to the underlying system
-                    system_send.send(TriggerEvent { event: event.get_id(), check_scene: true});
+                    system_send.send(ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
                     
                     // Stop the button from flashing, if it is
                     if let Ok(mut count) = expiration.try_borrow_mut() {
@@ -595,7 +595,7 @@ impl EventGroupAbstraction {
                 // Create the new button action and connect it
                 button.connect_clicked(clone!(system_send => move |_| {
                     // Send the event trigger to the underlying system
-                    system_send.send(TriggerEvent { event: event.get_id(), check_scene: true});
+                    system_send.send(ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
                 }));
             }
 

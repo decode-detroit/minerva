@@ -417,7 +417,7 @@ impl SystemConnection {
                     // Verify the game id is correct
                     if identifier.id() == game_id {
                         // Create a new id and send it to the program
-                        gen_update.send_nobroadcast(id); // FIXME Handle incoming data
+                        gen_update.send_event(id, true, true); // FIXME Handle incoming data
 
                     // Otherwise send a notification of an incorrect game number
                     } else {

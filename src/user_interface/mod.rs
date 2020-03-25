@@ -32,8 +32,8 @@ use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
     ChangeSettings, DebugMode, DetailToModify, DisplaySetting, EditMode, InterfaceUpdate,
-    LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig, UpdateNotifications,
-    UpdateQueue, UpdateStatus, UpdateWindow, WindowType,
+    LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
+    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow, WindowType,
 };
 
 // Import standard library features
@@ -225,7 +225,7 @@ impl UserInterface {
                 }
 
                 // Update the events in the timeline area
-                UpdateQueue { events } => interface.update_events(events),
+                UpdateTimeline { events } => interface.update_events(events),
 
                 // Launch the requested special window
                 LaunchWindow { window_type } => {

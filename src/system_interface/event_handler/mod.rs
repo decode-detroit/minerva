@@ -46,7 +46,7 @@ use self::event::{
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::Queue;
 use super::system_connection::ConnectionSet;
-use super::{GeneralUpdate, InterfaceUpdate, GetUserString};
+use super::{GeneralUpdate, InterfaceUpdate};
 
 // Import standard library modules
 use std::fs::File;
@@ -514,7 +514,7 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            update!(broadcastdata &self.general_update => pair.clone(), number);
+                            update!(broadcast &self.general_update => pair.clone(), Some(number));
                         }
                         
                     // Otherwise just update the system about the event
@@ -529,7 +529,7 @@ impl EventHandler {
                     is_sent = true;
                     
                     // Solicit a string
-                    self.general_update.send_system(GetUserString { event: pair.clone() });
+                    self.general_update.send_get_user_string(pair.clone());
                 }
             }
         }
@@ -539,7 +539,7 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                update!(broadcast &self.general_update => pair.clone());
+                update!(broadcast &self.general_update => pair.clone(), None);
                 
             // Otherwise just update the system about the event
             } else {

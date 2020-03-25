@@ -353,21 +353,9 @@ impl Logger {
             },
 
             // Broadcast events and display them
-            EventUpdate::Broadcast(id) => {
-                // Broadcast the event
-                self.general_update.send_broadcast(id.get_id());
-
-                // Send a current update with the item pair
-                Current {
-                    message: format!("{}", id),
-                    time: time::now(),
-                }
-            }
-
-            // Broadcast events with data and display them
-            EventUpdate::BroadcastData(id, data) => {
-                // Broadcast the event
-                self.general_update.send_broadcast_data(id.get_id(), data);
+            EventUpdate::Broadcast(id, data) => {
+                // Broadcast the event and data, if specified
+                self.general_update.send_broadcast(id.get_id(), data);
 
                 // Send a current update with the item pair
                 Current {
