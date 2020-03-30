@@ -33,7 +33,8 @@ use self::menu::MenuAbstraction;
 use super::system_interface::{
     ChangeSettings, DebugMode, DetailToModify, DisplaySetting, EditMode, InterfaceUpdate,
     LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
-    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow, WindowType,
+    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow, ReplyDescription,
+    WindowType,
 };
 
 // Import standard library features
@@ -186,68 +187,6 @@ impl UserInterface {
 
             // Unpack the updates of every type
             match update {
-                // Update the available scenes in the scene selection and the available statuses
-                UpdateConfig {
-                    scenes,
-                    full_status,
-                } => {
-                    // Update the special dialogs
-                    interface.update_scenes(scenes);
-                    interface.update_full_status(full_status);
-
-                    // Clear the existing events from the main window
-                    interface.clear_events();
-                }
-
-                // Update the current event window
-                UpdateWindow {
-                    current_scene,
-                    statuses,
-                    window,
-                    key_map,
-                } => {
-                    // Update the current event window
-                    interface.update_window(current_scene, statuses, window);
-                    
-                    // Update the keyboard shortcuts
-                    interface.update_shortcuts(key_map);
-                }
-
-                // Update the state of a particular status
-                UpdateStatus {
-                    status_id,
-                    new_state,
-                } => interface.update_state(status_id, new_state),
-
-                // Update the notifications in the notification window
-                UpdateNotifications { notifications } => {
-                    interface.update_notifications(notifications)
-                }
-
-                // Update the events in the timeline area
-                UpdateTimeline { events } => interface.update_events(events),
-
-                // Launch the requested special window
-                LaunchWindow { window_type } => {
-                    // Sort for the window type
-                    match window_type {
-                        // Launch the jump dialog
-                        WindowType::Jump(scene) => interface.launch_jump(scene),
-
-                        // Launch the status dialog
-                        WindowType::Status(status) => interface.launch_status(status),
-
-                        // Launch the jump dialog
-                        WindowType::Shortcuts => interface.launch_shortcuts(),
-
-                        // Launch the trigger dialog
-                        WindowType::Trigger(event) => interface.launch_trigger(event),
-                        
-                        // Launch the prompt string dialog
-                        WindowType::PromptString(event) => interface.launch_prompt_string(event),
-                    }
-                }
-
                 // Change the internal setting of the user interface
                 ChangeSettings { display_setting } => {
                     // Attempt to get a mutable copy of the menu abstraction
@@ -306,14 +245,80 @@ impl UserInterface {
                     }
                 }
 
-                // Show a one line notification in the status bar
-                Notify { message } => interface.notify(&message),
-
                 // Launch the event detail modification window FIXME
                 DetailToModify {
                     event_id,
                     event_detail,
                 } => (),
+                
+                // Launch the requested special window
+                LaunchWindow { window_type } => {
+                    // Sort for the window type
+                    match window_type {
+                        // Launch the jump dialog
+                        WindowType::Jump(scene) => interface.launch_jump(scene),
+
+                        // Launch the status dialog
+                        WindowType::Status(status) => interface.launch_status(status),
+
+                        // Launch the jump dialog
+                        WindowType::Shortcuts => interface.launch_shortcuts(),
+
+                        // Launch the trigger dialog
+                        WindowType::Trigger(event) => interface.launch_trigger(event),
+                        
+                        // Launch the prompt string dialog
+                        WindowType::PromptString(event) => interface.launch_prompt_string(event),
+                    }
+                }
+                
+                // Show a one line notification in the status bar
+                Notify { message } => interface.notify(&message),
+
+                // Update the available scenes and available statuses
+                UpdateConfig {
+                    scenes,
+                    full_status,
+                } => {
+                    // Update the special dialogs
+                    interface.update_scenes(scenes);
+                    interface.update_full_status(full_status);
+
+                    // Clear the existing events from the main window
+                    interface.clear_events();
+                }
+
+                // Update the current event window
+                UpdateWindow {
+                    current_scene,
+                    statuses,
+                    window,
+                    key_map,
+                } => {
+                    // Update the current event window
+                    interface.update_window(current_scene, statuses, window);
+                    
+                    // Update the keyboard shortcuts
+                    interface.update_shortcuts(key_map);
+                }
+
+                // Update the state of a particular status
+                UpdateStatus {
+                    status_id,
+                    new_state,
+                } => interface.update_state(status_id, new_state),
+
+                // Update the notifications in the notification window
+                UpdateNotifications { notifications } => {
+                    interface.update_notifications(notifications)
+                }
+
+                // Update the events in the timeline area
+                UpdateTimeline { events } => interface.update_events(events),
+                
+                // Process a reply from an information request
+                // FIXME Should be able to handle more generic information requests
+                ReplyDescription { description } => interface.update_trigger(description),
             }
         }
     }

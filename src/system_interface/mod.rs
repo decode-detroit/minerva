@@ -424,6 +424,24 @@ impl SystemInterface {
                         .unwrap_or(());
                 }
             }
+            
+            // Reply to the request for information FIXME make this more generic
+            RequestDescription { item } => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // Collect the description of the item
+                    let description = handler.get_description(&item);
+                    
+                    // Send it back to the user interface
+                    self.interface_send
+                        .send(ReplyDescription { description })
+                        .unwrap_or(());
+
+                // Otherwise noity the user that a configuration faild to load
+                } else {
+                    update!(err &self.general_update => "Description Unavailable. No Active Configuration.");
+                }
+            }
 
             // Save the current configuration to the provided file
             SaveConfig { filepath } => {
@@ -788,6 +806,11 @@ pub enum SystemUpdate {
 
     /// A variant that triggers a redraw of the user interface window
     Redraw,
+    
+    /// A variant that requests information from the system and directs it
+    /// to a specific spot on the window
+    /// FIXME Expand this functionality
+    RequestDescription { item: ItemId }, // Description should be a subset of the available types
 
     /// A variant that provides a new configuration file to save the current
     /// configuration.
@@ -803,8 +826,8 @@ pub enum SystemUpdate {
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
     AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile,
-    DebugMode, EditDetail, EditMode, ErrorLog, EventChange, GameLog, SaveConfig,
-    SceneChange, Redraw, StatusChange, ProcessEvent,
+    DebugMode, EditDetail, EditMode, ErrorLog, EventChange, GameLog, RequestDescription,
+    SaveConfig, SceneChange, Redraw, StatusChange, ProcessEvent,
 };
 
 /// A structure to list a series of event buttons that are associated with one
@@ -861,6 +884,26 @@ pub enum DisplaySetting {
 ///
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum InterfaceUpdate {
+    /// A variant to change the display settings
+    ChangeSettings { display_setting: DisplaySetting },
+
+    /// A variant to provide the current detail of an event to allow modification
+    /// as desired.
+    DetailToModify {
+        event_id: ItemPair,
+        event_detail: EventDetail,
+    },
+    
+    /// A variant to launch one of the special windows
+    LaunchWindow { window_type: WindowType },
+
+    /// A variant to post a current event to the status bar
+    Notify { message: String },
+    
+    /// A variant to reply to an information request from the user interface
+    ReplyDescription { description: ItemDescription }, // FIXME Description should be a 
+    // subset of available variants
+    
     /// A variant to update the available scenes and full status in the main
     /// program window.
     UpdateConfig {
@@ -888,28 +931,12 @@ pub enum InterfaceUpdate {
 
     /// A variant indicating that the event timeline should be updated.
     UpdateTimeline { events: Vec<UpcomingEvent> },
-
-    /// A variant to launch one of the special windows
-    LaunchWindow { window_type: WindowType },
-
-    /// A variant to change the display settings
-    ChangeSettings { display_setting: DisplaySetting },
-
-    /// A variant to post a current event to the status bar
-    Notify { message: String },
-
-    /// A variant to provide the current detail of an event to allow modification
-    /// as desired.
-    DetailToModify {
-        event_id: ItemPair,
-        event_detail: EventDetail,
-    },
 }
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    ChangeSettings, DetailToModify, LaunchWindow, Notify, UpdateConfig, UpdateNotifications,
-    UpdateTimeline, UpdateStatus, UpdateWindow,
+    ChangeSettings, DetailToModify, LaunchWindow, Notify, ReplyDescription,
+    UpdateConfig, UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow,
 };
 
 // Tests of the system_interface module

@@ -35,8 +35,8 @@ use self::special_windows::{
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, KeyMap,
-    Notification, StatusDescription, SystemSend, UpcomingEvent,
+    EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, ItemDescription,
+    KeyMap, Notification, StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
 
@@ -389,10 +389,18 @@ impl InterfaceAbstraction {
         self.shortcuts_dialog.update_shortcuts(key_map);
     }
 
+    // Methods to update the trigger dialog
+    //
     /// A method to launch the trigger event dialog
     ///
-    pub fn launch_trigger(&self, event: Option<ItemPair>) {
+    pub fn launch_trigger(&mut self, event: Option<ItemPair>) {
         self.trigger_dialog.launch(&self.system_send, event);
+    }
+    //
+    /// A method to send a new description to the trigger dialog
+    ///
+    pub fn update_trigger(&self, description: ItemDescription) {
+        self.trigger_dialog.update_description(description);
     }
     
     /// A method to launch the prompt string dialog

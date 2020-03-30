@@ -20,8 +20,9 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, BroadcastEvent, EditMode, FullStatus, Hidden, ItemId, ItemPair,
-    KeyMap, ProcessEvent, SceneChange, StatusChange, StatusDescription, SystemSend,
+    AllStop, BroadcastEvent, EditMode, FullStatus, Hidden, ItemId, ItemDescription,
+    ItemPair, KeyMap, ProcessEvent, RequestDescription, SceneChange, StatusChange,
+    StatusDescription, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -495,8 +496,8 @@ impl ShortcutsDialog {
         
         // Add a separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
+        separator.set_halign(gtk::Align::Fill);
         grid.attach(&separator, 0, 1, 2, 1);
 
         // Populate the grid with any shortcuts
@@ -577,6 +578,7 @@ impl ShortcutsDialog {
 ///
 pub struct TriggerDialog {
     window: gtk::ApplicationWindow, // a copy of the primary window
+    description_label: Option<gtk::Label>, // the label which displays an item description
 }
 
 // Implement key features for the trigger dialog
@@ -586,12 +588,13 @@ impl TriggerDialog {
     pub fn new(window: &gtk::ApplicationWindow) -> TriggerDialog {
         TriggerDialog {
             window: window.clone(),
+            description_label: None,
         }
     }
 
     /// A method to launch the new trigger dialog
     ///
-    pub fn launch(&self, system_send: &SystemSend, event: Option<ItemPair>) {
+    pub fn launch(&mut self, system_send: &SystemSend, event: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
             Some("Manually Trigger Event"),
@@ -613,13 +616,22 @@ impl TriggerDialog {
         let label = gtk::Label::new(Some(
             " Warning: Triggering A Custom Event May Cause Undesired Behaviour. ",
         ));
-        grid.attach(&label, 0, 0, 4, 1);
+        grid.attach(&label, 0, 0, 2, 1);
 
         // Description label for the current event
         let event_description = gtk::Label::new(Some(""));
+        event_description.set_hexpand(true);
+        event_description.set_halign(gtk::Align::Fill);
+        self.description_label = Some(event_description.clone());
 
         // Create the event selection
         let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+
+        // Connect the update description function to the spin button
+        event_spin.connect_property_value_notify(clone!(system_send => move |spin| {
+            // Request a new description from the system
+            system_send.send(RequestDescription { item: ItemId::new_unchecked(spin.get_value() as u32) });
+        }));
 
         // If an id was specified, use it
         if let Some(event_pair) = event {
@@ -634,8 +646,8 @@ impl TriggerDialog {
         broadcast_checkbox.set_active(false);
         grid.attach(&event_spin, 0, 1, 1, 1);
         grid.attach(&event_description, 1, 1, 1, 1);
-        grid.attach(&scene_checkbox, 2, 1, 1, 1);
-        grid.attach(&broadcast_checkbox, 3, 1, 1, 1);
+        grid.attach(&scene_checkbox, 0, 2, 1, 1);
+        grid.attach(&broadcast_checkbox, 1, 2, 1, 1);
 
         // Add some space between the rows and columns
         grid.set_column_spacing(10);
@@ -675,6 +687,14 @@ impl TriggerDialog {
 
         // Show the dialog and return
         dialog.show_all();
+    }
+    
+    // A method to update the item description displayed in the dialog
+    pub fn update_description(&self, description: ItemDescription) {
+        // Update the event description, if it exists
+        if let Some(ref label) = self.description_label {
+            label.set_text(&description.description);
+        }
     }
 }
 
