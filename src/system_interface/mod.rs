@@ -77,7 +77,6 @@ pub struct SystemInterface {
     general_receive: mpsc::Receiver<GeneralUpdateType>, // a receiving line for all system updates
     general_update: GeneralUpdate, // a sending structure to pass new general updates
     is_debug_mode: bool,           // a flag to indicate debug mode
-    is_edit_mode: bool,            // a flag to indicate edit mode
 }
 
 // Implement key SystemInterface functionality
@@ -132,7 +131,6 @@ impl SystemInterface {
             general_receive,
             general_update: general_update,
             is_debug_mode: false,
-            is_edit_mode: false,
         };
 
         // Try to load a default configuration, if it exists
@@ -267,7 +265,9 @@ impl SystemInterface {
                     .unwrap_or(());
             }
                         
-            // Pass a broadcast event to the system connection
+            // Pass a broadcast event to the system connection (used only by
+            // the user interface, not for internal messaging. See
+            // GeneralUpdate::BroadcastEvent)
             BroadcastEvent { event, data } => {
                 // Broadcast the event via the logger
                 update!(broadcast &self.general_update => event.clone(), data);
@@ -313,29 +313,31 @@ impl SystemInterface {
                 // Switch the mode (redraw triggered by the user interface)
                 self.is_debug_mode = mode;
             }
-
-            // Modify or add the event detail
-            EditDetail {
-                event_pair,
-                event_detail,
-            } => {
-                // Create/modify the new event detail in the configuration
-                if let Some(ref mut handler) = self.event_handler {
-                    // Add/modify the event detail and the description
-                    handler.edit_event(&event_pair, &event_detail);
-
-                    // Trigger a redraw of the user interface
-                    self.general_update.send_redraw();
-
-                // Raise a warning that there is no current configuration
-                } else {
-                    update!(warn &self.general_update => "Change Not Saved: There Is No Current Configuration.");
-                }
-            }
             
-            // Switch between run mode and edit mode
-            EditMode(mode) => {
-                self.is_edit_mode = mode;
+            // Modify the underlying configuration
+            Edit { mut actions } => {
+                // Check to see if there is an active configuration
+                if let Some(ref mut handler) = self.event_handler {
+                    // Process each action in order
+                    for action in actions.drain(..) {
+                        // Match the specified action
+                        match action {
+                            // Delete the event entirely
+                            EditAction::DeleteEvent { event_id } => {
+                                handler.delete_event(&event_id);
+                            }
+                            
+                            // Add or modify the event
+                            EditAction::ModifyEvent { event_pair, event_detail } => {
+                                handler.edit_event(&event_pair, &event_detail);
+                            }
+                        }
+                    }
+                
+                // Raise a warning that there is no active configuration
+                } else {
+                    update!(warn &self.general_update => "Change Not Saved: There Is No Active Configuration.");
+                }
             }
             
             // Change the remaining delay for an existing event in the queue
@@ -361,45 +363,34 @@ impl SystemInterface {
             ProcessEvent { event, check_scene, broadcast } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
-                    // Process the event
-                    handler.process_event(&event, check_scene, broadcast);
+                    // Try to process the event
+                    if handler.process_event(&event, check_scene, broadcast) {
+                        // Notify the user interface of the event
+                        let description = handler.get_description(&event);
+                        self.interface_send
+                            .send(Notify {
+                                message: description.description,
+                            })
+                            .unwrap_or(());
+                    }
 
-                    // Notify the user interface of the event
-                    let description = handler.get_description(&event);
-                    self.interface_send
-                        .send(Notify {
-                            message: description.description,
-                        })
-                        .unwrap_or(());
-
-                // Otherwise noity the user that a configuration faild to load
+                // Otherwise notify the user that a configuration faild to load
                 } else {
                     update!(err &self.general_update => "Event Could Not Be Processed. No Active Configuration.");
                 }
-                    
-                // FIXME Renable edit mode
-                /*// Return the event detail if in edit mode
-                } else {
-                    if let Some(ref mut handler) = self.event_handler {
-                        // Try to get the event detail
-                        if let Some(detail) = handler.get_detail(&event) {
-                            // Send an update with the current event detail
-                            self.interface_send
-                                .send(DetailToModify {
-                                    event_id: ItemPair::from_item(
-                                        event.clone(),
-                                        handler.get_description(&event),
-                                    ),
-                                    event_detail: detail,
-                                })
-                                .unwrap_or(());
+            }
+            
+            // Pass an event to the queue
+            QueueEvent { event_delay } => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // add the event to the queue
+                    handler.add_event(event_delay);
 
-                        // Raise a warning for the system if the detail was not found
-                        } else {
-                            update!(warn &self.general_update => "Unable To Find Detail For Event: {}", event);
-                        }
-                    }
-                }*/
+                // Otherwise noity the user that a configuration faild to load
+                } else {
+                    update!(err &self.general_update => "Event Could Not Be Added. No Active Configuration.");
+                }
             }
 
             // Redraw the current window
@@ -425,21 +416,52 @@ impl SystemInterface {
                 }
             }
             
-            // Reply to the request for information FIXME make this more generic
-            RequestDescription { item } => {
+            // Reply to the request for information
+            Request { request } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
-                    // Collect the description of the item
-                    let description = handler.get_description(&item);
-                    
-                    // Send it back to the user interface
-                    self.interface_send
-                        .send(ReplyDescription { description })
-                        .unwrap_or(());
+                    // Match the type of information request
+                    match request {
+                        // Reply to a request for the item description
+                        RequestType::Description { item_id } => {
+                            // Collect the description of the item
+                            let description = handler.get_description(&item_id);
+                            
+                            // Send it back to the user interface
+                            self.interface_send
+                                .send(Reply {
+                                    reply: ReplyType::Description {
+                                        description
+                                    }
+                                }).unwrap_or(());
+                        }
+                        
+                        // Reply to a request for the event detail
+                        RequestType::Detail { item_id } => {
+                            // Try to get the event detail
+                            if let Some(detail) = handler.get_detail(&item_id) {
+                                // Send an update with the current event detail
+                                self.interface_send
+                                    .send(Reply {
+                                        reply: ReplyType::Detail {
+                                            event_id: ItemPair::from_item(
+                                                item_id.clone(),
+                                                handler.get_description(&item_id),
+                                            ),
+                                            event_detail: detail,
+                                        }
+                                    }).unwrap_or(());
+
+                            // Raise a warning for the system if the detail was not found
+                            } else {
+                                update!(warn &self.general_update => "Event Detail Unavailable.");
+                            }
+                        }
+                    }
 
                 // Otherwise noity the user that a configuration faild to load
                 } else {
-                    update!(err &self.general_update => "Description Unavailable. No Active Configuration.");
+                    update!(warn &self.general_update => "Information Unavailable. No Active Configuration.");
                 }
             }
 
@@ -741,6 +763,28 @@ impl SystemSend {
     }
 }
 
+/// An enum to execute one of the available edit actions for the configuration
+///
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EditAction {
+    /// An action to delete an existing event
+    DeleteEvent { event_id: ItemId },
+    
+    /// An action to add an event or modify an existing one
+    ModifyEvent { event_pair: ItemPair, event_detail: EventDetail },
+}
+
+/// An enum to specify the type of information request
+///
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RequestType {
+    /// A variant for the description of an item
+    Description { item_id: ItemId },
+    
+    /// A variant for the detail of an event
+    Detail { item_id: ItemId },
+}
+
 /// An enum to provide updates from the main thread to the system interface,
 /// listed in order of increasing usage.
 ///
@@ -775,14 +819,8 @@ pub enum SystemUpdate {
     /// A special variant to switch to or from debug mode for the program.
     DebugMode(bool),
 
-    /// A special variant to switch to or from editing mode for the program.
-    EditMode(bool),
-
-    /// A variant to modify or add the detail of the indicated event
-    EditDetail {
-        event_pair: ItemPair,
-        event_detail: EventDetail,
-    },
+    /// A variant to modify the underlying configuration
+    Edit { actions: Vec<EditAction> },
     
     /// A variant that provides a new error log file for the system interface.
     ErrorLog { filepath: PathBuf },
@@ -804,13 +842,16 @@ pub enum SystemUpdate {
     /// will be broadcast to the system
     ProcessEvent { event: ItemId, check_scene: bool, broadcast: bool },
 
+    /// A variant that queues a new event with the given item id. The event
+    /// will trigger after the specified delay has passed.
+    QueueEvent { event_delay: EventDelay },
+    
     /// A variant that triggers a redraw of the user interface window
     Redraw,
     
     /// A variant that requests information from the system and directs it
     /// to a specific spot on the window
-    /// FIXME Expand this functionality
-    RequestDescription { item: ItemId }, // Description should be a subset of the available types
+    Request { request: RequestType },
 
     /// A variant that provides a new configuration file to save the current
     /// configuration.
@@ -826,8 +867,8 @@ pub enum SystemUpdate {
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
     AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile,
-    DebugMode, EditDetail, EditMode, ErrorLog, EventChange, GameLog, RequestDescription,
-    SaveConfig, SceneChange, Redraw, StatusChange, ProcessEvent,
+    DebugMode, Edit, ErrorLog, EventChange, GameLog, ProcessEvent, QueueEvent,
+    Request, SaveConfig, SceneChange, Redraw, StatusChange, 
 };
 
 /// A structure to list a series of event buttons that are associated with one
@@ -880,19 +921,26 @@ pub enum DisplaySetting {
     HighContrast(bool),
 }
 
+/// An enum to specify the type of information reply
+///
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ReplyType {
+    /// A variant for the description of an item
+    Description { description: ItemDescription },
+    
+    /// A variant for the detail of an event
+    Detail { 
+        event_id: ItemPair,
+        event_detail: EventDetail,
+    },
+}
+
 /// An enum type to provide interface updates back to the user interface thread.
 ///
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum InterfaceUpdate {
     /// A variant to change the display settings
     ChangeSettings { display_setting: DisplaySetting },
-
-    /// A variant to provide the current detail of an event to allow modification
-    /// as desired.
-    DetailToModify {
-        event_id: ItemPair,
-        event_detail: EventDetail,
-    },
     
     /// A variant to launch one of the special windows
     LaunchWindow { window_type: WindowType },
@@ -901,8 +949,7 @@ pub enum InterfaceUpdate {
     Notify { message: String },
     
     /// A variant to reply to an information request from the user interface
-    ReplyDescription { description: ItemDescription }, // FIXME Description should be a 
-    // subset of available variants
+    Reply { reply: ReplyType },
     
     /// A variant to update the available scenes and full status in the main
     /// program window.
@@ -935,8 +982,8 @@ pub enum InterfaceUpdate {
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    ChangeSettings, DetailToModify, LaunchWindow, Notify, ReplyDescription,
-    UpdateConfig, UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow,
+    ChangeSettings, LaunchWindow, Notify, Reply, UpdateConfig,
+    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow,
 };
 
 // Tests of the system_interface module

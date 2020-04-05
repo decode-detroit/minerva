@@ -667,6 +667,24 @@ impl Config {
         None
     }
 
+    /// A method to delete the item description within the current lookup.
+    ///
+    /// # Errors
+    ///
+    /// This function will notify the user if the description was removed.
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line and making no
+    /// modifications to the current scene.
+    ///
+    pub fn delete_description(&mut self, item_id: &ItemId) {
+        // Try to remove the item from the lookup
+        if let Some(description) = self.lookup.remove(&item_id) {
+            // Notify the user that it was removed
+            update!(update &self.general_update => "Item Description Removed: {}", description);
+        }
+    }
+
     /// A method to modify or add the item description within the current
     /// lookup based on the provided id and new description.
     ///
@@ -694,17 +712,38 @@ impl Config {
         update!(update &self.general_update => "Item Description Added: {}", item_pair.description());
     }
 
-    /// A method to modify or add event detail within the current scene based
-    /// on the provided event id and new detail.
+    /// A method to delete an event from the configuration
     ///
     /// # Errors
     ///
     /// This method will raise a warning if the new event detail creates an
-    /// inconsistency within the configuration.
+    /// inconsistency within the configuration. FIXME Not implemented
     ///
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and making no
-    /// modifications to the current scene.
+    /// modifications to the configuration.
+    ///
+    pub fn delete_event(&mut self, event_id: &ItemId) {
+        // Remove the event description from the lookup
+        self.delete_description(event_id);
+
+        // If the event is in the event list, remove it
+        if let Some(_) = self.events.remove(&event_id) {
+            // Update the detail and notify the system
+            update!(update &self.general_update => "Event Detail Removed.");
+        }
+    }
+
+    /// A method to modify or add an event with provided event pair and new detail.
+    ///
+    /// # Errors
+    ///
+    /// This method will raise a warning if the new event detail creates an
+    /// inconsistency within the configuration. FIXME Not implemented
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line and making no
+    /// modifications to the configuration.
     ///
     pub fn edit_event(&mut self, event_pair: &ItemPair, new_detail: &EventDetail) {
         // Update or add the event description in the lookup

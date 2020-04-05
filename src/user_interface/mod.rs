@@ -31,10 +31,10 @@ mod menu;
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
-    ChangeSettings, DebugMode, DetailToModify, DisplaySetting, EditMode, InterfaceUpdate,
+    ChangeSettings, DebugMode, DisplaySetting, InterfaceUpdate,
     LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
-    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow, ReplyDescription,
-    WindowType,
+    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow, Reply,
+    ReplyType, WindowType,
 };
 
 // Import standard library features
@@ -141,9 +141,6 @@ impl UserInterface {
                 *flag = false;
             }
 
-            // Switch the interface back to operations mode
-            self.send(EditMode(false));
-
             // Return the checkbox to its default state
             checkbox.change_state(&(false).to_variant());
 
@@ -244,12 +241,6 @@ impl UserInterface {
                         }
                     }
                 }
-
-                // Launch the event detail modification window FIXME
-                DetailToModify {
-                    event_id,
-                    event_detail,
-                } => (),
                 
                 // Launch the requested special window
                 LaunchWindow { window_type } => {
@@ -274,6 +265,20 @@ impl UserInterface {
                 
                 // Show a one line notification in the status bar
                 Notify { message } => interface.notify(&message),
+
+                // Pass information from the system to the correct spot
+                Reply { reply } => {
+                    // Match the type of the reply
+                    match reply {
+                        // Pass a description to the trigger window
+                        ReplyType::Description { description } => {
+                            interface.update_trigger(description);
+                        }
+                        
+                        // Pass the event detail to the edit window  FIXME reenable this
+                        ReplyType::Detail { event_id, event_detail } => (),
+                    }
+                }
 
                 // Update the available scenes and available statuses
                 UpdateConfig {
@@ -315,10 +320,6 @@ impl UserInterface {
 
                 // Update the events in the timeline area
                 UpdateTimeline { events } => interface.update_events(events),
-                
-                // Process a reply from an information request
-                // FIXME Should be able to handle more generic information requests
-                ReplyDescription { description } => interface.update_trigger(description),
             }
         }
     }

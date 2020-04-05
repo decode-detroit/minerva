@@ -170,12 +170,17 @@ impl EventHandler {
         self.config.system_connection()
     }
 
+    /// A method to add an event to the timed queue.
+    ///
+    pub fn add_event(&mut self, event_delay: EventDelay) {
+        self.queue.add_event(event_delay);
+    }
+
     /// A method to clear the existing events in the timed queue.
     ///
     /// This method clears all the events in the timed queue, effective
-    /// retroactively. This means that any events that have not been processed
-    /// (even if internally their delay has already expired) will not be
-    /// processed.
+    /// immediately. This means that any events that have not been processed
+    /// (even if their delay has already expired) will not be processed.
     ///
     pub fn clear_events(&mut self) {
         self.queue.clear();
@@ -350,19 +355,33 @@ impl EventHandler {
         }
     }
 
-    /// A method to add or modify the event detail within the current configuration.
+    /// A method to delete an event within the current configuration.
     ///
     /// # Errors
     ///
     /// This method will raise a warning if the new event detail creates an
-    /// inconsistency within the configuration.
+    /// inconsistency within the configuration. FIXME Not currently implemented.
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line and leaving the
+    /// current configuration unmodified.
+    ///
+    pub fn delete_event(&mut self, event_id: &ItemId) {
+        self.config.delete_event(event_id);
+    }
+
+    /// A method to add or modify an event within the current configuration.
+    ///
+    /// # Errors
+    ///
+    /// This method will raise a warning if the new event detail creates an
+    /// inconsistency within the configuration. FIXME Not currently implemented.
     ///
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and leaving the
     /// current configuration unmodified.
     ///
     pub fn edit_event(&mut self, event_pair: &ItemPair, new_detail: &EventDetail) {
-        // Modify the underlying event
         self.config.edit_event(event_pair, new_detail);
     }
 
@@ -472,7 +491,8 @@ impl EventHandler {
         self.config.to_config(&config_file);
     }
 
-    /// A method to process a new event in the event handler.
+    /// A method to process a new event in the event handler. If the event was
+    /// processed successfully, it returns true.
     ///
     /// # Errors
     ///
@@ -483,21 +503,21 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line.
     ///
-    pub fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) {
+    pub fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) -> bool {
         // Try to retrieve the event details and unpack the event
         let event_detail = match self.config.try_event(event_id, checkscene) {
             // Process a valid event
             Some(event_detail) => event_detail,
 
-            // Return on failure
-            None => return,
+            // Return false on failure
+            None => return false,
         };
 
         // Compose the item into an item pair
         let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
         
         // Unpack and process each action of the event
-        let mut is_sent = false;
+        let mut was_broadcast = false;
         for action in event_detail {
             // Switch based on the result of unpacking the action
             match self.unpack_action(action) {
@@ -507,8 +527,8 @@ impl EventHandler {
                 
                 // Send data to the system
                 UnpackResult::Data(mut data) => {
-                    // Save that the event has been sent
-                    is_sent = true;
+                    // Save that the event has been broadcast
+                    was_broadcast = true;
                     
                     // If we should broadcast the event
                     if broadcast {
@@ -525,8 +545,8 @@ impl EventHandler {
 
                 // Solicit a string from the user
                 UnpackResult::String => {
-                    // Save that the event was sent
-                    is_sent = true;
+                    // Save that the event was broadcast
+                    was_broadcast = true;
                     
                     // Solicit a string
                     self.general_update.send_get_user_string(pair.clone());
@@ -534,8 +554,8 @@ impl EventHandler {
             }
         }
         
-        // Send the event (if it hasn't been sent yet
-        if !is_sent {
+        // Broadcast the event (if it hasn't been broadcast yet)
+        if !was_broadcast {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
@@ -546,6 +566,9 @@ impl EventHandler {
                 update!(now &self.general_update => pair.clone());
             }
         }
+        
+        // Indicate success
+        true
     }
 
     /// An internal function to unpack the event detail and act on it. If the

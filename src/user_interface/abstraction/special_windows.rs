@@ -20,9 +20,9 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, BroadcastEvent, EditMode, FullStatus, Hidden, ItemId, ItemDescription,
-    ItemPair, KeyMap, ProcessEvent, RequestDescription, SceneChange, StatusChange,
-    StatusDescription, SystemSend,
+    AllStop, BroadcastEvent, EventDelay, FullStatus, Hidden, ItemId, ItemDescription,
+    ItemPair, KeyMap, ProcessEvent, QueueEvent, Request, RequestType, SceneChange,
+    StatusChange, StatusDescription, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -31,6 +31,7 @@ use super::NORMAL_FONT;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::mem;
+use std::time::Duration;
 
 // Import FNV HashMap
 extern crate fnv;
@@ -48,6 +49,7 @@ use self::gtk::GridExt;
 // Define and import constants
 const STATE_LIMIT: usize = 20; // maximum character width of states
 const DESCRIPTION_LIMIT: usize = 40; // shortcut event descriptions character limit
+const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
 use super::super::WINDOW_TITLE; // the window title
 
 /// A structure to contain the dialog for confirming the edit selection.
@@ -113,9 +115,8 @@ impl EditDialog {
                 // Change the status of the checkbox
                 checkbox.change_state(&(true).to_variant());
 
-                // Send the edit mode notification to the underlying system
+                // Send the all stop message to the underlying system
                 system_send.send(AllStop);
-                system_send.send(EditMode(true));
 
                 // Change the title of the window
                 window.set_title(format!("{} - Edit Mode", WINDOW_TITLE).as_str());
@@ -611,44 +612,7 @@ impl TriggerDialog {
         let content = dialog.get_content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
-
-        // Add the dropdown and label
-        let label = gtk::Label::new(Some(
-            " Warning: Triggering A Custom Event May Cause Undesired Behaviour. ",
-        ));
-        grid.attach(&label, 0, 0, 2, 1);
-
-        // Description label for the current event
-        let event_description = gtk::Label::new(Some(""));
-        event_description.set_hexpand(true);
-        event_description.set_halign(gtk::Align::Fill);
-        self.description_label = Some(event_description.clone());
-
-        // Create the event selection
-        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-
-        // Connect the update description function to the spin button
-        event_spin.connect_property_value_notify(clone!(system_send => move |spin| {
-            // Request a new description from the system
-            system_send.send(RequestDescription { item: ItemId::new_unchecked(spin.get_value() as u32) });
-        }));
-
-        // If an id was specified, use it
-        if let Some(event_pair) = event {
-            event_spin.set_value(event_pair.id() as f64);
-            event_description.set_text(&event_pair.description());
-        }
-
-        // Create the checkboxes
-        let scene_checkbox = gtk::CheckButton::new_with_label("Check Scene");
-        scene_checkbox.set_active(true);
-        let broadcast_checkbox = gtk::CheckButton::new_with_label("Skip All Checks");
-        broadcast_checkbox.set_active(false);
-        grid.attach(&event_spin, 0, 1, 1, 1);
-        grid.attach(&event_description, 1, 1, 1, 1);
-        grid.attach(&scene_checkbox, 0, 2, 1, 1);
-        grid.attach(&broadcast_checkbox, 1, 2, 1, 1);
-
+        
         // Add some space between the rows and columns
         grid.set_column_spacing(10);
         grid.set_row_spacing(10);
@@ -658,25 +622,160 @@ impl TriggerDialog {
         grid.set_margin_bottom(10);
         grid.set_margin_start(10);
         grid.set_margin_end(10);
+
+        // Add the dropdown and label
+        let label = gtk::Label::new(Some(
+            " WARNING: Triggering a custom event may cause undesired behaviour. "
+        ));
+        grid.attach(&label, 0, 0, 3, 1);
         
-        // Make sure the scene checkbox is false when broadcast is selected
-        broadcast_checkbox.connect_toggled(clone!(scene_checkbox => move | checkbox | {
+        // Add a separator
+        let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+        separator.set_hexpand(true);
+        separator.set_halign(gtk::Align::Fill);
+        grid.attach(&separator, 0, 1, 3, 1);
+
+        // Create the headers
+        let label = gtk::Label::new(Some(" Event ID "));
+        grid.attach(&label, 0, 2, 1, 1);
+        let label = gtk::Label::new(Some(" Event Description "));
+        grid.attach(&label, 1, 2, 2, 1);
+
+        // Create the event selection
+        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+
+        // Description label for the current event
+        let event_description = gtk::Label::new(Some(""));
+        event_description.set_hexpand(true);
+        event_description.set_halign(gtk::Align::Fill);
+        self.description_label = Some(event_description.clone());
+
+        // Connect the update description function to the spin button
+        event_spin.connect_property_value_notify(clone!(system_send => move |spin| {
+            // Request a new description from the system
+            system_send.send(Request {
+                request: RequestType::Description {
+                    item_id: ItemId::new_unchecked(spin.get_value() as u32)
+                }
+            });
+        }));
+
+        // If an id was specified, use it
+        if let Some(event_pair) = event {
+            event_spin.set_value(event_pair.id() as f64);
+            event_description.set_text(&event_pair.description());
+        }
+        
+        // Add them to the grid
+        grid.attach(&event_spin, 0, 3, 1, 1);
+        grid.attach(&event_description, 1, 3, 2, 1);
+
+        // Add a separator
+        let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+        separator.set_hexpand(true);
+        separator.set_halign(gtk::Align::Fill);
+        grid.attach(&separator, 0, 4, 3, 1);
+        
+        // Add a separator for the delay (lower down)
+        let delay_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+        separator.set_hexpand(true);
+        separator.set_halign(gtk::Align::Fill);
+        grid.attach(&delay_separator, 0, 6, 3, 1);
+        
+        // Create the delay headers and spin buttons
+        let delay_label = gtk::Label::new(Some(" Delay "));
+        grid.attach(&delay_label, 0, 7, 1, 2);
+        let minutes_label = gtk::Label::new(Some(" Minutes "));
+        grid.attach(&minutes_label, 1, 7, 1, 1);
+        let seconds_label = gtk::Label::new(Some(" Seconds "));
+        grid.attach(&seconds_label, 2, 7, 1, 1);
+        let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
+        grid.attach(&minutes_spin, 1, 8, 1, 1);
+        let seconds_spin = gtk::SpinButton::new_with_range(0.0, 59.0, 1.0);
+        grid.attach(&seconds_spin, 2, 8, 1, 1);
+        
+
+        // Create the checkboxes
+        let now_checkbox = gtk::CheckButton::new_with_label("Trigger Now");
+        now_checkbox.set_active(true);
+        let broadcast_checkbox = gtk::CheckButton::new_with_label("Skip All Checks");
+        broadcast_checkbox.set_active(false);
+        let scene_checkbox = gtk::CheckButton::new_with_label("Check Scene");
+        scene_checkbox.set_active(true);
+        grid.attach(&now_checkbox, 0, 5, 1, 1);
+        grid.attach(&broadcast_checkbox, 1, 5, 1, 1);
+        grid.attach(&scene_checkbox, 2, 5, 1, 1);
+        
+        // Make changes to the interface when trigger now is changed
+        now_checkbox.connect_toggled(clone!(broadcast_checkbox, scene_checkbox, delay_separator, delay_label, minutes_label, seconds_label, minutes_spin, seconds_spin => move | checkbox | {
+            // Make the other two checkboxes visible
             if checkbox.get_active() {
-                scene_checkbox.set_active(false);
+                broadcast_checkbox.show();
+                
+                // Check to make sure broadcast isn't selected
+                if !broadcast_checkbox.get_active() {
+                    scene_checkbox.show();
+                }
+                
+                // Hide the delay inputs
+                delay_separator.hide();
+                delay_label.hide();
+                minutes_label.hide();
+                seconds_label.hide();
+                minutes_spin.hide();
+                seconds_spin.hide();
+            
+            // Make the delay options visible
+            } else {
+                delay_separator.show();
+                delay_label.show();
+                minutes_label.show();
+                seconds_label.show();
+                minutes_spin.show();
+                seconds_spin.show();
+                
+                // Hide the other checkboxes
+                scene_checkbox.hide();
+                broadcast_checkbox.hide();
+            }
+        }));
+        
+        // Make sure the scene checkbox is hidden when broadcast is selected
+        broadcast_checkbox.connect_toggled(clone!(scene_checkbox => move | checkbox | {
+            // Make sure the checkbox is hidden
+            if checkbox.get_active() {
+                scene_checkbox.hide();
+            
+            // Otherwise show it
+            } else {
+                scene_checkbox.show();
             }
         }));
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(system_send, event_spin, scene_checkbox, broadcast_checkbox => move |modal, id| {
-
+        dialog.connect_response(clone!(system_send, event_spin, now_checkbox, broadcast_checkbox, scene_checkbox, minutes_spin, seconds_spin => move |modal, id| {
             // Notify the system of the event change
             if id == gtk::ResponseType::Ok {
+                // If trigger now is not selected, send a delayed event
+                if !now_checkbox.get_active() {
+                    // Extract the delay times
+                    let minutes = minutes_spin.get_value() as u32;
+                    let seconds = seconds_spin.get_value() as u32;
 
-                // If broadcast is selected, just send a broadcast event
-                if broadcast_checkbox.get_active() {
+                    // Compose the new delay
+                    let mut delay = None;
+                    if (minutes != 0) | (seconds != 0) {
+                        delay = Some(Duration::from_secs((seconds + (minutes * 60)) as u64));
+                    }
+
+                    // Send the new event
+                    system_send.send(QueueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
+
+                // If broadcast is selected, send a broadcast event
+                } else if broadcast_checkbox.get_active() {
                     system_send.send(BroadcastEvent { event: ItemPair::new_unchecked(event_spin.get_value() as u32, "", Hidden), data: None});
                 
-                // Otherwise, send the selected event to the system
+                // Otherwise, send the event to be processed by the system
                 } else { system_send.send(ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
                 }
             }
@@ -685,8 +784,16 @@ impl TriggerDialog {
             modal.destroy();
         }));
 
-        // Show the dialog and return
+        // Show the dialog and components
         dialog.show_all();
+        
+        // Hide the delay inputs and return
+        delay_separator.hide();
+        delay_label.hide();
+        minutes_label.hide();
+        seconds_label.hide();
+        minutes_spin.hide();
+        seconds_spin.hide();
     }
     
     // A method to update the item description displayed in the dialog

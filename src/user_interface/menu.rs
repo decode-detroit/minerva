@@ -23,7 +23,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
     ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, ErrorLog, GameLog,
-    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType, EditMode,
+    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType,
 };
 
 // Import standard library features
@@ -355,7 +355,7 @@ impl MenuAbstraction {
                 let is_edit = state.get().unwrap_or(false);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                system_send.send(EditMode(true));
+                // FIXME Broken Interface
             }
         }));
 
