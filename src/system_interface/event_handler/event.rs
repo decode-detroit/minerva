@@ -68,25 +68,9 @@ impl EventDelay {
 ///
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct UpcomingEvent {
+    pub event: ItemPair,     // id and description of the event to launch
     pub start_time: Instant, // the original start time of the event
     pub delay: Duration,     // delay between now and the time for the event
-    pub event: ItemPair,     // id and description of the event to launch
-}
-
-// Implement key features for the upcoming events
-impl UpcomingEvent {
-    /// A method to return the remaining time before the event occurs.
-    ///
-    pub fn remaining(&self) -> Option<Duration> {
-        self.delay.checked_sub(self.start_time.elapsed())
-    }
-
-    /// A method to compare the start time and event id of two coming events.
-    /// The method returns true iff both values are equal.
-    ///
-    pub fn compare_with(&self, other: &UpcomingEvent) -> bool {
-        (self.event == other.event) & (self.start_time == other.start_time)
-    }
 }
 
 /// An enum with the types of data available to be saved and sent

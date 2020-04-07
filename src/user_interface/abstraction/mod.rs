@@ -30,8 +30,7 @@ mod timeline;
 use self::control::ControlAbstraction;
 use self::events::EventAbstraction;
 use self::special_windows::{
-    EditDialog, JumpDialog, PromptStringDialog, ShortcutsDialog, StatusDialog,
-    TriggerDialog,
+    JumpDialog, PromptStringDialog, ShortcutsDialog, StatusDialog, TriggerDialog,
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
@@ -49,7 +48,6 @@ use std::sync::mpsc;
 extern crate gdk;
 extern crate gio;
 extern crate gtk;
-use self::gio::SimpleAction;
 use self::gtk::prelude::*;
 
 // Import the external time library
@@ -69,14 +67,13 @@ const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 pub struct InterfaceAbstraction {
     system_send: SystemSend, // a copy of system send held in the interface abstraction
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
-    primary_grid: gtk::Grid, // the top-level grid that contains the control and event grids
+    top_element: gtk::Stack, // the stack that contains the operations and edit grids
     full_status: Rc<RefCell<FullStatus>>, // user interface storage of the current full status of the system (for use by the event labels and the status dialog)
     current_window: (ItemPair, Vec<ItemPair>, EventWindow), // user interface storage of the current event window
     timeline: TimelineAbstraction, // the timeline abstraction that holds the timeline of upcoming events
     control: ControlAbstraction, // the control abstraction that holds the universal system controls
     events: EventAbstraction, // the event abstraction that holds the events selectable in the current scene
     notification_bar: gtk::Statusbar, // the status bar where one line notifications are posted
-    edit_dialog: EditDialog,  // the edit dialog for the system to confirm a change to edit mode
     jump_dialog: JumpDialog,  // the jump dialog for the system to switch between individual scenes
     status_dialog: StatusDialog, // the status dialog for the system to change individual statuses
     shortcuts_dialog: ShortcutsDialog,  // the shortcuts dialog to show the current keyboard shortcuts
@@ -99,30 +96,38 @@ impl InterfaceAbstraction {
         system_send: &SystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
         window: &gtk::ApplicationWindow,
-        edit_mode: Rc<RefCell<bool>>,
     ) -> InterfaceAbstraction {
-        // Create the top-level element of the program, a grid to hold other elements
-        let primary_grid = gtk::Grid::new();
+        // Create the top-level element of the program, a stack to hold both
+        // operations and edit elements
+        let top_element = gtk::Stack::new();
+        
+        // Create the operations grid to hold all the operations elements
+        let operations_grid = gtk::Grid::new();
+        top_element.add_named(&operations_grid, "ops");
+        
+        // Create the edit grid to hold all the edit elements
+        let edit_grid = gtk::Label::new(Some("Edit Mode Enabled"));
+        top_element.add_named(&edit_grid, "edit");
 
         // Set the features of the primary grid
-        primary_grid.set_column_homogeneous(false); // Allow everything to adjust
-        primary_grid.set_row_homogeneous(false);
-        primary_grid.set_column_spacing(10); // add some space between the rows and columns
-        primary_grid.set_row_spacing(10);
-        primary_grid.set_margin_start(10); // add some space on the left and right side
-        primary_grid.set_margin_end(10);
+        operations_grid.set_column_homogeneous(false); // Allow everything to adjust
+        operations_grid.set_row_homogeneous(false);
+        operations_grid.set_column_spacing(10); // add some space between the rows and columns
+        operations_grid.set_row_spacing(10);
+        operations_grid.set_margin_start(10); // add some space on the left and right side
+        operations_grid.set_margin_end(10);
 
         // Set the interrior items to fill the available space
-        primary_grid.set_valign(gtk::Align::Fill);
-        primary_grid.set_halign(gtk::Align::Fill);
+        operations_grid.set_valign(gtk::Align::Fill);
+        operations_grid.set_halign(gtk::Align::Fill);
 
         // Create the timeline abstraction and add it to the primary grid
         let timeline = TimelineAbstraction::new(system_send, window);
-        primary_grid.attach(timeline.get_top_element(), 0, 0, 3, 1);
+        operations_grid.attach(timeline.get_top_element(), 0, 0, 3, 1);
 
         // Create the control abstraction and add it to the primary grid
         let control = ControlAbstraction::new(system_send, interface_send);
-        primary_grid.attach(control.get_top_element(), 0, 3, 1, 1);
+        operations_grid.attach(control.get_top_element(), 0, 3, 1, 1);
 
         // Create a horizontal and vertical separator
         let separator_vertical = gtk::Separator::new(gtk::Orientation::Vertical);
@@ -133,19 +138,19 @@ impl InterfaceAbstraction {
         separator_vertical.set_vexpand(true);
         separator_horizontal.set_halign(gtk::Align::Fill);
         separator_horizontal.set_hexpand(true);
-        primary_grid.attach(&separator_vertical, 1, 1, 1, 3);
-        primary_grid.attach(&separator_horizontal, 0, 4, 3, 1);
+        operations_grid.attach(&separator_vertical, 1, 1, 1, 3);
+        operations_grid.attach(&separator_horizontal, 0, 4, 3, 1);
 
         // Create the notification bar and add it to the primary grid
         let notification_bar = gtk::Statusbar::new();
         notification_bar.set_vexpand(false);
         notification_bar.set_hexpand(true);
         notification_bar.set_halign(gtk::Align::Fill);
-        primary_grid.attach(&notification_bar, 0, 5, 3, 1);
+        operations_grid.attach(&notification_bar, 0, 5, 3, 1);
 
         // Create the event abstraction and add it to the primary grid
         let events = EventAbstraction::new();
-        primary_grid.attach(events.get_top_element(), 2, 1, 1, 3);
+        operations_grid.attach(events.get_top_element(), 2, 1, 1, 3);
 
         // Create the side panel scrolling window
         let side_scroll = gtk::ScrolledWindow::new(
@@ -161,14 +166,13 @@ impl InterfaceAbstraction {
         title.set_halign(gtk::Align::Center);
         title.show();
 
-        primary_grid.attach(&title, 0, 1, 1, 1);
-        primary_grid.attach(&side_scroll, 0, 2, 1, 1);
+        operations_grid.attach(&title, 0, 1, 1, 1);
+        operations_grid.attach(&side_scroll, 0, 2, 1, 1);
 
         // Create internal storage for the full status of the system
         let full_status = Rc::new(RefCell::new(FullStatus::default()));
 
         // Create the special windows for the user interface
-        let edit_dialog = EditDialog::new(edit_mode, window);
         let jump_dialog = JumpDialog::new(window);
         let status_dialog = StatusDialog::new(full_status.clone(), window);
         let shortcuts_dialog = ShortcutsDialog::new(system_send, window);
@@ -179,7 +183,7 @@ impl InterfaceAbstraction {
         InterfaceAbstraction {
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
-            primary_grid,
+            top_element,
             full_status,
             current_window: (
                 ItemPair::new_unchecked(1, "", Hidden),
@@ -190,7 +194,6 @@ impl InterfaceAbstraction {
             control,
             events,
             notification_bar,
-            edit_dialog,
             jump_dialog,
             status_dialog,
             shortcuts_dialog,
@@ -203,8 +206,20 @@ impl InterfaceAbstraction {
     /// A method to return a reference to the top element of the interface,
     /// currently primary grid.
     ///
-    pub fn get_top_element(&self) -> &gtk::Grid {
-        &self.primary_grid
+    pub fn get_top_element(&self) -> &gtk::Stack {
+        &self.top_element
+    }
+
+    /// A method to change the user interface to and from edit mode.
+    ///
+    pub fn select_edit(&self, is_edit: bool) {
+        // Switch to edit mode
+        if is_edit {
+            self.top_element.set_visible_child_full("edit", gtk::StackTransitionType::SlideUp);
+        // Otherwise, switch to operations mode
+        } else {
+            self.top_element.set_visible_child_full("ops", gtk::StackTransitionType::SlideDown);
+        }
     }
 
     /// A method to change the notification level to (or from) debug. If
@@ -345,12 +360,6 @@ impl InterfaceAbstraction {
                 &self.interface_send,
             );
         }
-    }
-
-    /// A method to launch the edit dialog
-    ///
-    pub fn launch_edit(&self, checkbox: &SimpleAction) {
-        self.edit_dialog.launch(&self.system_send, checkbox);
     }
 
     // Methods to update the jump dialog

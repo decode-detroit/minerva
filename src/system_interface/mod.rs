@@ -696,9 +696,7 @@ impl GeneralUpdate {
     /// broadcast is set to true, the event will be broadcast to the system.
     ///
     fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
-        self.general_send
-            .send(GeneralUpdateType::System(ProcessEvent { event, check_scene, broadcast } ))
-            .unwrap_or(());
+        self.send_system(ProcessEvent { event, check_scene, broadcast } );
     }
     
     /// A method to request a string from the user FIXME make this more generic
@@ -713,9 +711,7 @@ impl GeneralUpdate {
     /// A method to trigger a redraw of the current window
     ///
     fn send_redraw(&self) {
-        self.general_send
-            .send(GeneralUpdateType::System(Redraw))
-            .unwrap_or(());
+        self.send_system(Redraw);
     }
 
     /// A method to pass a system update to the system interface.
@@ -757,9 +753,7 @@ impl SystemSend {
     /// silently.
     ///
     pub fn send(&self, update: SystemUpdate) {
-        self.general_send
-            .send(GeneralUpdateType::System(update))
-            .unwrap_or(());
+        self.general_send.send(GeneralUpdateType::System(update)).unwrap_or(());
     }
 }
 
@@ -942,6 +936,9 @@ pub enum InterfaceUpdate {
     /// A variant to change the display settings
     ChangeSettings { display_setting: DisplaySetting },
     
+    /// A variant to switch the interface to or from edit mode
+    EditMode(bool),
+    
     /// A variant to launch one of the special windows
     LaunchWindow { window_type: WindowType },
 
@@ -982,7 +979,7 @@ pub enum InterfaceUpdate {
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    ChangeSettings, LaunchWindow, Notify, Reply, UpdateConfig,
+    ChangeSettings, EditMode, LaunchWindow, Notify, Reply, UpdateConfig,
     UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow,
 };
 

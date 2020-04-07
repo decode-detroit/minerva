@@ -20,7 +20,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, BroadcastEvent, EventDelay, FullStatus, Hidden, ItemId, ItemDescription,
+    BroadcastEvent, EventDelay, FullStatus, Hidden, ItemId, ItemDescription,
     ItemPair, KeyMap, ProcessEvent, QueueEvent, Request, RequestType, SceneChange,
     StatusChange, StatusDescription, SystemSend,
 };
@@ -42,7 +42,6 @@ extern crate gdk;
 extern crate gio;
 extern crate gtk;
 extern crate glib;
-use self::gio::{ActionExt, SimpleAction};
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
 
@@ -50,86 +49,7 @@ use self::gtk::GridExt;
 const STATE_LIMIT: usize = 20; // maximum character width of states
 const DESCRIPTION_LIMIT: usize = 40; // shortcut event descriptions character limit
 const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
-use super::super::WINDOW_TITLE; // the window title
 
-/// A structure to contain the dialog for confirming the edit selection.
-///
-pub struct EditDialog {
-    edit_mode: Rc<RefCell<bool>>, // a flag to indicate edit mode for the system
-    window: gtk::ApplicationWindow, // a reference to the primary window
-}
-
-// Implement key features for the edit dialog
-impl EditDialog {
-    /// A function to create a new edit dialog structure.
-    ///
-    pub fn new(edit_mode: Rc<RefCell<bool>>, window: &gtk::ApplicationWindow) -> EditDialog {
-        EditDialog {
-            edit_mode,
-            window: window.clone(),
-        }
-    }
-
-    /// A method to launch the new edit dialog
-    ///
-    pub fn launch(&self, system_send: &SystemSend, checkbox: &SimpleAction) {
-        // Create the new dialog
-        let dialog = gtk::Dialog::new_with_buttons(
-            Some("Switch To Edit Mode?"),
-            Some(&self.window),
-            gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
-            &[
-                ("Cancel", gtk::ResponseType::Cancel),
-                ("Confirm", gtk::ResponseType::Ok),
-            ],
-        );
-        dialog.set_position(gtk::WindowPosition::Center);
-
-        // Access the content area and add the dropdown
-        let content = dialog.get_content_area();
-        let grid = gtk::Grid::new();
-        content.add(&grid);
-
-        // Add the dropdown and label
-        grid.attach(&gtk::Label::new(Some("  Switching to edit mode will end the current games and is not possible to undo.  ")), 0, 0, 1, 1);
-
-        // Add some space on all the sides
-        grid.set_margin_top(10);
-        grid.set_margin_bottom(10);
-        grid.set_margin_start(10);
-        grid.set_margin_end(10);
-
-        // Connect the close event for when the dialog is complete
-        let edit_mode = self.edit_mode.clone();
-        let window = self.window.clone();
-        dialog.connect_response(clone!(system_send, checkbox => move |modal, id| {
-
-            // Notify the system of the event change
-            if id == gtk::ResponseType::Ok {
-
-                // Change the internal flag to edit mode
-                if let Ok(mut flag) = edit_mode.try_borrow_mut() {
-                    *flag = true;
-                }
-
-                // Change the status of the checkbox
-                checkbox.change_state(&(true).to_variant());
-
-                // Send the all stop message to the underlying system
-                system_send.send(AllStop);
-
-                // Change the title of the window
-                window.set_title(format!("{} - Edit Mode", WINDOW_TITLE).as_str());
-            }
-
-            // Close the window either way
-            modal.destroy();
-        }));
-
-        // Show the dialog and return
-        dialog.show_all();
-    }
-}
 
 /// A structure to contain the dialog for modifying an individual status.
 ///

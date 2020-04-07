@@ -22,8 +22,9 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
-    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, ErrorLog, GameLog,
-    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType,
+    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode,
+    ErrorLog, GameLog, InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend,
+    WindowType,
 };
 
 // Import standard library features
@@ -80,8 +81,8 @@ impl MenuAbstraction {
 
         // Organize the file section of the menu
         config_section.append(Some("Choose Configuration"), Some("app.config"));
-        config_section.append(Some("Choose Game Log"), Some("app.gamelog"));
-        config_section.append(Some("Choose Error Log"), Some("app.errorlog"));
+        config_section.append(Some("Choose Game Log"), Some("app.game_log"));
+        config_section.append(Some("Choose Error Log"), Some("app.error_log"));
         quit_section.append(Some("Quit"), Some("app.quit"));
         file_menu.append_item(&gio::MenuItem::new_section(None, &config_section));
         file_menu.append_item(&gio::MenuItem::new_section(None, &quit_section));
@@ -150,8 +151,8 @@ impl MenuAbstraction {
         }));
 
         // Create the game log dialog action
-        let gamelog = gio::SimpleAction::new("gamelog", None);
-        gamelog.connect_activate(clone!(window, system_send => move |_, _| {
+        let game_log = gio::SimpleAction::new("game_log", None);
+        game_log.connect_activate(clone!(window, system_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Game Log File"), Some(&window), gtk::FileChooserAction::Save);
@@ -178,8 +179,8 @@ impl MenuAbstraction {
         }));
 
         // Create the error log dialog action
-        let errorlog = gio::SimpleAction::new("errorlog", None);
-        errorlog.connect_activate(clone!(window, system_send => move |_, _| {
+        let error_log = gio::SimpleAction::new("error_log", None);
+        error_log.connect_activate(clone!(window, system_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Error Log File"), Some(&window), gtk::FileChooserAction::Save);
@@ -344,24 +345,12 @@ impl MenuAbstraction {
                 .unwrap_or(());
         });
 
-        // Create the edit mode action
+        // Create the edit mode action (toggles availability of the other edit actions)
         let edit = gio::SimpleAction::new_stateful("edit_mode", None, &false.to_variant());
-        edit.connect_activate(clone!(system_send => move |checkbox, _| {
-
-            // Update the edit status of the program
-            if let Some(state) = checkbox.get_state() {
-
-                // Default to false if unable to get the current state of checkbox
-                let is_edit = state.get().unwrap_or(false);
-
-                // Update the rest of the interface (to the opposite of the current state)
-                // FIXME Broken Interface
-            }
-        }));
-
-        // Create the game log dialog action
-        let saveconfig = gio::SimpleAction::new("save_config", None);
-        saveconfig.connect_activate(clone!(window, system_send, edit => move |_, _| {
+        
+        // Create the save game configuration action
+        let save_config = gio::SimpleAction::new("save_config", None);
+        save_config.connect_activate(clone!(window, system_send, interface_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -392,19 +381,13 @@ impl MenuAbstraction {
 
                     // Show the dialog
                     dialog.show_all();
-
-                // If not in edit mode, prompt the user to switch to edit mode
-                } else {
-
-                    // Prompt the use to switch to edit mode
-                    // FIXME user_interface.select_edit(true, &edit);
                 }
             }
         }));
 
         // Create the new event dialog action
-        let newevent = gio::SimpleAction::new("new_event", None);
-        newevent.connect_activate(clone!(system_send, edit => move |_, _| {
+        let new_event = gio::SimpleAction::new("new_event", None);
+        new_event.connect_activate(clone!(interface_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -415,19 +398,13 @@ impl MenuAbstraction {
 
                     // Launch the edit event dialog
                     // FIXME user_interface.launch_new_event_dialog();
-
-                // If not in edit mode, prompt the user to switch to edit mode
-                } else {
-
-                    // Prompt the use to switch to edit mode
-                    // FIXME user_interface.select_edit(true, &edit);
                 }
             }
         }));
 
         // Create the new status dialog action
-        let newstatus = gio::SimpleAction::new("new_status", None);
-        newstatus.connect_activate(clone!(system_send, edit => move |_, _| {
+        let new_status = gio::SimpleAction::new("new_status", None);
+        new_status.connect_activate(clone!(interface_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -438,19 +415,13 @@ impl MenuAbstraction {
 
                     // Launch the status dialog
                     // FIXME user_interface.launch_new_status_dialog(&window);
-
-                // If not in edit mode, prompt the user to switch to edit mode
-                } else {
-
-                    // Prompt the use to switch to edit mode
-                    // FIXME user_interface.select_edit(true, &edit);
                 }
             }
         }));
 
         // Create the new scene dialog action
-        let newscene = gio::SimpleAction::new("new_scene", None);
-        newscene.connect_activate(clone!(system_send, edit => move |_, _| {
+        let new_scene = gio::SimpleAction::new("new_scene", None);
+        new_scene.connect_activate(clone!(interface_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -461,12 +432,39 @@ impl MenuAbstraction {
 
                     // Launch the scene dialog
                     // FIXME user_interface.launch_new_scene_dialog(&window);
+                }
+            }
+        }));
+        
+        // Connect the detail of the edit mode action
+        edit.connect_activate(clone!(interface_send, application, save_config, new_event, new_status, new_scene => move |checkbox, _| {
 
-                // If not in edit mode, prompt the user to switch to edit mode
+            // Update the edit status of the program
+            if let Some(state) = checkbox.get_state() {
+
+                // Swap the current state of the checkbox
+                let is_edit = !state.get().unwrap_or(true);
+
+                // Update the rest of the interface (to the opposite of the current state)
+                interface_send.send(EditMode(is_edit)).unwrap_or(());
+                
+                // Swap the checkbox state
+                checkbox.change_state(&(is_edit).to_variant());
+                
+                // Change the availability of the other actions
+                if is_edit {
+                    // Enable the other actions
+                    application.add_action(&save_config);
+                    application.add_action(&new_event);
+                    application.add_action(&new_status);
+                    application.add_action(&new_scene);
+                
+                // Otherwise disable the other actions
                 } else {
-
-                    // Prompt the use to switch to edit mode
-                    // FIXME user_interface.select_edit(true, &edit);
+                    application.remove_action("save_config");
+                    application.remove_action("new_event");
+                    application.remove_action("new_status");
+                    application.remove_action("new_scene");
                 }
             }
         }));
@@ -509,18 +507,14 @@ impl MenuAbstraction {
 
         // Add the actions to the application
         application.add_action(&config);
-        application.add_action(&gamelog);
-        application.add_action(&errorlog);
+        application.add_action(&game_log);
+        application.add_action(&error_log);
         application.add_action(&quit);
         application.add_action(&fullscreen);
         application.add_action(&debug);
         application.add_action(&font);
         application.add_action(&contrast);
-        // FIXME application.add_action(&edit);
-        // FIXME application.add_action(&saveconfig);
-        // FIXME application.add_action(&newevent);
-        // FIXME application.add_action(&newstatus);
-        // FIXME application.add_action(&newscene);
+        application.add_action(&edit);
         application.add_action(&shortcuts);
         application.add_action(&jump);
         application.add_action(&status);

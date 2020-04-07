@@ -75,15 +75,15 @@ impl TimelineEvent {
     /// A function to create a new timeline event. This method provides a regular
     /// (and reliable) method of creating a unique id.
     ///
-    fn new(event: ItemPair, start_time: Instant, delay: Duration) -> TimelineEvent {
+    fn new(event: UpcomingEvent) -> TimelineEvent {
         // Create the unique identifier from the event id and the start_time
-        let unique_id = TimelineEvent::new_unique_id(&event, &start_time);
+        let unique_id = TimelineEvent::new_unique_id(&event.event, &event.start_time);
 
         // Return the new Timeline event
         TimelineEvent {
-            event,
-            start_time,
-            delay,
+            event: event.event,
+            start_time: event.start_time,
+            delay: event.delay,
             unique_id,
             location: 0.0,
             in_focus: false,
@@ -551,8 +551,8 @@ impl TimelineAbstraction {
 
         // Pass the events into the timeline events
         for event in events.drain(..) {
-            // Create the new event
-            let mut new_event = TimelineEvent::new(event.event, event.start_time, event.delay);
+            // Convert each to a new timeline event
+            let mut new_event = TimelineEvent::new(event);
 
             // Check to see if the event already existed in the timeline
             if let Some(existing) = old_events.get(&new_event.unique_id) {

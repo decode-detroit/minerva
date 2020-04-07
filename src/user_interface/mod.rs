@@ -31,7 +31,7 @@ mod menu;
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
-    ChangeSettings, DebugMode, DisplaySetting, InterfaceUpdate,
+    ChangeSettings, DebugMode, DisplaySetting, EditMode, InterfaceUpdate,
     LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
     UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow, Reply,
     ReplyType, WindowType,
@@ -46,25 +46,21 @@ use std::sync::mpsc;
 extern crate gdk;
 extern crate gio;
 extern crate gtk;
-use self::gio::{ActionExt, SimpleAction};
 use self::gtk::prelude::*;
 
 // Define user interface constants
 const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
 
-// Import program constants
-use super::WINDOW_TITLE; // the window title
 
 /// A structure to contain the user interface and handle all updates to the
 /// to the interface.
 ///
 #[derive(Clone)]
 pub struct UserInterface {
-    interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
-    edit_mode: Rc<RefCell<bool>>, // a flag to indicate whether edit mode is active
+    interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing FIXME Determine if this wrapping is still necessary or if it has been resolved
     system_send: SystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
     menu_abstraction: Rc<RefCell<MenuAbstraction>>, // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
-    window: gtk::ApplicationWindow,                 // the gtk application window
+    window: gtk::ApplicationWindow, // the gtk application window
 }
 
 // Implement key UserInterface functionality
@@ -81,9 +77,8 @@ impl UserInterface {
         interface_receive: mpsc::Receiver<InterfaceUpdate>,
     ) -> UserInterface {
         // Create a new interface abstraction and add the top element to the window
-        let edit_mode = Rc::new(RefCell::new(false));
         let interface_abstraction =
-            InterfaceAbstraction::new(&system_send, &interface_send, window, edit_mode.clone());
+            InterfaceAbstraction::new(&system_send, &interface_send, window);
         window.add(interface_abstraction.get_top_element());
 
         // Wrap the interface abstraction in a rc and refcell
@@ -98,7 +93,6 @@ impl UserInterface {
         // Create the User Interface with the abstraction reference
         let user_interface = UserInterface {
             interface_abstraction,
-            edit_mode,
             system_send,
             menu_abstraction,
             window: window.clone(),
@@ -120,40 +114,6 @@ impl UserInterface {
     ///
     pub fn send(&self, update: SystemUpdate) {
         self.system_send.send(update);
-    }
-
-    /// A method to swap between operations and edit versions of the interface.
-    /// When set to true, this method clears all upcoming events and switches
-    /// the operation of the program to editing the configuration file.
-    pub fn select_edit(&self, edit_config: bool, checkbox: &SimpleAction) {
-        // If the edit setting was chosen
-        if edit_config {
-            // Attempt to get a copy of the interface abstraction
-            if let Ok(interface) = self.interface_abstraction.try_borrow() {
-                // Launch the edit dialog
-                interface.launch_edit(checkbox);
-            }
-
-        // If the edit setting was not chosen
-        } else {
-            // Change the internal flag from edit mode
-            if let Ok(mut flag) = self.edit_mode.try_borrow_mut() {
-                *flag = false;
-            }
-
-            // Return the checkbox to its default state
-            checkbox.change_state(&(false).to_variant());
-
-            // Change the window title back to normal
-            self.window.set_title(WINDOW_TITLE);
-        }
-    }
-
-    /// A method to launch the new event dialog to edit event details
-    /// Only available in edit mode. FIXME
-    ///
-    pub fn launch_new_event_dialog(&self) {
-        ();
     }
 
     /// A method to listen for modifications to the user interface.
@@ -239,6 +199,20 @@ impl UserInterface {
                             interface.select_contrast(is_hc);
                             self.send(Redraw);
                         }
+                    }
+                }
+                
+                // Change the user interface to or from edit mode
+                EditMode(is_edit) => { 
+                    // If the edit setting was chosen
+                    if is_edit {
+                        // Switch the interface to edit mode
+                        interface.select_edit(true);
+
+                    // If the edit setting was not chosen
+                    } else {
+                        // Change the interface to operations mode
+                        interface.select_edit(false);
                     }
                 }
                 

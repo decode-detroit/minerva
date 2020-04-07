@@ -74,19 +74,6 @@ pub use self::Notification::{Current, Error, Update, Warning};
 
 // Implement key features for the Notification type
 impl Notification {
-    /// A function to return a copy of the message inside the notification,
-    /// regardless of variant.
-    ///
-    pub fn message(&self) -> String {
-        match self {
-            // For every variant type, return a copy of the message
-            &Error { ref message, .. } => message.clone(),
-            &Warning { ref message, .. } => message.clone(),
-            &Current { ref message, .. } => message.clone(),
-            &Update { ref message, .. } => message.clone(),
-        }
-    }
-
     /// A function to return a copy of the time inside the notification,
     /// regardless of variant.
     ///
