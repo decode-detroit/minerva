@@ -52,6 +52,7 @@ use self::gtk::SettingsExt;
 const LOGO_SQUARE: &str = "logo_square.png";
 const LOGO_WIDE: &str = "logo_wide.png";
 const GTK_THEME: &str = "Materia-dark";
+const FONT: &str = "Inter";
 const WINDOW_TITLE: &str = "Minerva";
 
 /// The Minerva structure to contain the program launching and overall
@@ -67,6 +68,7 @@ impl Minerva {
         // Load the gtk theme for this application
         if let Some(settings) = gtk::Settings::get_default() {
             settings.set_property_gtk_theme_name(Some(GTK_THEME));
+            settings.set_property_gtk_font_name(Some(FONT));
         }
 
         // Launch the background thread to monitor and handle events

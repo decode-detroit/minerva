@@ -22,9 +22,10 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair, LabelControl,
-    LabelHidden, SystemSend, UpcomingEvent,
+    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange,
+    ItemPair, LabelControl, LabelHidden, SystemSend, UpcomingEvent,
 };
+use super::super::super::FONT;
 use super::super::utils::clean_text;
 use super::{LARGE_FONT, NORMAL_FONT};
 
@@ -628,7 +629,8 @@ impl TimelineAbstraction {
             Err(_) => return Inhibit(false),
         };
 
-        // Set the font size and ratio
+        // Set the font, font size, and ratio
+        cr.select_font_face(FONT, cairo::FontSlant::Normal, cairo::FontWeight::Bold);
         cr.set_font_matrix(cairo::Matrix {
             xx: ((info.font_size / 800) as f64 / width),
             yy: ((info.font_size / 800) as f64 / height),

@@ -53,7 +53,7 @@ pub struct ControlAbstraction {
     grid: gtk::Grid, // the grid to hold the underlying elements
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of interface send
     notification_area_list: gtk::ListBox, // the notification area list for system notifications
-    is_debug_mode: bool, // a flag to indicate whether debug-level notifications should be displayed (not retroctive)
+    is_debug_mode: bool, // a flag to indicate whether debug-level notifications are shown
     is_font_large: bool, // a flag to indicate the font size of the items
     is_high_contrast: bool, // a flag to indicate if the display is high contrast
 }

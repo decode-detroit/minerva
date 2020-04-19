@@ -417,7 +417,7 @@ impl SystemInterface {
             }
             
             // Reply to the request for information
-            Request { request } => {
+            Request { reply_to, request } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Match the type of information request
@@ -430,6 +430,7 @@ impl SystemInterface {
                             // Send it back to the user interface
                             self.interface_send
                                 .send(Reply {
+                                    reply_to, // echo to display component
                                     reply: ReplyType::Description {
                                         description
                                     }
@@ -439,27 +440,20 @@ impl SystemInterface {
                         // Reply to a request for the event detail
                         RequestType::Detail { item_id } => {
                             // Try to get the event detail
-                            if let Some(detail) = handler.get_detail(&item_id) {
-                                // Send an update with the current event detail
-                                self.interface_send
-                                    .send(Reply {
-                                        reply: ReplyType::Detail {
-                                            event_id: ItemPair::from_item(
-                                                item_id.clone(),
-                                                handler.get_description(&item_id),
-                                            ),
-                                            event_detail: detail,
-                                        }
-                                    }).unwrap_or(());
-
-                            // Raise a warning for the system if the detail was not found
-                            } else {
-                                update!(warn &self.general_update => "Event Detail Unavailable.");
-                            }
+                            let event_detail = handler.get_detail(&item_id);
+                            
+                            // Send an update with the event detail (or None)
+                            self.interface_send
+                                .send(Reply {
+                                    reply_to, // echo the display component
+                                    reply: ReplyType::Detail {
+                                        event_detail,
+                                    }
+                                }).unwrap_or(());
                         }
                     }
 
-                // Otherwise noity the user that a configuration faild to load
+                // Otherwise noity the user that a configuration failed to load
                 } else {
                     update!(warn &self.general_update => "Information Unavailable. No Active Configuration.");
                 }
@@ -565,11 +559,11 @@ impl SystemInterface {
                 }
 
                 // Add display debug events to the matching event group
-                DisplayDebug { group_id, .. } => {
+                DisplayDebug { group, .. } => {
                     // If the system is in debug mode
                     if is_debug_mode {
                         // If a group id is specified, add it to the correct group
-                        if let Some(id) = group_id {
+                        if let Some(id) = group {
                             let group_pair =
                                 ItemPair::from_item(id, event_handler.get_description(&id));
                             SystemInterface::sort_groups(&mut groups, group_pair, item);
@@ -779,6 +773,16 @@ pub enum RequestType {
     Detail { item_id: ItemId },
 }
 
+/// An enum to specify which display component has requested the information
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DisplayComponent {
+    /// A variant for the trigger dialog
+    TriggerDialog,
+    
+    /// A variant for the edit item window
+    EditItem,
+}
+
 /// An enum to provide updates from the main thread to the system interface,
 /// listed in order of increasing usage.
 ///
@@ -845,7 +849,7 @@ pub enum SystemUpdate {
     
     /// A variant that requests information from the system and directs it
     /// to a specific spot on the window
-    Request { request: RequestType },
+    Request { reply_to: DisplayComponent, request: RequestType },
 
     /// A variant that provides a new configuration file to save the current
     /// configuration.
@@ -923,10 +927,7 @@ pub enum ReplyType {
     Description { description: ItemDescription },
     
     /// A variant for the detail of an event
-    Detail { 
-        event_id: ItemPair,
-        event_detail: EventDetail,
-    },
+    Detail { event_detail: Option<EventDetail> },
 }
 
 /// An enum type to provide interface updates back to the user interface thread.
@@ -946,7 +947,7 @@ pub enum InterfaceUpdate {
     Notify { message: String },
     
     /// A variant to reply to an information request from the user interface
-    Reply { reply: ReplyType },
+    Reply { reply_to: DisplayComponent, reply: ReplyType },
     
     /// A variant to update the available scenes and full status in the main
     /// program window.

@@ -31,10 +31,10 @@ mod menu;
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
-    ChangeSettings, DebugMode, DisplaySetting, EditMode, InterfaceUpdate,
-    LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate, UpdateConfig,
-    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow, Reply,
-    ReplyType, WindowType,
+    ChangeSettings, DebugMode, DisplayComponent, DisplaySetting, EditMode,
+    InterfaceUpdate, LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate,
+    UpdateConfig, UpdateNotifications, UpdateTimeline, UpdateStatus,
+    UpdateWindow, Reply, WindowType,
 };
 
 // Import standard library features
@@ -57,7 +57,7 @@ const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
 ///
 #[derive(Clone)]
 pub struct UserInterface {
-    interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing FIXME Determine if this wrapping is still necessary or if it has been resolved
+    interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
     system_send: SystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
     menu_abstraction: Rc<RefCell<MenuAbstraction>>, // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
     window: gtk::ApplicationWindow, // the gtk application window
@@ -241,16 +241,18 @@ impl UserInterface {
                 Notify { message } => interface.notify(&message),
 
                 // Pass information from the system to the correct spot
-                Reply { reply } => {
+                Reply { reply_to, reply } => {
                     // Match the type of the reply
-                    match reply {
-                        // Pass a description to the trigger window
-                        ReplyType::Description { description } => {
-                            interface.update_trigger(description);
+                    match reply_to {
+                        // Pass the reply to the trigger dialog
+                        DisplayComponent::TriggerDialog => {
+                            interface.update_trigger(reply);
                         }
                         
-                        // Pass the event detail to the edit window  FIXME reenable this
-                        ReplyType::Detail { event_id, event_detail } => (),
+                        // Pass the reply to the edit window
+                        DisplayComponent::EditItem => { 
+                            interface.update_edit_item(reply);
+                        }
                     }
                 }
 

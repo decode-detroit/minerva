@@ -23,19 +23,21 @@
 // Define private submodules
 mod control;
 mod events;
-mod special_windows;
+mod operation_dialogs;
 mod timeline;
+mod edit_item;
 
 // Import the relevant structures into the correct namespace
 use self::control::ControlAbstraction;
 use self::events::EventAbstraction;
-use self::special_windows::{
+use self::operation_dialogs::{
     JumpDialog, PromptStringDialog, ShortcutsDialog, StatusDialog, TriggerDialog,
 };
 use self::timeline::TimelineAbstraction;
+use edit_item::EditItemAbstraction;
 use super::super::system_interface::{
-    EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, ItemDescription,
-    KeyMap, Notification, StatusDescription, SystemSend, UpcomingEvent,
+    EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, KeyMap,
+    Notification, ReplyType, StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
 
@@ -68,18 +70,19 @@ pub struct InterfaceAbstraction {
     system_send: SystemSend, // a copy of system send held in the interface abstraction
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
     top_element: gtk::Stack, // the stack that contains the operations and edit grids
-    full_status: Rc<RefCell<FullStatus>>, // user interface storage of the current full status of the system (for use by the event labels and the status dialog)
-    current_window: (ItemPair, Vec<ItemPair>, EventWindow), // user interface storage of the current event window
-    timeline: TimelineAbstraction, // the timeline abstraction that holds the timeline of upcoming events
-    control: ControlAbstraction, // the control abstraction that holds the universal system controls
-    events: EventAbstraction, // the event abstraction that holds the events selectable in the current scene
-    notification_bar: gtk::Statusbar, // the status bar where one line notifications are posted
-    jump_dialog: JumpDialog,  // the jump dialog for the system to switch between individual scenes
-    status_dialog: StatusDialog, // the status dialog for the system to change individual statuses
-    shortcuts_dialog: ShortcutsDialog,  // the shortcuts dialog to show the current keyboard shortcuts
-    trigger_dialog: TriggerDialog, // the trigger dialog for the system to trigger a custom event
-    prompt_string_dialog: PromptStringDialog, // the prompty string dialog to solicit information from the user
-    is_debug: bool,           // a flag to indicate whether or not the program is in debug mode
+    full_status: Rc<RefCell<FullStatus>>, // a copy of the current full status of the system
+    current_window: (ItemPair, Vec<ItemPair>, EventWindow), // a copy of the event window
+    timeline: TimelineAbstraction, // the abstraction for the timeline
+    control: ControlAbstraction, // the abstraction for the user control window
+    events: EventAbstraction, // the abstraction for the event window
+    notification_bar: gtk::Statusbar, // the notification bar at the bottom of the window
+    edit_item: EditItemAbstraction, // the abstraction for the edit item window
+    jump_dialog: JumpDialog,  // the jump dialog
+    status_dialog: StatusDialog, // the status dialog
+    shortcuts_dialog: ShortcutsDialog,  // the shortcuts dialog
+    trigger_dialog: TriggerDialog, // the trigger dialog
+    prompt_string_dialog: PromptStringDialog, // the prompt string dialog
+    is_debug: bool, // a flag to indicate whether the program is in debug mode
 }
 
 impl InterfaceAbstraction {
@@ -101,25 +104,19 @@ impl InterfaceAbstraction {
         // operations and edit elements
         let top_element = gtk::Stack::new();
         
+        // Populate the operations view
+        //
         // Create the operations grid to hold all the operations elements
         let operations_grid = gtk::Grid::new();
         top_element.add_named(&operations_grid, "ops");
-        
-        // Create the edit grid to hold all the edit elements
-        let edit_grid = gtk::Label::new(Some("Edit Mode Enabled"));
-        top_element.add_named(&edit_grid, "edit");
 
-        // Set the features of the primary grid
+        // Set the features of the operations grid
         operations_grid.set_column_homogeneous(false); // Allow everything to adjust
         operations_grid.set_row_homogeneous(false);
-        operations_grid.set_column_spacing(10); // add some space between the rows and columns
+        operations_grid.set_column_spacing(10); // add some internal space
         operations_grid.set_row_spacing(10);
-        operations_grid.set_margin_start(10); // add some space on the left and right side
+        operations_grid.set_margin_start(10); // add some space on the left and right
         operations_grid.set_margin_end(10);
-
-        // Set the interrior items to fill the available space
-        operations_grid.set_valign(gtk::Align::Fill);
-        operations_grid.set_halign(gtk::Align::Fill);
 
         // Create the timeline abstraction and add it to the primary grid
         let timeline = TimelineAbstraction::new(system_send, window);
@@ -164,10 +161,34 @@ impl InterfaceAbstraction {
         let title = gtk::Label::new(None);
         title.set_markup("<span color='#338DD6' size='14000'>Game Information</span>");
         title.set_halign(gtk::Align::Center);
-        title.show();
-
         operations_grid.attach(&title, 0, 1, 1, 1);
         operations_grid.attach(&side_scroll, 0, 2, 1, 1);
+
+        // Populate the edit view
+        //
+        // Create the edit grid to hold all the edit elements
+        let edit_grid = gtk::Grid::new();
+        top_element.add_named(&edit_grid, "edit");
+        
+        // Set the features of the edit grid
+        edit_grid.set_column_homogeneous(false); // Allow everything to adjust
+        edit_grid.set_row_homogeneous(false);
+        edit_grid.set_column_spacing(10); // add some internal space
+        edit_grid.set_row_spacing(10);
+        edit_grid.set_margin_top(10); // add some space on all sides
+        edit_grid.set_margin_bottom(10);
+        edit_grid.set_margin_start(10);
+        edit_grid.set_margin_end(10);
+        
+        // Create the item map and add it on the left
+        let tmp = gtk::Label::new(Some("Information Here"));
+        tmp.set_hexpand(true);
+        tmp.set_halign(gtk::Align::Fill);
+        edit_grid.attach(&tmp, 0, 0, 1, 1); // FIXME
+        
+        // Create the edit item abstraction and add it on the right
+        let edit_item = EditItemAbstraction::new(system_send, interface_send);
+        edit_grid.attach(edit_item.get_top_element(), 1, 0, 1, 1);
 
         // Create internal storage for the full status of the system
         let full_status = Rc::new(RefCell::new(FullStatus::default()));
@@ -194,6 +215,7 @@ impl InterfaceAbstraction {
             control,
             events,
             notification_bar,
+            edit_item,
             jump_dialog,
             status_dialog,
             shortcuts_dialog,
@@ -212,13 +234,22 @@ impl InterfaceAbstraction {
 
     /// A method to change the user interface to and from edit mode.
     ///
-    pub fn select_edit(&self, is_edit: bool) {
+    pub fn select_edit(&mut self, is_edit: bool) {
         // Switch to edit mode
         if is_edit {
+            // Change the visible window
             self.top_element.set_visible_child_full("edit", gtk::StackTransitionType::SlideUp);
+            
+            // Diable shortcuts
+            self.shortcuts_dialog.enable_shortcuts(false);
+            
         // Otherwise, switch to operations mode
         } else {
+            // Change the visible window
             self.top_element.set_visible_child_full("ops", gtk::StackTransitionType::SlideDown);
+            
+            // Enable shortcuts
+            self.shortcuts_dialog.enable_shortcuts(true);
         }
     }
 
@@ -247,6 +278,13 @@ impl InterfaceAbstraction {
         self.events.select_contrast(is_hc);
     }
 
+    /// A method to update all time-sensitive elements of the interface
+    ///
+    pub fn refresh_all(&self) {
+        // Refresh the timeline
+        self.timeline.refresh();
+    }
+
     /// A method to update the internal statuses in the abstraction and the status dialog
     ///
     pub fn update_full_status(&mut self, new_status: FullStatus) {
@@ -255,13 +293,6 @@ impl InterfaceAbstraction {
             // Copy the new full status into the structure
             *full_status = new_status;
         }
-    }
-
-    /// A method to update all time-sensitive elements of the interface
-    ///
-    pub fn refresh_all(&self) {
-        // Refresh the timeline
-        self.timeline.refresh();
     }
 
     /// A method to update the timeline of coming events
@@ -308,6 +339,15 @@ impl InterfaceAbstraction {
             );
         }
     }
+    
+    // Methods to update the edit item abstraction
+    //
+    /// A method to pass information updates to the edit item window
+    ///
+    pub fn update_edit_item(&self, reply: ReplyType) {
+        self.edit_item.update_info(reply);
+    }
+    
 
     /// A method to update the status bar
     ///
@@ -319,7 +359,7 @@ impl InterfaceAbstraction {
         let now = time::now();
         let timestr = now.strftime("%a %T").unwrap_or_else(|_| now.asctime()); // Fallback on other time format
         let message = format!(
-            "\t\t{} — {}",
+            "\t{} — {}",
             timestr,
             clean_text(&new_text, NOTIFY_LIMIT, false, false, false)
         );
@@ -392,7 +432,7 @@ impl InterfaceAbstraction {
         self.shortcuts_dialog.launch();
     }
     //
-    /// A method to update the scenes in the jump dialog
+    /// A method to update the keyboard shortcuts (automatically enables them)
     ///
     pub fn update_shortcuts(&mut self, key_map: KeyMap) {
         self.shortcuts_dialog.update_shortcuts(key_map);
@@ -406,10 +446,10 @@ impl InterfaceAbstraction {
         self.trigger_dialog.launch(&self.system_send, event);
     }
     //
-    /// A method to send a new description to the trigger dialog
+    /// A method to send an information reply to the trigger dialog
     ///
-    pub fn update_trigger(&self, description: ItemDescription) {
-        self.trigger_dialog.update_description(description);
+    pub fn update_trigger(&self, reply: ReplyType) {
+        self.trigger_dialog.update_info(reply);
     }
     
     /// A method to launch the prompt string dialog
