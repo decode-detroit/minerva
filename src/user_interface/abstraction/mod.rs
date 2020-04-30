@@ -187,7 +187,7 @@ impl InterfaceAbstraction {
         edit_grid.attach(&tmp, 0, 0, 1, 1); // FIXME
         
         // Create the edit item abstraction and add it on the right
-        let edit_item = EditItemAbstraction::new(system_send, interface_send);
+        let edit_item = EditItemAbstraction::new(system_send, interface_send, window);
         edit_grid.attach(edit_item.get_top_element(), 1, 0, 1, 1);
 
         // Create internal storage for the full status of the system

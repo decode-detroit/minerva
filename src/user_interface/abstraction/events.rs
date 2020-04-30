@@ -184,19 +184,19 @@ impl EventAbstraction {
         let to_remove = self.left_grid.get_children();
         for item in to_remove {
             item.hide(); // necessary for proper functioning of the spotlight feature
-            self.left_grid.remove(&item);
+            item.destroy()
         }
         let to_remove = self.right_grid.get_children();
         for item in to_remove {
             item.hide(); // necessary for proper functioning of the spotlight feature
-            self.right_grid.remove(&item);
+            item.destroy();
         }
 
         // Remove all the children in the side panel grid
         let to_remove = self.side_panel.get_children();
         for item in to_remove {
             item.hide(); // necessary for proper functioning of the spotlight feature
-            self.side_panel.remove(&item);
+            item.destroy();
         }
 
         // Clear the group list and the side group to clear dangling references
