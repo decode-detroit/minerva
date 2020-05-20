@@ -15,14 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A module to create, hold, and handle special dialogs for the edit view of 
+//! A module to create, hold, and handle special dialogs for the edit view of
 //! the user interface. These additional dialog windows are typically launched
 //! from the edit screen.
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, EventAction, EventDelay, Hidden, ItemId, ItemDescription, ItemPair,
-    StatusChange, StatusDescription,
+    DataType, EventAction, EventDelay, Hidden, ItemDescription, ItemId, ItemPair, StatusChange,
+    StatusDescription,
 };
 use super::super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -39,14 +39,13 @@ use self::fnv::FnvHashMap;
 // Import GTK and GDK libraries
 extern crate gdk;
 extern crate gio;
-extern crate gtk;
 extern crate glib;
+extern crate gtk;
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
 
 // Define and import constants
 const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
-
 
 /// A structure to contain the dialog for editing an individual event action.
 /// This dialog is launched from the edit view.
@@ -58,23 +57,28 @@ pub struct EditActionDialog;
 impl EditActionDialog {
     /// A function to create and launch a new edit action dialog
     ///
-    pub fn launch(window: &gtk::ApplicationWindow, event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>, position: usize, overview: &gtk::Label) {
+    pub fn launch(
+        window: &gtk::ApplicationWindow,
+        event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
+        position: usize,
+        overview: &gtk::Label,
+    ) {
         // Try to get the current event actions
         let actions = match event_actions.try_borrow() {
             Ok(actions) => actions,
-            
+
             // If unable, return immediately
             _ => return,
         };
-        
+
         // Try to extract the correct action
         let action = match actions.get(&position) {
             Some(action) => action,
-            
+
             // If unable, return immediately
             _ => return,
         };
-        
+
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
             Some("Edit Action"),
@@ -86,10 +90,10 @@ impl EditActionDialog {
             ],
         );
         dialog.set_position(gtk::WindowPosition::Center);
-        
+
         // Create a dropdown for the action selection
         let action_selection = gtk::ComboBoxText::new();
-        
+
         // Add each of the available action types to the dropdown
         action_selection.append(Some("newscene"), "New Scene");
         action_selection.append(Some("modifystatus"), "Modify Status");
@@ -98,7 +102,7 @@ impl EditActionDialog {
         action_selection.append(Some("savedata"), "Save Data");
         action_selection.append(Some("senddata"), "Send Data");
         action_selection.append(Some("groupedevent"), "Grouped Event");
-        
+
         // Create the different edit windows for the action types
         let edit_new_scene = EditNewScene::new();
         let edit_modify_status = EditModifyStatus::new();
@@ -107,10 +111,10 @@ impl EditActionDialog {
         let edit_save_data = EditSaveData::new();
         let edit_send_data = EditSendData::new();
         let edit_grouped_event = EditGroupedEvent::new();
-        
+
         // Create the action stack
         let action_stack = gtk::Stack::new();
-        
+
         // Add the edit types to the action stack
         action_stack.add_named(edit_new_scene.get_top_element(), "newscene");
         action_stack.add_named(edit_modify_status.get_top_element(), "modifystatus");
@@ -136,44 +140,50 @@ impl EditActionDialog {
                 action_selection.set_active_id(Some("newscene"));
                 edit_new_scene.load_action(new_scene);
             }
-            
+
             // the ModifyStatus variant
-            EventAction::ModifyStatus { status_id, new_state } => {
+            EventAction::ModifyStatus {
+                status_id,
+                new_state,
+            } => {
                 action_selection.set_active_id(Some("modifystatus"));
                 edit_modify_status.load_action(status_id, new_state);
             }
-            
+
             // the QueueEvent variant
             EventAction::QueueEvent { event } => {
                 action_selection.set_active_id(Some("queueevent"));
                 edit_queue_event.load_action(event);
             }
-            
+
             // the CancelEvent variant
             EventAction::CancelEvent { event } => {
                 action_selection.set_active_id(Some("cancelevent"));
                 edit_cancel_event.load_action(event);
             }
-            
+
             // the SaveData variant
             EventAction::SaveData { data } => {
                 action_selection.set_active_id(Some("savedata"));
                 edit_save_data.load_action(data);
             }
-            
+
             // the SendData variant
             EventAction::SendData { data } => {
                 action_selection.set_active_id(Some("senddata"));
                 edit_send_data.load_action(data);
             }
-            
+
             // the GroupedEvent variant
-            EventAction::GroupedEvent { status_id, event_map } => {
+            EventAction::GroupedEvent {
+                status_id,
+                event_map,
+            } => {
                 action_selection.set_active_id(Some("groupedevent"));
                 edit_grouped_event.load_action(status_id, event_map);
             }
         }
-        
+
         // Access the content area and add main grid
         let content = dialog.get_content_area();
         let grid = gtk::Grid::new();
@@ -198,19 +208,19 @@ impl EditActionDialog {
                 // Try to get a mutable copy of the event actions
                 let mut actions = match event_actions.try_borrow_mut() {
                     Ok(actions) => actions,
-                    
+
                     // If unable, return immediately
                     _ => return,
                 };
-                
+
                 // Try to extract the correct action
                 let action = match actions.get_mut(&position) {
                     Some(action) => action,
-                    
+
                     // If unable, return immediately
                     _ => return,
                 };
-                
+
                 // Match the current dropdown selection
                 if let Some(selection) = action_selection.get_active_id() {
                     match selection.as_str() {
@@ -220,52 +230,52 @@ impl EditActionDialog {
                             overview.set_text("New Scene");
                             *action = edit_new_scene.pack_action();
                         }
-                        
+
                         // the ModifyStatus variant
                         "modifystatus" => {
                             // Update the action label and action
                             overview.set_text("Modify Status");
                             *action = edit_modify_status.pack_action();
                         }
-                        
+
                         // the QueueEvent variant
                         "queueevent" => {
                             // Update the action label and action
                             overview.set_text("Queue Event");
                             *action = edit_queue_event.pack_action();
                         }
-                        
+
                         // the CancelEvent variant
                         "cancelevent" => {
                             // Update the action label and action
                             overview.set_text("Cancel Event");
                             *action = edit_cancel_event.pack_action();
                         }
-                        
+
                         // the SaveData variant
                         "savedata" => {
                             // Update the action label and action
                             overview.set_text("Save Data");
                             *action = edit_save_data.pack_action();
                         }
-                        
+
                         // the SendData variant
                         "senddata" => {
                             // Update the action label and action
                             overview.set_text("Send Data");
                             *action = edit_send_data.pack_action();
                         }
-                        
+
                         // The GroupedEvent variant
                         "groupedevent" => {
                             // Update the action label and action
                             overview.set_text("Grouped Event");
                             *action = edit_grouped_event.pack_action();
                         }
-                        
+
                         _ => unreachable!(),
                     }
-                
+
                 // If no selection was made, exit prematurely
                 } else {
                     return;
@@ -279,7 +289,6 @@ impl EditActionDialog {
         // Show the dialog and return
         dialog.show_all();
     }
-
 }
 
 // Create the new scene variant
@@ -307,10 +316,7 @@ impl EditNewScene {
 
         // Create and return the EditNewScene
         grid.show_all();
-        EditNewScene {
-            grid,
-            spin,
-        }
+        EditNewScene { grid, spin }
     }
 
     // A method to return the top element
@@ -459,9 +465,11 @@ impl EditQueueEvent {
             // May be and empty delay
             let time = delay.as_secs();
             let remainder = time % 60;
-            self.minutes_spin.set_value(((time - remainder) / 60) as f64);
-            self.millis_spin.set_value(((remainder * 1000) + (delay.subsec_millis() as u64)) as f64);
-        
+            self.minutes_spin
+                .set_value(((time - remainder) / 60) as f64);
+            self.millis_spin
+                .set_value(((remainder * 1000) + (delay.subsec_millis() as u64)) as f64);
+
         // Otherwise, set them to zero
         } else {
             self.minutes_spin.set_value(0.0);
@@ -477,7 +485,7 @@ impl EditQueueEvent {
 
         // Extract the minute count
         let minutes = self.minutes_spin.get_value() as u32;
-        
+
         // Extract the millis count
         let millis = self.millis_spin.get_value() as u32;
 
@@ -498,8 +506,8 @@ impl EditQueueEvent {
 //
 #[derive(Clone, Debug)]
 struct EditCancelEvent {
-    grid: gtk::Grid,         // the main grid for this element
-    spin: gtk::SpinButton,   // the event spin button
+    grid: gtk::Grid,       // the main grid for this element
+    spin: gtk::SpinButton, // the event spin button
 }
 
 impl EditCancelEvent {
@@ -516,13 +524,10 @@ impl EditCancelEvent {
         grid.attach(&spin, 1, 0, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
-        
+
         // Create and return the cancel event variant
         grid.show_all();
-        EditCancelEvent {
-            grid,
-            spin,
-        }
+        EditCancelEvent { grid, spin }
     }
 
     // A method to return the top element
@@ -545,7 +550,9 @@ impl EditCancelEvent {
         let id = self.spin.get_value() as u32;
 
         // Return the completed action
-        EventAction::CancelEvent { event: ItemId::new_unchecked(id) }
+        EventAction::CancelEvent {
+            event: ItemId::new_unchecked(id),
+        }
     }
 }
 
@@ -554,7 +561,7 @@ impl EditCancelEvent {
 #[derive(Clone, Debug)]
 struct EditSaveData {
     grid: gtk::Grid,              // the main grid for this element
-    data_type: gtk::ComboBoxText  // the data type dropdown
+    data_type: gtk::ComboBoxText, // the data type dropdown
 }
 
 impl EditSaveData {
@@ -563,10 +570,13 @@ impl EditSaveData {
     fn new() -> EditSaveData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
-        
+
         // Add each of the available data types to the dropdown
         data_type.append(Some("timeuntil"), "Time until an event will occur");
-        data_type.append(Some("timepasseduntil"), "Time passed since an event was queued");
+        data_type.append(
+            Some("timepasseduntil"),
+            "Time passed since an event was queued",
+        );
         data_type.append(Some("staticstring"), "A hardcoded string of data");
         data_type.append(Some("userstring"), "A user-provided string");
 
@@ -578,10 +588,7 @@ impl EditSaveData {
 
         // Create and return the save data variant
         grid.show_all();
-        EditSaveData {
-            grid,
-            data_type,
-        }
+        EditSaveData { grid, data_type }
     }
 
     // A method to return the top element
@@ -599,26 +606,29 @@ impl EditSaveData {
             &DataType::TimeUntil { ref event_id } => {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timeuntil"));
-                
+
                 // FIXME Update the fields
             }
-            
+
             // The TimePassedUntil variant
-            &DataType::TimePassedUntil { ref event_id, ref total_time } => {
+            &DataType::TimePassedUntil {
+                ref event_id,
+                ref total_time,
+            } => {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timepasseduntil"));
-                
+
                 // FIXME Update the fields
             }
-            
+
             // The StaticString variant
             &DataType::StaticString { ref string } => {
                 // Change the dropdown
                 self.data_type.set_active_id(Some("staticstring"));
-                
+
                 // FIXME Update the fields
             }
-            
+
             // The UserString variant
             &DataType::UserString => {
                 // Change the dropdown
@@ -637,27 +647,29 @@ impl EditSaveData {
                 "timeuntil" => {
                     DataType::UserString // FIXME
                 }
-                
+
                 // The TimePassedUntil variant
                 "timepasseduntil" => {
                     DataType::UserString // FIXME
                 }
-                
+
                 // The StaticString variant
                 "staticstring" => {
                     DataType::UserString // FIXME
                 }
-                
+
                 // The UserString variant
                 _ => DataType::UserString,
             };
 
             // Return the completed action
             return EventAction::SaveData { data };
-        
+
         // If nothing was selected, return UserString by default
         } else {
-            return EventAction::SaveData { data: DataType::UserString };
+            return EventAction::SaveData {
+                data: DataType::UserString,
+            };
         }
     }
 }
@@ -667,7 +679,7 @@ impl EditSaveData {
 #[derive(Clone, Debug)]
 struct EditSendData {
     grid: gtk::Grid,              // the main grid for this element
-    data_type: gtk::ComboBoxText  // the data type dropdown
+    data_type: gtk::ComboBoxText, // the data type dropdown
 }
 
 impl EditSendData {
@@ -676,10 +688,13 @@ impl EditSendData {
     fn new() -> EditSendData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
-        
+
         // Add each of the available data types to the dropdown
         data_type.append(Some("timeuntil"), "Time until an event will occur");
-        data_type.append(Some("timepasseduntil"), "Time passed since an event was queued");
+        data_type.append(
+            Some("timepasseduntil"),
+            "Time passed since an event was queued",
+        );
         data_type.append(Some("staticstring"), "A hardcoded string of data");
         data_type.append(Some("userstring"), "A user-provided string");
 
@@ -691,10 +706,7 @@ impl EditSendData {
 
         // Create and return the send data variant
         grid.show_all();
-        EditSendData {
-            grid,
-            data_type,
-        }
+        EditSendData { grid, data_type }
     }
 
     // A method to return the top element
@@ -712,26 +724,29 @@ impl EditSendData {
             &DataType::TimeUntil { ref event_id } => {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timeuntil"));
-                
+
                 // FIXME Update the fields
             }
-            
+
             // The TimePassedUntil variant
-            &DataType::TimePassedUntil { ref event_id, ref total_time } => {
+            &DataType::TimePassedUntil {
+                ref event_id,
+                ref total_time,
+            } => {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timepasseduntil"));
-                
+
                 // FIXME Update the fields
             }
-            
+
             // The StaticString variant
             &DataType::StaticString { ref string } => {
                 // Change the dropdown
                 self.data_type.set_active_id(Some("staticstring"));
-                
+
                 // FIXME Update the fields
             }
-            
+
             // The UserString variant
             &DataType::UserString => {
                 // Change the dropdown
@@ -750,27 +765,29 @@ impl EditSendData {
                 "timeuntil" => {
                     DataType::UserString // FIXME
                 }
-                
+
                 // The TimePassedUntil variant
                 "timepasseduntil" => {
                     DataType::UserString // FIXME
                 }
-                
+
                 // The StaticString variant
                 "staticstring" => {
                     DataType::UserString // FIXME
                 }
-                
+
                 // The UserString variant
                 _ => DataType::UserString,
             };
 
             // Return the completed action
             return EventAction::SendData { data };
-        
+
         // If nothing was selected, return UserString by default
         } else {
-            return EventAction::SendData { data: DataType::UserString };
+            return EventAction::SendData {
+                data: DataType::UserString,
+            };
         }
     }
 }
@@ -844,7 +861,7 @@ impl EditGroupedEvent {
     }
 
     // A method to load an action
-    // FIXME Finish this implementation 
+    // FIXME Finish this implementation
     fn load_action(&self, status_id: &ItemId, event_map: &FnvHashMap<ItemId, ItemId>) {
         // Change the status id
         self.status_spin.set_value(status_id.id() as f64);
@@ -977,4 +994,3 @@ impl EditGroupedEvent {
         }
     }
 }
-

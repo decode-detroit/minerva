@@ -21,13 +21,13 @@
 
 // Reexport the key structures and types
 pub use self::event_handler::event::{
-    DataType, EventAction, EventDelay, EventDetail, EventUpdate, UpcomingEvent
+    DataType, EventAction, EventDelay, EventDetail, EventUpdate, UpcomingEvent,
 };
 pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
     ItemPair, LabelControl, LabelHidden,
 };
-pub use self::event_handler::{FullStatus, StatusDescription, KeyMap};
+pub use self::event_handler::{FullStatus, KeyMap, StatusDescription};
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 
 // Define private submodules
@@ -153,7 +153,7 @@ impl SystemInterface {
             Ok(GeneralUpdateType::BroadcastEvent(event_id, data)) => {
                 self.system_connection.broadcast(event_id, data);
             }
-            
+
             // Update the timeline with the new list of coming events
             Ok(GeneralUpdateType::ComingEvents(events)) => {
                 // If the event handler exists
@@ -169,7 +169,7 @@ impl SystemInterface {
                         .unwrap_or(());
                 }
             }
-            
+
             // Solicit a string from the user
             Ok(GeneralUpdateType::GetUserString(event)) => {
                 // Request the information from the user interface
@@ -179,13 +179,13 @@ impl SystemInterface {
                     })
                     .unwrap_or(());
             }
-            
+
             // Process the system update
             Ok(GeneralUpdateType::System(update)) => {
                 // Return the result of the update
                 return self.unpack_system_update(update);
             }
-            
+
             // Pass the information update to the logger
             Ok(GeneralUpdateType::Update(event_update)) => {
                 // Find the most recent notifications
@@ -243,7 +243,7 @@ impl SystemInterface {
                     handler.adjust_all_events(adjustment, is_negative);
                 }
             }
-            
+
             // Handle the All Stop command which clears the queue and sends the "all stop" (a.k.a. emergency stop) command.
             AllStop => {
                 // Try to clear all the events in the queue
@@ -253,10 +253,10 @@ impl SystemInterface {
 
                 // Send the all stop event via the logger
                 update!(broadcast &self.general_update => ItemPair::all_stop(), None);
-                
+
                 // Place an error in the debug log
                 update!(err &self.general_update => "An All Stop was triggered by the operator.");
-                
+
                 // Notify the user interface of the event
                 self.interface_send
                     .send(Notify {
@@ -264,14 +264,14 @@ impl SystemInterface {
                     })
                     .unwrap_or(());
             }
-                        
+
             // Pass a broadcast event to the system connection (used only by
             // the user interface, not for internal messaging. See
             // GeneralUpdate::BroadcastEvent)
             BroadcastEvent { event, data } => {
                 // Broadcast the event via the logger
                 update!(broadcast &self.general_update => event.clone(), data);
-                
+
                 // Notify the user interface of the event
                 self.interface_send
                     .send(Notify {
@@ -287,7 +287,7 @@ impl SystemInterface {
                     handler.clear_events();
                 }
             }
-            
+
             // Close the system interface thread.
             Close => return false,
 
@@ -313,7 +313,7 @@ impl SystemInterface {
                 // Switch the mode (redraw triggered by the user interface)
                 self.is_debug_mode = mode;
             }
-            
+
             // Modify the underlying configuration
             Edit { mut actions } => {
                 // Check to see if there is an active configuration
@@ -326,20 +326,23 @@ impl SystemInterface {
                             EditAction::DeleteEvent { event_id } => {
                                 handler.delete_event(&event_id);
                             }
-                            
+
                             // Add or modify the event
-                            EditAction::ModifyEvent { event_pair, event_detail } => {
+                            EditAction::ModifyEvent {
+                                event_pair,
+                                event_detail,
+                            } => {
                                 handler.edit_event(&event_pair, &event_detail);
                             }
                         }
                     }
-                
+
                 // Raise a warning that there is no active configuration
                 } else {
                     update!(warn &self.general_update => "Change Not Saved: There Is No Active Configuration.");
                 }
             }
-            
+
             // Change the remaining delay for an existing event in the queue
             EventChange {
                 event_id,
@@ -352,7 +355,7 @@ impl SystemInterface {
                     handler.adjust_event(event_id, start_time, new_delay);
                 }
             }
-            
+
             // Update the system log provided to the underlying system
             ErrorLog { filepath } => self.logger.set_error_log(filepath),
 
@@ -360,7 +363,11 @@ impl SystemInterface {
             GameLog { filepath } => self.logger.set_game_log(filepath),
 
             // Pass an event to the event_handler
-            ProcessEvent { event, check_scene, broadcast } => {
+            ProcessEvent {
+                event,
+                check_scene,
+                broadcast,
+            } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event
@@ -379,7 +386,7 @@ impl SystemInterface {
                     update!(err &self.general_update => "Event Could Not Be Processed. No Active Configuration.");
                 }
             }
-            
+
             // Pass an event to the queue
             QueueEvent { event_delay } => {
                 // If the event handler exists
@@ -415,7 +422,7 @@ impl SystemInterface {
                         .unwrap_or(());
                 }
             }
-            
+
             // Reply to the request for information
             Request { reply_to, request } => {
                 // If the event handler exists
@@ -426,30 +433,28 @@ impl SystemInterface {
                         RequestType::Description { item_id } => {
                             // Collect the description of the item
                             let description = handler.get_description(&item_id);
-                            
+
                             // Send it back to the user interface
                             self.interface_send
                                 .send(Reply {
                                     reply_to, // echo to display component
-                                    reply: ReplyType::Description {
-                                        description
-                                    }
-                                }).unwrap_or(());
+                                    reply: ReplyType::Description { description },
+                                })
+                                .unwrap_or(());
                         }
-                        
+
                         // Reply to a request for the event detail
                         RequestType::Detail { item_id } => {
                             // Try to get the event detail
                             let event_detail = handler.get_detail(&item_id);
-                            
+
                             // Send an update with the event detail (or None)
                             self.interface_send
                                 .send(Reply {
                                     reply_to, // echo the display component
-                                    reply: ReplyType::Detail {
-                                        event_detail,
-                                    }
-                                }).unwrap_or(());
+                                    reply: ReplyType::Detail { event_detail },
+                                })
+                                .unwrap_or(());
                         }
                     }
 
@@ -629,11 +634,11 @@ enum GeneralUpdateType {
     /// A variant that broadcasts an event with the given item id. This event id
     /// is not processed or otherwise checked for validity. If data is provided,
     /// it will be broadcast with the event.
-    BroadcastEvent (ItemId, Option<u32>),
-    
+    BroadcastEvent(ItemId, Option<u32>),
+
     /// A variant that notifies the system of a change in the coming events
-    ComingEvents (Vec<ComingEvent>),
-    
+    ComingEvents(Vec<ComingEvent>),
+
     /// A variant that solicies a string of data from the user to send to the
     /// system. The string will be sent as a series of events with the same
     /// item id. FIXME Make this more generic for other user input
@@ -641,7 +646,7 @@ enum GeneralUpdateType {
 
     /// A variant to notify the system of an update from the user interface
     System(SystemUpdate),
-    
+
     /// A variant to notify the system of informational update
     Update(EventUpdate),
 }
@@ -690,9 +695,13 @@ impl GeneralUpdate {
     /// broadcast is set to true, the event will be broadcast to the system.
     ///
     fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
-        self.send_system(ProcessEvent { event, check_scene, broadcast } );
+        self.send_system(ProcessEvent {
+            event,
+            check_scene,
+            broadcast,
+        });
     }
-    
+
     /// A method to request a string from the user FIXME make this more generic
     /// for other types of data
     ///
@@ -715,7 +724,7 @@ impl GeneralUpdate {
             .send(GeneralUpdateType::System(update))
             .unwrap_or(());
     }
-    
+
     /// A method to send an event update to the system interface.
     ///
     fn send_update(&self, update: EventUpdate) {
@@ -747,7 +756,9 @@ impl SystemSend {
     /// silently.
     ///
     pub fn send(&self, update: SystemUpdate) {
-        self.general_send.send(GeneralUpdateType::System(update)).unwrap_or(());
+        self.general_send
+            .send(GeneralUpdateType::System(update))
+            .unwrap_or(());
     }
 }
 
@@ -757,9 +768,12 @@ impl SystemSend {
 pub enum EditAction {
     /// An action to delete an existing event
     DeleteEvent { event_id: ItemId },
-    
+
     /// An action to add an event or modify an existing one
-    ModifyEvent { event_pair: ItemPair, event_detail: EventDetail },
+    ModifyEvent {
+        event_pair: ItemPair,
+        event_detail: EventDetail,
+    },
 }
 
 /// An enum to specify the type of information request
@@ -768,7 +782,7 @@ pub enum EditAction {
 pub enum RequestType {
     /// A variant for the description of an item
     Description { item_id: ItemId },
-    
+
     /// A variant for the detail of an event
     Detail { item_id: ItemId },
 }
@@ -778,7 +792,7 @@ pub enum RequestType {
 pub enum DisplayComponent {
     /// A variant for the trigger dialog
     TriggerDialog,
-    
+
     /// A variant for the edit item window
     EditItem,
 }
@@ -792,7 +806,7 @@ pub enum SystemUpdate {
     /// NOTE: after the adjustment, events that would have already happened are discarded
     AllEventChange {
         adjustment: Duration, // the amount of time to add to (or subtract from) all events
-        is_negative: bool, // a flag to indicate if the delay should be subtracted
+        is_negative: bool,    // a flag to indicate if the delay should be subtracted
     },
 
     /// A special variant to send the "all stop" event which automatically
@@ -819,10 +833,10 @@ pub enum SystemUpdate {
 
     /// A variant to modify the underlying configuration
     Edit { actions: Vec<EditAction> },
-    
+
     /// A variant that provides a new error log file for the system interface.
     ErrorLog { filepath: PathBuf },
-    
+
     /// A variant to change the remaining delay for an existing event in the
     /// queue.
     EventChange {
@@ -838,18 +852,25 @@ pub enum SystemUpdate {
     /// check_scene flag is not set, the system will not check if the event is
     /// listed in the current scene. If broadcast is set to true, the event
     /// will be broadcast to the system
-    ProcessEvent { event: ItemId, check_scene: bool, broadcast: bool },
+    ProcessEvent {
+        event: ItemId,
+        check_scene: bool,
+        broadcast: bool,
+    },
 
     /// A variant that queues a new event with the given item id. The event
     /// will trigger after the specified delay has passed.
     QueueEvent { event_delay: EventDelay },
-    
+
     /// A variant that triggers a redraw of the user interface window
     Redraw,
-    
+
     /// A variant that requests information from the system and directs it
     /// to a specific spot on the window
-    Request { reply_to: DisplayComponent, request: RequestType },
+    Request {
+        reply_to: DisplayComponent,
+        request: RequestType,
+    },
 
     /// A variant that provides a new configuration file to save the current
     /// configuration.
@@ -864,9 +885,9 @@ pub enum SystemUpdate {
 
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
-    AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile,
-    DebugMode, Edit, ErrorLog, EventChange, GameLog, ProcessEvent, QueueEvent,
-    Request, SaveConfig, SceneChange, Redraw, StatusChange, 
+    AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile, DebugMode, Edit,
+    ErrorLog, EventChange, GameLog, ProcessEvent, QueueEvent, Redraw, Request, SaveConfig,
+    SceneChange, StatusChange,
 };
 
 /// A structure to list a series of event buttons that are associated with one
@@ -897,7 +918,7 @@ pub enum WindowType {
 
     /// A variant to show the shortcuts window
     Shortcuts,
-    
+
     /// A variant to solicit a string from the user. The string will be sent as
     /// a series of events to the system
     PromptString(ItemPair),
@@ -925,7 +946,7 @@ pub enum DisplaySetting {
 pub enum ReplyType {
     /// A variant for the description of an item
     Description { description: ItemDescription },
-    
+
     /// A variant for the detail of an event
     Detail { event_detail: Option<EventDetail> },
 }
@@ -936,19 +957,22 @@ pub enum ReplyType {
 pub enum InterfaceUpdate {
     /// A variant to change the display settings
     ChangeSettings { display_setting: DisplaySetting },
-    
+
     /// A variant to switch the interface to or from edit mode
     EditMode(bool),
-    
+
     /// A variant to launch one of the special windows
     LaunchWindow { window_type: WindowType },
 
     /// A variant to post a current event to the status bar
     Notify { message: String },
-    
+
     /// A variant to reply to an information request from the user interface
-    Reply { reply_to: DisplayComponent, reply: ReplyType },
-    
+    Reply {
+        reply_to: DisplayComponent,
+        reply: ReplyType,
+    },
+
     /// A variant to update the available scenes and full status in the main
     /// program window.
     UpdateConfig {
@@ -980,8 +1004,8 @@ pub enum InterfaceUpdate {
 
 // Reexport the interface update type variants
 pub use self::InterfaceUpdate::{
-    ChangeSettings, EditMode, LaunchWindow, Notify, Reply, UpdateConfig,
-    UpdateNotifications, UpdateTimeline, UpdateStatus, UpdateWindow,
+    ChangeSettings, EditMode, LaunchWindow, Notify, Reply, UpdateConfig, UpdateNotifications,
+    UpdateStatus, UpdateTimeline, UpdateWindow,
 };
 
 // Tests of the system_interface module

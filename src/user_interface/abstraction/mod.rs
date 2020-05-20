@@ -22,10 +22,10 @@
 
 // Define private submodules
 mod control;
+mod edit_item;
 mod events;
 mod operation_dialogs;
 mod timeline;
-mod edit_item;
 
 // Import the relevant structures into the correct namespace
 use self::control::ControlAbstraction;
@@ -34,12 +34,12 @@ use self::operation_dialogs::{
     JumpDialog, PromptStringDialog, ShortcutsDialog, StatusDialog, TriggerDialog,
 };
 use self::timeline::TimelineAbstraction;
-use edit_item::EditItemAbstraction;
 use super::super::system_interface::{
-    EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, KeyMap,
-    Notification, ReplyType, StatusDescription, SystemSend, UpcomingEvent,
+    EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, KeyMap, Notification, ReplyType,
+    StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
+use edit_item::EditItemAbstraction;
 
 // Import standard library features
 use std::cell::RefCell;
@@ -77,12 +77,12 @@ pub struct InterfaceAbstraction {
     events: EventAbstraction, // the abstraction for the event window
     notification_bar: gtk::Statusbar, // the notification bar at the bottom of the window
     edit_item: EditItemAbstraction, // the abstraction for the edit item window
-    jump_dialog: JumpDialog,  // the jump dialog
+    jump_dialog: JumpDialog, // the jump dialog
     status_dialog: StatusDialog, // the status dialog
-    shortcuts_dialog: ShortcutsDialog,  // the shortcuts dialog
+    shortcuts_dialog: ShortcutsDialog, // the shortcuts dialog
     trigger_dialog: TriggerDialog, // the trigger dialog
     prompt_string_dialog: PromptStringDialog, // the prompt string dialog
-    is_debug: bool, // a flag to indicate whether the program is in debug mode
+    is_debug: bool,          // a flag to indicate whether the program is in debug mode
 }
 
 impl InterfaceAbstraction {
@@ -103,7 +103,7 @@ impl InterfaceAbstraction {
         // Create the top-level element of the program, a stack to hold both
         // operations and edit elements
         let top_element = gtk::Stack::new();
-        
+
         // Populate the operations view
         //
         // Create the operations grid to hold all the operations elements
@@ -169,7 +169,7 @@ impl InterfaceAbstraction {
         // Create the edit grid to hold all the edit elements
         let edit_grid = gtk::Grid::new();
         top_element.add_named(&edit_grid, "edit");
-        
+
         // Set the features of the edit grid
         edit_grid.set_column_homogeneous(false); // Allow everything to adjust
         edit_grid.set_row_homogeneous(false);
@@ -179,13 +179,13 @@ impl InterfaceAbstraction {
         edit_grid.set_margin_bottom(10);
         edit_grid.set_margin_start(10);
         edit_grid.set_margin_end(10);
-        
+
         // Create the item map and add it on the left
         let tmp = gtk::Label::new(Some("Information Here"));
         tmp.set_hexpand(true);
         tmp.set_halign(gtk::Align::Fill);
         edit_grid.attach(&tmp, 0, 0, 1, 1); // FIXME
-        
+
         // Create the edit item abstraction and add it on the right
         let edit_item = EditItemAbstraction::new(system_send, interface_send, window);
         edit_grid.attach(edit_item.get_top_element(), 1, 0, 1, 1);
@@ -238,16 +238,18 @@ impl InterfaceAbstraction {
         // Switch to edit mode
         if is_edit {
             // Change the visible window
-            self.top_element.set_visible_child_full("edit", gtk::StackTransitionType::SlideUp);
-            
+            self.top_element
+                .set_visible_child_full("edit", gtk::StackTransitionType::SlideUp);
+
             // Diable shortcuts
             self.shortcuts_dialog.enable_shortcuts(false);
-            
+
         // Otherwise, switch to operations mode
         } else {
             // Change the visible window
-            self.top_element.set_visible_child_full("ops", gtk::StackTransitionType::SlideDown);
-            
+            self.top_element
+                .set_visible_child_full("ops", gtk::StackTransitionType::SlideDown);
+
             // Enable shortcuts
             self.shortcuts_dialog.enable_shortcuts(true);
         }
@@ -339,7 +341,7 @@ impl InterfaceAbstraction {
             );
         }
     }
-    
+
     // Methods to update the edit item abstraction
     //
     /// A method to pass information updates to the edit item window
@@ -347,7 +349,6 @@ impl InterfaceAbstraction {
     pub fn update_edit_item(&self, reply: ReplyType) {
         self.edit_item.update_info(reply);
     }
-    
 
     /// A method to update the status bar
     ///
@@ -423,7 +424,7 @@ impl InterfaceAbstraction {
     pub fn launch_status(&self, status: Option<ItemPair>) {
         self.status_dialog.launch(&self.system_send, status);
     }
-    
+
     // Methods to update the shortcuts dialog
     //
     /// A method to launch the shortcuts dialog
@@ -451,7 +452,7 @@ impl InterfaceAbstraction {
     pub fn update_trigger(&self, reply: ReplyType) {
         self.trigger_dialog.update_info(reply);
     }
-    
+
     /// A method to launch the prompt string dialog
     pub fn launch_prompt_string(&self, event: ItemPair) {
         self.prompt_string_dialog.launch(&self.system_send, event);

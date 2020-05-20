@@ -22,9 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
-    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode,
-    ErrorLog, GameLog, InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend,
-    WindowType,
+    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode, ErrorLog, GameLog,
+    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType,
 };
 
 // Import standard library features
@@ -347,7 +346,7 @@ impl MenuAbstraction {
 
         // Create the edit mode action (toggles availability of the other edit actions)
         let edit = gio::SimpleAction::new_stateful("edit_mode", None, &false.to_variant());
-        
+
         // Create the save game configuration action
         let save_config = gio::SimpleAction::new("save_config", None);
         save_config.connect_activate(clone!(window, system_send, interface_send, edit => move |_, _| {
@@ -435,7 +434,7 @@ impl MenuAbstraction {
                 }
             }
         }));
-        
+
         // Connect the detail of the edit mode action
         edit.connect_activate(clone!(interface_send, application, save_config, new_event, new_status, new_scene => move |checkbox, _| {
 

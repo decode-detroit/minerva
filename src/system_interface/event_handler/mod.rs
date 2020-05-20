@@ -22,7 +22,7 @@
 //! of the program.
 
 // Reexport the key structures and types
-pub use self::config::{FullStatus, StatusDescription, KeyMap};
+pub use self::config::{FullStatus, KeyMap, StatusDescription};
 pub use self::queue::ComingEvent;
 
 // Define public submodules
@@ -39,9 +39,8 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    CancelEvent, DataType, EventDelay, EventAction, EventDetail, EventUpdate,
-    GroupedEvent, ModifyStatus, NewScene, SaveData, SendData, QueueEvent,
-    UpcomingEvent,
+    CancelEvent, DataType, EventAction, EventDelay, EventDetail, EventUpdate, GroupedEvent,
+    ModifyStatus, NewScene, QueueEvent, SaveData, SendData, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::Queue;
@@ -298,7 +297,7 @@ impl EventHandler {
         // Return a list of available items in the current scene
         self.config.get_items()
     }
-    
+
     /// A method to return an key map for the current scene, with all items
     /// as an itempair.
     ///
@@ -515,28 +514,27 @@ impl EventHandler {
 
         // Compose the item into an item pair
         let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
-        
+
         // Unpack and process each action of the event
         let mut was_broadcast = false;
         for action in event_detail {
             // Switch based on the result of unpacking the action
             match self.unpack_action(action) {
-            
                 // No additional action required
                 UnpackResult::None => (),
-                
+
                 // Send data to the system
                 UnpackResult::Data(mut data) => {
                     // Save that the event has been broadcast
                     was_broadcast = true;
-                    
+
                     // If we should broadcast the event
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
                             update!(broadcast &self.general_update => pair.clone(), Some(number));
                         }
-                        
+
                     // Otherwise just update the system about the event
                     } else {
                         update!(now &self.general_update => pair.clone());
@@ -547,26 +545,26 @@ impl EventHandler {
                 UnpackResult::String => {
                     // Save that the event was broadcast
                     was_broadcast = true;
-                    
+
                     // Solicit a string
                     self.general_update.send_get_user_string(pair.clone());
                 }
             }
         }
-        
+
         // Broadcast the event (if it hasn't been broadcast yet)
         if !was_broadcast {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
                 update!(broadcast &self.general_update => pair.clone(), None);
-                
+
             // Otherwise just update the system about the event
             } else {
                 update!(now &self.general_update => pair.clone());
             }
         }
-        
+
         // Indicate success
         true
     }
@@ -615,10 +613,10 @@ impl EventHandler {
                             // Convert the duration to minutes and seconds
                             let minutes = duration.as_secs() / 60;
                             let seconds = duration.as_secs() % 60;
-                            
+
                             // Compose a string for the log
                             let data_string = format!("Time {}:{}", minutes, seconds);
-                            
+
                             // Save the data to the game log
                             update!(save &self.general_update => data_string);
                         }
@@ -636,30 +634,28 @@ impl EventHandler {
                                 // Convert the duration to minutes and seconds
                                 let minutes = result.as_secs() / 60;
                                 let seconds = result.as_secs() % 60;
-                                
+
                                 // Compose a string for the log
                                 let data_string = format!("Time {}:{}", minutes, seconds);
-                                
+
                                 // Save the data to the game log
                                 update!(save &self.general_update => data_string);
                             }
                         }
                     }
-                    
+
                     // Send the static string to the event
                     DataType::StaticString { string } => {
                         // Save the string to the game log
                         update!(save &self.general_update => string);
                     }
-                    
+
                     // Solicit a string from the user
                     DataType::UserString => {
                         // Error that this is not yet implemented
                         update!(err &self.general_update => "Saving a User String is not yet implemented.");
                     }
                 }
-            
-                
             }
 
             // If there is data to send, collect and send it
@@ -701,20 +697,19 @@ impl EventHandler {
                             return UnpackResult::Data(vec![total_time.as_secs() as u32]);
                         }
                     }
-                    
+
                     // Send the static string to the event
                     DataType::StaticString { string } => {
                         // Convert the string into bytes
                         let mut bytes = string.into_bytes();
-                         
+
                         // Save the length of the new vector
                         let length = bytes.len() as u32;
                         let mut data = vec![length];
-                        
+
                         // Convert the bytes into a u32 Vec
                         let (mut first, mut second, mut third, mut fourth) = (0, 0, 0, 0);
                         for (num, byte) in bytes.drain(..).enumerate() {
-                            
                             // Repack the data efficiently
                             match num % 4 {
                                 0 => first = byte as u32,
@@ -722,20 +717,22 @@ impl EventHandler {
                                 2 => third = byte as u32,
                                 _ => {
                                     fourth = byte as u32;
-                                    data.push((first << 24) | (second << 16) | (third << 8) | fourth);
+                                    data.push(
+                                        (first << 24) | (second << 16) | (third << 8) | fourth,
+                                    );
                                 }
                             }
                         }
-                        
+
                         // Save the last bit of data if the total doesn't add to 4
                         if (length % 4) != 0 {
                             data.push((first << 24) | (second << 16) | (third << 8) | fourth);
                         }
-                        
+
                         // Return the complete data
                         return UnpackResult::Data(data);
                     }
-                    
+
                     // Solicit a string from the user
                     DataType::UserString => return UnpackResult::String,
                 }
@@ -774,10 +771,10 @@ enum UnpackResult {
     /// A variant indicating there is no additional information needed for this
     /// event (the most common result).
     None,
-    
+
     /// A variant indicating that some data that should be broadcast to the system.
-    Data (Vec<u32>),
-    
+    Data(Vec<u32>),
+
     /// A variant indicating that a string should be solicited from the user.
     String,
 }

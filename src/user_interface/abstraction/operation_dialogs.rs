@@ -20,17 +20,17 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
-    ItemPair, KeyMap, ProcessEvent, QueueEvent, ReplyType, Request, RequestType,
-    SceneChange, StatusChange, StatusDescription, SystemSend,
+    BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId, ItemPair, KeyMap,
+    ProcessEvent, QueueEvent, ReplyType, Request, RequestType, SceneChange, StatusChange,
+    StatusDescription, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
 
 // Import standard library features
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::mem;
+use std::rc::Rc;
 use std::time::Duration;
 
 // Import FNV HashMap
@@ -40,8 +40,8 @@ use self::fnv::FnvHashMap;
 // Import GTK and GDK libraries
 extern crate gdk;
 extern crate gio;
-extern crate gtk;
 extern crate glib;
+extern crate gtk;
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
 
@@ -49,7 +49,6 @@ use self::gtk::GridExt;
 const STATE_LIMIT: usize = 20; // maximum character width of states
 const DESCRIPTION_LIMIT: usize = 40; // shortcut event descriptions character limit
 const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
-
 
 /// A structure to contain the dialog for modifying an individual status.
 ///
@@ -368,14 +367,14 @@ impl JumpDialog {
 ///
 pub struct ShortcutsDialog {
     key_press_handler: Option<glib::signal::SignalHandlerId>, // the active handler
-    key_map: KeyMap, // the map of key codes to event ids
-    system_send: SystemSend, // a copy of system send
-    window: gtk::ApplicationWindow, // a copy of the primary window
+    key_map: KeyMap,                                          // the map of key codes to event ids
+    system_send: SystemSend,                                  // a copy of system send
+    window: gtk::ApplicationWindow,                           // a copy of the primary window
 }
 
 // Implement key features for the shortcuts dialog
 impl ShortcutsDialog {
-    /// A function to create a new shortcuts dialog structure with the ability 
+    /// A function to create a new shortcuts dialog structure with the ability
     /// to bind and display keyboard shortcuts
     ///
     pub fn new(system_send: &SystemSend, window: &gtk::ApplicationWindow) -> ShortcutsDialog {
@@ -396,9 +395,7 @@ impl ShortcutsDialog {
             Some("Keyboard Shortcuts"),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
-            &[
-                ("Close", gtk::ResponseType::Ok),
-            ],
+            &[("Close", gtk::ResponseType::Ok)],
         );
         dialog.set_position(gtk::WindowPosition::Center);
 
@@ -414,7 +411,7 @@ impl ShortcutsDialog {
         let tmp = gtk::Label::new(None);
         tmp.set_markup("<span size='13000'>Event Description</span>");
         grid.attach(&tmp, 1, 0, 1, 1);
-        
+
         // Add a separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_hexpand(true);
@@ -427,18 +424,24 @@ impl ShortcutsDialog {
             // Add the event description
             let description = clean_text(&id.description, DESCRIPTION_LIMIT, false, false, true);
             grid.attach(&gtk::Label::new(Some(&description)), 1, count, 1, 1);
-            
+
             // Add the shortcut description
             let key = match gdk::keyval_name(key.clone()) {
                 Some(gstring) => String::from(gstring),
                 None => String::from("Invalid Key Code"),
             };
-            grid.attach(&gtk::Label::new(Some(&format!("  {}  ", key))), 0, count, 1, 1);
-            
+            grid.attach(
+                &gtk::Label::new(Some(&format!("  {}  ", key))),
+                0,
+                count,
+                1,
+                1,
+            );
+
             // Increment the count
             count = count + 1;
         }
-        
+
         // Add the none label if there are no shortcuts
         if count == 1 {
             grid.attach(&gtk::Label::new(Some("No Active Shortcuts")), 0, 1, 2, 1);
@@ -469,21 +472,21 @@ impl ShortcutsDialog {
     pub fn update_shortcuts(&mut self, key_map: KeyMap) {
         // Save the key map to be displayed or enabled/disabled
         self.key_map = key_map;
-        
+
         // Enable the new shortcuts
         self.enable_shortcuts(true);
-   }
-   
-   /// A method to enable or disable the keyboard shortcuts
-   ///
-   pub fn enable_shortcuts(&mut self, are_enabled: bool) {
+    }
+
+    /// A method to enable or disable the keyboard shortcuts
+    ///
+    pub fn enable_shortcuts(&mut self, are_enabled: bool) {
         // Clear the old key press handler
         let mut tmp = None;
         mem::swap(&mut tmp, &mut self.key_press_handler);
         if let Some(handler) = tmp {
             self.window.disconnect(handler);
         }
-        
+
         // If enabled, create the new handler
         if are_enabled {
             // Create a new handler (prevents any errant key presses if empty)
@@ -494,12 +497,16 @@ impl ShortcutsDialog {
                 self.window.connect_key_press_event(move |_, key_press| {
                     // Check to see if it matches one of our events
                     if let Some(id) = key_clone.get(&key_press.get_keyval()) {
-                        send_clone.send(ProcessEvent { event: id.get_id(), check_scene: true, broadcast: true});
+                        send_clone.send(ProcessEvent {
+                            event: id.get_id(),
+                            check_scene: true,
+                            broadcast: true,
+                        });
                     }
-                    
+
                     // Prevent any other keypress handlers from running
                     gtk::Inhibit(true)
-                })
+                }),
             );
         }
     }
@@ -508,7 +515,7 @@ impl ShortcutsDialog {
 /// A structure to contain the dialog for triggering a custom event.
 ///
 pub struct TriggerDialog {
-    window: gtk::ApplicationWindow, // a copy of the primary window
+    window: gtk::ApplicationWindow,        // a copy of the primary window
     description_label: Option<gtk::Label>, // the label which displays an item description
 }
 
@@ -542,7 +549,7 @@ impl TriggerDialog {
         let content = dialog.get_content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
-        
+
         // Add some space between the rows and columns
         grid.set_column_spacing(10);
         grid.set_row_spacing(10);
@@ -555,10 +562,10 @@ impl TriggerDialog {
 
         // Add the dropdown and label
         let label = gtk::Label::new(Some(
-            " WARNING: Triggering a custom event may cause undesired behaviour. "
+            " WARNING: Triggering a custom event may cause undesired behaviour. ",
         ));
         grid.attach(&label, 0, 0, 3, 1);
-        
+
         // Add a separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_hexpand(true);
@@ -596,7 +603,7 @@ impl TriggerDialog {
             event_spin.set_value(event_pair.id() as f64);
             event_description.set_text(&event_pair.description());
         }
-        
+
         // Add them to the grid
         grid.attach(&event_spin, 0, 3, 1, 1);
         grid.attach(&event_description, 1, 3, 2, 1);
@@ -606,13 +613,13 @@ impl TriggerDialog {
         separator.set_hexpand(true);
         separator.set_halign(gtk::Align::Fill);
         grid.attach(&separator, 0, 4, 3, 1);
-        
+
         // Add a separator for the delay (lower down)
         let delay_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_hexpand(true);
         separator.set_halign(gtk::Align::Fill);
         grid.attach(&delay_separator, 0, 6, 3, 1);
-        
+
         // Create the delay headers and spin buttons
         let delay_label = gtk::Label::new(Some(" Delay "));
         grid.attach(&delay_label, 0, 7, 1, 2);
@@ -624,7 +631,6 @@ impl TriggerDialog {
         grid.attach(&minutes_spin, 1, 8, 1, 1);
         let seconds_spin = gtk::SpinButton::new_with_range(0.0, 59.0, 1.0);
         grid.attach(&seconds_spin, 2, 8, 1, 1);
-        
 
         // Create the checkboxes
         let now_checkbox = gtk::CheckButton::new_with_label("Trigger Now");
@@ -636,7 +642,7 @@ impl TriggerDialog {
         grid.attach(&now_checkbox, 0, 5, 1, 1);
         grid.attach(&broadcast_checkbox, 1, 5, 1, 1);
         grid.attach(&scene_checkbox, 2, 5, 1, 1);
-        
+
         // Make changes to the interface when trigger now is changed
         now_checkbox.connect_toggled(clone!(broadcast_checkbox, scene_checkbox, delay_separator, delay_label, minutes_label, seconds_label, minutes_spin, seconds_spin => move | checkbox | {
             // Make the other two checkboxes visible
@@ -670,13 +676,13 @@ impl TriggerDialog {
                 broadcast_checkbox.hide();
             }
         }));
-        
+
         // Make sure the scene checkbox is hidden when broadcast is selected
         broadcast_checkbox.connect_toggled(clone!(scene_checkbox => move | checkbox | {
             // Make sure the checkbox is hidden
             if checkbox.get_active() {
                 scene_checkbox.hide();
-            
+
             // Otherwise show it
             } else {
                 scene_checkbox.show();
@@ -717,7 +723,7 @@ impl TriggerDialog {
 
         // Show the dialog and components
         dialog.show_all();
-        
+
         // Hide the delay inputs and return
         delay_separator.hide();
         delay_label.hide();
@@ -726,7 +732,7 @@ impl TriggerDialog {
         minutes_spin.hide();
         seconds_spin.hide();
     }
-    
+
     // A method to update the information displayed in the dialog
     pub fn update_info(&self, reply: ReplyType) {
         // Update the even description, ignore others
@@ -760,7 +766,13 @@ impl PromptStringDialog {
     pub fn launch(&self, system_send: &SystemSend, event: ItemPair) {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
-            Some(&clean_text(&event.description, STATE_LIMIT, false, false, true)),
+            Some(&clean_text(
+                &event.description,
+                STATE_LIMIT,
+                false,
+                false,
+                true,
+            )),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
@@ -776,9 +788,7 @@ impl PromptStringDialog {
         content.add(&grid);
 
         // Add the dropdown and label
-        let label = gtk::Label::new(Some(
-            " Enter Text ",
-        ));
+        let label = gtk::Label::new(Some(" Enter Text "));
         grid.attach(&label, 0, 0, 1, 1);
 
         // Create the text entry area of the dialog
@@ -807,18 +817,18 @@ impl PromptStringDialog {
                 let start = buffer.get_start_iter();
                 let end = buffer.get_end_iter();
                 if let Some(gtext) = buffer.get_text(&start, &end, false) {
-                    
+
                     // Convert the text into bytes
                     let mut bytes = gtext.to_string().into_bytes();
-                         
+
                     // Save the length of the new vector
                     let length = bytes.len() as u32;
                     let mut data = vec![length];
-                    
+
                     // Convert the bytes into a u32 Vec
                     let (mut first, mut second, mut third, mut fourth) = (0, 0, 0, 0);
                     for (num, byte) in bytes.drain(..).enumerate() {
-                        
+
                         // Repack the data efficiently
                         match num % 4 {
                             0 => first = byte as u32,
@@ -830,12 +840,12 @@ impl PromptStringDialog {
                             }
                         }
                     }
-                    
+
                     // Save the last bit of data if the total doesn't add to 4
                     if (length % 4) != 0 {
                        data.push((first << 24) | (second << 16) | (third << 8) | fourth);
                     }
-                    
+
                     // Send each bit of data to the system
                     for num in data.drain(..) {
                         system_send.send(BroadcastEvent { event: event.clone(), data: Some(num)});
@@ -851,4 +861,3 @@ impl PromptStringDialog {
         dialog.show_all();
     }
 }
-

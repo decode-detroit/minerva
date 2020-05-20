@@ -22,17 +22,16 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription,
-    ItemId, ItemPair, LabelControl, LaunchWindow, ProcessEvent, StatusDescription,
-    SystemSend, WindowType,
+    EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription, ItemId,
+    ItemPair, LabelControl, LaunchWindow, ProcessEvent, StatusDescription, SystemSend, WindowType,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::{LARGE_FONT, NORMAL_FONT};
 
 // Import standard library features
-use std::sync::mpsc;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::mpsc;
 use std::u32::MAX as U32_MAX;
 
 // Import FNV HashMap
@@ -65,8 +64,8 @@ pub struct EventAbstraction {
     spotlight_control: FnvHashMap<ItemId, Rc<RefCell<u32>>>, // holders for current spotlight counters
     spotlight_state: FnvHashMap<ItemId, Rc<RefCell<u32>>>,
     spotlight_button: FnvHashMap<ItemId, Rc<RefCell<u32>>>,
-    is_font_large: bool,                // a flag to indicate the font size of the items
-    is_high_contrast: bool,             // a flag to indicate if the display is high contrast
+    is_font_large: bool,    // a flag to indicate the font size of the items
+    is_high_contrast: bool, // a flag to indicate if the display is high contrast
 }
 
 // Implement key features for the Event Abstraction
@@ -223,9 +222,12 @@ impl EventAbstraction {
         self.clear();
 
         // Copy the spotlight counts and drain them
-        let spotlight_control: FnvHashMap<ItemId, Rc<RefCell<u32>>> = self.spotlight_control.drain().collect();
-        let spotlight_state: FnvHashMap<ItemId, Rc<RefCell<u32>>> = self.spotlight_state.drain().collect();
-        let spotlight_button: FnvHashMap<ItemId, Rc<RefCell<u32>>> = self.spotlight_button.drain().collect();
+        let spotlight_control: FnvHashMap<ItemId, Rc<RefCell<u32>>> =
+            self.spotlight_control.drain().collect();
+        let spotlight_state: FnvHashMap<ItemId, Rc<RefCell<u32>>> =
+            self.spotlight_state.drain().collect();
+        let spotlight_button: FnvHashMap<ItemId, Rc<RefCell<u32>>> =
+            self.spotlight_button.drain().collect();
 
         // Set the font size
         let font_size = match self.is_font_large {
@@ -355,7 +357,8 @@ impl EventAbstraction {
             status_title.set_halign(gtk::Align::End);
             status_title.set_margin_end(5);
             status_title.show();
-            self.side_panel.attach(&status_title, 0, 3 + status_count, 1, 1);
+            self.side_panel
+                .attach(&status_title, 0, 3 + status_count, 1, 1);
 
             // Find the corresponding current state detail
             let state = gtk::Label::new(Some("Not Available"));
@@ -364,12 +367,10 @@ impl EventAbstraction {
             ) {
                 // See if there is an existing spotlight expiration for this state
                 let expiration = match spotlight_control.get(&current.get_id()) {
-                    Some(exp) => {
-                        exp.clone()
-                    },
+                    Some(exp) => exp.clone(),
                     None => Rc::new(RefCell::new(U32_MAX)),
                 };
-                
+
                 // Decorate the state label
                 let state_markup =
                     clean_text(&current.description, CONTROL_LIMIT, true, false, true);
@@ -382,7 +383,7 @@ impl EventAbstraction {
                     self.is_high_contrast,
                     Some(expiration.clone()), // spotlight
                 );
-                
+
                 // If the expiration was used, save it
                 if Rc::strong_count(&expiration) > 1 {
                     self.spotlight_control.insert(current.get_id(), expiration);
@@ -424,7 +425,8 @@ impl EventAbstraction {
                 self.left_grid.attach(&group.as_grid(), 0, num as i32, 1, 1);
             } else {
                 // Attach the found group to the right grid
-                self.right_grid.attach(&group.as_grid(), 0, (num - half) as i32, 1, 1);
+                self.right_grid
+                    .attach(&group.as_grid(), 0, (num - half) as i32, 1, 1);
             }
         }
     }
@@ -493,9 +495,7 @@ impl EventGroupAbstraction {
                 if let Some(&StatusDescription { ref current, .. }) = full_status.get(&id_pair) {
                     // See if there is an existing spotlight expiration for this state
                     let expiration = match old_spotlight_state.get(&current.get_id()) {
-                        Some(exp) => {
-                            exp.clone()
-                        },
+                        Some(exp) => exp.clone(),
                         None => Rc::new(RefCell::new(U32_MAX)),
                     };
 
@@ -512,7 +512,7 @@ impl EventGroupAbstraction {
                         is_high_contrast,
                         Some(expiration.clone()), // spotlight
                     );
-                    
+
                     // If the expiration was used, save it
                     if Rc::strong_count(&expiration) > 1 {
                         spotlight_state.insert(current.get_id(), expiration);
@@ -557,7 +557,7 @@ impl EventGroupAbstraction {
                 Some(exp) => exp.clone(),
                 None => Rc::new(RefCell::new(U32_MAX)),
             };
-            
+
             // Set the markup based on the requested color and extract the position
             let button_position = decorate_label(
                 &button_label,
@@ -578,7 +578,7 @@ impl EventGroupAbstraction {
             // If the expiration was used, save it and use it in button clicked
             if Rc::strong_count(&expiration) > 1 {
                 spotlight_button.insert(event.get_id(), expiration.clone());
-                
+
                 // Create the new button action and connect it
                 button.connect_clicked(clone!(system_send => move |_| {
                     // Send the event trigger to the underlying system
@@ -589,7 +589,7 @@ impl EventGroupAbstraction {
                         *count = 1;
                     }
                 }));
-            
+
             // Otherwise, just set the button click normally
             } else {
                 // Create the new button action and connect it

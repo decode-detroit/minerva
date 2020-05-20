@@ -31,10 +31,9 @@ mod menu;
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
-    ChangeSettings, DebugMode, DisplayComponent, DisplaySetting, EditMode,
-    InterfaceUpdate, LaunchWindow, Notify, Redraw, SystemSend, SystemUpdate,
-    UpdateConfig, UpdateNotifications, UpdateTimeline, UpdateStatus,
-    UpdateWindow, Reply, WindowType,
+    ChangeSettings, DebugMode, DisplayComponent, DisplaySetting, EditMode, InterfaceUpdate,
+    LaunchWindow, Notify, Redraw, Reply, SystemSend, SystemUpdate, UpdateConfig,
+    UpdateNotifications, UpdateStatus, UpdateTimeline, UpdateWindow, WindowType,
 };
 
 // Import standard library features
@@ -51,7 +50,6 @@ use self::gtk::prelude::*;
 // Define user interface constants
 const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
 
-
 /// A structure to contain the user interface and handle all updates to the
 /// to the interface.
 ///
@@ -60,7 +58,7 @@ pub struct UserInterface {
     interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
     system_send: SystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
     menu_abstraction: Rc<RefCell<MenuAbstraction>>, // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
-    window: gtk::ApplicationWindow, // the gtk application window
+    window: gtk::ApplicationWindow,                 // the gtk application window
 }
 
 // Implement key UserInterface functionality
@@ -201,9 +199,9 @@ impl UserInterface {
                         }
                     }
                 }
-                
+
                 // Change the user interface to or from edit mode
-                EditMode(is_edit) => { 
+                EditMode(is_edit) => {
                     // If the edit setting was chosen
                     if is_edit {
                         // Switch the interface to edit mode
@@ -215,7 +213,7 @@ impl UserInterface {
                         interface.select_edit(false);
                     }
                 }
-                
+
                 // Launch the requested special window
                 LaunchWindow { window_type } => {
                     // Sort for the window type
@@ -231,12 +229,12 @@ impl UserInterface {
 
                         // Launch the trigger dialog
                         WindowType::Trigger(event) => interface.launch_trigger(event),
-                        
+
                         // Launch the prompt string dialog
                         WindowType::PromptString(event) => interface.launch_prompt_string(event),
                     }
                 }
-                
+
                 // Show a one line notification in the status bar
                 Notify { message } => interface.notify(&message),
 
@@ -248,9 +246,9 @@ impl UserInterface {
                         DisplayComponent::TriggerDialog => {
                             interface.update_trigger(reply);
                         }
-                        
+
                         // Pass the reply to the edit window
-                        DisplayComponent::EditItem => { 
+                        DisplayComponent::EditItem => {
                             interface.update_edit_item(reply);
                         }
                     }
@@ -278,7 +276,7 @@ impl UserInterface {
                 } => {
                     // Update the current event window
                     interface.update_window(current_scene, statuses, window);
-                    
+
                     // Update the keyboard shortcuts
                     interface.update_shortcuts(key_map);
                 }

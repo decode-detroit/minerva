@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange,
-    ItemPair, LabelControl, LabelHidden, SystemSend, UpcomingEvent,
+    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair, LabelControl,
+    LabelHidden, SystemSend, UpcomingEvent,
 };
 use super::super::super::FONT;
 use super::super::utils::clean_text;

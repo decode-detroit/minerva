@@ -25,9 +25,9 @@ use super::super::system_interface::{
 };
 
 // Import standard library features
-use std::u32::MAX as U32_MAX;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::u32::MAX as U32_MAX;
 
 // Import GTK library
 extern crate gtk;
@@ -197,27 +197,31 @@ pub fn decorate_label(
             highlight_state,
             spotlight,
             position,
-        } | DisplayWith {
+        }
+        | DisplayWith {
             color,
             highlight,
             highlight_state,
             spotlight,
             position,
             ..
-        } | DisplayDebug {
+        }
+        | DisplayDebug {
             color,
             highlight,
             highlight_state,
             spotlight,
             position,
             ..
-        } | LabelControl {
+        }
+        | LabelControl {
             color,
             highlight,
             highlight_state,
             spotlight,
             position,
-        } | LabelHidden {
+        }
+        | LabelHidden {
             color,
             highlight,
             highlight_state,
@@ -226,7 +230,7 @@ pub fn decorate_label(
         } => {
             // Define the default markup
             let mut markup = format!("<span size='{}'>{}</span>", font_size, text);
-            
+
             // If high contrast mode, just set the size and return the position
             if high_contrast {
                 label.set_markup(&markup);
@@ -250,7 +254,7 @@ pub fn decorate_label(
                     "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
                     red, green, blue, font_size, text
                 );
-            
+
                 // Check to see if the highlight state is specified
                 if let Some((status_id, state_id)) = highlight_state {
                     // Find the corresponding detail
@@ -264,7 +268,7 @@ pub fn decorate_label(
                         }
                     }
                 }
-                            
+
                 // Set the spotlight color, if specified (overrides highlight color)
                 if let Some(count) = spotlight {
                     // Ignore this option if spotlight is not relevant for this label
@@ -275,7 +279,7 @@ pub fn decorate_label(
                                 *current = count * 2; // once each for on and off
                             }
                         }
-                        
+
                         // Launch a recurring message
                         let spotlight_update = clone!(label, markup, highlight_markup, expiration => move || {
                             spotlight_label(label.clone(), markup.clone(), highlight_markup.clone(), expiration.clone())
@@ -305,75 +309,77 @@ pub fn decorate_label(
 ///
 /// This function assumes that the two provided label markups have been prepared.
 ///
-fn spotlight_label(label: gtk::Label, default_markup: String, highlight_markup: String, expiration: Rc<RefCell<u32>>) -> gtk::Continue {
+fn spotlight_label(
+    label: gtk::Label,
+    default_markup: String,
+    highlight_markup: String,
+    expiration: Rc<RefCell<u32>>,
+) -> gtk::Continue {
     // Make sure the label is still visible
     if !label.is_visible() {
         return gtk::Continue(false);
     }
-    
+
     // Try to extract the expiration count
     if let Ok(mut count) = expiration.try_borrow_mut() {
         // Act based on the count of the expiration
         match *count {
-        
             // If the count is zero, set it to u32::Max
             0 => {
                 *count = U32_MAX;
-                
+
                 // Set the label to the default markup
                 label.set_markup(&default_markup);
-                
+
                 // Return true
                 return gtk::Continue(true);
             }
-        
+
             // If the count is u32::MAX, set it back to zero
             U32_MAX => {
                 *count = 0;
-                
+
                 // Set the label to the highlight markup
                 label.set_markup(&highlight_markup);
-                
+
                 // Return true
                 return gtk::Continue(true);
             }
-            
+
             // If the count is one, return false
             1 => {
                 // Set the label to the default markup
                 label.set_markup(&default_markup);
-                
+
                 // Return true
                 return gtk::Continue(false);
             }
-            
+
             // If the count is any other number, check for even/odd
             _ => {
                 // Decrease the count
                 *count = *count - 1;
-            
+
                 // if count is even
                 if (*count % 2) == 0 {
                     // Set the label to the default markup
                     label.set_markup(&default_markup);
-                    
+
                     // Return true
                     return gtk::Continue(true);
-                
+
                 // Otherwise
                 } else {
                     // Set the label to the highlight markup
                     label.set_markup(&highlight_markup);
-                    
+
                     // Return true
                     return gtk::Continue(true);
                 }
             }
         }
     }
-    
+
     // Stop the closure on failure
     gtk::Continue(false)
 }
-
-

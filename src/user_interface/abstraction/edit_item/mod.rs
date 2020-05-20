@@ -25,17 +25,17 @@ mod edit_dialogs;
 // Import the relevant structures into the correct namespace
 use self::edit_dialogs::EditActionDialog;
 use super::super::super::system_interface::{
-    DisplayControl, DisplayComponent, DisplayDebug, DisplayWith, EventAction,
-    EventDetail, Hidden, InterfaceUpdate, ItemId, ItemDescription, LabelControl,
-    LabelHidden, ReplyType, Request, RequestType, SystemSend,
+    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, EventAction, EventDetail, Hidden,
+    InterfaceUpdate, ItemDescription, ItemId, LabelControl, LabelHidden, ReplyType, Request,
+    RequestType, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
 
 // Import standard library features
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
-use std::cell::RefCell;
 
 // Import FNV HashMap
 extern crate fnv;
@@ -44,8 +44,8 @@ use self::fnv::FnvHashMap;
 // Import GTK and GDK libraries
 extern crate gdk;
 extern crate gio;
-extern crate gtk;
 extern crate glib;
+extern crate gtk;
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
 
@@ -54,7 +54,6 @@ const STATE_LIMIT: usize = 20; // maximum character width of states
 const DESCRIPTION_LIMIT: usize = 40; // shortcut event descriptions character limit
 const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
 
-
 /// A structure to contain the the item editing funcitonality.
 ///
 /// This structure automatically detects if an item corresponds to an event,
@@ -62,12 +61,12 @@ const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (o
 /// modify all the details associated with that item.
 #[derive(Clone, Debug)]
 pub struct EditItemAbstraction {
-    grid: gtk::Grid, // the grid to hold underlying elements
-    system_send: SystemSend, // a copy of the system send line
+    grid: gtk::Grid,                               // the grid to hold underlying elements
+    system_send: SystemSend,                       // a copy of the system send line
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
-    current_id: Option<ItemId>, // the current item id that is being displayed
-    edit_overview: EditOverview, // the edit overview section of the window
-    edit_detail: EditDetail, // the edit detail section of the window
+    current_id: Option<ItemId>,                    // the current item id that is being displayed
+    edit_overview: EditOverview,                   // the edit overview section of the window
+    edit_detail: EditDetail,                       // the edit detail section of the window
     is_debug_mode: bool, // a flag to indicate whether debug information is shown
     is_font_large: bool, // a flag to indicate the font size of the text
     is_high_contrast: bool, // a flag to indicate if the display is high contrast
@@ -112,13 +111,13 @@ impl EditItemAbstraction {
         // Create the edit overview and add it to the grid
         let edit_overview = EditOverview::new();
         grid.attach(edit_overview.get_top_element(), 0, 2, 2, 1);
-        
+
         // Add the event separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
         grid.attach(&separator, 0, 3, 2, 1);
-        
+
         // Create the edit detail and add it to the grid
         let edit_detail = EditDetail::new(window);
         grid.attach(edit_detail.get_top_element(), 0, 4, 2, 1);
@@ -149,7 +148,7 @@ impl EditItemAbstraction {
     pub fn get_top_element(&self) -> &gtk::Grid {
         &self.grid
     }
-    
+
     /// A method to select the debug mode of the notifications.
     ///
     pub fn select_debug(&mut self, is_debug: bool) {
@@ -167,35 +166,33 @@ impl EditItemAbstraction {
     pub fn select_contrast(&mut self, is_hc: bool) {
         self.is_high_contrast = is_hc;
     }
-    
+
     /// A method to load a new item into the edit item window
     ///
     pub fn load_item(&mut self, id: Option<ItemId>) {
         // Change the current item id
         self.current_id = id;
-        
+
         // Refresh all the item components
         self.refresh();
     }
-        
+
     // A method to refresh the components of the current item
     //
     fn refresh(&mut self) {
         // Request new data for each component, if an id is specified
         if let Some(item_id) = self.current_id {
-            self.system_send.send(
-                Request {
-                    reply_to: DisplayComponent::EditItem,    
-                    request: RequestType::Description { item_id }
-                });
-            self.system_send.send(
-                Request {
-                    reply_to: DisplayComponent::EditItem,
-                    request: RequestType::Detail { item_id }
-                });
+            self.system_send.send(Request {
+                reply_to: DisplayComponent::EditItem,
+                request: RequestType::Description { item_id },
+            });
+            self.system_send.send(Request {
+                reply_to: DisplayComponent::EditItem,
+                request: RequestType::Detail { item_id },
+            });
         }
     }
-    
+
     /// A method to process information updates received from the system
     ///
     pub fn update_info(&self, reply: ReplyType) {
@@ -205,7 +202,7 @@ impl EditItemAbstraction {
             ReplyType::Description { description } => {
                 self.edit_overview.load_description(description);
             }
-            
+
             // The detail variant
             ReplyType::Detail { event_detail } => {
                 self.edit_detail.load_detail(event_detail);
@@ -214,26 +211,25 @@ impl EditItemAbstraction {
     }
 }
 
-
 // Create a structure for editing the item description of the item
 #[derive(Clone, Debug)]
 struct EditOverview {
-    grid: gtk::Grid,                        // the main grid for this element
-    description: gtk::Entry,                // the description of the item
-    display_type: gtk::ComboBoxText,        // the display type selection for the event
-    group_checkbox: gtk::CheckButton,       // the checkbox for group id
-    group: gtk::SpinButton,                 // the spin selection for the group id
-    position_checkbox: gtk::CheckButton,    // the position checkbox
-    position: gtk::SpinButton,              // the spin selection for position
-    color_checkbox: gtk::CheckButton,       // the color checkbox
-    color: gtk::ColorButton,                // the color selection button
-    highlight_checkbox: gtk::CheckButton,   // the highlight checkbox
-    highlight: gtk::ColorButton,            // the highlight selection button
-    spotlight_checkbox: gtk::CheckButton,   // the spotlight checkbox
-    spotlight: gtk::SpinButton,             // the spin selection for spotlight number
-    highstate_checkbox: gtk::CheckButton,   // the highlight state checkbox
-    highstate_status: gtk::SpinButton,      // the highlight state status spin
-    highstate_state: gtk::SpinButton,       // the highlight state state spin
+    grid: gtk::Grid,                      // the main grid for this element
+    description: gtk::Entry,              // the description of the item
+    display_type: gtk::ComboBoxText,      // the display type selection for the event
+    group_checkbox: gtk::CheckButton,     // the checkbox for group id
+    group: gtk::SpinButton,               // the spin selection for the group id
+    position_checkbox: gtk::CheckButton,  // the position checkbox
+    position: gtk::SpinButton,            // the spin selection for position
+    color_checkbox: gtk::CheckButton,     // the color checkbox
+    color: gtk::ColorButton,              // the color selection button
+    highlight_checkbox: gtk::CheckButton, // the highlight checkbox
+    highlight: gtk::ColorButton,          // the highlight selection button
+    spotlight_checkbox: gtk::CheckButton, // the spotlight checkbox
+    spotlight: gtk::SpinButton,           // the spin selection for spotlight number
+    highstate_checkbox: gtk::CheckButton, // the highlight state checkbox
+    highstate_status: gtk::SpinButton,    // the highlight state status spin
+    highstate_state: gtk::SpinButton,     // the highlight state state spin
 }
 
 // Implement key features of the Edit Overview
@@ -245,16 +241,34 @@ impl EditOverview {
         let overview_label = gtk::Label::new(Some("Item Description:"));
         let description = gtk::Entry::new();
         description.set_placeholder_text(Some("Enter Item Description Here"));
-        
+
         // Add the display type dropdown
         let display_type_label = gtk::Label::new(Some("Where to Display Item:"));
         let display_type = gtk::ComboBoxText::new();
-        display_type.append(Some("displaycontrol"), "Event, Control: Appears as event in control area when available");
-        display_type.append(Some("displaywith"), "Event, General: Appears as event in general area when available");
-        display_type.append(Some("labelcontrol"), "Status, Control: Appears as status in control area when available");
-        display_type.append(Some("labelhidden"), "Status, General: Appears as status in general area when available");
-        display_type.append(Some("displaydebug"), "Debug Mode: Only appears as status or event in debug mode");
-        display_type.append(Some("hidden"), "Hide Item: Event not visible, status hidden when possible");
+        display_type.append(
+            Some("displaycontrol"),
+            "Event, Control: Appears as event in control area when available",
+        );
+        display_type.append(
+            Some("displaywith"),
+            "Event, General: Appears as event in general area when available",
+        );
+        display_type.append(
+            Some("labelcontrol"),
+            "Status, Control: Appears as status in control area when available",
+        );
+        display_type.append(
+            Some("labelhidden"),
+            "Status, General: Appears as status in general area when available",
+        );
+        display_type.append(
+            Some("displaydebug"),
+            "Debug Mode: Only appears as status or event in debug mode",
+        );
+        display_type.append(
+            Some("hidden"),
+            "Hide Item: Event not visible, status hidden when possible",
+        );
 
         // Create the group spin options
         let group_checkbox = gtk::CheckButton::new_with_label("Show In Control Area");
@@ -283,7 +297,7 @@ impl EditOverview {
                 position_label.set_markup("<s>Position Number:</s>");
             }
         }));
-        
+
         // Create the color option
         let color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
         let color_label = gtk::Label::new(None);
@@ -298,7 +312,7 @@ impl EditOverview {
                 color_label.set_markup("<s>Select Color:</s>");
             }
         }));
-        
+
         // Create the highlight option
         let highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
         let highlight_label = gtk::Label::new(None);
@@ -313,7 +327,7 @@ impl EditOverview {
                 highlight_label.set_markup("<s>Select Color:</s>");
             }
         }));
-        
+
         // Create the spotlight option
         let spotlight_checkbox = gtk::CheckButton::new_with_label("Spotlight Changes");
         let spotlight_label = gtk::Label::new(None);
@@ -327,10 +341,9 @@ impl EditOverview {
                 spotlight_label.set_markup("<s>Flash Cycles:</s>");
             }
         }));
-        
+
         // Create the highlight state options
-        let highstate_checkbox =
-            gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
         let highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let status_label = gtk::Label::new(None);
         status_label.set_markup("<s>Status Number:</s>");
@@ -424,7 +437,7 @@ impl EditOverview {
                         highstate_state.show();
                         state_label.show();
                     }
-                    
+
                     // the DisplayWith variant
                     "displaywith" => {
                         group_checkbox.hide();
@@ -449,7 +462,7 @@ impl EditOverview {
                         highstate_state.show();
                         state_label.show();
                     }
-                    
+
                     // the DisplayDebug variant
                     "displaydebug" => {
                         group_checkbox.show();
@@ -476,7 +489,7 @@ impl EditOverview {
                         highstate_state.show();
                         state_label.show();
                     }
-                    
+
                     // the LabelControl variant
                     "labelcontrol" => {
                         group_checkbox.hide();
@@ -500,7 +513,7 @@ impl EditOverview {
                         highstate_state.show();
                         state_label.show();
                     }
-                    
+
                     // the LabelHidden variant
                     "labelhidden" => {
                         group_checkbox.hide();
@@ -524,7 +537,7 @@ impl EditOverview {
                         highstate_state.show();
                         state_label.show();
                     }
-                    
+
                     // the Hidden variant
                     _ => {
                         group_checkbox.hide();
@@ -615,7 +628,7 @@ impl EditOverview {
             } => {
                 // Change the visible options
                 self.display_type.set_active_id(Some("displaycontrol"));
-                
+
                 // Save the available elements
                 new_position = position;
                 new_color = color;
@@ -623,7 +636,7 @@ impl EditOverview {
                 new_highlight_state = highlight_state;
                 new_spotlight = spotlight;
             }
-                
+
             // the DisplayWith variant
             DisplayWith {
                 group_id,
@@ -635,7 +648,7 @@ impl EditOverview {
             } => {
                 // Change the visible options
                 self.display_type.set_active_id(Some("displaywith"));
-                
+
                 // Save the available elements
                 new_group = Some(group_id);
                 new_position = position;
@@ -656,7 +669,7 @@ impl EditOverview {
             } => {
                 // Change the visible options
                 self.display_type.set_active_id(Some("displaydebug"));
-                
+
                 // Save the available elements
                 new_group = group;
                 new_position = position;
@@ -665,7 +678,7 @@ impl EditOverview {
                 new_highlight_state = highlight_state;
                 new_spotlight = spotlight;
             }
-            
+
             // the LabelControl variant
             LabelControl {
                 position,
@@ -676,17 +689,17 @@ impl EditOverview {
             } => {
                 // Change the visible options
                 self.display_type.set_active_id(Some("labelcontrol"));
-                
+
                 // Save the available elements
                 new_position = position;
                 new_color = color;
                 new_highlight = highlight;
                 new_highlight_state = highlight_state;
                 new_spotlight = spotlight;
-           }
-            
-           // the LabelHidden variant
-           LabelHidden {
+            }
+
+            // the LabelHidden variant
+            LabelHidden {
                 position,
                 color,
                 highlight,
@@ -695,7 +708,7 @@ impl EditOverview {
             } => {
                 // Change the visible options
                 self.display_type.set_active_id(Some("labelhidden"));
-                
+
                 // Save the available elements
                 new_position = position;
                 new_color = color;
@@ -703,7 +716,7 @@ impl EditOverview {
                 new_highlight_state = highlight_state;
                 new_spotlight = spotlight;
             }
-            
+
             // the Hidden variant
             Hidden => {
                 self.display_type.set_active_id(Some("hidden"));
@@ -763,13 +776,11 @@ impl EditOverview {
             None => self.highstate_checkbox.set_active(false),
             Some((new_status, new_state)) => {
                 self.highstate_checkbox.set_active(true);
-                self.highstate_status
-                    .set_value(new_status.id() as f64);
-                self.highstate_state
-                    .set_value(new_state.id() as f64);
+                self.highstate_status.set_value(new_status.id() as f64);
+                self.highstate_state.set_value(new_state.id() as f64);
             }
         }
-        
+
         // If there is a new spotlight, set it
         match new_spotlight {
             None => self.spotlight_checkbox.set_active(false),
@@ -841,91 +852,80 @@ impl EditOverview {
         if self.spotlight_checkbox.get_active() {
             spotlight = Some(self.spotlight.get_value() as u32);
         }
-        
+
         // Get the current display type
         let display_type = self
             .display_type
             .get_active_id()
             .unwrap_or(String::from("hidden").into());
-            
+
         // Collect information based on the display type
         let tmp_display = match display_type.as_str() {
             // Compose the DisplayControl type
-            "displaycontrol" => {
-                DisplayControl {
-                    position,
-                    color,
-                    highlight,
-                    highlight_state,
-                    spotlight,
-                }
-            }
+            "displaycontrol" => DisplayControl {
+                position,
+                color,
+                highlight,
+                highlight_state,
+                spotlight,
+            },
 
             // Compose the DisplayWith type
-            "displaywith" => {
-                DisplayWith {
-                    group_id,
-                    position,
-                    color,
-                    highlight,
-                    highlight_state,
-                    spotlight,
-                }
-            }
+            "displaywith" => DisplayWith {
+                group_id,
+                position,
+                color,
+                highlight,
+                highlight_state,
+                spotlight,
+            },
 
             // Compose the DisplayDebug type
-            "displaydebug" => {
-                DisplayDebug {
-                    group,
-                    position,
-                    color,
-                    highlight,
-                    highlight_state,
-                    spotlight,
-                }
-            }
+            "displaydebug" => DisplayDebug {
+                group,
+                position,
+                color,
+                highlight,
+                highlight_state,
+                spotlight,
+            },
 
             // Compose the LabelControl type
-            "labelcontrol" => {
-                LabelControl {
-                    position,
-                    color,
-                    highlight,
-                    highlight_state,
-                    spotlight,
-                }
-            }
+            "labelcontrol" => LabelControl {
+                position,
+                color,
+                highlight,
+                highlight_state,
+                spotlight,
+            },
 
             // Compose the LabelHidden type
-            "labelhidden" => {
-                LabelHidden {
-                    position,
-                    color,
-                    highlight,
-                    highlight_state,
-                    spotlight,
-                }
-            }
+            "labelhidden" => LabelHidden {
+                position,
+                color,
+                highlight,
+                highlight_state,
+                spotlight,
+            },
 
             // For the hidden type
             _ => Hidden,
         };
-        
+
         // Return the complete Item Description
         ItemDescription::new(&tmp_description, tmp_display)
     }
 }
 
-
 // Create a structure for editing the event detail
 #[derive(Clone, Debug)]
 struct EditDetail {
-    grid: gtk::Grid, // the main grid for this element
-    window: gtk::ApplicationWindow, // a copy of the application window
+    grid: gtk::Grid,                   // the main grid for this element
+    window: gtk::ApplicationWindow,    // a copy of the application window
     detail_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
     next_position: Rc<RefCell<usize>>, // the next available position in the hash map
-    action_list: gtk::ListBox, // the visible list for event actions
+    action_list: gtk::ListBox,         // the visible list for event actions
 }
 
 // Implement key features for Edit Detail
@@ -936,13 +936,13 @@ impl EditDetail {
         // Construct the checkbox for the event detail
         let detail_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
         detail_checkbox.set_active(true);
-        
+
         // Create the empty event actions
         let event_actions = Rc::new(RefCell::new(FnvHashMap::default()));
-        
+
         // Create the starting next position
         let next_position = Rc::new(RefCell::new(0));
-        
+
         // Create the action list for the events
         let action_list = gtk::ListBox::new();
         action_list.set_selection_mode(gtk::SelectionMode::None);
@@ -952,10 +952,12 @@ impl EditDetail {
             Some("list-add-symbolic"),
             gtk::IconSize::Button.into(),
         );
-        add_button.connect_clicked(clone!(window, event_actions, next_position, action_list => move |_| {
-            // Add an empty action to the list
-            EditDetail::add_event(&window, &event_actions, &next_position, &action_list, None);
-        }));
+        add_button.connect_clicked(
+            clone!(window, event_actions, next_position, action_list => move |_| {
+                // Add an empty action to the list
+                EditDetail::add_event(&window, &event_actions, &next_position, &action_list, None);
+            }),
+        );
 
         // Create the scrollable window for the list
         let action_window = gtk::ScrolledWindow::new(
@@ -968,7 +970,7 @@ impl EditDetail {
         // Format the scrolling window
         action_window.set_hexpand(true);
         action_window.set_size_request(-1, 150);
-        
+
         // Connect the checkbox to the visibility of the other elements
         detail_checkbox.connect_toggled(clone!(action_window, add_button => move | checkbox | {
             // Make the elements invisible if the box isn't checked
@@ -999,13 +1001,13 @@ impl EditDetail {
             action_list,
         }
     }
-    
+
     // A method to return the top element
     //
     fn get_top_element(&self) -> &gtk::Grid {
         &self.grid
     }
-    
+
     // A method to load an existing event detail, or no detail
     //
     fn load_detail(&self, event_detail: Option<EventDetail>) {
@@ -1016,30 +1018,36 @@ impl EditDetail {
                 self.detail_checkbox.set_active(true);
                 detail
             }
-            
+
             // Otherwise, uncheck the checkbox and return
             None => {
                 self.detail_checkbox.set_active(false);
                 return;
             }
         };
-        
+
         // Remove the existing event actions
         if let Ok(mut actions) = self.event_actions.try_borrow_mut() {
             actions.clear();
         }
-        
+
         // Clear the existing list of actions
         for item in self.action_list.get_children() {
             item.destroy();
         }
-                
+
         // For each event action, create a new action in the list
         for action in detail.drain(..) {
-            EditDetail::add_event(&self.window, &self.event_actions, &self.next_position, &self.action_list, Some(action));
+            EditDetail::add_event(
+                &self.window,
+                &self.event_actions,
+                &self.next_position,
+                &self.action_list,
+                Some(action),
+            );
         }
     }
-    
+
     // A method to pack the listed actions into an event detail
     //
     fn pack_detail(&self) -> EventDetail {
@@ -1050,21 +1058,21 @@ impl EditDetail {
                 // Create a vector to hold the actions and a counter
                 let mut vec = Vec::new();
                 let mut count = 0;
-                
+
                 while vec.len() < detail.len() {
                     // Try to get each element, zero indexed
                     if let Some(action) = detail.get(&count) {
                         vec.push(action.clone());
                     }
-                    
+
                     // Increment the count
                     count = count + 1;
                 }
-                
+
                 // Return the completed vector
                 vec
             }
-            
+
             // Should be unreachable
             Err(_) => Vec::new(),
         }
@@ -1072,15 +1080,21 @@ impl EditDetail {
 
     // A helper function to add an action to the action list
     //
-    fn add_event(window: &gtk::ApplicationWindow, event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>, next_position: &Rc<RefCell<usize>>, action_list: &gtk::ListBox, action: Option<EventAction>) {
+    fn add_event(
+        window: &gtk::ApplicationWindow,
+        event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
+        next_position: &Rc<RefCell<usize>>,
+        action_list: &gtk::ListBox,
+        action: Option<EventAction>,
+    ) {
         // Try to get a mutable copy of the event actions
         let mut actions = match event_actions.try_borrow_mut() {
             Ok(actions) => actions,
-            
+
             // If unable, exit immediately
             _ => return,
         };
-        
+
         // Try to get a mutable copy of the next_position
         let position = match next_position.try_borrow_mut() {
             Ok(mut position) => {
@@ -1088,17 +1102,17 @@ impl EditDetail {
                 *position = *position + 1;
                 tmp
             }
-            
+
             // If unable, exit immediately
             _ => return,
         };
-        
+
         // Create and populate the information-holding label
         let overview = gtk::Label::new(Some("Unspecified Action"));
         if let Some(action) = action {
             // Add a copy of the action to the detail
             actions.insert(position, action.clone());
-            
+
             // Unpack the action
             match action {
                 EventAction::NewScene { .. } => overview.set_text("New Scene"),
@@ -1109,25 +1123,32 @@ impl EditDetail {
                 EventAction::SendData { .. } => overview.set_text("Send Data"),
                 EventAction::GroupedEvent { .. } => overview.set_text("Grouped Event"),
             }
-        
+
         // Default to a new scene action
         } else {
-            actions.insert(position, EventAction::NewScene { new_scene: ItemId::new_unchecked(0) });
+            actions.insert(
+                position,
+                EventAction::NewScene {
+                    new_scene: ItemId::new_unchecked(0),
+                },
+            );
         }
-        
+
         // Create the edit button
         let edit_button = gtk::Button::new_from_icon_name(
             Some("document-edit-symbolic"),
             gtk::IconSize::Button.into(),
         );
-        edit_button.connect_clicked(clone!(window, event_actions, position, overview => move |_| {
-            // Launch the edit action dialog
-            EditActionDialog::launch(&window, &event_actions, position, &overview);
-        }));
-        
+        edit_button.connect_clicked(
+            clone!(window, event_actions, position, overview => move |_| {
+                // Launch the edit action dialog
+                EditActionDialog::launch(&window, &event_actions, position, &overview);
+            }),
+        );
+
         // Create the list box row container
         let row = gtk::ListBoxRow::new();
-        
+
         // Create the delete button
         let delete_button = gtk::Button::new_from_icon_name(
             Some("edit-delete-symbolic"),
@@ -1139,11 +1160,11 @@ impl EditDetail {
                 Ok(mut actions) => {
                     actions.remove(&position);
                 }
-                
+
                 // If unable, exit immediately
                 Err(_) => return,
             };
-            
+
             // Destroy the row (autmatically removing it from the action list)
             row.destroy();
         }));
@@ -1162,5 +1183,3 @@ impl EditDetail {
         action_list.add(&row);
     }
 }
-
-

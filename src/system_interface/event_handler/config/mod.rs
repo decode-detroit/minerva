@@ -30,8 +30,8 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
 use super::event::{
-    CancelEvent, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, SaveData,
-    SendData, QueueEvent,
+    CancelEvent, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, QueueEvent,
+    SaveData, SendData,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 
@@ -68,7 +68,7 @@ pub type KeyMap = FnvHashMap<u32, ItemPair>;
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Scene {
     pub events: FnvHashSet<ItemId>, // hash set of the events in this scene
-    pub key_map: Option<KeyMapId>, // an optional mapping of key codes to events
+    pub key_map: Option<KeyMapId>,  // an optional mapping of key codes to events
 }
 
 /// A struct to define the elements of a background process
@@ -530,7 +530,7 @@ impl Config {
         // Return the result
         items
     }
-    
+
     /// A method to return an key map for the current scene, with all items
     /// as an itempair.
     ///
@@ -550,7 +550,7 @@ impl Config {
         // Try to open the current scene
         if let Some(scene) = self.all_scenes.get(&self.current_scene) {
             // If the key map exists
-            if let Some(key_map) = &scene.key_map {            
+            if let Some(key_map) = &scene.key_map {
                 // Iterate through the key map for this scene
                 for (key, id) in key_map.iter() {
                     // Get the item description
@@ -989,8 +989,7 @@ impl Config {
             // Verify that the event is described in the event lookup
             test = test & Config::verify_lookup(general_update, lookup, id);
         }
-        
-        
+
         // If the key map is specified
         if let Some(key_map) = &scene.key_map {
             // Verify that each key mapping matches a valid event

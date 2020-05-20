@@ -374,7 +374,7 @@ impl EventConnection for ZmqLookup {
         if let Some(text) = self.event_string.get(&id) {
             // Make a copy of the string
             let mut string = text.clone();
-            
+
             // If the string ends with the time notation
             if string.ends_with("%t") {
                 // Strip the ending from the string
@@ -384,7 +384,7 @@ impl EventConnection for ZmqLookup {
                 // Convert data2 and append it to the string
                 let result = (((data2 / 60) * 100) + (data2 % 60)) as u32;
                 string.push_str(&format!("{:04}", result));
-            
+
             // If the string ends with the data notation
             } else if string.ends_with("%d") {
                 // Strip the ending from the string
@@ -393,20 +393,20 @@ impl EventConnection for ZmqLookup {
 
                 // Append the raw data2 to the string
                 string.push_str(&format!("{}", data2));
-            
+
             // If the string ends with the string notaion
             } else if string.ends_with("%s") {
                 // If there isn't a pending string, save the length
                 if self.pending_size == 0 {
                     self.pending_size = data2;
                     return Ok(());
-                
+
                 // Otherwise, decrease the pending length and append the bytes
                 } else {
                     // Append the first byte and decrement
                     self.pending.push((data2 >> 24) as u8);
                     self.pending_size = self.pending_size - 1;
-                    
+
                     // If there are still bytes pending
                     if self.pending_size > 0 {
                         // Append the second byte and decrement
@@ -418,7 +418,7 @@ impl EventConnection for ZmqLookup {
                             // Append the third byte and decrement
                             self.pending.push((data2 >> 8) as u8);
                             self.pending_size = self.pending_size - 1;
-                        
+
                             // If there are still bytes pending
                             if self.pending_size > 0 {
                                 // Append the fourth byte and decrement
@@ -428,7 +428,7 @@ impl EventConnection for ZmqLookup {
                         }
                     }
                 }
-                
+
                 // If there are no more pending, try to send the string
                 if self.pending_size == 0 {
                     // Should always succeed
@@ -436,11 +436,11 @@ impl EventConnection for ZmqLookup {
                         // Strip the ending from the string
                         string.pop();
                         string.pop();
-                        
+
                         // Append the new string to the existing one
                         string.push_str(&new_string);
                     }
-                
+
                 // Otherwise, return
                 } else {
                     return Ok(());

@@ -397,7 +397,7 @@ impl ControlAbstraction {
                     }
                 }
             }
-            
+
             // Highlight the warning variant with yellow
             Warning {
                 message,
@@ -413,8 +413,10 @@ impl ControlAbstraction {
                     Some(event_pair) => {
                         // Create a label for the button
                         let tmp_label = gtk::Label::new(None);
-                        let markup =
-                            format!("<span size='{}'>Trigger The Event Manually</span>", font_size);
+                        let markup = format!(
+                            "<span size='{}'>Trigger The Event Manually</span>",
+                            font_size
+                        );
                         tmp_label.set_markup(&markup);
 
                         // Create a button to open the trigger dialog
@@ -447,17 +449,15 @@ impl ControlAbstraction {
                     }
 
                     // Otherwise just return the message
-                    None => {
-                        (
-                            format!(
-                                "<span size='{}'>{} — <span color='#FFEE44'>Warning: {}</span></span>",
-                                font_size,
-                                timestr,
-                                clean_text(&message, UPDATE_LIMIT, true, true, true)
-                            ),
-                            None,
-                        )
-                    }
+                    None => (
+                        format!(
+                            "<span size='{}'>{} — <span color='#FFEE44'>Warning: {}</span></span>",
+                            font_size,
+                            timestr,
+                            clean_text(&message, UPDATE_LIMIT, true, true, true)
+                        ),
+                        None,
+                    ),
                 }
             }
 

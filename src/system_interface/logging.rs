@@ -199,7 +199,7 @@ impl Logger {
             // If a file was specified, try to open it first
             Some(filepath) => match File::open(filepath.to_str().unwrap_or("")) {
                 Ok(file) => Some(file),
-                
+
                 // If the file does not exist
                 Err(_) => {
                     // Try to create the filepath instead
@@ -309,8 +309,9 @@ impl Logger {
                             &error
                         )
                         .as_bytes(),
-                    ).unwrap_or(());
-                
+                    )
+                    .unwrap_or(());
+
                 // Warn that there is no file
                 } else {
                     return Warning {
@@ -399,8 +400,9 @@ impl Logger {
                             &data
                         )
                         .as_bytes(),
-                    ).unwrap_or(());
-                
+                    )
+                    .unwrap_or(());
+
                 // Warn that there is no file
                 } else {
                     return Warning {
