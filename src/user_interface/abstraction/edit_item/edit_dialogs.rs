@@ -560,8 +560,12 @@ impl EditCancelEvent {
 //
 #[derive(Clone, Debug)]
 struct EditSaveData {
-    grid: gtk::Grid,              // the main grid for this element
-    data_type: gtk::ComboBoxText, // the data type dropdown
+    grid: gtk::Grid,               // the main grid for this element
+    data_type: gtk::ComboBoxText,  // the data type dropdown
+    event_spin: gtk::SpinButton,   // the event spin button
+    minutes_spin: gtk::SpinButton, // the minutes spin button
+    millis_spin: gtk::SpinButton,  // the milliseconds spin button
+    string_entry: gtk::Entry,      // the entry for the hardcoded string
 }
 
 impl EditSaveData {
@@ -580,15 +584,107 @@ impl EditSaveData {
         data_type.append(Some("staticstring"), "A hardcoded string of data");
         data_type.append(Some("userstring"), "A user-provided string");
 
-        // Add the button below the data list
+        // Add the entry boxes for the different data types
+        let event_label = gtk::Label::new(Some("Event to track"));
+        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let minutes_label = gtk::Label::new(Some("Time: Minutes"));
+        let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
+        let millis_label = gtk::Label::new(Some("Milliseconds"));
+        let millis_spin = gtk::SpinButton::new_with_range(0.0, 60000.0, 1.0);
+        let string_label = gtk::Label::new(Some("Data:"));
+        let string_entry = gtk::Entry::new();
+        string_entry.set_placeholder_text(Some("Enter Data Here"));
+
+        // Connect the function to trigger when the data type changes
+        data_type.connect_changed(clone!(
+            event_label,
+            event_spin,
+            minutes_label,
+            minutes_spin,
+            millis_label,
+            millis_spin,
+            string_label,
+            string_entry
+        => move |dropdown| {
+            // Identify the selected data type
+            if let Some(data_type) = dropdown.get_active_id() {
+                // Match the selection and change the visible options
+                match data_type.as_str() {
+                    // The time until variant
+                    "timeuntil" => {
+                        event_label.show();
+                        event_spin.show();
+                        minutes_label.hide();
+                        minutes_spin.hide();
+                        millis_label.hide();
+                        millis_spin.hide();
+                        string_label.hide();
+                        string_entry.hide();
+                    }
+
+                    // The time passed until variant
+                    "timepasseduntil" => {
+                        event_label.show();
+                        event_spin.show();
+                        minutes_label.show();
+                        minutes_spin.show();
+                        millis_label.show();
+                        millis_spin.show();
+                        string_label.hide();
+                        string_entry.hide();
+                    }
+
+                    // The static string variant
+                    "staticstring" => {
+                        event_label.hide();
+                        event_spin.hide();
+                        minutes_label.hide();
+                        minutes_spin.hide();
+                        millis_label.hide();
+                        millis_spin.hide();
+                        string_label.show();
+                        string_entry.show();
+                    }
+
+                    // The user string variant
+                    _ => {
+                        event_label.hide();
+                        event_spin.hide();
+                        minutes_label.hide();
+                        minutes_spin.hide();
+                        millis_label.hide();
+                        millis_spin.hide();
+                        string_label.hide();
+                        string_entry.hide();
+                    }
+                }
+            }
+        }));
+
+        // Add the buttons below the data list
         let grid = gtk::Grid::new();
-        grid.attach(&data_type, 0, 0, 1, 1);
+        grid.attach(&data_type, 0, 0, 2, 1);
+        grid.attach(&event_label, 0, 1, 1, 1);
+        grid.attach(&event_spin, 0, 2, 1, 1);
+        grid.attach(&minutes_label, 1, 1, 1, 1);
+        grid.attach(&minutes_spin, 1, 2, 1, 1);
+        grid.attach(&millis_label, 2, 1, 1, 1);
+        grid.attach(&millis_spin, 2, 2, 1, 1);
+        grid.attach(&string_label, 0, 3, 1, 1);
+        grid.attach(&string_entry, 1, 3, 2, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
         // Create and return the save data variant
         grid.show_all();
-        EditSaveData { grid, data_type }
+        EditSaveData {
+            grid,
+            data_type,
+            event_spin,
+            minutes_spin,
+            millis_spin,
+            string_entry,
+        }
     }
 
     // A method to return the top element
@@ -607,7 +703,8 @@ impl EditSaveData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timeuntil"));
 
-                // FIXME Update the fields
+                // Update the fields
+                self.event_spin.set_value(event_id.id() as f64);
             }
 
             // The TimePassedUntil variant
@@ -618,7 +715,16 @@ impl EditSaveData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timepasseduntil"));
 
-                // FIXME Update the fields
+                // Update the event spin button
+                self.event_spin.set_value(event_id.id() as f64);
+
+                // Calculate the minutes and seconds of the total time
+                let time = total_time.as_secs();
+                let remainder = time % 60;
+                self.minutes_spin
+                    .set_value(((time - remainder) / 60) as f64);
+                self.millis_spin
+                    .set_value(((remainder * 1000) + (total_time.subsec_millis() as u64)) as f64);
             }
 
             // The StaticString variant
@@ -626,7 +732,8 @@ impl EditSaveData {
                 // Change the dropdown
                 self.data_type.set_active_id(Some("staticstring"));
 
-                // FIXME Update the fields
+                // Update the string entry
+                self.string_entry.set_text(&string);
             }
 
             // The UserString variant
@@ -645,17 +752,42 @@ impl EditSaveData {
             let data = match data_type.as_str() {
                 // The TimeUntil variant
                 "timeuntil" => {
-                    DataType::UserString // FIXME
+                    DataType::TimeUntil {
+                        // Get the event id
+                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
+                    }
                 }
 
                 // The TimePassedUntil variant
                 "timepasseduntil" => {
-                    DataType::UserString // FIXME
+                    // Extract the minute count
+                    let minutes = self.minutes_spin.get_value() as u32;
+
+                    // Extract the millis count
+                    let millis = self.millis_spin.get_value() as u32;
+
+                    // Compose the total time
+                    let time = Duration::from_millis((millis + (minutes * 60000)) as u64);
+
+                    DataType::TimePassedUntil {
+                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
+                        total_time: time,
+                    }
                 }
 
                 // The StaticString variant
                 "staticstring" => {
-                    DataType::UserString // FIXME
+                    // FIXME what's the right way to do this?
+                    if let Some(string) = self.string_entry.get_text() {
+                        DataType::StaticString {
+                            string: string.to_string(),
+                        }
+                    }
+                    else {
+                        DataType::StaticString {
+                            string: "".to_string(),
+                        }
+                    }
                 }
 
                 // The UserString variant
@@ -678,8 +810,12 @@ impl EditSaveData {
 //
 #[derive(Clone, Debug)]
 struct EditSendData {
-    grid: gtk::Grid,              // the main grid for this element
-    data_type: gtk::ComboBoxText, // the data type dropdown
+    grid: gtk::Grid,               // the main grid for this element
+    data_type: gtk::ComboBoxText,  // the data type dropdown
+    event_spin: gtk::SpinButton,   // the event spin button
+    minutes_spin: gtk::SpinButton, // the minutes spin button
+    millis_spin: gtk::SpinButton,  // the milliseconds spin button
+    string_entry: gtk::Entry,      // the entry for the hardcoded string
 }
 
 impl EditSendData {
@@ -698,16 +834,109 @@ impl EditSendData {
         data_type.append(Some("staticstring"), "A hardcoded string of data");
         data_type.append(Some("userstring"), "A user-provided string");
 
-        // Add the button below the data list
+        // Add the entry boxes for the different data types
+        let event_label = gtk::Label::new(Some("Event to track"));
+        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let minutes_label = gtk::Label::new(Some("Time: Minutes"));
+        let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
+        let millis_label = gtk::Label::new(Some("Milliseconds"));
+        let millis_spin = gtk::SpinButton::new_with_range(0.0, 60000.0, 1.0);
+        let string_label = gtk::Label::new(Some("Data:"));
+        let string_entry = gtk::Entry::new();
+        string_entry.set_placeholder_text(Some("Enter Data Here"));
+
+        // Connect the function to trigger when the data type changes
+        data_type.connect_changed(clone!(
+            event_label,
+            event_spin,
+            minutes_label,
+            minutes_spin,
+            millis_label,
+            millis_spin,
+            string_label,
+            string_entry
+        => move |dropdown| {
+            // Identify the selected data type
+            if let Some(data_type) = dropdown.get_active_id() {
+                // Match the selection and change the visible options
+                match data_type.as_str() {
+                    // The time until variant
+                    "timeuntil" => {
+                        event_label.show();
+                        event_spin.show();
+                        minutes_label.hide();
+                        minutes_spin.hide();
+                        millis_label.hide();
+                        millis_spin.hide();
+                        string_label.hide();
+                        string_entry.hide();
+                    }
+
+                    // The time passed until variant
+                    "timepasseduntil" => {
+                        event_label.show();
+                        event_spin.show();
+                        minutes_label.show();
+                        minutes_spin.show();
+                        millis_label.show();
+                        millis_spin.show();
+                        string_label.hide();
+                        string_entry.hide();
+                    }
+
+                    // The static string variant
+                    "staticstring" => {
+                        event_label.hide();
+                        event_spin.hide();
+                        minutes_label.hide();
+                        minutes_spin.hide();
+                        millis_label.hide();
+                        millis_spin.hide();
+                        string_label.show();
+                        string_entry.show();
+                    }
+
+                    // The user string variant
+                    _ => {
+                        event_label.hide();
+                        event_spin.hide();
+                        minutes_label.hide();
+                        minutes_spin.hide();
+                        millis_label.hide();
+                        millis_spin.hide();
+                        string_label.hide();
+                        string_entry.hide();
+                    }
+                }
+            }
+        }));
+
+        // Add the buttons below the data list
         let grid = gtk::Grid::new();
-        grid.attach(&data_type, 0, 0, 1, 1);
+        grid.attach(&data_type, 0, 0, 2, 1);
+        grid.attach(&event_label, 0, 1, 1, 1);
+        grid.attach(&event_spin, 0, 2, 1, 1);
+        grid.attach(&minutes_label, 1, 1, 1, 1);
+        grid.attach(&minutes_spin, 1, 2, 1, 1);
+        grid.attach(&millis_label, 2, 1, 1, 1);
+        grid.attach(&millis_spin, 2, 2, 1, 1);
+        grid.attach(&string_label, 0, 3, 1, 1);
+        grid.attach(&string_entry, 1, 3, 2, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
-        // Create and return the send data variant
+        // Create and return the save data variant
         grid.show_all();
-        EditSendData { grid, data_type }
+        EditSendData {
+            grid,
+            data_type,
+            event_spin,
+            minutes_spin,
+            millis_spin,
+            string_entry,
+        }
     }
+
 
     // A method to return the top element
     //
@@ -725,7 +954,8 @@ impl EditSendData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timeuntil"));
 
-                // FIXME Update the fields
+                // Update the fields
+                self.event_spin.set_value(event_id.id() as f64);
             }
 
             // The TimePassedUntil variant
@@ -736,7 +966,16 @@ impl EditSendData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timepasseduntil"));
 
-                // FIXME Update the fields
+                // Update the event spin button
+                self.event_spin.set_value(event_id.id() as f64);
+
+                // Calculate the minutes and seconds of the total time
+                let time = total_time.as_secs();
+                let remainder = time % 60;
+                self.minutes_spin
+                    .set_value(((time - remainder) / 60) as f64);
+                self.millis_spin
+                    .set_value(((remainder * 1000) + (total_time.subsec_millis() as u64)) as f64);
             }
 
             // The StaticString variant
@@ -744,7 +983,8 @@ impl EditSendData {
                 // Change the dropdown
                 self.data_type.set_active_id(Some("staticstring"));
 
-                // FIXME Update the fields
+                // Update the string entry
+                self.string_entry.set_text(&string);
             }
 
             // The UserString variant
@@ -763,17 +1003,42 @@ impl EditSendData {
             let data = match data_type.as_str() {
                 // The TimeUntil variant
                 "timeuntil" => {
-                    DataType::UserString // FIXME
+                    DataType::TimeUntil {
+                        // Get the event id
+                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
+                    }
                 }
 
                 // The TimePassedUntil variant
                 "timepasseduntil" => {
-                    DataType::UserString // FIXME
+                    // Extract the minute count
+                    let minutes = self.minutes_spin.get_value() as u32;
+
+                    // Extract the millis count
+                    let millis = self.millis_spin.get_value() as u32;
+
+                    // Compose the total time
+                    let time = Duration::from_millis((millis + (minutes * 60000)) as u64);
+
+                    DataType::TimePassedUntil {
+                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
+                        total_time: time,
+                    }
                 }
 
                 // The StaticString variant
                 "staticstring" => {
-                    DataType::UserString // FIXME
+                    // FIXME what's the right way to do this?
+                    if let Some(string) = self.string_entry.get_text() {
+                        DataType::StaticString {
+                            string: string.to_string(),
+                        }
+                    }
+                    else {
+                        DataType::StaticString {
+                            string: "".to_string(),
+                        }
+                    }
                 }
 
                 // The UserString variant
