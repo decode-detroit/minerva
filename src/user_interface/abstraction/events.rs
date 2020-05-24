@@ -530,7 +530,7 @@ impl EventGroupAbstraction {
                         // Send the status dialog to the user interface
                         interface_send.send(LaunchWindow {
                             window_type: WindowType::Status(Some(id_pair.clone()))
-                        }).unwrap_or(());;
+                        }).unwrap_or(());
                     }));
 
                     // Set the new state selection
@@ -583,7 +583,7 @@ impl EventGroupAbstraction {
                 button.connect_clicked(clone!(system_send => move |_| {
                     // Send the event trigger to the underlying system
                     system_send.send(ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
-                    
+
                     // Stop the button from flashing, if it is
                     if let Ok(mut count) = expiration.try_borrow_mut() {
                         *count = 1;

@@ -22,7 +22,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
     DataType, DisplayComponent, EventAction, EventDelay, Hidden, ItemDescription, ItemId, ItemPair,
-    Request, RequestType, StatusChange, StatusDescription, SystemSend,
+    Request, RequestType, StatusChange, StatusDescription, StatusDetail, SystemSend,
 };
 use super::super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -51,21 +51,33 @@ const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (o
 /// This dialog is launched from the edit view.
 ///
 #[derive(Clone, Debug)]
-pub struct EditActionDialog;
+pub struct EditActionDialog {
+    window: gtk::ApplicationWindow,
+    edit_grouped_event: EditGroupedEvent,
+    event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>,
+}
 
 // Implement key features of the EditActionDialog
 impl EditActionDialog {
-    /// A function to create and launch a new edit action dialog
+    /// A function to create a new instance of the EditActionDialog
     ///
-    pub fn launch(
+    pub fn new(
         window: &gtk::ApplicationWindow,
         system_send: &SystemSend,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
-        position: usize,
-        overview: &gtk::Label,
-    ) {
+    ) -> EditActionDialog {
+        EditActionDialog {
+            window: window.clone(),
+            edit_grouped_event: EditGroupedEvent::new(system_send),
+            event_actions: event_actions.clone(),
+        }
+    }
+
+    /// A method to create and launch a new edit action dialog
+    ///
+    pub fn launch(&self, position: usize, overview: &gtk::Label) {
         // Try to get the current event actions
-        let actions = match event_actions.try_borrow() {
+        let actions = match self.event_actions.try_borrow() {
             Ok(actions) => actions,
 
             // If unable, return immediately
@@ -83,7 +95,7 @@ impl EditActionDialog {
         // Create the new dialog
         let dialog = gtk::Dialog::new_with_buttons(
             Some("Edit Action"),
-            Some(window),
+            Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
             &[
                 ("Cancel", gtk::ResponseType::Cancel.into()),
@@ -111,7 +123,6 @@ impl EditActionDialog {
         let edit_cancel_event = EditCancelEvent::new();
         let edit_save_data = EditSaveData::new();
         let edit_send_data = EditSendData::new();
-        let edit_grouped_event = EditGroupedEvent::new();
 
         // Create the action stack
         let action_stack = gtk::Stack::new();
@@ -123,7 +134,7 @@ impl EditActionDialog {
         action_stack.add_named(edit_cancel_event.get_top_element(), "cancelevent");
         action_stack.add_named(edit_save_data.get_top_element(), "savedata");
         action_stack.add_named(edit_send_data.get_top_element(), "senddata");
-        action_stack.add_named(edit_grouped_event.get_top_element(), "groupedevent");
+        action_stack.add_named(self.edit_grouped_event.get_top_element(), "groupedevent");
 
         // Connect the function to trigger action selection changes
         action_selection.connect_changed(clone!(action_stack => move |dropdown| {
@@ -181,7 +192,7 @@ impl EditActionDialog {
                 event_map,
             } => {
                 action_selection.set_active_id(Some("groupedevent"));
-                edit_grouped_event.load_action(status_id, event_map);
+                self.edit_grouped_event.load_action(status_id, event_map);
             }
         }
 
@@ -203,7 +214,8 @@ impl EditActionDialog {
         grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(event_actions, overview => move |modal, id| {
+        let event_actions = self.event_actions.clone();
+        dialog.connect_response(clone!(overview => move |modal, id| {
             // If the selection confirmed the change
             if id == gtk::ResponseType::Ok {
                 // Try to get a mutable copy of the event actions
@@ -271,7 +283,8 @@ impl EditActionDialog {
                         "groupedevent" => {
                             // Update the action label and action
                             overview.set_text("Grouped Event");
-                            *action = edit_grouped_event.pack_action();
+                            // FIXME: add edit_grouped_event instead
+                            *action = edit_send_data.pack_action();
                         }
 
                         _ => unreachable!(),
@@ -289,6 +302,12 @@ impl EditActionDialog {
 
         // Show the dialog and return
         dialog.show_all();
+    }
+
+    /// A method to pass the status detail to the EditGroupedEvent structure
+    ///
+    pub fn update_info(&self, status_detail: StatusDetail) {
+        self.edit_grouped_event.update_info(status_detail);
     }
 }
 
@@ -1070,7 +1089,7 @@ struct EditGroupedEvent {
 impl EditGroupedEvent {
     // A function to ceate a grouped event variant
     //
-    fn new() -> EditGroupedEvent {
+    fn new(system_send: &SystemSend) -> EditGroupedEvent {
         // Create the list for the trigger events variant
         let grouped_event_list = gtk::ListBox::new();
         grouped_event_list.set_selection_mode(gtk::SelectionMode::None);
@@ -1092,12 +1111,12 @@ impl EditGroupedEvent {
         group_window.set_size_request(-1, 100);
 
         // Connect the function to trigger when the status spin changes
-        status_spin.connect_changed(|spin| {
+        status_spin.connect_changed(clone!(system_send => move |spin| {
             system_send.send(Request {
-                reply_to: DisplayComponent::EditItem,
-                request: RequestType::Description { item_id: ItemId::new_unchecked(spin.get_value() as u32), },
+                reply_to: DisplayComponent::EditActionDialog,
+                request: RequestType::Status { item_id: ItemId::new_unchecked(spin.get_value() as u32), },
             });
-        });
+        }));
 
         // Add the status above and button below the event list
         let grid = gtk::Grid::new();
@@ -1132,17 +1151,24 @@ impl EditGroupedEvent {
         for (ref state_id, ref event_id) in event_map.iter() {
             EditGroupedEvent::add_event(
                 &self.grouped_event_list,
-                Some(state_id),
+                state_id,
                 Some(event_id.id()),
             );
         }
     }
 
+    // A method to update the listed states in the grouped event
+    fn update_info(&self, status_detail: StatusDetail) {
+        for state_id in status_detail.allowed() {
+            EditGroupedEvent::add_event(&self.grouped_event_list, state_id, None);
+        }
+    }
+
     // A helper function to add a grouped event to the list
-    fn add_event(grouped_event_list: &gtk::ListBox, state_id: ItemId, event_id: Option<u32>) {
+    fn add_event(grouped_event_list: &gtk::ListBox, state_id: &ItemId, event_id: Option<u32>) {
         // Create a state spin box for the list
         let group_grid = gtk::Grid::new();
-        let state_label = gtk::Label::new(Some(format!("State Id: {}", state_id.id())));
+        let state_label = gtk::Label::new(Some(&format!("State Id: {}", state_id.id())));
         state_label.set_size_request(80, 30);
         state_label.set_hexpand(false);
         state_label.set_vexpand(false);

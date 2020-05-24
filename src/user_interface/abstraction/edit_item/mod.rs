@@ -183,11 +183,11 @@ impl EditItemAbstraction {
         // Request new data for each component, if an id is specified
         if let Some(item_id) = self.current_id {
             self.system_send.send(Request {
-                reply_to: DisplayComponent::EditItem,
+                reply_to: DisplayComponent::EditItemOverview,
                 request: RequestType::Description { item_id },
             });
             self.system_send.send(Request {
-                reply_to: DisplayComponent::EditItem,
+                reply_to: DisplayComponent::EditItemOverview,
                 request: RequestType::Detail { item_id },
             });
         }
@@ -218,8 +218,12 @@ impl EditItemAbstraction {
             }
 
             DisplayComponent::EditActionDialog => {
-
+                if let ReplyType::Status { status_detail } = reply {
+                    self.edit_detail.update_info(status_detail);
+                }
             }
+
+            _ => unreachable!(),
         }
     }
 }
@@ -935,6 +939,7 @@ impl EditOverview {
 struct EditDetail {
     grid: gtk::Grid,                   // the main grid for this element
     window: gtk::ApplicationWindow,    // a copy of the application window
+    edit_action_dialog: EditActionDialog, // a dialog to edit the current action
     detail_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
     next_position: Rc<RefCell<usize>>, // the next available position in the hash map
@@ -1008,6 +1013,7 @@ impl EditDetail {
         EditDetail {
             grid,
             window: window.clone(),
+            system_send: system_send.clone(),
             detail_checkbox,
             event_actions,
             next_position,
@@ -1053,6 +1059,7 @@ impl EditDetail {
         for action in detail.drain(..) {
             EditDetail::add_event(
                 &self.window,
+                &self.system_send,
                 &self.event_actions,
                 &self.next_position,
                 &self.action_list,
@@ -1089,6 +1096,12 @@ impl EditDetail {
             // Should be unreachable
             Err(_) => Vec::new(),
         }
+    }
+
+    // A method to load new information into the edit action dialog
+    //
+    fn update_info(&self, status_detail: StatusDetail) {
+        self.edit
     }
 
     // A helper function to add an action to the action list
@@ -1156,7 +1169,7 @@ impl EditDetail {
         edit_button.connect_clicked(
             clone!(window, event_actions, position, overview, system_send => move |_| {
                 // Launch the edit action dialog
-                EditActionDialog::launch(&window, &system_send, &event_actions, position, &overview);
+                edit_action_dialog.launch(&window, &system_send, &event_actions, position, &overview);
             }),
         );
 
