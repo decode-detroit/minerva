@@ -306,7 +306,7 @@ impl EditActionDialog {
 
     /// A method to pass the status detail to the EditGroupedEvent structure
     ///
-    pub fn update_info(&self, status_detail: StatusDetail) {
+    pub fn update_info(&mut self, status_detail: StatusDetail) {
         self.edit_grouped_event.update_info(status_detail);
     }
 }
@@ -1158,9 +1158,20 @@ impl EditGroupedEvent {
     }
 
     // A method to update the listed states in the grouped event
-    fn update_info(&self, status_detail: StatusDetail) {
+    fn update_info(&mut self, status_detail: StatusDetail) {
+        // Clear all the states listed in the ListBox
+        self.clear();
+        // Add the provided states
         for state_id in status_detail.allowed() {
-            EditGroupedEvent::add_event(&self.grouped_event_list, state_id, None);
+            EditGroupedEvent::add_event(&self.grouped_event_list, &state_id, None);
+        }
+    }
+
+    // A method to clear all the listed states in the ListBox
+    pub fn clear(&mut self) {
+        let to_remove = self.grouped_event_list.get_children();
+        for item in to_remove {
+            item.destroy();
         }
     }
 

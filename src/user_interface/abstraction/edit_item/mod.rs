@@ -27,7 +27,7 @@ use self::edit_dialogs::EditActionDialog;
 use super::super::super::system_interface::{
     DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, EventAction, EventDetail, Hidden,
     InterfaceUpdate, ItemDescription, ItemId, LabelControl, LabelHidden, ReplyType, Request,
-    RequestType, SystemSend,
+    RequestType, StatusDetail, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -219,7 +219,9 @@ impl EditItemAbstraction {
 
             DisplayComponent::EditActionDialog => {
                 if let ReplyType::Status { status_detail } = reply {
-                    self.edit_detail.update_info(status_detail);
+                    if let Some(detail) = status_detail {
+                        self.edit_detail.update_info(detail);
+                    }
                 }
             }
 
@@ -964,9 +966,9 @@ impl EditDetail {
         // Create the action list for the events
         let action_list = gtk::ListBox::new();
         action_list.set_selection_mode(gtk::SelectionMode::None);
-        
+
         // Create a new edit action dialog
-        let edit_action_dialog = Rc::new(RefCell:new(EditActionDialog::new(window, system_send, event_actions)));
+        let edit_action_dialog = Rc::new(RefCell::new(EditActionDialog::new(window, system_send, &event_actions)));
 
         // Create a button to add actions to the list
         let add_button = gtk::Button::new_from_icon_name(
@@ -1105,7 +1107,7 @@ impl EditDetail {
     //
     fn update_info(&self, status_detail: StatusDetail) {
         // Try to get access the edit action dialog
-        if let Ok(dialog) = self.edit_action_dialog.try_borrow() {
+        if let Ok(mut dialog) = self.edit_action_dialog.try_borrow_mut() {
             dialog.update_info(status_detail);
         }
     }
