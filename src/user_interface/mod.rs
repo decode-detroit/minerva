@@ -241,15 +241,15 @@ impl UserInterface {
                 // Pass information from the system to the correct spot
                 Reply { reply_to, reply } => {
                     // Match the type of the reply
-                    match reply_to {
+                    match reply_to.clone() {
                         // Pass the reply to the trigger dialog
                         DisplayComponent::TriggerDialog => {
                             interface.update_trigger(reply);
                         }
 
                         // Pass the reply to the edit window
-                        DisplayComponent::EditItem => {
-                            interface.update_edit_item(reply);
+                        _ => {
+                            interface.update_edit_item(reply_to, reply);
                         }
                     }
                 }

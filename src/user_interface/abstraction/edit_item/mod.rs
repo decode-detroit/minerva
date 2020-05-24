@@ -119,7 +119,7 @@ impl EditItemAbstraction {
         grid.attach(&separator, 0, 3, 2, 1);
 
         // Create the edit detail and add it to the grid
-        let edit_detail = EditDetail::new(window);
+        let edit_detail = EditDetail::new(window, system_send);
         grid.attach(edit_detail.get_top_element(), 0, 4, 2, 1);
 
         // Add some space on all the sides and show the components
@@ -195,17 +195,30 @@ impl EditItemAbstraction {
 
     /// A method to process information updates received from the system
     ///
-    pub fn update_info(&self, reply: ReplyType) {
-        // Unpack the reply
-        match reply {
-            // The description variant
-            ReplyType::Description { description } => {
-                self.edit_overview.load_description(description);
+    pub fn update_info(&self, reply_to: DisplayComponent, reply: ReplyType) {
+        // Unpack reply_to
+        match reply_to {
+            // Unpack the reply
+            DisplayComponent::EditItemOverview => {
+                match reply {
+                    // The description variant
+                    ReplyType::Description { description } => {
+                        self.edit_overview.load_description(description);
+                    }
+
+                    // The detail variant
+                    ReplyType::Detail { event_detail } => {
+                        self.edit_detail.load_detail(event_detail);
+                    }
+
+                    _ => {
+                        unreachable!();
+                    }
+                }
             }
 
-            // The detail variant
-            ReplyType::Detail { event_detail } => {
-                self.edit_detail.load_detail(event_detail);
+            DisplayComponent::EditActionDialog => {
+
             }
         }
     }
@@ -932,7 +945,7 @@ struct EditDetail {
 impl EditDetail {
     // A function to create a new Edit Detail
     //
-    fn new(window: &gtk::ApplicationWindow) -> EditDetail {
+    fn new(window: &gtk::ApplicationWindow, system_send: &SystemSend) -> EditDetail {
         // Construct the checkbox for the event detail
         let detail_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
         detail_checkbox.set_active(true);
@@ -953,9 +966,9 @@ impl EditDetail {
             gtk::IconSize::Button.into(),
         );
         add_button.connect_clicked(
-            clone!(window, event_actions, next_position, action_list => move |_| {
+            clone!(window, system_send, event_actions, next_position, action_list => move |_| {
                 // Add an empty action to the list
-                EditDetail::add_event(&window, &event_actions, &next_position, &action_list, None);
+                EditDetail::add_event(&window, &system_send, &event_actions, &next_position, &action_list, None);
             }),
         );
 
@@ -1082,6 +1095,7 @@ impl EditDetail {
     //
     fn add_event(
         window: &gtk::ApplicationWindow,
+        system_send: &SystemSend,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
         next_position: &Rc<RefCell<usize>>,
         action_list: &gtk::ListBox,
@@ -1140,9 +1154,9 @@ impl EditDetail {
             gtk::IconSize::Button.into(),
         );
         edit_button.connect_clicked(
-            clone!(window, event_actions, position, overview => move |_| {
+            clone!(window, event_actions, position, overview, system_send => move |_| {
                 // Launch the edit action dialog
-                EditActionDialog::launch(&window, &event_actions, position, &overview);
+                EditActionDialog::launch(&window, &system_send, &event_actions, position, &overview);
             }),
         );
 

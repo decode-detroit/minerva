@@ -21,8 +21,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, EventAction, EventDelay, Hidden, ItemDescription, ItemId, ItemPair, StatusChange,
-    StatusDescription,
+    DataType, DisplayComponent, EventAction, EventDelay, Hidden, ItemDescription, ItemId, ItemPair,
+    Request, RequestType, StatusChange, StatusDescription, SystemSend,
 };
 use super::super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -59,6 +59,7 @@ impl EditActionDialog {
     ///
     pub fn launch(
         window: &gtk::ApplicationWindow,
+        system_send: &SystemSend,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
         position: usize,
         overview: &gtk::Label,
@@ -1078,17 +1079,6 @@ impl EditGroupedEvent {
         let status_label = gtk::Label::new(Some("Status"));
         let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
-        // Create a button to add events to the list
-        let add_button = gtk::Button::new_from_icon_name(
-            Some("list-add-symbolic"),
-            gtk::IconSize::Button.into(),
-        );
-        add_button.connect_clicked(clone!(grouped_event_list => move |_| {
-
-            // Add a new blank event to the list
-            EditGroupedEvent::add_event(&grouped_event_list, None, None);
-        }));
-
         // Create the scrollable window for the list
         let group_window = gtk::ScrolledWindow::new(
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
@@ -1101,12 +1091,19 @@ impl EditGroupedEvent {
         group_window.set_hexpand(true);
         group_window.set_size_request(-1, 100);
 
+        // Connect the function to trigger when the status spin changes
+        status_spin.connect_changed(|spin| {
+            system_send.send(Request {
+                reply_to: DisplayComponent::EditItem,
+                request: RequestType::Description { item_id: ItemId::new_unchecked(spin.get_value() as u32), },
+            });
+        });
+
         // Add the status above and button below the event list
         let grid = gtk::Grid::new();
         grid.attach(&status_label, 0, 0, 1, 1);
         grid.attach(&status_spin, 1, 0, 1, 1);
         grid.attach(&group_window, 0, 1, 2, 1);
-        grid.attach(&add_button, 0, 2, 2, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -1135,23 +1132,20 @@ impl EditGroupedEvent {
         for (ref state_id, ref event_id) in event_map.iter() {
             EditGroupedEvent::add_event(
                 &self.grouped_event_list,
-                Some(state_id.id()),
+                Some(state_id),
                 Some(event_id.id()),
             );
         }
     }
 
     // A helper function to add a grouped event to the list
-    fn add_event(grouped_event_list: &gtk::ListBox, state_id: Option<u32>, event_id: Option<u32>) {
+    fn add_event(grouped_event_list: &gtk::ListBox, state_id: ItemId, event_id: Option<u32>) {
         // Create a state spin box for the list
         let group_grid = gtk::Grid::new();
-        let state_label = gtk::Label::new(Some("State"));
+        let state_label = gtk::Label::new(Some(format!("State Id: {}", state_id.id())));
         state_label.set_size_request(80, 30);
         state_label.set_hexpand(false);
         state_label.set_vexpand(false);
-        let state_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        state_spin.set_size_request(100, 30);
-        state_spin.set_hexpand(false);
 
         // Create a event spin box for the list
         let event_label = gtk::Label::new(Some("Event"));
@@ -1175,15 +1169,11 @@ impl EditGroupedEvent {
 
         // Add all the items to the group grid
         group_grid.attach(&state_label, 0, 0, 1, 1);
-        group_grid.attach(&state_spin, 1, 0, 1, 1);
-        group_grid.attach(&event_label, 2, 0, 1, 1);
-        group_grid.attach(&event_spin, 3, 0, 1, 1);
-        group_grid.attach(&delete_button, 4, 0, 1, 1);
+        group_grid.attach(&event_label, 1, 0, 1, 1);
+        group_grid.attach(&event_spin, 2, 0, 1, 1);
+        group_grid.attach(&delete_button, 3, 0, 1, 1);
 
         // Set the value of the grouped event if it was provided
-        if let Some(state) = state_id {
-            state_spin.set_value(state as f64);
-        }
         if let Some(event) = event_id {
             event_spin.set_value(event as f64);
         }

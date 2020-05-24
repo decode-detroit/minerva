@@ -346,8 +346,8 @@ impl InterfaceAbstraction {
     //
     /// A method to pass information updates to the edit item window
     ///
-    pub fn update_edit_item(&self, reply: ReplyType) {
-        self.edit_item.update_info(reply);
+    pub fn update_edit_item(&self, reply_to: DisplayComponent, reply: ReplyType) {
+        self.edit_item.update_info(reply_to, reply);
     }
 
     /// A method to update the status bar

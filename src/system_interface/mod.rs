@@ -27,7 +27,7 @@ pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
     ItemPair, LabelControl, LabelHidden,
 };
-pub use self::event_handler::{FullStatus, KeyMap, StatusDescription};
+pub use self::event_handler::{FullStatus, KeyMap, StatusDescription, StatusDetail};
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 
 // Define private submodules
@@ -456,6 +456,20 @@ impl SystemInterface {
                                 })
                                 .unwrap_or(());
                         }
+
+                        // Reply to a request for the status detail
+                        RequestType::Status { item_id } => {
+                            // Try to get the event detail
+                            let status_detail = handler.get_status_detail(&item_id);
+
+                            // Send an update with the event detail (or None)
+                            self.interface_send
+                                .send(Reply {
+                                    reply_to, // echo the display component
+                                    reply: ReplyType::Status { status_detail },
+                                })
+                                .unwrap_or(());
+                        }
                     }
 
                 // Otherwise noity the user that a configuration failed to load
@@ -785,6 +799,9 @@ pub enum RequestType {
 
     /// A variant for the detail of an event
     Detail { item_id: ItemId },
+
+    /// A variant for the status associated with an item
+    Status { item_id: ItemId },
 }
 
 /// An enum to specify which display component has requested the information
@@ -794,7 +811,10 @@ pub enum DisplayComponent {
     TriggerDialog,
 
     /// A variant for the edit item window
-    EditItem,
+    EditItemOverview,
+
+    /// A variant for the edit action dialogs
+    EditActionDialog,
 }
 
 /// An enum to provide updates from the main thread to the system interface,
@@ -949,6 +969,9 @@ pub enum ReplyType {
 
     /// A variant for the detail of an event
     Detail { event_detail: Option<EventDetail> },
+
+    /// A variant for the status associated with an item
+    Status { status_detail: Option<StatusDetail> },
 }
 
 /// An enum type to provide interface updates back to the user interface thread.

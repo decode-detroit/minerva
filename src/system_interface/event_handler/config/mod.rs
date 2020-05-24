@@ -20,7 +20,7 @@
 //! program.
 
 // Reexport the key structures and types
-pub use self::status::{FullStatus, StatusDescription};
+pub use self::status::{FullStatus, StatusDescription, StatusDetail};
 
 // Define private submodules
 mod status;
@@ -403,6 +403,22 @@ impl Config {
                 ItemDescription::new("No Description.", Hidden)
             }
         }
+    }
+
+    /// A method to return the detail of a status from the status handler.
+    ///
+    /// # Errors
+    ///
+    /// This method will return None if the provided id was not found in
+    /// the status handler. This usually indicates that the provided id was incorrect or
+    /// that the configuration file is incomplete.
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line and returning None.
+    ///
+    pub fn get_status_detail(&self, item_id: &ItemId) -> Option<StatusDetail> {
+        // Return a status detail based on the provided item id
+        self.status_handler.get_status_detail(item_id)
     }
 
     /// A method to return a vector of the valid status ids.

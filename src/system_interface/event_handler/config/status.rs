@@ -97,6 +97,26 @@ impl StatusHandler {
         }
     }
 
+    /// A method to get the status detail of the requested item id.
+    ///
+    /// # Errors
+    ///
+    /// This method will return None if the provided item id was not found
+    /// in the configuration. This usually indicates a problem with the
+    /// underlying confirguration file.
+    ///
+    /// Like all StatusHandler functions and methods, this function will fail
+    /// gracefully by notifying of any errors on the update line and returning
+    /// None.
+    ///
+    pub fn get_status_detail(&self, status_id: &ItemId) -> Option<StatusDetail> {
+        // Return the status detail if found
+        match self.status_map.get(status_id) {
+            Some(detail) => Some(detail.clone()),
+            None => None,
+        }
+    }
+
     /// A method to modify a status state within the current scene based
     /// on the provided status id and new state. Returns Some(new state id) on
     /// success and None on failure.

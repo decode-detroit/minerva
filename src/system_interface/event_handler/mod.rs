@@ -22,7 +22,7 @@
 //! of the program.
 
 // Reexport the key structures and types
-pub use self::config::{FullStatus, KeyMap, StatusDescription};
+pub use self::config::{FullStatus, KeyMap, StatusDescription, StatusDetail};
 pub use self::queue::ComingEvent;
 
 // Define public submodules
@@ -218,7 +218,7 @@ impl EventHandler {
     ///
     /// This method will raise an error if the provided id was not found in
     /// configuration. This usually indicates that the provided id was incorrect
-    //  or that the configuration file is incomplete.
+    ///  or that the configuration file is incomplete.
     ///
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning None.
@@ -243,6 +243,22 @@ impl EventHandler {
     pub fn get_description(&self, item_id: &ItemId) -> ItemDescription {
         // Return a new copy of the event description
         self.config.get_description(item_id)
+    }
+
+    /// A method to return a copy of the status detail of the provided item id.
+    ///
+    /// # Errors
+    ///
+    /// This method will return None if the provided id was not found in
+    /// configuration. This usually indicates that the provided id was incorrect
+    ///  or that the configuration file is incomplete.
+    ///
+    /// Like all EventHandler functions and methods, this method will fail
+    /// gracefully by notifying of errors on the update line and returning None.
+    ///
+    pub fn get_status_detail(&mut self, item_id: &ItemId) -> Option<StatusDetail> {
+        // Try to retrieve the event detail
+        self.config.get_status_detail(item_id)
     }
 
     /// A method to return a hashmap of the full status available in this
