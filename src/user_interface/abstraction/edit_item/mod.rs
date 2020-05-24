@@ -939,7 +939,7 @@ impl EditOverview {
 struct EditDetail {
     grid: gtk::Grid,                   // the main grid for this element
     window: gtk::ApplicationWindow,    // a copy of the application window
-    edit_action_dialog: EditActionDialog, // a dialog to edit the current action
+    edit_action_dialog: Rc<RefCell<EditActionDialog>>, // a wrapped dialog to edit the current action
     detail_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
     next_position: Rc<RefCell<usize>>, // the next available position in the hash map
@@ -964,6 +964,9 @@ impl EditDetail {
         // Create the action list for the events
         let action_list = gtk::ListBox::new();
         action_list.set_selection_mode(gtk::SelectionMode::None);
+        
+        // Create a new edit action dialog
+        let edit_action_dialog = Rc::new(RefCell:new(EditActionDialog::new(window, system_send, event_actions)));
 
         // Create a button to add actions to the list
         let add_button = gtk::Button::new_from_icon_name(
@@ -971,9 +974,9 @@ impl EditDetail {
             gtk::IconSize::Button.into(),
         );
         add_button.connect_clicked(
-            clone!(window, system_send, event_actions, next_position, action_list => move |_| {
+            clone!(window, edit_action_dialog, system_send, event_actions, next_position, action_list => move |_| {
                 // Add an empty action to the list
-                EditDetail::add_event(&window, &system_send, &event_actions, &next_position, &action_list, None);
+                EditDetail::add_event(&window, &edit_action_dialog, &event_actions, &next_position, &action_list, None);
             }),
         );
 
@@ -1013,7 +1016,7 @@ impl EditDetail {
         EditDetail {
             grid,
             window: window.clone(),
-            system_send: system_send.clone(),
+            edit_action_dialog,
             detail_checkbox,
             event_actions,
             next_position,
@@ -1059,7 +1062,7 @@ impl EditDetail {
         for action in detail.drain(..) {
             EditDetail::add_event(
                 &self.window,
-                &self.system_send,
+                &self.edit_action_dialog,
                 &self.event_actions,
                 &self.next_position,
                 &self.action_list,
@@ -1101,14 +1104,17 @@ impl EditDetail {
     // A method to load new information into the edit action dialog
     //
     fn update_info(&self, status_detail: StatusDetail) {
-        self.edit
+        // Try to get access the edit action dialog
+        if let Ok(dialog) = self.edit_action_dialog.try_borrow() {
+            dialog.update_info(status_detail);
+        }
     }
 
     // A helper function to add an action to the action list
     //
     fn add_event(
         window: &gtk::ApplicationWindow,
-        system_send: &SystemSend,
+        edit_action_dialog: &Rc<RefCell<EditActionDialog>>,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
         next_position: &Rc<RefCell<usize>>,
         action_list: &gtk::ListBox,
@@ -1167,9 +1173,12 @@ impl EditDetail {
             gtk::IconSize::Button.into(),
         );
         edit_button.connect_clicked(
-            clone!(window, event_actions, position, overview, system_send => move |_| {
-                // Launch the edit action dialog
-                edit_action_dialog.launch(&window, &system_send, &event_actions, position, &overview);
+            clone!(edit_action_dialog, position, overview => move |_| {
+                // Try to get access to the edit action dialog
+                if let Ok(dialog) = edit_action_dialog.try_borrow_mut() {
+                    // Launch the edit action dialog
+                    dialog.launch(position, &overview);
+                }
             }),
         );
 
