@@ -219,9 +219,7 @@ impl EditItemAbstraction {
 
             DisplayComponent::EditActionDialog => {
                 if let ReplyType::Status { status_detail } = reply {
-                    if let Some(detail) = status_detail {
-                        self.edit_detail.update_info(detail);
-                    }
+                    self.edit_detail.update_info(status_detail);
                 }
             }
 
@@ -1105,7 +1103,7 @@ impl EditDetail {
 
     // A method to load new information into the edit action dialog
     //
-    fn update_info(&self, status_detail: StatusDetail) {
+    fn update_info(&self, status_detail: Option<StatusDetail>) {
         // Try to get access the edit action dialog
         if let Ok(mut dialog) = self.edit_action_dialog.try_borrow_mut() {
             dialog.update_info(status_detail);

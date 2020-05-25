@@ -306,7 +306,7 @@ impl EditActionDialog {
 
     /// A method to pass the status detail to the EditGroupedEvent structure
     ///
-    pub fn update_info(&mut self, status_detail: StatusDetail) {
+    pub fn update_info(&mut self, status_detail: Option<StatusDetail>) {
         self.edit_grouped_event.update_info(status_detail);
     }
 }
@@ -799,14 +799,9 @@ impl EditSaveData {
                 "staticstring" => {
                     // FIXME what's the right way to do this?
                     if let Some(string) = self.string_entry.get_text() {
-                        DataType::StaticString {
-                            string: string.to_string(),
-                        }
-                    }
-                    else {
-                        DataType::StaticString {
-                            string: "".to_string(),
-                        }
+                        DataType::StaticString { string: string.to_string(), }
+                    } else {
+                        DataType::StaticString { string: "".to_string(), }
                     }
                 }
 
@@ -1087,7 +1082,7 @@ struct EditGroupedEvent {
 }
 
 impl EditGroupedEvent {
-    // A function to ceate a grouped event variant
+    // A function to create a grouped event variant
     //
     fn new(system_send: &SystemSend) -> EditGroupedEvent {
         // Create the list for the trigger events variant
@@ -1110,6 +1105,13 @@ impl EditGroupedEvent {
         group_window.set_hexpand(true);
         group_window.set_size_request(-1, 100);
 
+        // Create the label that will replace the list if the spin value is not valid
+        let invalid_label = gtk::Label::new(Some("Not a valid label"));
+        invalid_label.set_size_request(80, 30);
+        invalid_label.set_hexpand(false);
+        invalid_label.set_vexpand(false);
+
+
         // Connect the function to trigger when the status spin changes
         status_spin.connect_changed(clone!(system_send => move |spin| {
             system_send.send(Request {
@@ -1123,6 +1125,7 @@ impl EditGroupedEvent {
         grid.attach(&status_label, 0, 0, 1, 1);
         grid.attach(&status_spin, 1, 0, 1, 1);
         grid.attach(&group_window, 0, 1, 2, 1);
+        grid.attach(&invalid_label, 0, 2, 2, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -1158,12 +1161,25 @@ impl EditGroupedEvent {
     }
 
     // A method to update the listed states in the grouped event
-    fn update_info(&mut self, status_detail: StatusDetail) {
-        // Clear all the states listed in the ListBox
-        self.clear();
-        // Add the provided states
-        for state_id in status_detail.allowed() {
-            EditGroupedEvent::add_event(&self.grouped_event_list, &state_id, None);
+    fn update_info(&mut self, status_detail: Option<StatusDetail>) {
+        let group_window = self.grid.get_child_at(0, 1);
+        let invalid_label = self.grid.get_child_at(0, 2);
+        // Check to see if the status is valid
+        if let Some(detail) = status_detail {
+            // If so, show the group window and hide the nonvalid label
+            if let Some(window) = group_window { window.show(); }
+            if let Some(label) = invalid_label { label.hide(); }
+
+            // Show the states associated with the valid status
+            for state_id in detail.allowed() {
+                EditGroupedEvent::add_event(&self.grouped_event_list, &state_id, None);
+            }
+        } else {
+            // Otherwise, clear all the states listed in the ListBox if it is not a valid status
+            self.clear();
+            // Hide the group window and show the nonvalid label
+            if let Some(window) = group_window { window.hide(); }
+            if let Some(label) = invalid_label { label.show(); }
         }
     }
 
