@@ -53,7 +53,7 @@ const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (o
 #[derive(Clone, Debug)]
 pub struct EditActionDialog {
     window: gtk::ApplicationWindow,
-    edit_grouped_event: EditGroupedEvent,
+    edit_grouped_event: Rc<RefCell<EditGroupedEvent>>,
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>,
 }
 
@@ -68,7 +68,7 @@ impl EditActionDialog {
     ) -> EditActionDialog {
         EditActionDialog {
             window: window.clone(),
-            edit_grouped_event: EditGroupedEvent::new(system_send),
+            edit_grouped_event: Rc::new(RefCell::new(EditGroupedEvent::new(system_send))),
             event_actions: event_actions.clone(),
         }
     }
@@ -87,6 +87,14 @@ impl EditActionDialog {
         // Try to extract the correct action
         let action = match actions.get(&position) {
             Some(action) => action,
+
+            // If unable, return immediately
+            _ => return,
+        };
+
+        // Try to get a copy of the edit grouped event
+        let edit_grouped_event = match self.edit_grouped_event.try_borrow() {
+            Ok(edit_event) => edit_event,
 
             // If unable, return immediately
             _ => return,
@@ -134,7 +142,7 @@ impl EditActionDialog {
         action_stack.add_named(edit_cancel_event.get_top_element(), "cancelevent");
         action_stack.add_named(edit_save_data.get_top_element(), "savedata");
         action_stack.add_named(edit_send_data.get_top_element(), "senddata");
-        action_stack.add_named(self.edit_grouped_event.get_top_element(), "groupedevent");
+        action_stack.add_named(edit_grouped_event.get_top_element(), "groupedevent");
 
         // Connect the function to trigger action selection changes
         action_selection.connect_changed(clone!(action_stack => move |dropdown| {
@@ -192,7 +200,7 @@ impl EditActionDialog {
                 event_map,
             } => {
                 action_selection.set_active_id(Some("groupedevent"));
-                self.edit_grouped_event.load_action(status_id, event_map);
+                edit_grouped_event.load_action(status_id, event_map);
             }
         }
 
@@ -215,6 +223,7 @@ impl EditActionDialog {
 
         // Connect the close event for when the dialog is complete
         let event_actions = self.event_actions.clone();
+        let edit_grouped_clone = self.edit_grouped_event.clone();
         dialog.connect_response(clone!(overview => move |modal, id| {
             // If the selection confirmed the change
             if id == gtk::ResponseType::Ok {
@@ -283,8 +292,9 @@ impl EditActionDialog {
                         "groupedevent" => {
                             // Update the action label and action
                             overview.set_text("Grouped Event");
-                            // FIXME: add edit_grouped_event instead
-                            *action = edit_send_data.pack_action();
+                            if let Ok(edit_grouped_clone) = edit_grouped_clone.try_borrow() {
+                                *action = edit_grouped_clone.pack_action();
+                            }
                         }
 
                         _ => unreachable!(),
@@ -297,7 +307,7 @@ impl EditActionDialog {
             }
 
             // Close the dialog on success or cancel
-            modal.destroy();
+            modal.hide();
         }));
 
         // Show the dialog and return
@@ -306,8 +316,10 @@ impl EditActionDialog {
 
     /// A method to pass the status detail to the EditGroupedEvent structure
     ///
-    pub fn update_info(&mut self, status_detail: Option<StatusDetail>) {
-        self.edit_grouped_event.update_info(status_detail);
+    pub fn update_info(&self, status_detail: Option<StatusDetail>) {
+        if let Ok(mut edit_grouped_event) = self.edit_grouped_event.try_borrow_mut() {
+            edit_grouped_event.update_info(status_detail);
+        }
     }
 }
 
@@ -797,11 +809,11 @@ impl EditSaveData {
 
                 // The StaticString variant
                 "staticstring" => {
-                    // FIXME what's the right way to do this?
+                    // Extract the string, if there is one
                     if let Some(string) = self.string_entry.get_text() {
                         DataType::StaticString { string: string.to_string(), }
                     } else {
-                        DataType::StaticString { string: "".to_string(), }
+                        DataType::StaticString { string: String::new(), }
                     }
                 }
 
@@ -1043,16 +1055,10 @@ impl EditSendData {
 
                 // The StaticString variant
                 "staticstring" => {
-                    // FIXME what's the right way to do this?
                     if let Some(string) = self.string_entry.get_text() {
-                        DataType::StaticString {
-                            string: string.to_string(),
-                        }
-                    }
-                    else {
-                        DataType::StaticString {
-                            string: "".to_string(),
-                        }
+                        DataType::StaticString { string: string.to_string(), }
+                    } else {
+                        DataType::StaticString { string: String::new(), }
                     }
                 }
 
@@ -1078,6 +1084,7 @@ impl EditSendData {
 struct EditGroupedEvent {
     grid: gtk::Grid,                  // the main grid for this element
     grouped_event_list: gtk::ListBox, // the list for events in this variant
+    grouped_events: Rc<RefCell<FnvHashMap<ItemId, ItemId>>>, // a database for the grouped events
     status_spin: gtk::SpinButton,     // the status id for this variant
 }
 
@@ -1105,13 +1112,6 @@ impl EditGroupedEvent {
         group_window.set_hexpand(true);
         group_window.set_size_request(-1, 100);
 
-        // Create the label that will replace the list if the spin value is not valid
-        let invalid_label = gtk::Label::new(Some("Not a valid label"));
-        invalid_label.set_size_request(80, 30);
-        invalid_label.set_hexpand(false);
-        invalid_label.set_vexpand(false);
-
-
         // Connect the function to trigger when the status spin changes
         status_spin.connect_changed(clone!(system_send => move |spin| {
             system_send.send(Request {
@@ -1125,7 +1125,6 @@ impl EditGroupedEvent {
         grid.attach(&status_label, 0, 0, 1, 1);
         grid.attach(&status_spin, 1, 0, 1, 1);
         grid.attach(&group_window, 0, 1, 2, 1);
-        grid.attach(&invalid_label, 0, 2, 2, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -1134,6 +1133,7 @@ impl EditGroupedEvent {
         EditGroupedEvent {
             grid,
             grouped_event_list,
+            grouped_events: Rc::new(RefCell::new(FnvHashMap::default())),
             status_spin,
         }
     }
@@ -1145,54 +1145,78 @@ impl EditGroupedEvent {
     }
 
     // A method to load an action
-    // FIXME Finish this implementation
     fn load_action(&self, status_id: &ItemId, event_map: &FnvHashMap<ItemId, ItemId>) {
+        // Clear the database and the rows
+        self.clear();
+
         // Change the status id
         self.status_spin.set_value(status_id.id() as f64);
 
         // Add each event in the map to the list
         for (ref state_id, ref event_id) in event_map.iter() {
             EditGroupedEvent::add_event(
+                &self.grouped_events,
                 &self.grouped_event_list,
                 state_id,
-                Some(event_id.id()),
+                Some(event_id),
             );
         }
     }
 
     // A method to update the listed states in the grouped event
     fn update_info(&mut self, status_detail: Option<StatusDetail>) {
-        let group_window = self.grid.get_child_at(0, 1);
-        let invalid_label = self.grid.get_child_at(0, 2);
+        // Clear the ListBox
+        self.clear();
+
         // Check to see if the status is valid
         if let Some(detail) = status_detail {
-            // If so, show the group window and hide the nonvalid label
-            if let Some(window) = group_window { window.show(); }
-            if let Some(label) = invalid_label { label.hide(); }
-
             // Show the states associated with the valid status
             for state_id in detail.allowed() {
-                EditGroupedEvent::add_event(&self.grouped_event_list, &state_id, None);
+                EditGroupedEvent::add_event(
+                    &self.grouped_events,
+                    &self.grouped_event_list,
+                    &state_id,
+                    None,
+                );
             }
         } else {
-            // Otherwise, clear all the states listed in the ListBox if it is not a valid status
-            self.clear();
-            // Hide the group window and show the nonvalid label
-            if let Some(window) = group_window { window.hide(); }
-            if let Some(label) = invalid_label { label.show(); }
+            // Create the label that will replace the list if the spin value is not valid
+            let invalid_label = gtk::Label::new(Some("Not a valid status."));
+
+            // Display "not a valid status"
+            &self.grouped_event_list.add(&invalid_label);
+            invalid_label.show();
         }
     }
 
     // A method to clear all the listed states in the ListBox
-    pub fn clear(&mut self) {
+    pub fn clear(&self) {
+        // Remove all the user interface elements
         let to_remove = self.grouped_event_list.get_children();
         for item in to_remove {
             item.destroy();
         }
+        // Empty the database
+        if let Ok(mut events) = self.grouped_events.try_borrow_mut() {
+            events.clear();
+        }
     }
 
     // A helper function to add a grouped event to the list
-    fn add_event(grouped_event_list: &gtk::ListBox, state_id: &ItemId, event_id: Option<u32>) {
+    fn add_event(
+        grouped_events: &Rc<RefCell<FnvHashMap<ItemId, ItemId>>>,
+        grouped_event_list: &gtk::ListBox,
+        state_id: &ItemId,
+        event_id: Option<&ItemId>
+    ){
+        // Check to see if an event id is given
+        if let Some(event_id) = event_id {
+            // Add the state id and event id to the database
+            if let Ok(mut events) = grouped_events.try_borrow_mut() {
+                events.insert(state_id.clone(), event_id.clone());
+            }
+        }
+
         // Create a state spin box for the list
         let group_grid = gtk::Grid::new();
         let state_label = gtk::Label::new(Some(&format!("State Id: {}", state_id.id())));
@@ -1209,14 +1233,10 @@ impl EditGroupedEvent {
         event_spin.set_size_request(100, 30);
         event_spin.set_hexpand(false);
 
-        // Add a button to delete the item from the list
-        let delete_button = gtk::Button::new_from_icon_name(
-            Some("edit-delete-symbolic"),
-            gtk::IconSize::Button.into(),
-        );
-        delete_button.connect_clicked(clone!(grouped_event_list, group_grid => move |_| {
-            if let Some(widget) = group_grid.get_parent() {
-                grouped_event_list.remove(&widget);
+        // Update the database whenever the event is changed
+        event_spin.connect_changed(clone!(grouped_events, state_id => move |spin| {
+            if let Ok(mut events) = grouped_events.try_borrow_mut() {
+                events.insert(state_id.clone(), ItemId::new_unchecked(spin.get_value() as u32));
             }
         }));
 
@@ -1224,11 +1244,10 @@ impl EditGroupedEvent {
         group_grid.attach(&state_label, 0, 0, 1, 1);
         group_grid.attach(&event_label, 1, 0, 1, 1);
         group_grid.attach(&event_spin, 2, 0, 1, 1);
-        group_grid.attach(&delete_button, 3, 0, 1, 1);
 
         // Set the value of the grouped event if it was provided
         if let Some(event) = event_id {
-            event_spin.set_value(event as f64);
+            event_spin.set_value(event.id() as f64);
         }
 
         // Add the new grid to the list
@@ -1240,60 +1259,13 @@ impl EditGroupedEvent {
     //
     fn pack_action(&self) -> EventAction {
         // Create the event vector
-        let mut event_map = FnvHashMap::default();
+        let event_map = match self.grouped_events.try_borrow() {
+            Ok(events) => events.clone(),
+            _ => FnvHashMap::default(),
+        };
 
         // Extract the status id
         let status_id = ItemId::new_unchecked(self.status_spin.get_value() as u32);
-
-        // FIXME Fill the maps with the grouped events in the list
-        /* let mut i: i32 = 0;
-        loop {
-            // Iterate through the events in the list
-            match self.grouped_event_list.get_row_at_index(i) {
-                // Extract each row and include the event
-                Some(row) => {
-                    if let Some(tmp_grid) = row.get_child() {
-                        // Recast the widget as a grid
-                        if let Ok(grouped_grid) = tmp_grid.downcast::<gtk::Grid>() {
-                            // Extract the state number
-                            let state = match grouped_grid.get_child_at(1, 0) {
-                                Some(spin_tmp) => {
-                                    if let Ok(state_spin) = spin_tmp.downcast::<gtk::SpinButton>() {
-                                        state_spin.get_value() as u32
-                                    } else {
-                                        unreachable!()
-                                    }
-                                }
-                                None => unreachable!(),
-                            };
-
-                            // Extract the event number
-                            let event = match grouped_grid.get_child_at(4, 0) {
-                                Some(spin_tmp) => {
-                                    if let Ok(event_spin) = spin_tmp.downcast::<gtk::SpinButton>() {
-                                        event_spin.get_value() as u32
-                                    } else {
-                                        unreachable!()
-                                    }
-                                }
-                                None => unreachable!(),
-                            };
-
-                            // Add the state and event pair to the map
-                            let state_id = ItemId::new_unchecked(state);
-                            let event_id = ItemId::new_unchecked(event);
-                            event_map.insert(state_id, event_id);
-                        }
-                    }
-
-                    // Move to the next row
-                    i = i + 1;
-                }
-
-                // Break when there are no more rows
-                None => break,
-            }
-        }*/
 
         // Return the completed Event Action
         EventAction::GroupedEvent {

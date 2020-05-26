@@ -1105,7 +1105,7 @@ impl EditDetail {
     //
     fn update_info(&self, status_detail: Option<StatusDetail>) {
         // Try to get access the edit action dialog
-        if let Ok(mut dialog) = self.edit_action_dialog.try_borrow_mut() {
+        if let Ok(dialog) = self.edit_action_dialog.try_borrow() {
             dialog.update_info(status_detail);
         }
     }
