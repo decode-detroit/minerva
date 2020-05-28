@@ -44,6 +44,7 @@ use self::fnv::FnvHashMap;
 // Import GTK and GDK libraries
 extern crate gdk;
 extern crate gio;
+extern crate glib;
 extern crate gtk;
 use self::gtk::prelude::*;
 
