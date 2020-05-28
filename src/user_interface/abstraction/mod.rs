@@ -199,21 +199,15 @@ impl InterfaceAbstraction {
             gdk::DragAction::COPY,
         );
         drag_button.connect_drag_data_get(|_, _, selection_data, _, _| {
-            /*
             if let Ok(data) = serde_yaml::to_string(&ItemId::new_unchecked(31)) {
                 selection_data.set_text(data.as_str());
             }
-            */
-            println!("In data_get");
-            let data = "I'm data!";
-            selection_data.set_text(data);
         });
 
         // Configure label as drag destination to receive text
         let dest_label = gtk::Label::new(Some("Drop here"));
         dest_label.drag_dest_set(gtk::DestDefaults::ALL, &targets, gdk::DragAction::COPY);
         dest_label.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
-            /*
             if let Some(string) = selection_data.get_text() {
                 let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
                     Ok(item_id) => item_id,
@@ -221,9 +215,6 @@ impl InterfaceAbstraction {
                 };
                 widget.set_text(&format!("Got item id {}", item_id.id()));
             }
-            */
-            println!("In data_received");
-            widget.set_text(&selection_data.get_text().expect("Couldn't get text"));
         });
 
         // Attach the button and label
