@@ -21,8 +21,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, DisplayComponent, EventAction, EventDelay, Hidden, ItemDescription, ItemId, ItemPair,
-    Request, RequestType, StatusChange, StatusDescription, StatusDetail, SystemSend,
+    DataType, DisplayComponent, EventAction, EventDelay, ItemId,
+    Request, RequestType, StatusDetail, SystemSend,
 };
 use super::super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;

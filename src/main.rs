@@ -45,6 +45,7 @@ extern crate gdk;
 extern crate gio;
 extern crate gtk;
 use self::gtk::prelude::*;
+use self::gio::prelude::*;
 use self::gtk::SettingsExt;
 
 // Define program constants
