@@ -813,8 +813,8 @@ pub enum DisplayComponent {
     /// A variant for the edit item window
     EditItemOverview,
 
-    /// A variant for the edit action dialogs
-    EditActionDialog,
+    /// A variant for the edit action element
+    EditAction,
 }
 
 /// An enum to provide updates from the main thread to the system interface,

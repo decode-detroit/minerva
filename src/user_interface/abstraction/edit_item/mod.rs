@@ -20,10 +20,10 @@
 //! to the system interface to request and modify data in the configuration.
 
 // Define private submodules
-mod edit_dialogs;
+mod edit_action;
 
 // Import the relevant structures into the correct namespace
-use self::edit_dialogs::EditActionDialog;
+use self::edit_action::EditAction;
 use super::super::super::system_interface::{
     DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, EventAction, EventDetail, Hidden,
     InterfaceUpdate, ItemDescription, ItemId, LabelControl, LabelHidden, ReplyType, Request,
@@ -81,7 +81,6 @@ impl EditItemAbstraction {
     pub fn new(
         system_send: &SystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
-        window: &gtk::ApplicationWindow,
     ) -> EditItemAbstraction {
         // Create the control grid for holding all the universal controls
         let grid = gtk::Grid::new();
@@ -119,7 +118,7 @@ impl EditItemAbstraction {
         grid.attach(&separator, 0, 3, 2, 1);
 
         // Create the edit detail and add it to the grid
-        let edit_detail = EditDetail::new(window, system_send);
+        let edit_detail = EditDetail::new(system_send);
         grid.attach(edit_detail.get_top_element(), 0, 4, 2, 1);
 
         // Add some space on all the sides and show the components
@@ -217,7 +216,7 @@ impl EditItemAbstraction {
                 }
             }
 
-            DisplayComponent::EditActionDialog => {
+            DisplayComponent::EditAction => {
                 if let ReplyType::Status { status_detail } = reply {
                     self.edit_detail.update_info(status_detail);
                 }
@@ -938,8 +937,7 @@ impl EditOverview {
 #[derive(Clone, Debug)]
 struct EditDetail {
     grid: gtk::Grid,                   // the main grid for this element
-    window: gtk::ApplicationWindow,    // a copy of the application window
-    edit_action_dialog: Rc<RefCell<EditActionDialog>>, // a wrapped dialog to edit the current action
+    edit_action: Rc<RefCell<EditAction>>, // a wrapped dialog to edit the current action
     detail_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
     next_position: Rc<RefCell<usize>>, // the next available position in the hash map
@@ -950,7 +948,10 @@ struct EditDetail {
 impl EditDetail {
     // A function to create a new Edit Detail
     //
-    fn new(window: &gtk::ApplicationWindow, system_send: &SystemSend) -> EditDetail {
+    fn new(system_send: &SystemSend) -> EditDetail {
+        // Create the grid
+        let grid = gtk::Grid::new();
+
         // Construct the checkbox for the event detail
         let detail_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
         detail_checkbox.set_active(true);
@@ -966,7 +967,9 @@ impl EditDetail {
         action_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a new edit action dialog
-        let edit_action_dialog = Rc::new(RefCell::new(EditActionDialog::new(window, system_send, &event_actions)));
+        let tmp_edit_action = EditAction::new(system_send, &event_actions);
+        grid.attach(tmp_edit_action.get_top_element(), 1, 1, 1, 2);
+        let edit_action = Rc::new(RefCell::new(tmp_edit_action));
 
         // Create a button to add actions to the list
         let add_button = gtk::Button::new_from_icon_name(
@@ -974,9 +977,9 @@ impl EditDetail {
             gtk::IconSize::Button.into(),
         );
         add_button.connect_clicked(
-            clone!(window, edit_action_dialog, system_send, event_actions, next_position, action_list => move |_| {
+            clone!(edit_action, system_send, event_actions, next_position, action_list => move |_| {
                 // Add an empty action to the list
-                EditDetail::add_event(&window, &edit_action_dialog, &event_actions, &next_position, &action_list, None);
+                EditDetail::add_event(&edit_action, &event_actions, &next_position, &action_list, None);
             }),
         );
 
@@ -1005,7 +1008,6 @@ impl EditDetail {
         }));
 
         // Add the button below the data list
-        let grid = gtk::Grid::new();
         grid.attach(&detail_checkbox, 0, 0, 1, 1);
         grid.attach(&action_window, 0, 1, 1, 1);
         grid.attach(&add_button, 0, 2, 1, 1);
@@ -1015,8 +1017,7 @@ impl EditDetail {
         // Create and return the trigger events variant
         EditDetail {
             grid,
-            window: window.clone(),
-            edit_action_dialog,
+            edit_action,
             detail_checkbox,
             event_actions,
             next_position,
@@ -1061,8 +1062,7 @@ impl EditDetail {
         // For each event action, create a new action in the list
         for action in detail.drain(..) {
             EditDetail::add_event(
-                &self.window,
-                &self.edit_action_dialog,
+                &self.edit_action,
                 &self.event_actions,
                 &self.next_position,
                 &self.action_list,
@@ -1105,7 +1105,7 @@ impl EditDetail {
     //
     fn update_info(&self, status_detail: Option<StatusDetail>) {
         // Try to get access the edit action dialog
-        if let Ok(dialog) = self.edit_action_dialog.try_borrow() {
+        if let Ok(dialog) = self.edit_action.try_borrow() {
             dialog.update_info(status_detail);
         }
     }
@@ -1113,8 +1113,7 @@ impl EditDetail {
     // A helper function to add an action to the action list
     //
     fn add_event(
-        window: &gtk::ApplicationWindow,
-        edit_action_dialog: &Rc<RefCell<EditActionDialog>>,
+        edit_action: &Rc<RefCell<EditAction>>,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
         next_position: &Rc<RefCell<usize>>,
         action_list: &gtk::ListBox,
@@ -1167,49 +1166,28 @@ impl EditDetail {
             );
         }
 
+        // Create the list box row container
+        let row = gtk::ListBoxRow::new();
+
         // Create the edit button
         let edit_button = gtk::Button::new_from_icon_name(
             Some("document-edit-symbolic"),
             gtk::IconSize::Button.into(),
         );
         edit_button.connect_clicked(
-            clone!(edit_action_dialog, position, overview => move |_| {
-                // Try to get access to the edit action dialog
-                if let Ok(dialog) = edit_action_dialog.try_borrow_mut() {
-                    // Launch the edit action dialog
-                    dialog.launch(position, &overview);
+            clone!(edit_action, position, overview, row => move |_| {
+                // Try to get access to the edit action element
+                if let Ok(edit_action) = edit_action.try_borrow() {
+                    // Load the edit action element
+                    edit_action.load_action(position, &overview, &row);
                 }
             }),
         );
-
-        // Create the list box row container
-        let row = gtk::ListBoxRow::new();
-
-        // Create the delete button
-        let delete_button = gtk::Button::new_from_icon_name(
-            Some("edit-delete-symbolic"),
-            gtk::IconSize::Button.into(),
-        );
-        delete_button.connect_clicked(clone!(event_actions, position, row => move |_| {
-            // Remove the action from the event actions
-            match event_actions.try_borrow_mut() {
-                Ok(mut actions) => {
-                    actions.remove(&position);
-                }
-
-                // If unable, exit immediately
-                Err(_) => return,
-            };
-
-            // Destroy the row (autmatically removing it from the action list)
-            row.destroy();
-        }));
 
         // Create the grid and add the items to the grid
         let grid = gtk::Grid::new();
         grid.attach(&overview, 0, 0, 1, 1);
         grid.attach(&edit_button, 1, 0, 1, 1);
-        grid.attach(&delete_button, 2, 0, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
         row.add(&grid);
