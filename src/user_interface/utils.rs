@@ -314,10 +314,10 @@ fn spotlight_label(
     default_markup: String,
     highlight_markup: String,
     expiration: Rc<RefCell<u32>>,
-) -> gtk::Continue {
+) -> Continue {
     // Make sure the label is still visible
     if !label.is_visible() {
-        return gtk::Continue(false);
+        return Continue(false);
     }
 
     // Try to extract the expiration count
@@ -332,7 +332,7 @@ fn spotlight_label(
                 label.set_markup(&default_markup);
 
                 // Return true
-                return gtk::Continue(true);
+                return Continue(true);
             }
 
             // If the count is u32::MAX, set it back to zero
@@ -343,7 +343,7 @@ fn spotlight_label(
                 label.set_markup(&highlight_markup);
 
                 // Return true
-                return gtk::Continue(true);
+                return Continue(true);
             }
 
             // If the count is one, return false
@@ -352,7 +352,7 @@ fn spotlight_label(
                 label.set_markup(&default_markup);
 
                 // Return true
-                return gtk::Continue(false);
+                return Continue(false);
             }
 
             // If the count is any other number, check for even/odd
@@ -366,7 +366,7 @@ fn spotlight_label(
                     label.set_markup(&default_markup);
 
                     // Return true
-                    return gtk::Continue(true);
+                    return Continue(true);
 
                 // Otherwise
                 } else {
@@ -374,12 +374,12 @@ fn spotlight_label(
                     label.set_markup(&highlight_markup);
 
                     // Return true
-                    return gtk::Continue(true);
+                    return Continue(true);
                 }
             }
         }
     }
 
     // Stop the closure on failure
-    gtk::Continue(false)
+    Continue(false)
 }

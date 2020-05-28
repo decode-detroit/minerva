@@ -44,7 +44,6 @@ extern crate failure;
 extern crate gdk;
 extern crate gio;
 extern crate gtk;
-use self::gio::prelude::*;
 use self::gtk::prelude::*;
 use self::gtk::SettingsExt;
 

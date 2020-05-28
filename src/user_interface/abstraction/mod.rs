@@ -53,7 +53,6 @@ extern crate serde_yaml;
 extern crate gdk;
 extern crate gio;
 extern crate gtk;
-use gio::prelude::*;
 use self::gtk::prelude::*;
 
 // Import the external time library

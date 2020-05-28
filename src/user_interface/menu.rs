@@ -35,11 +35,8 @@ use std::time::Duration;
 extern crate gdk_pixbuf;
 extern crate gio;
 extern crate gtk;
+use self::gtk::prelude::*;
 use self::gio::prelude::*;
-use self::gtk::{
-    AboutDialogExt, DialogExt, FileChooserExt, GtkApplicationExt, GtkWindowExt, ToVariant,
-    WidgetExt,
-};
 
 /// A structure to hold all the features of the default menu.
 ///

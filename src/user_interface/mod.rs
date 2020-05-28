@@ -99,7 +99,7 @@ impl UserInterface {
         // Launch the interface monitoring interrupt, currently set to ten times a second
         let update_interface = clone!(user_interface => move || {
             user_interface.check_updates(&interface_receive);
-            gtk::Continue(true) // continue looking for updates indefinitely
+            Continue(true) // continue looking for updates indefinitely
         });
         gtk::timeout_add(REFRESH_RATE, update_interface); // triggers once every 100ms
 
