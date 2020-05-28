@@ -976,7 +976,7 @@ impl EditDetail {
             gtk::IconSize::Button.into(),
         );
         add_button.connect_clicked(
-            clone!(edit_action, system_send, event_actions, next_position, action_list => move |_| {
+            clone!(edit_action, event_actions, next_position, action_list => move |_| {
                 // Add an empty action to the list
                 EditDetail::add_event(&edit_action, &event_actions, &next_position, &action_list, None);
             }),
