@@ -106,19 +106,39 @@ impl EditItemAbstraction {
         separator.set_hexpand(true);
         grid.attach(&separator, 0, 1, 2, 1);
 
-        // Create the edit overview and add it to the grid
+        // Create the scrollable window for the edit item fields
+        let edit_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
+
+        // Add the scrollable window to the grid
+        grid.attach(&edit_window, 0, 2, 2, 1);
+
+        // Create the grid that sits inside the scrollable window
+        let edit_grid = gtk::Grid::new();
+
+        // Add the edit grid as a child of the scrollabel window
+        edit_window.add(&edit_grid);
+
+        // Format the scrolling window
+        edit_window.set_hexpand(true);
+        edit_window.set_vexpand(true);
+        edit_window.set_size_request(100, 100);
+
+        // Create the edit overview and add it to the edit grid
         let edit_overview = EditOverview::new();
-        grid.attach(edit_overview.get_top_element(), 0, 2, 2, 1);
+        edit_grid.attach(edit_overview.get_top_element(), 0, 0, 2, 1);
 
         // Add the event separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
-        grid.attach(&separator, 0, 3, 2, 1);
+        edit_grid.attach(&separator, 0, 1, 2, 1);
 
         // Create the edit detail and add it to the grid
         let edit_detail = EditDetail::new(system_send);
-        grid.attach(edit_detail.get_top_element(), 0, 4, 2, 1);
+        edit_grid.attach(edit_detail.get_top_element(), 0, 2, 2, 1);
 
         // Add some space on all the sides and show the components
         grid.set_margin_top(10);
