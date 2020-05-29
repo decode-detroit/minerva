@@ -41,6 +41,9 @@ use std::sync::mpsc;
 extern crate fnv;
 use self::fnv::FnvHashMap;
 
+// Import the serde_yaml library
+extern crate serde_yaml;
+
 // Import GTK and GDK libraries
 extern crate gdk;
 extern crate gio;
@@ -94,11 +97,39 @@ impl EditItemAbstraction {
         grid.set_hexpand(false);
         grid.set_vexpand(false);
 
-        // Create the title and save button
+        // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
-        let save = gtk::Label::new(Some("  Save Changes  "));
+        edit_title.
         grid.attach(&edit_title, 0, 0, 1, 1);
+        
+        
+        // Connect the drag destination to edit_title
+        edit_title.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+        
+        // Create the save button
+        let save = gtk::Button::new_with_label("  Save Changes  ");
         grid.attach(&save, 1, 0, 1, 1);
+        
+        // Set the callback function when data is recieved
+        edit_title.connect_drag_data_received(clone!(system_send => move |_, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to a ItemId
+                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_id) => item_id,
+                    _ => return,
+                };
+                
+                // Refresh the current data
+                EditItemAbstraction::refresh(item_id, &system_send)
+            }
+        }));
 
         // Add the top separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
@@ -172,23 +203,23 @@ impl EditItemAbstraction {
         self.current_id = id;
 
         // Refresh all the item components
-        self.refresh();
+        if let Some(item_id) = id {
+            EditItemAbstraction::refresh(item_id, &self.system_send);
+        }
     }
 
-    // A method to refresh the components of the current item
+    // A function to refresh the components of the current item
     //
-    fn refresh(&mut self) {
-        // Request new data for each component, if an id is specified
-        if let Some(item_id) = self.current_id {
-            self.system_send.send(Request {
-                reply_to: DisplayComponent::EditItemOverview,
-                request: RequestType::Description { item_id },
-            });
-            self.system_send.send(Request {
-                reply_to: DisplayComponent::EditItemOverview,
-                request: RequestType::Detail { item_id },
-            });
-        }
+    fn refresh(item_id: ItemId, system_send: &SystemSend) {
+        // Request new data for each component
+        system_send.send(Request {
+            reply_to: DisplayComponent::EditItemOverview,
+            request: RequestType::Description { item_id },
+        });
+        system_send.send(Request {
+            reply_to: DisplayComponent::EditItemOverview,
+            request: RequestType::Detail { item_id },
+        });
     }
 
     /// A method to process information updates received from the system

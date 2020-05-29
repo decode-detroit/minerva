@@ -190,7 +190,6 @@ impl InterfaceAbstraction {
         let drag_button = gtk::Button::new_with_label("Drag here");
         let targets = vec![
             gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            gtk::TargetEntry::new("text/plain", gtk::TargetFlags::SAME_APP, 0),
         ];
         drag_button.drag_source_set(
             gdk::ModifierType::MODIFIER_MASK,
@@ -202,24 +201,23 @@ impl InterfaceAbstraction {
                 selection_data.set_text(data.as_str());
             }
         });
-
-        // Configure label as drag destination to receive text
-        let dest_label = gtk::Label::new(Some("Drop here"));
-        dest_label.drag_dest_set(gtk::DestDefaults::ALL, &targets, gdk::DragAction::COPY);
-        dest_label.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
-            if let Some(string) = selection_data.get_text() {
-                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_id) => item_id,
-                    _ => return,
-                };
-                widget.set_text(&format!("Got item id {}", item_id.id()));
+        
+        // Configure button as drag source for text
+        let drag_button2 = gtk::Button::new_with_label("Drag here");
+        drag_button2.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &targets,
+            gdk::DragAction::COPY,
+        );
+        drag_button2.connect_drag_data_get(|_, _, selection_data, _, _| {
+            if let Ok(data) = serde_yaml::to_string(&ItemId::new_unchecked(7)) {
+                selection_data.set_text(data.as_str());
             }
         });
 
-        // Attach the button and label
+        // Attach the button and label FIXME
         drag_test.attach(&drag_button, 0, 0, 1, 1);
-        drag_test.attach(&dest_label, 1, 0, 1, 1);
-
+        drag_test.attach(&drag_button2, 0, 1, 1, 1);
         edit_grid.attach(&drag_test, 0, 0, 1, 1);
 
 
