@@ -385,6 +385,12 @@ impl EventHandler {
         self.config.delete_event(event_id);
     }
 
+    /// A method to add or modify an item within the current configuration.
+    ///
+    pub fn edit_item(&mut self, item_id: &ItemPair) {
+        self.config.edit_item(item_id);
+    }
+
     /// A method to add or modify an event within the current configuration.
     ///
     /// # Errors
@@ -396,8 +402,8 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and leaving the
     /// current configuration unmodified.
     ///
-    pub fn edit_event(&mut self, event_pair: &ItemPair, new_detail: &EventDetail) {
-        self.config.edit_event(event_pair, new_detail);
+    pub fn edit_event(&mut self, event_id: &ItemId, new_detail: &EventDetail) {
+        self.config.edit_event(event_id, new_detail);
     }
 
     /// A method to change the selected scene within the current configuration.

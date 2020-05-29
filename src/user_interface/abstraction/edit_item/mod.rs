@@ -25,9 +25,10 @@ mod edit_action;
 // Import the relevant structures into the correct namespace
 use self::edit_action::EditAction;
 use super::super::super::system_interface::{
-    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, EventAction, EventDetail, Hidden,
-    InterfaceUpdate, ItemDescription, ItemId, LabelControl, LabelHidden, ReplyType, Request,
-    RequestType, StatusDetail, SystemSend,
+    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EventAction,
+    EventDetail, Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
+    LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType, 
+    StatusDetail, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -66,12 +67,9 @@ pub struct EditItemAbstraction {
     grid: gtk::Grid,                               // the grid to hold underlying elements
     system_send: SystemSend,                       // a copy of the system send line
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
-    current_id: Option<ItemId>,                    // the current item id that is being displayed
-    edit_overview: EditOverview,                   // the edit overview section of the window
-    edit_detail: EditDetail,                       // the edit detail section of the window
-    is_debug_mode: bool, // a flag to indicate whether debug information is shown
-    is_font_large: bool, // a flag to indicate the font size of the text
-    is_high_contrast: bool, // a flag to indicate if the display is high contrast
+    current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
+    edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section of the window
+    edit_detail: Rc<RefCell<EditDetail>>,          // the wrapped edit detail section of the window
 }
 
 // Implement key features for the EditItemAbstration
@@ -99,9 +97,8 @@ impl EditItemAbstraction {
 
         // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
-        edit_title.
+        edit_title.set_size_request(-1, 30);
         grid.attach(&edit_title, 0, 0, 1, 1);
-        
         
         // Connect the drag destination to edit_title
         edit_title.drag_dest_set(
@@ -112,12 +109,9 @@ impl EditItemAbstraction {
             gdk::DragAction::COPY
         );
         
-        // Create the save button
-        let save = gtk::Button::new_with_label("  Save Changes  ");
-        grid.attach(&save, 1, 0, 1, 1);
-        
         // Set the callback function when data is recieved
-        edit_title.connect_drag_data_received(clone!(system_send => move |_, _, _, _, selection_data, _, _| {
+        let current_id = Rc::new(RefCell::new(None));
+        edit_title.connect_drag_data_received(clone!(system_send, current_id => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to a ItemId
@@ -126,11 +120,16 @@ impl EditItemAbstraction {
                     _ => return,
                 };
                 
+                // Try to update the current id
+                if let Ok(mut current_id) = current_id.try_borrow_mut() {
+                    *current_id = Some(item_id);
+                }
+                
                 // Refresh the current data
                 EditItemAbstraction::refresh(item_id, &system_send)
             }
         }));
-
+        
         // Add the top separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
@@ -150,6 +149,54 @@ impl EditItemAbstraction {
         // Create the edit detail and add it to the grid
         let edit_detail = EditDetail::new(system_send);
         grid.attach(edit_detail.get_top_element(), 0, 4, 2, 1);
+        
+        // Create the save button
+        let save = gtk::Button::new_with_label("  Save Changes  ");
+        grid.attach(&save, 1, 0, 1, 1);
+        
+        // Connect the save button click callback
+        let edit_overview = Rc::new(RefCell::new(edit_overview));
+        let edit_detail = Rc::new(RefCell::new(edit_detail));
+        save.connect_clicked(clone!(system_send, current_id, edit_overview, edit_detail => move |_| {
+            // Try to borrow the the current id
+            let current_id = match current_id.try_borrow() {
+                Ok(id) => id,
+                _ => return,
+            };
+            
+            // Try to borrow the edit overview
+            let overview = match edit_overview.try_borrow() {
+                Ok(overview) => overview,
+                _ => return,
+            };
+            
+            // Try to borrow the edit detail
+            let detail = match edit_detail.try_borrow() {
+                Ok(detail) => detail,
+                _ => return,
+            };
+            
+            // Check to make sure there is a current id
+            let item_id = match *current_id {
+                Some(id) => id,
+                _ => return, // FIXME warn the user
+            };
+            
+            // Collect the information and save it
+            let item_pair = ItemPair::from_item(item_id, overview.pack_description());
+            let mut modifications = vec!(Modification::ModifyItem { item_pair });
+            
+            // If the detail was provided, update it
+            if let Some(event_detail) = detail.pack_detail() {
+                modifications.push(Modification::ModifyEvent { item_id, event_detail });
+            }
+            
+            // Save the edit to the configuration
+            system_send.send(Edit { modifications });
+            
+            // Refresh from the underlying data (will process after the save)
+            EditItemAbstraction::refresh(item_id, &system_send);
+        }));
 
         // Add some space on all the sides and show the components
         grid.set_margin_top(10);
@@ -162,12 +209,9 @@ impl EditItemAbstraction {
             grid,
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
-            current_id: None,
+            current_id,
             edit_overview,
             edit_detail,
-            is_debug_mode: false,
-            is_font_large: false,
-            is_high_contrast: false,
         }
     }
 
@@ -178,29 +222,14 @@ impl EditItemAbstraction {
         &self.grid
     }
 
-    /// A method to select the debug mode of the notifications.
-    ///
-    pub fn select_debug(&mut self, is_debug: bool) {
-        self.is_debug_mode = is_debug;
-    }
-
-    /// A method to select the font size of the control items.
-    ///
-    pub fn select_font(&mut self, is_large: bool) {
-        self.is_font_large = is_large;
-    }
-
-    /// A method to select the color contrast of the control items.
-    ///
-    pub fn select_contrast(&mut self, is_hc: bool) {
-        self.is_high_contrast = is_hc;
-    }
-
     /// A method to load a new item into the edit item window
     ///
     pub fn load_item(&mut self, id: Option<ItemId>) {
         // Change the current item id
-        self.current_id = id;
+        match self.current_id.try_borrow_mut() {
+            Ok(mut current_id) => *current_id = id,
+            _ => return,
+        }
 
         // Refresh all the item components
         if let Some(item_id) = id {
@@ -232,12 +261,18 @@ impl EditItemAbstraction {
                 match reply {
                     // The description variant
                     ReplyType::Description { description } => {
-                        self.edit_overview.load_description(description);
+                        // Try to borrow the edit overview
+                        if let Ok(overview) = self.edit_overview.try_borrow() {
+                            overview.load_description(description);
+                        }
                     }
 
                     // The detail variant
                     ReplyType::Detail { event_detail } => {
-                        self.edit_detail.load_detail(event_detail);
+                        // Try to borrow the edit detail
+                        if let Ok(detail) = self.edit_detail.try_borrow() {
+                            detail.load_detail(event_detail);
+                        }
                     }
 
                     _ => {
@@ -248,7 +283,10 @@ impl EditItemAbstraction {
 
             DisplayComponent::EditAction => {
                 if let ReplyType::Status { status_detail } = reply {
-                    self.edit_detail.update_info(status_detail);
+                    // Try to borrow the edit detail
+                    if let Ok(detail) = self.edit_detail.try_borrow() {
+                        detail.update_info(status_detail);
+                    }
                 }
             }
 
@@ -1103,19 +1141,25 @@ impl EditDetail {
 
     // A method to pack the listed actions into an event detail
     //
-    fn pack_detail(&self) -> EventDetail {
+    fn pack_detail(&self) -> Option<EventDetail> {
+        
+        // If the checkbox was not selected, return None
+        if !self.detail_checkbox.get_active() {
+            return None;
+        }
+        
         // Access the current event detail
         match self.event_actions.try_borrow_mut() {
             // Return the current event detail, composed as a vector
             Ok(detail) => {
                 // Create a vector to hold the actions and a counter
-                let mut vec = Vec::new();
+                let mut actions = Vec::new();
                 let mut count = 0;
 
-                while vec.len() < detail.len() {
+                while actions.len() < detail.len() {
                     // Try to get each element, zero indexed
                     if let Some(action) = detail.get(&count) {
-                        vec.push(action.clone());
+                        actions.push(action.clone());
                     }
 
                     // Increment the count
@@ -1123,11 +1167,11 @@ impl EditDetail {
                 }
 
                 // Return the completed vector
-                vec
+                Some(actions)
             }
 
-            // Should be unreachable
-            Err(_) => Vec::new(),
+            // Unreachable
+            _ => unreachable!(),
         }
     }
 

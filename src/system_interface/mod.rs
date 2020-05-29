@@ -315,24 +315,31 @@ impl SystemInterface {
             }
 
             // Modify the underlying configuration
-            Edit { mut actions } => {
+            Edit { mut modifications } => {
                 // Check to see if there is an active configuration
                 if let Some(ref mut handler) = self.event_handler {
-                    // Process each action in order
-                    for action in actions.drain(..) {
-                        // Match the specified action
-                        match action {
+                    // Process each modification in order
+                    for modification in modifications.drain(..) {
+                        // Match the specified moficiation
+                        match modification {
                             // Delete the event entirely
-                            EditAction::DeleteEvent { event_id } => {
+                            Modification::DeleteEvent { event_id } => {
                                 handler.delete_event(&event_id);
                             }
 
+                            // Add or modify the item
+                            Modification::ModifyItem {
+                                item_pair,
+                            } => {
+                                handler.edit_item(&item_pair);
+                            }
+                            
                             // Add or modify the event
-                            EditAction::ModifyEvent {
-                                event_pair,
+                            Modification::ModifyEvent {
+                                item_id,
                                 event_detail,
                             } => {
-                                handler.edit_event(&event_pair, &event_detail);
+                                handler.edit_event(&item_id, &event_detail);
                             }
                         }
                     }
@@ -776,18 +783,23 @@ impl SystemSend {
     }
 }
 
-/// An enum to execute one of the available edit actions for the configuration
+/// An enum to execute one modification to the configuration
 ///
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum EditAction {
-    /// An action to delete an existing event
+pub enum Modification {
+    /// A modification to delete an existing event
     DeleteEvent { event_id: ItemId },
 
-    /// An action to add an event or modify an existing one
-    ModifyEvent {
-        event_pair: ItemPair,
-        event_detail: EventDetail,
+    /// A modification to add an item or modify an existing one
+    ModifyItem {
+        item_pair: ItemPair,
     },
+    
+    /// A modification to add an event or modify an existing one
+    ModifyEvent {
+        item_id: ItemId,
+        event_detail: EventDetail,
+    }
 }
 
 /// An enum to specify the type of information request
@@ -852,7 +864,7 @@ pub enum SystemUpdate {
     DebugMode(bool),
 
     /// A variant to modify the underlying configuration
-    Edit { actions: Vec<EditAction> },
+    Edit { modifications: Vec<Modification> },
 
     /// A variant that provides a new error log file for the system interface.
     ErrorLog { filepath: PathBuf },

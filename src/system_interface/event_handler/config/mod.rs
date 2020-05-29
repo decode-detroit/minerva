@@ -750,7 +750,14 @@ impl Config {
         }
     }
 
-    /// A method to modify or add an event with provided event pair and new detail.
+    /// A method to modify or add an item with provided item pair
+    ///
+    pub fn edit_item(&mut self, item_pair: &ItemPair) {
+        // Update or add the event description in the lookup
+        self.edit_description(item_pair);
+    }
+
+    /// A method to modify or add an event with provided event id and new detail.
     ///
     /// # Errors
     ///
@@ -761,21 +768,18 @@ impl Config {
     /// gracefully by notifying of errors on the update line and making no
     /// modifications to the configuration.
     ///
-    pub fn edit_event(&mut self, event_pair: &ItemPair, new_detail: &EventDetail) {
-        // Update or add the event description in the lookup
-        self.edit_description(event_pair);
-
+    pub fn edit_event(&mut self, event_id: &ItemId, new_detail: &EventDetail) {
         // If the event is in the event list, update the event detail
-        if let Some(detail) = self.events.get_mut(&event_pair.get_id()) {
+        if let Some(detail) = self.events.get_mut(&event_id) {
             // Update the detail and notify the system
             *detail = new_detail.clone();
-            update!(update &self.general_update => "Event Detail Updated: {}", event_pair.description());
+            update!(update &self.general_update => "Event Detail Updated: {}", self.get_description(&event_id));
             return;
         }
 
         // Otherwise, add the event and event detail
-        self.events.insert(event_pair.get_id(), new_detail.clone());
-        update!(update &self.general_update => "Event Detail Added: {}", event_pair.description());
+        self.events.insert(event_id.clone(), new_detail.clone());
+        update!(update &self.general_update => "Event Detail Added: {}", self.get_description(&event_id));
     }
 
     /// A method to return the event detail based on the event id.
