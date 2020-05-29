@@ -95,14 +95,13 @@ impl EditItemAbstraction {
 
         // Format the whole grid
         grid.set_hexpand(false);
-        grid.set_vexpand(false);
+        grid.set_vexpand(true);
 
         // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
-        edit_title.
         grid.attach(&edit_title, 0, 0, 1, 1);
-        
-        
+
+
         // Connect the drag destination to edit_title
         edit_title.drag_dest_set(
             gtk::DestDefaults::ALL,
@@ -111,11 +110,11 @@ impl EditItemAbstraction {
             ],
             gdk::DragAction::COPY
         );
-        
+
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
         grid.attach(&save, 1, 0, 1, 1);
-        
+
         // Set the callback function when data is recieved
         edit_title.connect_drag_data_received(clone!(system_send => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
@@ -125,7 +124,7 @@ impl EditItemAbstraction {
                     Ok(item_id) => item_id,
                     _ => return,
                 };
-                
+
                 // Refresh the current data
                 EditItemAbstraction::refresh(item_id, &system_send)
             }
@@ -143,19 +142,23 @@ impl EditItemAbstraction {
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
         ); // Should be None, None, but the compiler has difficulty inferring types
 
+        // Set the scrollable window to scroll up/down
+        edit_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+
         // Add the scrollable window to the grid
         grid.attach(&edit_window, 0, 2, 2, 1);
 
         // Create the grid that sits inside the scrollable window
         let edit_grid = gtk::Grid::new();
 
-        // Add the edit grid as a child of the scrollabel window
+        // Add the edit grid as a child of the scrollable window
         edit_window.add(&edit_grid);
 
         // Format the scrolling window
         edit_window.set_hexpand(true);
         edit_window.set_vexpand(true);
-        edit_window.set_size_request(100, 100);
+        edit_window.set_halign(gtk::Align::Fill);
+        edit_window.set_valign(gtk::Align::Fill);
 
         // Create the edit overview and add it to the edit grid
         let edit_overview = EditOverview::new();
