@@ -27,7 +27,7 @@ use self::edit_action::EditAction;
 use super::super::super::system_interface::{
     DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EventAction,
     EventDetail, Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
-    LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType, 
+    LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType,
     StatusDetail, SystemSend,
 };
 use super::super::utils::{clean_text, decorate_label};
@@ -99,7 +99,7 @@ impl EditItemAbstraction {
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
         edit_title.set_size_request(-1, 30);
         grid.attach(&edit_title, 0, 0, 1, 1);
-        
+
         // Connect the drag destination to edit_title
         edit_title.drag_dest_set(
             gtk::DestDefaults::ALL,
@@ -108,7 +108,7 @@ impl EditItemAbstraction {
             ],
             gdk::DragAction::COPY
         );
-        
+
         // Set the callback function when data is recieved
         let current_id = Rc::new(RefCell::new(None));
         edit_title.connect_drag_data_received(clone!(system_send, current_id => move |_, _, _, _, selection_data, _, _| {
@@ -119,12 +119,12 @@ impl EditItemAbstraction {
                     Ok(item_id) => item_id,
                     _ => return,
                 };
-                
+
                 // Try to update the current id
                 if let Ok(mut current_id) = current_id.try_borrow_mut() {
                     *current_id = Some(item_id);
                 }
-                
+
                 // Refresh the current data
                 EditItemAbstraction::refresh(item_id, &system_send)
             }
@@ -173,11 +173,11 @@ impl EditItemAbstraction {
         // Create the edit detail and add it to the grid
         let edit_detail = EditDetail::new(system_send);
         edit_grid.attach(edit_detail.get_top_element(), 0, 2, 2, 1);
-        
+
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
         grid.attach(&save, 1, 0, 1, 1);
-        
+
         // Connect the save button click callback
         let edit_overview = Rc::new(RefCell::new(edit_overview));
         let edit_detail = Rc::new(RefCell::new(edit_detail));
@@ -187,37 +187,37 @@ impl EditItemAbstraction {
                 Ok(id) => id,
                 _ => return,
             };
-            
+
             // Try to borrow the edit overview
             let overview = match edit_overview.try_borrow() {
                 Ok(overview) => overview,
                 _ => return,
             };
-            
+
             // Try to borrow the edit detail
             let detail = match edit_detail.try_borrow() {
                 Ok(detail) => detail,
                 _ => return,
             };
-            
+
             // Check to make sure there is a current id
             let item_id = match *current_id {
                 Some(id) => id,
                 _ => return, // FIXME warn the user
             };
-            
+
             // Collect the information and save it
             let item_pair = ItemPair::from_item(item_id, overview.pack_description());
             let mut modifications = vec!(Modification::ModifyItem { item_pair });
-            
+
             // If the detail was provided, update it
             if let Some(event_detail) = detail.pack_detail() {
                 modifications.push(Modification::ModifyEvent { item_id, event_detail });
             }
-            
+
             // Save the edit to the configuration
             system_send.send(Edit { modifications });
-            
+
             // Refresh from the underlying data (will process after the save)
             EditItemAbstraction::refresh(item_id, &system_send);
         }));
@@ -383,6 +383,32 @@ impl EditOverview {
         let group_label = gtk::Label::new(None);
         group_label.set_markup("Group Number:");
         let group = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+
+        // Set up the spin button to receive a dropped event id
+        group.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        group.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to a ItemId
+                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_id) => item_id,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_id.id() as f64);
+            }
+        });
+
+        // Connect the checkbox callback function to change label text
         group_checkbox.connect_toggled(clone!(group_label => move | checkbox | {
             // Strikethrough the text when checkbox is selected
             if checkbox.get_active() {
@@ -468,6 +494,54 @@ impl EditOverview {
                 state_label.set_markup("<s>State Number:</s>");
             }
         }));
+
+        // Set up the hightlight status spin button to receive a dropped event id
+        highstate_status.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        highstate_status.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to a ItemId
+                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_id) => item_id,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_id.id() as f64);
+            }
+        });
+
+        // Set up the hightlight state spin button to receive a dropped event id
+        highstate_state.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        highstate_state.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to a ItemId
+                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_id) => item_id,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_id.id() as f64);
+            }
+        });
 
         // Compose the display grid
         let display_grid = gtk::Grid::new();
@@ -1166,12 +1240,12 @@ impl EditDetail {
     // A method to pack the listed actions into an event detail
     //
     fn pack_detail(&self) -> Option<EventDetail> {
-        
+
         // If the checkbox was not selected, return None
         if !self.detail_checkbox.get_active() {
             return None;
         }
-        
+
         // Access the current event detail
         match self.event_actions.try_borrow_mut() {
             // Return the current event detail, composed as a vector
