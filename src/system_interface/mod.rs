@@ -413,7 +413,7 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_items(),
+                        handler.get_events(),
                         handler,
                         self.is_debug_mode,
                     );
@@ -460,6 +460,20 @@ impl SystemInterface {
                                 .send(Reply {
                                     reply_to, // echo the display component
                                     reply: ReplyType::Detail { event_detail },
+                                })
+                                .unwrap_or(());
+                        }
+                        
+                        // Reply to a request for all the configuration items
+                        RequestType::Items => {
+                            // Collect all the items from the configuration
+                            let items = handler.get_items();
+                            
+                            // Send it back to the user interface
+                            self.interface_send
+                                .send(Reply {
+                                    reply_to,
+                                    reply: ReplyType::Items { items },
                                 })
                                 .unwrap_or(());
                         }
@@ -811,6 +825,9 @@ pub enum RequestType {
 
     /// A variant for the detail of an event
     Detail { item_id: ItemId },
+    
+    /// A variant for the list of all items
+    Items,
 
     /// A variant for the status associated with an item
     Status { item_id: ItemId },
@@ -819,14 +836,17 @@ pub enum RequestType {
 /// An enum to specify which display component has requested the information
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DisplayComponent {
-    /// A variant for the trigger dialog
-    TriggerDialog,
-
     /// A variant for the edit item window
     EditItemOverview,
 
     /// A variant for the edit action element
     EditAction,
+    
+    /// A variant for the item list panel
+    ItemList,
+    
+    /// A variant for the trigger dialog
+    TriggerDialog,
 }
 
 /// An enum to provide updates from the main thread to the system interface,
@@ -981,6 +1001,9 @@ pub enum ReplyType {
 
     /// A variant for the detail of an event
     Detail { event_detail: Option<EventDetail> },
+    
+    /// A variant for the list of item pairs
+    Items { items: Vec<ItemPair> },
 
     /// A variant for the status associated with an item
     Status { status_detail: Option<StatusDetail> },

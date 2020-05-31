@@ -507,6 +507,19 @@ impl Config {
         scenes
     }
 
+    /// A method to return an itempair of all items available in the lookup.
+    ///
+    pub fn get_items(&self) -> Vec<ItemPair> {
+        // Create an empty items vector
+        let mut items = Vec::new();
+        for (item, description) in self.lookup.iter() {
+            items.push(ItemPair::from_item(item.clone(), description.clone()));
+        }
+
+        // Return the result
+        items
+    }
+
     /// A method to return an itempair of all available events and statuses
     /// in the current scene. This method will always return the items from
     /// lowest to highest id.
@@ -520,7 +533,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_items(&self) -> Vec<ItemPair> {
+    pub fn get_events(&self) -> Vec<ItemPair> {
         // Create an empty events vector
         let mut items = Vec::new();
 
@@ -862,10 +875,7 @@ impl Config {
     ///
     pub fn to_config(&self, mut config_file: &File) {
         // Convert the configuration to YamlConfig
-        let mut lookup = Vec::new();
-        for (item, name) in self.lookup.iter() {
-            lookup.push(ItemPair::from_item(item.clone(), name.clone()));
-        }
+        let lookup = self.get_items();
 
         // Assemble the event set from the events and lookup
         let mut event_set = FnvHashMap::default();
