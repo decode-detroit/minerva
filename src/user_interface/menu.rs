@@ -346,7 +346,7 @@ impl MenuAbstraction {
 
         // Create the save game configuration action
         let save_config = gio::SimpleAction::new("save_config", None);
-        save_config.connect_activate(clone!(window, system_send, interface_send, edit => move |_, _| {
+        save_config.connect_activate(clone!(window, system_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {

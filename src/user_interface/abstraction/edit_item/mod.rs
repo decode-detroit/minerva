@@ -30,8 +30,6 @@ use super::super::super::system_interface::{
     LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType,
     StatusDetail, SystemSend,
 };
-use super::super::utils::{clean_text, decorate_label};
-use super::NORMAL_FONT;
 
 // Import standard library features
 use std::cell::RefCell;
@@ -51,11 +49,6 @@ extern crate gio;
 extern crate glib;
 extern crate gtk;
 use self::gtk::prelude::*;
-
-// Define and import constants
-const STATE_LIMIT: usize = 20; // maximum character width of states
-const DESCRIPTION_LIMIT: usize = 40; // shortcut event descriptions character limit
-const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
 
 /// A structure to contain the the item editing funcitonality.
 ///
