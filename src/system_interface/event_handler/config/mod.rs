@@ -515,6 +515,9 @@ impl Config {
         for (item, description) in self.lookup.iter() {
             items.push(ItemPair::from_item(item.clone(), description.clone()));
         }
+        
+        // Sort the items by item id
+        items.sort_unstable();
 
         // Return the result
         items
