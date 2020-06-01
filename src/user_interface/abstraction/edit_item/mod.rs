@@ -21,9 +21,11 @@
 
 // Define private submodules
 mod edit_action;
+mod edit_scene;
 
 // Import the relevant structures into the correct namespace
 use self::edit_action::EditAction;
+use self::edit_scene::EditScene;
 use super::super::super::system_interface::{
     DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EventAction,
     EventDetail, Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
@@ -68,9 +70,10 @@ pub struct EditItemAbstraction {
     system_send: SystemSend,                       // a copy of the system send line
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
     current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
+    item_list: ItemList,                           // the item list section of the window
     edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section of the window
     edit_detail: Rc<RefCell<EditDetail>>,          // the wrapped edit detail section of the window
-    item_list: ItemList,                           // the item list section of the window
+    edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section of the window
 }
 
 // Implement key features for the EditItemAbstration
@@ -113,6 +116,13 @@ impl EditItemAbstraction {
         // Add the item list to the grid on the left
         grid.attach(item_list.get_top_element(), 0, 2, 1, 2);
 
+        // Create the grid that holds all the edit item options
+        let edit_grid = gtk::Grid::new();
+
+        // Create the edit scene window and attach it to the edit grid
+        let edit_scene = EditScene::new(system_send);
+        edit_grid.attach(edit_scene.get_top_element(), 1, 3, 2, 1);
+
         // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
         edit_title.set_size_request(-1, 30);
@@ -127,9 +137,12 @@ impl EditItemAbstraction {
             gdk::DragAction::COPY
         );
 
-        // Set the callback function when data is recieved
+        // Wrap the edit scene window
+        let edit_scene = Rc::new(RefCell::new(edit_scene));
+
+        // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
-        edit_title.connect_drag_data_received(clone!(system_send, current_id => move |_, _, _, _, selection_data, _, _| {
+        edit_title.connect_drag_data_received(clone!(system_send, current_id, edit_scene => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -142,6 +155,12 @@ impl EditItemAbstraction {
                 if let Ok(mut current_id) = current_id.try_borrow_mut() {
                     *current_id = Some(item_pair.get_id());
                 }
+
+                // Borrow, unwrap, and pass the current id to the edit scene window
+                let scene = match edit_scene.try_borrow_mut() {
+                    Ok(mut scene) => scene.set_current_id(current_id.clone()),
+                    _ => return,
+                };
 
                 // Refresh the current data
                 EditItemAbstraction::refresh(item_pair.get_id(), &system_send)
@@ -166,9 +185,6 @@ impl EditItemAbstraction {
         // Add the scrollable window to the grid
         grid.attach(&edit_window, 1, 2, 2, 1);
 
-        // Create the grid that sits inside the scrollable window
-        let edit_grid = gtk::Grid::new();
-
         // Add the edit grid as a child of the scrollable window
         edit_window.add(&edit_grid);
 
@@ -191,6 +207,7 @@ impl EditItemAbstraction {
         // Create the edit detail and add it to the grid
         let edit_detail = EditDetail::new(system_send);
         edit_grid.attach(edit_detail.get_top_element(), 1, 2, 2, 1);
+
 
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
@@ -240,7 +257,11 @@ impl EditItemAbstraction {
             EditItemAbstraction::refresh(item_id, &system_send);
         }));
 
+
+
+
         // Add some space on all the sides and show the components
+        grid.set_column_spacing(100); // Add some space between the left and right
         grid.set_margin_top(10);
         grid.set_margin_bottom(10);
         grid.set_margin_start(10);
@@ -252,9 +273,10 @@ impl EditItemAbstraction {
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
             current_id,
+            item_list,
             edit_overview,
             edit_detail,
-            item_list,
+            edit_scene,
         }
     }
 
@@ -336,6 +358,15 @@ impl EditItemAbstraction {
             DisplayComponent::ItemList => {
                 if let ReplyType::Items { items } = reply {
                     self.item_list.update_info(items);
+                }
+            }
+
+            DisplayComponent::EditScene => {
+                if let ReplyType::Events { events } = reply {
+                    // Try to borrow the edit scene detail
+                    if let Ok(scene_detail) = self.edit_scene.try_borrow() {
+                        scene_detail.update_info(events);
+                    }
                 }
             }
 
