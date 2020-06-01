@@ -173,6 +173,7 @@ impl InterfaceAbstraction {
         let edit_grid = gtk::Grid::new();
         top_element.add_named(&edit_grid, "edit");
 
+
         // Set the features of the edit grid
         edit_grid.set_column_homogeneous(false); // Allow everything to adjust
         edit_grid.set_row_homogeneous(false);
@@ -183,45 +184,7 @@ impl InterfaceAbstraction {
         edit_grid.set_margin_start(10);
         edit_grid.set_margin_end(10);
 
-        // Create a grid to hold the button and label
-        let drag_test = gtk::Grid::new();
-
-        // Configure button as drag source for text
-        let drag_button = gtk::Button::new_with_label("Drag here");
-        let targets = vec![
-            gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-        ];
-        drag_button.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &targets,
-            gdk::DragAction::COPY,
-        );
-        drag_button.connect_drag_data_get(|_, _, selection_data, _, _| {
-            if let Ok(data) = serde_yaml::to_string(&ItemId::new_unchecked(31)) {
-                selection_data.set_text(data.as_str());
-            }
-        });
-        
-        // Configure button as drag source for text
-        let drag_button2 = gtk::Button::new_with_label("Drag here");
-        drag_button2.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &targets,
-            gdk::DragAction::COPY,
-        );
-        drag_button2.connect_drag_data_get(|_, _, selection_data, _, _| {
-            if let Ok(data) = serde_yaml::to_string(&ItemId::new_unchecked(7)) {
-                selection_data.set_text(data.as_str());
-            }
-        });
-
-        // Attach the button and label FIXME
-        drag_test.attach(&drag_button, 0, 0, 1, 1);
-        drag_test.attach(&drag_button2, 0, 1, 1, 1);
-        edit_grid.attach(&drag_test, 0, 0, 1, 1);
-
-
-        // Create the edit item abstraction and add it on the right
+        // Create the edit item abstraction and add it to the user interface
         let edit_item = EditItemAbstraction::new(system_send, interface_send);
         edit_grid.attach(edit_item.get_top_element(), 1, 0, 1, 1);
 

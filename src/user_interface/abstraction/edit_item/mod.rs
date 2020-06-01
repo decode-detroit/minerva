@@ -70,6 +70,7 @@ pub struct EditItemAbstraction {
     current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
     edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section of the window
     edit_detail: Rc<RefCell<EditDetail>>,          // the wrapped edit detail section of the window
+    item_list: ItemList,                           // the item list section of the window
 }
 
 // Implement key features for the EditItemAbstration
@@ -95,10 +96,27 @@ impl EditItemAbstraction {
         grid.set_hexpand(false);
         grid.set_vexpand(true);
 
+
+        // Create the item list title and attach it to the grid
+        let grid_title = gtk::Label::new(Some("All Items"));
+        grid.attach(&grid_title, 0, 0, 1, 1);
+
+        // Add the top separator for the item list
+        let items_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+        items_separator.set_halign(gtk::Align::Fill);
+        items_separator.set_hexpand(true);
+        grid.attach(&items_separator, 0, 1, 1, 1);
+
+        // Create the item list that holds the buttons with all item data
+        let item_list = ItemList::new(system_send);
+
+        // Add the item list to the grid on the left
+        grid.attach(item_list.get_top_element(), 0, 2, 1, 2);
+
         // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
         edit_title.set_size_request(-1, 30);
-        grid.attach(&edit_title, 0, 0, 1, 1);
+        grid.attach(&edit_title, 1, 0, 1, 1);
 
         // Connect the drag destination to edit_title
         edit_title.drag_dest_set(
@@ -114,19 +132,19 @@ impl EditItemAbstraction {
         edit_title.connect_drag_data_received(clone!(system_send, current_id => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to a ItemId
-                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_id) => item_id,
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
                     _ => return,
                 };
 
                 // Try to update the current id
                 if let Ok(mut current_id) = current_id.try_borrow_mut() {
-                    *current_id = Some(item_id);
+                    *current_id = Some(item_pair.get_id());
                 }
 
                 // Refresh the current data
-                EditItemAbstraction::refresh(item_id, &system_send)
+                EditItemAbstraction::refresh(item_pair.get_id(), &system_send)
             }
         }));
 
@@ -134,7 +152,7 @@ impl EditItemAbstraction {
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
-        grid.attach(&separator, 0, 1, 2, 1);
+        grid.attach(&separator, 1, 1, 2, 1);
 
         // Create the scrollable window for the edit item fields
         let edit_window = gtk::ScrolledWindow::new(
@@ -146,7 +164,7 @@ impl EditItemAbstraction {
         edit_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
         // Add the scrollable window to the grid
-        grid.attach(&edit_window, 0, 2, 2, 1);
+        grid.attach(&edit_window, 1, 2, 2, 1);
 
         // Create the grid that sits inside the scrollable window
         let edit_grid = gtk::Grid::new();
@@ -162,21 +180,21 @@ impl EditItemAbstraction {
 
         // Create the edit overview and add it to the edit grid
         let edit_overview = EditOverview::new();
-        edit_grid.attach(edit_overview.get_top_element(), 0, 0, 2, 1);
+        edit_grid.attach(edit_overview.get_top_element(), 1, 0, 2, 1);
 
         // Add the event separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
-        edit_grid.attach(&separator, 0, 1, 2, 1);
+        edit_grid.attach(&separator, 1, 1, 2, 1);
 
         // Create the edit detail and add it to the grid
         let edit_detail = EditDetail::new(system_send);
-        edit_grid.attach(edit_detail.get_top_element(), 0, 2, 2, 1);
+        edit_grid.attach(edit_detail.get_top_element(), 1, 2, 2, 1);
 
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
-        grid.attach(&save, 1, 0, 1, 1);
+        grid.attach(&save, 2, 0, 1, 1);
 
         // Connect the save button click callback
         let edit_overview = Rc::new(RefCell::new(edit_overview));
@@ -236,6 +254,7 @@ impl EditItemAbstraction {
             current_id,
             edit_overview,
             edit_detail,
+            item_list,
         }
     }
 
@@ -314,10 +333,100 @@ impl EditItemAbstraction {
                 }
             }
 
+            DisplayComponent::ItemList => {
+                if let ReplyType::Items { items } = reply {
+                    self.item_list.update_info(items);
+                }
+            }
+
             _ => unreachable!(),
         }
     }
 }
+
+// Create a structure for listing all items
+#[derive(Clone, Debug)]
+struct ItemList {
+    grid: gtk::Grid,              // the main grid for this element
+    system_send: SystemSend,      // a copy of the system send line
+}
+
+// Implement key features of the ItemList
+impl ItemList {
+    /// A function to create a new ItemList
+    ///
+    fn new(system_send: &SystemSend,) -> ItemList {
+        // Get all items in the configuration
+        system_send.send(Request {
+            reply_to: DisplayComponent::ItemList,
+            request: RequestType::Items,
+        });
+
+        // Add the top-level grid
+        let grid = gtk::Grid::new();
+
+        ItemList {
+            grid,
+            system_send: system_send.clone(),
+        }
+    }
+
+    /// A method to make a button for each item in the configuration file
+    ///
+    fn update_info(&self, items: Vec<ItemPair>) {
+        // Create the scrolling window that contains the list box
+        let items_scroll = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
+        items_scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+
+        // Format the scrolling window and attach it to the grid
+        items_scroll.set_hexpand(true);
+        items_scroll.set_vexpand(true);
+        items_scroll.set_halign(gtk::Align::Fill);
+        items_scroll.set_valign(gtk::Align::Fill);
+        self.grid.attach(&items_scroll, 0, 1, 1, 1);
+
+        // Create the list box to hold the buttons with the item data and add it to the scrolling window
+        let items_list_box = gtk::ListBox::new();
+        items_scroll.add(&items_list_box);
+
+        // Iterate through the item pairs in the items vector
+        for item_pair in items {
+            // Create the button to hold the data
+            let item_button = gtk::Button::new_with_label(&item_pair.description());
+
+            // Make the button a drag source
+            item_button.drag_source_set(
+                gdk::ModifierType::MODIFIER_MASK,
+                &vec![
+                    gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
+                ],
+                gdk::DragAction::COPY,
+            );
+
+            // Serialize the item pair data
+            item_button.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                    selection_data.set_text(data.as_str());
+                }
+            }));
+
+            // Add the button to the list box
+            items_list_box.add(&item_button);
+        }
+        // Show all the buttons in the grid
+        self.grid.show_all();
+    }
+
+    // A method to return the top element
+    //
+    fn get_top_element(&self) -> &gtk::Grid {
+        &self.grid
+    }
+}
+
 
 // Create a structure for editing the item description of the item
 #[derive(Clone, Debug)]
@@ -397,14 +506,14 @@ impl EditOverview {
         group.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to a ItemId
-                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_id) => item_id,
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
                     _ => return,
                 };
 
                 // Update the current spin button value
-                widget.set_value(item_id.id() as f64);
+                widget.set_value(item_pair.id() as f64);
             }
         });
 
@@ -508,14 +617,14 @@ impl EditOverview {
         highstate_status.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to a ItemId
-                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_id) => item_id,
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
                     _ => return,
                 };
 
                 // Update the current spin button value
-                widget.set_value(item_id.id() as f64);
+                widget.set_value(item_pair.id() as f64);
             }
         });
 
@@ -532,14 +641,14 @@ impl EditOverview {
         highstate_state.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to a ItemId
-                let item_id: ItemId = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_id) => item_id,
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
                     _ => return,
                 };
 
                 // Update the current spin button value
-                widget.set_value(item_id.id() as f64);
+                widget.set_value(item_pair.id() as f64);
             }
         });
 
