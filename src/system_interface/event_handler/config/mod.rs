@@ -524,7 +524,9 @@ impl Config {
     }
 
     /// A method to return an itempair of all available events and statuses
-    /// in the current scene. This method will always return the items from
+    /// in a scene. The method takes in an option for the scene id. If None,
+    /// the method will return the itempairs for the current scene.
+    /// This method will always return the items from
     /// lowest to highest id.
     ///
     /// # Errors
@@ -536,14 +538,20 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
+    pub fn get_events(&self, scene_id: Option<ItemId>) -> Vec<ItemPair> {
         // Create an empty events vector
         let mut items = Vec::new();
 
-        // Try to open the current scene
-        if let Some(scene) = self.all_scenes.get(&self.current_scene) {
-            // Compile a list of the available items
-            let mut id_vec = Vec::new();
+        // Check if a scene id is given
+        let scene_option = match scene_id {
+            // If not, try to get the current scene
+            None => self.all_scenes.get(&self.current_scene),
+            // Otherwise, unpack the scene id
+            Some(scene_id) => self.all_scenes.get(&scene_id),
+        };
+        // Compile a list of the available items
+        let mut id_vec = Vec::new();
+        if let Some(scene) = scene_option {
             for item_id in scene.events.iter() {
                 id_vec.push(item_id);
             }

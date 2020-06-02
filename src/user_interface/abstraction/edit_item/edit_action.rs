@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, DisplayComponent, EventAction, EventDelay, ItemId,
+    DataType, DisplayComponent, EventAction, EventDelay, ItemId, ItemPair,
     Request, RequestType, StatusDetail, SystemSend,
 };
 
@@ -425,6 +425,32 @@ impl EditNewScene {
         // Add a label and spin to the grid
         let label = gtk::Label::new(Some("Scene Id"));
         let spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+
+        // Set up the spin button to receive a dropped item pair
+        spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
+
+        // Attach the label and spin button
         grid.attach(&label, 0, 0, 1, 1);
         grid.attach(&spin, 1, 0, 1, 1);
         grid.set_column_spacing(10); // Add some space
@@ -477,6 +503,54 @@ impl EditModifyStatus {
         let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         let state_label = gtk::Label::new(Some("State Id"));
         let state_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+
+        // Set up the status spin button to receive a dropped item pair
+        status_spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        status_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
+
+        // Set up the state spin button to receive a dropped item pair
+        status_spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        state_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
 
         // Place everything into the grid
         grid.attach(&status_label, 0, 0, 1, 1);
@@ -540,6 +614,30 @@ impl EditQueueEvent {
         let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
         let millis_label = gtk::Label::new(Some("Milliseconds"));
         let millis_spin = gtk::SpinButton::new_with_range(0.0, 60000.0, 1.0);
+
+        // Set up the event spin button to receive a dropped item pair
+        event_spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
 
         // Add all the components to the event grid
         grid.attach(&event_label, 0, 0, 1, 1);
@@ -630,9 +728,35 @@ impl EditCancelEvent {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
-        // Add a label and spin to the grid
+        // Create the label and spin button
         let label = gtk::Label::new(Some("Event Id"));
         let spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+
+        // Set up the spin button to receive a dropped item pair
+        spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
+
+        // Attach the label and spin to the grid
         grid.attach(&label, 0, 0, 1, 1);
         grid.attach(&spin, 1, 0, 1, 1);
         grid.set_column_spacing(10); // Add some space
@@ -707,6 +831,31 @@ impl EditSaveData {
         let string_label = gtk::Label::new(Some("Data:"));
         let string_entry = gtk::Entry::new();
         string_entry.set_placeholder_text(Some("Enter Data Here"));
+
+        // Set up the event spin button to receive a dropped item pair
+        event_spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
+
 
         // Connect the function to trigger when the data type changes
         data_type.connect_changed(clone!(
@@ -953,6 +1102,30 @@ impl EditSendData {
         let string_entry = gtk::Entry::new();
         string_entry.set_placeholder_text(Some("Enter Data Here"));
 
+        // Set up the event spin button to receive a dropped item pair
+        event_spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
+
         // Connect the function to trigger when the data type changes
         data_type.connect_changed(clone!(
             event_label,
@@ -1181,6 +1354,31 @@ impl EditGroupedEvent {
         let status_label = gtk::Label::new(Some("Status"));
         let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
+        // Set up the status spin button to receive a dropped item pair
+        status_spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        status_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
+
+
         // Create the scrollable window for the list
         let group_window = gtk::ScrolledWindow::new(
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
@@ -1313,6 +1511,30 @@ impl EditGroupedEvent {
         let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
         event_spin.set_size_request(100, 30);
         event_spin.set_hexpand(false);
+
+        // Set up the event spin button to receive a dropped item pair
+        event_spin.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current spin button value
+                widget.set_value(item_pair.id() as f64);
+            }
+        });
 
         // Update the database whenever the event is changed
         event_spin.connect_changed(clone!(grouped_events, state_id => move |spin| {

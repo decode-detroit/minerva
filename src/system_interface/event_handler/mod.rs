@@ -302,7 +302,7 @@ impl EventHandler {
         // Return a list of available items in the current scene
         self.config.get_items()
     }
-    
+
     /// A method to return an itempair of all available events in the current
     /// scene. This method will always return the items from lowest to
     /// highest id.
@@ -316,9 +316,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
+    pub fn get_events(&self, scene_id: Option<ItemId>) -> Vec<ItemPair> {
         // Return a list of available items in the current scene
-        self.config.get_events()
+        self.config.get_events(scene_id)
     }
 
     /// A method to return an key map for the current scene, with all items

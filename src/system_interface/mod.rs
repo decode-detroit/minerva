@@ -333,7 +333,7 @@ impl SystemInterface {
                             } => {
                                 handler.edit_item(&item_pair);
                             }
-                            
+
                             // Add or modify the event
                             Modification::ModifyEvent {
                                 item_id,
@@ -413,7 +413,7 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events(),
+                        handler.get_events(None),
                         handler,
                         self.is_debug_mode,
                     );
@@ -463,12 +463,12 @@ impl SystemInterface {
                                 })
                                 .unwrap_or(());
                         }
-                        
+
                         // Reply to a request for all the configuration items
                         RequestType::Items => {
                             // Collect all the items from the configuration
                             let items = handler.get_items();
-                            
+
                             // Send it back to the user interface
                             self.interface_send
                                 .send(Reply {
@@ -478,6 +478,19 @@ impl SystemInterface {
                                 .unwrap_or(());
                         }
 
+                        // Reply to a request for all the events in a scene
+                        RequestType::Events { scene_id } => {
+                            // Collect all the items from the configuration
+                            let events = handler.get_events(Some(scene_id));
+
+                            // Send it back to the user interface
+                            self.interface_send
+                                .send(Reply {
+                                    reply_to,
+                                    reply: ReplyType::Events { events },
+                                })
+                                .unwrap_or(());
+                        }
                         // Reply to a request for the status detail
                         RequestType::Status { item_id } => {
                             // Try to get the event detail
@@ -808,7 +821,7 @@ pub enum Modification {
     ModifyItem {
         item_pair: ItemPair,
     },
-    
+
     /// A modification to add an event or modify an existing one
     ModifyEvent {
         item_id: ItemId,
@@ -825,9 +838,12 @@ pub enum RequestType {
 
     /// A variant for the detail of an event
     Detail { item_id: ItemId },
-    
+
     /// A variant for the list of all items
     Items,
+
+    /// A variant for the list of all events in a scene
+    Events { scene_id: ItemId },
 
     /// A variant for the status associated with an item
     Status { item_id: ItemId },
@@ -841,10 +857,13 @@ pub enum DisplayComponent {
 
     /// A variant for the edit action element
     EditAction,
-    
+
     /// A variant for the item list panel
     ItemList,
-    
+
+    /// A variant for the edit scene element
+    EditScene,
+
     /// A variant for the trigger dialog
     TriggerDialog,
 }
@@ -1001,9 +1020,12 @@ pub enum ReplyType {
 
     /// A variant for the detail of an event
     Detail { event_detail: Option<EventDetail> },
-    
+
     /// A variant for the list of item pairs
     Items { items: Vec<ItemPair> },
+
+    /// A variant for the list of events in a scene
+    Events { events: Vec<ItemPair> },
 
     /// A variant for the status associated with an item
     Status { status_detail: Option<StatusDetail> },
