@@ -24,7 +24,6 @@ use super::super::super::super::system_interface::{
     DataType, DisplayComponent, ItemId, ItemPair, Request, RequestType, SystemSend,
 };
 use super::super::super::utils::{clean_text, decorate_label};
-use super::NORMAL_FONT;
 
 // Import standard library features
 use std::cell::RefCell;

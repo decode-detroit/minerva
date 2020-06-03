@@ -549,6 +549,7 @@ impl Config {
             // Otherwise, unpack the scene id
             Some(scene_id) => self.all_scenes.get(&scene_id),
         };
+        
         // Compile a list of the available items
         let mut id_vec = Vec::new();
         if let Some(scene) = scene_option {

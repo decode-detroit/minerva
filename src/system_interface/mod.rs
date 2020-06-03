@@ -413,7 +413,7 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events(None),
+                        handler.get_events(None), // use the current scene
                         handler,
                         self.is_debug_mode,
                     );
