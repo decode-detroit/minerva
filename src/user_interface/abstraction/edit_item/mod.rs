@@ -151,7 +151,7 @@ impl EditItemAbstraction {
 
                 // Borrow, unwrap, and pass the current id to the edit scene window
                 let scene = match edit_scene.try_borrow_mut() {
-                    Ok(mut scene) => scene.set_current_id(current_id.clone()),
+                    Ok(mut scene) => scene.load_info(current_id.clone()),
                     _ => return,
                 };
 
@@ -355,10 +355,10 @@ impl EditItemAbstraction {
             }
 
             DisplayComponent::EditScene => {
-                if let ReplyType::Events { events } = reply {
+                if let ReplyType::Scene { scene } = reply {
                     // Try to borrow the edit scene detail
                     if let Ok(scene_detail) = self.edit_scene.try_borrow() {
-                        scene_detail.update_info(events);
+                        scene_detail.update_info(scene);
                     }
                 }
             }
