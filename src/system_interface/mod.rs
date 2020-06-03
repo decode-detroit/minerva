@@ -27,7 +27,7 @@ pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
     ItemPair, LabelControl, LabelHidden,
 };
-pub use self::event_handler::{FullStatus, KeyMap, StatusDescription, StatusDetail};
+pub use self::event_handler::{DescriptiveScene, FullStatus, KeyMap, StatusDescription, StatusDetail};
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 
 // Define private submodules
@@ -413,7 +413,7 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events(None),
+                        handler.get_events(),
                         handler,
                         self.is_debug_mode,
                     );
@@ -479,15 +479,15 @@ impl SystemInterface {
                         }
 
                         // Reply to a request for all the events in a scene
-                        RequestType::Events { scene_id } => {
+                        RequestType::Scene { item_id } => {
                             // Collect all the items from the configuration
-                            let events = handler.get_events(Some(scene_id));
+                            let scene = handler.get_scene(item_id);
 
                             // Send it back to the user interface
                             self.interface_send
                                 .send(Reply {
                                     reply_to,
-                                    reply: ReplyType::Events { events },
+                                    reply: ReplyType::Scene { scene },
                                 })
                                 .unwrap_or(());
                         }
@@ -843,7 +843,7 @@ pub enum RequestType {
     Items,
 
     /// A variant for the list of all events in a scene
-    Events { scene_id: ItemId },
+    Scene { item_id: ItemId },
 
     /// A variant for the status associated with an item
     Status { item_id: ItemId },
@@ -1025,7 +1025,7 @@ pub enum ReplyType {
     Items { items: Vec<ItemPair> },
 
     /// A variant for the list of events in a scene
-    Events { events: Vec<ItemPair> },
+    Scene { scene: Option<DescriptiveScene> },
 
     /// A variant for the status associated with an item
     Status { status_detail: Option<StatusDetail> },

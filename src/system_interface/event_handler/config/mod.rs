@@ -65,10 +65,18 @@ pub type KeyMap = FnvHashMap<u32, ItemPair>;
 
 /// A structure to define the parameters of a scene
 ///
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Scene {
     pub events: FnvHashSet<ItemId>, // hash set of the events in this scene
     pub key_map: Option<KeyMapId>,  // an optional mapping of key codes to events
+}
+
+/// A structure to define the parameters of a scene, storing the ItemPairs
+/// as opposed to only ItemIds
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub struct DescriptiveScene {
+    pub events: Vec<ItemPair>,                     // a vector of the events and descriptions in this scene
+    pub key_map: Option<FnvHashMap<ItemId, u32>>,  // an optional mapping of event ids to key codes
 }
 
 /// A struct to define the elements of a background process
@@ -507,6 +515,62 @@ impl Config {
         scenes
     }
 
+
+    /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
+    /// the method returns the scene. Otherwise, it returns None.
+    ///
+    pub fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+        // Check if the given item id corresponds to a scene
+        match self.all_scenes.get(&item_id) {
+            // If it doesn't correspond to a scene, return none
+            None => None,
+
+            // If it does match, get the items and optional key map
+            Some(scene_id) => {
+                // Create an empty events vector
+                let mut items = Vec::new();
+
+                // Compile a list of the available items
+                let mut id_vec = Vec::new();
+                for item_id in scene_id.events.iter() {
+                    id_vec.push(item_id);
+                }
+
+                // Sort them in order and then pair them with their descriptions
+                id_vec.sort_unstable();
+                for item_id in id_vec {
+                    // Get the item description
+                    let description = self.get_description(&item_id);
+
+                    // Combine the item id and description
+                    items.push(ItemPair::from_item(item_id.clone(), description));
+                }
+
+                match &scene_id.key_map {
+                    // If the key map exists, reverse it
+                    Some(key_map) => {
+                        // Create an empty key map
+                        let mut map = FnvHashMap::default();
+
+                        // Iterate through the key map for this scene
+                        for (key, id) in key_map.iter() {
+                            // Get the item description
+                            let description = self.get_description(&id);
+
+                            // Combine the item id and description
+                            map.insert(id.clone(), key.clone());
+                        }
+                        // Return the Scene with the reversed key map
+                        Some(DescriptiveScene { events: items, key_map: Some(map) })
+                    }
+
+                    // Otherwise, return the DescriptiveScene with no key map
+                    None => Some(DescriptiveScene { events: items, key_map: None })
+                }
+            }
+        }
+    }
+
     /// A method to return an itempair of all items available in the lookup.
     ///
     pub fn get_items(&self) -> Vec<ItemPair> {
@@ -531,24 +595,14 @@ impl Config {
     /// This method will raise an error if one of the item ids was not found in
     /// lookup. This indicates that the configuration file is incomplete.
     ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that item.
-    ///
-    pub fn get_events(&self, scene_id: Option<ItemId>) -> Vec<ItemPair> {
+    pub fn get_events(&self) -> Vec<ItemPair> {
         // Create an empty events vector
         let mut items = Vec::new();
 
-        // Check if a scene id is given
-        let scene_option = match scene_id {
-            // If not, try to get the current scene
-            None => self.all_scenes.get(&self.current_scene),
-            // Otherwise, unpack the scene id
-            Some(scene_id) => self.all_scenes.get(&scene_id),
-        };
-        // Compile a list of the available items
-        let mut id_vec = Vec::new();
-        if let Some(scene) = scene_option {
+        // Try to open the current scene
+        if let Some(scene) = self.all_scenes.get(&self.current_scene) {
+            // Compile a list of the available items
+            let mut id_vec = Vec::new();
             for item_id in scene.events.iter() {
                 id_vec.push(item_id);
             }

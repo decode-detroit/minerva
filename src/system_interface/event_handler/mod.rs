@@ -22,7 +22,7 @@
 //! of the program.
 
 // Reexport the key structures and types
-pub use self::config::{FullStatus, KeyMap, StatusDescription, StatusDetail};
+pub use self::config::{DescriptiveScene, FullStatus, KeyMap, StatusDescription, StatusDetail};
 pub use self::queue::ComingEvent;
 
 // Define public submodules
@@ -296,6 +296,13 @@ impl EventHandler {
         self.config.get_scenes()
     }
 
+    /// A method to return a scene with available events and optional keymap, given
+    /// an item id
+    pub fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+        // Return a scene corresponding to the id, or None if none
+        self.config.get_scene(item_id)
+    }
+
     /// A method to return an itempair of all available items in the configuration.
     ///
     pub fn get_items(&self) -> Vec<ItemPair> {
@@ -316,9 +323,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_events(&self, scene_id: Option<ItemId>) -> Vec<ItemPair> {
+    pub fn get_events(&self) -> Vec<ItemPair> {
         // Return a list of available items in the current scene
-        self.config.get_events(scene_id)
+        self.config.get_events()
     }
 
     /// A method to return an key map for the current scene, with all items
