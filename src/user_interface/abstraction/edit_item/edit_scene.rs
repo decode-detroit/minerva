@@ -51,11 +51,12 @@ pub struct EditScene {
     system_send: SystemSend,                 // a reference to the system send line
     current_id: Rc<RefCell<Option<ItemId>>>, // the wrapped current item id
     events_list: gtk::ListBox,               // a list box to hold the events in the scene
-    keys_list : gtk::ListBox,                // a list box to hold the key bindings for the scene
+    events_data: Rc<RefCell<Vec<ItemPair>>>,              // a database for the events in the scene
+    keys_list: gtk::ListBox,                 // a list box to hold the key bindings for the scene
+    keys_data: Rc<RefCell<Option<FnvHashMap<u32, ItemId>>>>, // a database for the key mapping
     detail_checkbox: gtk::CheckButton,       // the button that toggles visibility of the detail
     key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>, // the active handler for setting shortcuts
     window: gtk::ApplicationWindow,         // a copy of the application window
-    events: Vec<ItemPair>,                   // a vector of the events in the scene
 }
 
 // Implement key features of the EditScene
@@ -65,8 +66,10 @@ impl EditScene {
     pub fn new(
         window: &gtk::ApplicationWindow,
         system_send: &SystemSend,
-        key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
     ) -> EditScene {
+
+        // Create the vector to hold the event data
+        let events_data = Rc::new(RefCell::new(Vec::new()));
 
         // Create the scrolling window to hold the list box of events
         let events_scroll = gtk::ScrolledWindow::new(
@@ -88,6 +91,9 @@ impl EditScene {
         // Create a label for the list of events
         let events_label = gtk::Label::new(Some("Events in the scene"));
 
+        // Create the key map that will hold the key binding data
+        let keys_data = Rc::new(RefCell::new(None));
+
         // Create a scrolling window to hold the list box of key bindings
         let keys_scroll = gtk::ScrolledWindow::new(
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
@@ -108,10 +114,14 @@ impl EditScene {
         // Create a button to make a new key binding
         let add_key = gtk::Button::new_with_label("Add key binding");
 
+        //Create the wrapped key press handler
+        let key_press_handler = Rc::new(RefCell::new(None));
+
         // When the button is clicked, add a new keybinding button
-        add_key.connect_clicked(clone!(keys_list, window, key_press_handler => move |_| {
+        add_key.connect_clicked(clone!(keys_list, keys_data, window, key_press_handler => move |_| {
             EditScene::add_keybinding(
                 &keys_list,
+                keys_data.clone(),
                 None, // No default keybinding
                 None, // No default event
                 key_press_handler.clone(),
@@ -132,7 +142,13 @@ impl EditScene {
         );
 
         // Set the callback function when data is received
-        events_list.connect_drag_data_received(clone!(keys_list, window, key_press_handler => move |widget, _, _, _, selection_data, _, _| {
+        events_list.connect_drag_data_received(clone!(
+            events_data,
+            keys_list,
+            keys_data,
+            window,
+            key_press_handler =>
+        move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -144,7 +160,9 @@ impl EditScene {
                 // Add the event to the appropriate lists (without a keybinding)
                 EditScene::add_event(
                     &widget,
+                    events_data.clone(),
                     &keys_list,
+                    keys_data.clone(),
                     &item_pair,
                     None,
                     key_press_handler.clone(),
@@ -166,9 +184,6 @@ impl EditScene {
                 events_scroll.hide();
             }
         }));
-
-        // Create an empty vector to hold the events in the Scene
-        let events = Vec::new();
 
         // Create a grid to hold the events and keyboard shortcuts
         let grid = gtk::Grid::new();
@@ -199,11 +214,12 @@ impl EditScene {
             system_send: system_send.clone(),
             current_id: Rc::new(RefCell::new(None)),
             events_list,
+            events_data,
             keys_list,
+            keys_data,
             detail_checkbox,
             key_press_handler,
             window: window.clone(),
-            events,
         }
     }
 
@@ -226,7 +242,9 @@ impl EditScene {
                         // If so, add the event with the binding
                         Some(keymap) => EditScene::add_event(
                             &self.events_list,
+                            self.events_data.clone(),
                             &self.keys_list,
+                            self.keys_data.clone(),
                             &item_pair,
                             keymap.get(&item_pair.get_id()),
                             self.key_press_handler.clone(),
@@ -236,7 +254,9 @@ impl EditScene {
 
                         None => EditScene::add_event(
                             &self.events_list,
+                            self.events_data.clone(),
                             &self.keys_list,
+                            self.keys_data.clone(),
                             &item_pair,
                             None,
                             self.key_press_handler.clone(),
@@ -277,19 +297,33 @@ impl EditScene {
     ///
     fn add_event(
         event_list: &gtk::ListBox,
+        event_data: Rc<RefCell<Vec<ItemPair>>>,
         keybinding_list: &gtk::ListBox,
+        key_data: Rc<RefCell<Option<FnvHashMap<u32, ItemId>>>>,
         event: &ItemPair,
         keybinding: Option<&u32>,
         key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
         window: &gtk::ApplicationWindow,
     ){
-        // Create a label with the event description and add it to the event list
+        // Create a label with the event description and add it to the user interface event list
         let event_description = gtk::Label::new(Some(&event.description()));
         event_list.add(&event_description);
 
+        // Add the event to the event database
+        if let Ok(mut events_database) = event_data.try_borrow_mut() {
+            events_database.push(event.clone());
+        }
+
         // If a keybinding exists, add it to the keybinding list
         if let Some(key) = keybinding {
-            EditScene::add_keybinding(keybinding_list, Some(event), Some(key),key_press_handler, window);
+            EditScene::add_keybinding(
+                keybinding_list,
+                key_data,
+                Some(event),
+                Some(key),
+                key_press_handler,
+                window
+            );
         }
     }
 
@@ -297,6 +331,7 @@ impl EditScene {
     ///
     fn add_keybinding(
         keybinding_list: &gtk::ListBox,
+        key_data: Rc<RefCell<Option<FnvHashMap<u32, ItemId>>>>, //FIXME: not updated
         event: Option<&ItemPair>,
         keybinding: Option<&u32>,
         key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,

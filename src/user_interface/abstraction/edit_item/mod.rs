@@ -67,7 +67,6 @@ pub struct EditItemAbstraction {
     edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section of the window
     edit_detail: Rc<RefCell<EditDetail>>,          // the wrapped edit detail section of the window
     edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section of the window
-    key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>, // the active handler for setting shortcuts
 }
 
 // Implement key features for the EditItemAbstration
@@ -114,25 +113,12 @@ impl EditItemAbstraction {
         // Create the grid that holds all the edit item options
         let edit_grid = gtk::Grid::new();
 
-        // Create the wrapped key press handler
-        let key_press_handler = Rc::new(RefCell::new(None));
-
         // Create the edit scene window and attach it to the edit grid
-        let edit_scene = EditScene::new(window, system_send, key_press_handler.clone());
+        let edit_scene = EditScene::new(window, system_send);
         edit_grid.attach(edit_scene.get_top_element(), 1, 3, 2, 1);
 
         // Wrap the edit scene window
         let edit_scene = Rc::new(RefCell::new(edit_scene));
-
-        // FIXME: test!
-        // Make a new test button
-        // let test_button = gtk::Button::new_with_label("Test");
-        // test_button.connect_clicked(clone!(edit_scene => move |button| {
-        //     if let Ok(mut edit_scene) = edit_scene.try_borrow_mut() {
-        //         edit_scene.register_input(&button);
-        //     }
-        // }));
-        // edit_grid.attach(&test_button, 3, 3, 1, 1);
 
         // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
@@ -285,7 +271,6 @@ impl EditItemAbstraction {
             edit_overview,
             edit_detail,
             edit_scene,
-            key_press_handler,
         }
     }
 
