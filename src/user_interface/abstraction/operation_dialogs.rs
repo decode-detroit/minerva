@@ -647,12 +647,12 @@ impl TriggerDialog {
             // Make the other two checkboxes visible
             if checkbox.get_active() {
                 broadcast_checkbox.show();
-                
+
                 // Check to make sure broadcast isn't selected
                 if !broadcast_checkbox.get_active() {
                     scene_checkbox.show();
                 }
-                
+
                 // Hide the delay inputs
                 delay_separator.hide();
                 delay_label.hide();
@@ -660,7 +660,7 @@ impl TriggerDialog {
                 seconds_label.hide();
                 minutes_spin.hide();
                 seconds_spin.hide();
-            
+
             // Make the delay options visible
             } else {
                 delay_separator.show();
@@ -669,7 +669,7 @@ impl TriggerDialog {
                 seconds_label.show();
                 minutes_spin.show();
                 seconds_spin.show();
-                
+
                 // Hide the other checkboxes
                 scene_checkbox.hide();
                 broadcast_checkbox.hide();
@@ -710,7 +710,7 @@ impl TriggerDialog {
                 // If broadcast is selected, send a broadcast event
                 } else if broadcast_checkbox.get_active() {
                     system_send.send(BroadcastEvent { event: ItemPair::new_unchecked(event_spin.get_value() as u32, "", Hidden), data: None});
-                
+
                 // Otherwise, send the event to be processed by the system
                 } else { system_send.send(ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
                 }
