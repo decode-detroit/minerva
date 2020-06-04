@@ -579,6 +579,9 @@ impl Config {
         for (item, description) in self.lookup.iter() {
             items.push(ItemPair::from_item(item.clone(), description.clone()));
         }
+        
+        // Sort the items by item id
+        items.sort_unstable();
 
         // Return the result
         items
@@ -936,9 +939,6 @@ impl Config {
     /// modifications to the file.
     ///
     pub fn to_config(&self, mut config_file: &File) {
-        // Convert the configuration to YamlConfig
-        let lookup = self.get_items();
-
         // Assemble the event set from the events and lookup
         let mut event_set = FnvHashMap::default();
         for (item_id, description) in self.lookup.iter() {

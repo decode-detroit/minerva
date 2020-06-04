@@ -24,8 +24,6 @@ use super::super::super::super::system_interface::{
     DataType, DisplayComponent, EventAction, EventDelay, ItemId, ItemPair,
     Request, RequestType, StatusDetail, SystemSend,
 };
-use super::super::super::utils::{clean_text, decorate_label};
-use super::NORMAL_FONT;
 
 // Import standard library features
 use std::cell::RefCell;
@@ -608,9 +606,6 @@ impl EditQueueEvent {
     // A function to ceate a queue event variant
     //
     fn new() -> EditQueueEvent {
-        // Create the grid for the queue event variant
-        let grid = gtk::Grid::new();
-
         // Add a labels and spins to the grid
         let grid = gtk::Grid::new();
         let event_label = gtk::Label::new(Some("Event Id"));
