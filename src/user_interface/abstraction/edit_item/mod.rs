@@ -72,6 +72,7 @@ impl EditItemAbstraction {
     /// a new copy to allow insertion into higher-level elements.
     ///
     pub fn new(
+        window: &gtk::ApplicationWindow,
         system_send: &SystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) -> EditItemAbstraction {
@@ -109,8 +110,11 @@ impl EditItemAbstraction {
         let edit_grid = gtk::Grid::new();
 
         // Create the edit scene window and attach it to the edit grid
-        let edit_scene = EditScene::new(system_send);
+        let edit_scene = EditScene::new(window, system_send);
         edit_grid.attach(edit_scene.get_top_element(), 1, 3, 2, 1);
+
+        // Wrap the edit scene window
+        let edit_scene = Rc::new(RefCell::new(edit_scene));
 
         // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
@@ -125,9 +129,6 @@ impl EditItemAbstraction {
             ],
             gdk::DragAction::COPY
         );
-
-        // Wrap the edit scene window
-        let edit_scene = Rc::new(RefCell::new(edit_scene));
 
         // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
