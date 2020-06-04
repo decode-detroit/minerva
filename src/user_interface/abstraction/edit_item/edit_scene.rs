@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, DescriptiveScene, DisplayComponent, ItemId, ItemPair, Request, RequestType, SystemSend,
+    DescriptiveScene, ItemPair, SystemSend,
 };
 use super::super::super::utils::{clean_text, decorate_label};
 
@@ -47,7 +47,6 @@ use self::gtk::GridExt;
 pub struct EditScene {
     grid: gtk::Grid,                         // a grid to hold the events
     system_send: SystemSend,                 // a reference to the system send line
-    current_id: Rc<RefCell<Option<ItemId>>>, // the wrapped current item id
     events_list: gtk::ListBox,               // a list box to hold the events in the scene
     detail_checkbox: gtk::CheckButton,       // the button that toggles visibility of the detail
     events: Vec<ItemPair>,                   // a vector of the events in the scene
@@ -148,7 +147,6 @@ impl EditScene {
         EditScene{
             grid,
             system_send: system_send.clone(),
-            current_id: Rc::new(RefCell::new(None)),
             events_list,
             detail_checkbox,
             events,
@@ -180,7 +178,7 @@ impl EditScene {
                     // Check to see if the the keymap exists
                     if let Some(keymap) = scene.key_map.clone() {
                         // Get the key with the associated item id
-                        if let Some(key) = keymap.get(&item_pair.get_id()) {
+                        if let Some(key) = keymap.get(&item_pair) {
                             // Set the value of the SpinButton to be the keyboard shortcut
                             // ASK: can the original keymaps in scenes be 2-to-1 (two keys to one item)?
                             keymap_spin.set_value(*key as f64);
@@ -204,24 +202,6 @@ impl EditScene {
             None => {
                 // Hide the scene detail by unsetting the check box
                 self.detail_checkbox.set_active(false);
-            }
-        }
-    }
-
-    /// A method to send a request to get the events in the scene when the item id changes
-    ///
-    pub fn load_info(&mut self, current_id: Rc<RefCell<Option<ItemId>>>) {
-        // Set the current id
-        self.current_id = current_id;
-
-        // Unwrap and extract the current id
-        if let Ok(scene_id) = self.current_id.try_borrow() {
-            if let Some(id) = *scene_id {
-                // Send a request for the items in the current scene
-                self.system_send.send(Request {
-                    reply_to: DisplayComponent::EditScene,
-                    request: RequestType::Scene { item_id: id, },
-                });
             }
         }
     }

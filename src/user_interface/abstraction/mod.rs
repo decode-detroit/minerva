@@ -35,8 +35,8 @@ use self::operation_dialogs::{
 };
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
-    DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair, ItemId, KeyMap, Notification, ReplyType,
-    StatusDescription, SystemSend, UpcomingEvent,
+    DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair,
+    KeyMap, Notification, ReplyType, StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
 use edit_item::EditItemAbstraction;

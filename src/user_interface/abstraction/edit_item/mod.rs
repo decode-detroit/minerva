@@ -20,27 +20,23 @@
 //! to the system interface to request and modify data in the configuration.
 
 // Define private submodules
-mod edit_action;
+mod edit_event;
 mod edit_scene;
 
 // Import the relevant structures into the correct namespace
-use self::edit_action::EditAction;
+use self::edit_event::EditEvent;
 use self::edit_scene::EditScene;
 use super::super::super::system_interface::{
-    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EventAction,
-    EventDetail, Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
+    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit,
+    Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
     LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType,
-    StatusDetail, SystemSend,
+    SystemSend,
 };
 
 // Import standard library features
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
-
-// Import FNV HashMap
-extern crate fnv;
-use self::fnv::FnvHashMap;
 
 // Import the serde_yaml library
 extern crate serde_yaml;
@@ -64,9 +60,9 @@ pub struct EditItemAbstraction {
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
     current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
     item_list: ItemList,                           // the item list section of the window
-    edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section of the window
-    edit_detail: Rc<RefCell<EditDetail>>,          // the wrapped edit detail section of the window
-    edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section of the window
+    edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section
+    edit_event: Rc<RefCell<EditEvent>>,           // the wrapped edit event section
+    edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section
 }
 
 // Implement key features for the EditItemAbstration
@@ -135,7 +131,7 @@ impl EditItemAbstraction {
 
         // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
-        edit_title.connect_drag_data_received(clone!(system_send, current_id, edit_scene => move |_, _, _, _, selection_data, _, _| {
+        edit_title.connect_drag_data_received(clone!(system_send, current_id => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -148,12 +144,6 @@ impl EditItemAbstraction {
                 if let Ok(mut current_id) = current_id.try_borrow_mut() {
                     *current_id = Some(item_pair.get_id());
                 }
-
-                // Borrow, unwrap, and pass the current id to the edit scene window
-                let scene = match edit_scene.try_borrow_mut() {
-                    Ok(mut scene) => scene.load_info(current_id.clone()),
-                    _ => return,
-                };
 
                 // Refresh the current data
                 EditItemAbstraction::refresh(item_pair.get_id(), &system_send)
@@ -198,8 +188,8 @@ impl EditItemAbstraction {
         edit_grid.attach(&separator, 1, 1, 2, 1);
 
         // Create the edit detail and add it to the grid
-        let edit_detail = EditDetail::new(system_send);
-        edit_grid.attach(edit_detail.get_top_element(), 1, 2, 2, 1);
+        let edit_event = EditEvent::new(system_send);
+        edit_grid.attach(edit_event.get_top_element(), 1, 2, 2, 1);
 
 
         // Create the save button
@@ -208,8 +198,8 @@ impl EditItemAbstraction {
 
         // Connect the save button click callback
         let edit_overview = Rc::new(RefCell::new(edit_overview));
-        let edit_detail = Rc::new(RefCell::new(edit_detail));
-        save.connect_clicked(clone!(system_send, current_id, edit_overview, edit_detail => move |_| {
+        let edit_event = Rc::new(RefCell::new(edit_event));
+        save.connect_clicked(clone!(system_send, current_id, edit_overview, edit_event => move |_| {
             // Try to borrow the the current id
             let current_id = match current_id.try_borrow() {
                 Ok(id) => id,
@@ -223,7 +213,7 @@ impl EditItemAbstraction {
             };
 
             // Try to borrow the edit detail
-            let detail = match edit_detail.try_borrow() {
+            let detail = match edit_event.try_borrow() {
                 Ok(detail) => detail,
                 _ => return,
             };
@@ -268,7 +258,7 @@ impl EditItemAbstraction {
             current_id,
             item_list,
             edit_overview,
-            edit_detail,
+            edit_event,
             edit_scene,
         }
     }
@@ -305,7 +295,11 @@ impl EditItemAbstraction {
         });
         system_send.send(Request {
             reply_to: DisplayComponent::EditItemOverview,
-            request: RequestType::Detail { item_id },
+            request: RequestType::Event { item_id },
+        });
+        system_send.send(Request {
+            reply_to: DisplayComponent::EditItemOverview,
+            request: RequestType::Scene { item_id, },
         });
     }
 
@@ -325,11 +319,18 @@ impl EditItemAbstraction {
                         }
                     }
 
-                    // The detail variant
-                    ReplyType::Detail { event_detail } => {
+                    // The event variant
+                    ReplyType::Event { event_detail } => {
                         // Try to borrow the edit detail
-                        if let Ok(detail) = self.edit_detail.try_borrow() {
-                            detail.load_detail(event_detail);
+                        if let Ok(edit_event) = self.edit_event.try_borrow() {
+                            edit_event.load_event(event_detail);
+                        }
+                    }
+                    
+                    ReplyType::Scene { scene } => {
+                        // Try to borrow the edit scene detail
+                        if let Ok(edit_scene) = self.edit_scene.try_borrow() {
+                            edit_scene.update_info(scene);
                         }
                     }
 
@@ -342,7 +343,7 @@ impl EditItemAbstraction {
             DisplayComponent::EditAction => {
                 if let ReplyType::Status { status_detail } = reply {
                     // Try to borrow the edit detail
-                    if let Ok(detail) = self.edit_detail.try_borrow() {
+                    if let Ok(detail) = self.edit_event.try_borrow() {
                         detail.update_info(status_detail);
                     }
                 }
@@ -351,15 +352,6 @@ impl EditItemAbstraction {
             DisplayComponent::ItemList => {
                 if let ReplyType::Items { items } = reply {
                     self.item_list.update_info(items);
-                }
-            }
-
-            DisplayComponent::EditScene => {
-                if let ReplyType::Scene { scene } = reply {
-                    // Try to borrow the edit scene detail
-                    if let Ok(scene_detail) = self.edit_scene.try_borrow() {
-                        scene_detail.update_info(scene);
-                    }
                 }
             }
 
@@ -1232,273 +1224,3 @@ impl EditOverview {
     }
 }
 
-// Create a structure for editing the event detail
-#[derive(Clone, Debug)]
-struct EditDetail {
-    grid: gtk::Grid,                   // the main grid for this element
-    edit_action: Rc<RefCell<EditAction>>, // a wrapped dialog to edit the current action
-    detail_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
-    event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
-    next_position: Rc<RefCell<usize>>, // the next available position in the hash map
-    action_list: gtk::ListBox,         // the visible list for event actions
-}
-
-// Implement key features for Edit Detail
-impl EditDetail {
-    // A function to create a new Edit Detail
-    //
-    fn new(system_send: &SystemSend) -> EditDetail {
-        // Create the grid
-        let grid = gtk::Grid::new();
-
-        // Construct the checkbox for the event detail
-        let detail_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
-        detail_checkbox.set_active(true);
-
-        // Create the empty event actions
-        let event_actions = Rc::new(RefCell::new(FnvHashMap::default()));
-
-        // Create the starting next position
-        let next_position = Rc::new(RefCell::new(0));
-
-        // Create the action list for the events
-        let action_list = gtk::ListBox::new();
-        action_list.set_selection_mode(gtk::SelectionMode::None);
-
-        // Create a new edit action dialog
-        let tmp_edit_action = EditAction::new(system_send, &event_actions);
-        grid.attach(tmp_edit_action.get_top_element(), 1, 1, 1, 2);
-        let edit_action = Rc::new(RefCell::new(tmp_edit_action));
-
-        // Create a button to add actions to the list
-        let add_button = gtk::Button::new_from_icon_name(
-            Some("list-add-symbolic"),
-            gtk::IconSize::Button.into(),
-        );
-        add_button.connect_clicked(
-            clone!(edit_action, event_actions, next_position, action_list => move |_| {
-                // Add an empty action to the list
-                EditDetail::add_event(&edit_action, &event_actions, &next_position, &action_list, None);
-            }),
-        );
-
-        // Create the scrollable window for the list
-        let action_window = gtk::ScrolledWindow::new(
-            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
-            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
-        ); // Should be None, None, but the compiler has difficulty inferring types
-        action_window.add(&action_list);
-        action_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
-
-        // Format the scrolling window
-        action_window.set_hexpand(true);
-        action_window.set_size_request(-1, 150);
-
-        // Connect the checkbox to the visibility of the other elements
-        detail_checkbox.connect_toggled(clone!(action_window, add_button => move | checkbox | {
-            // Make the elements invisible if the box isn't checked
-            if checkbox.get_active() {
-                action_window.show();
-                add_button.show();
-            } else {
-                action_window.hide();
-                add_button.hide();
-            }
-        }));
-
-        // Add the button below the data list
-        grid.attach(&detail_checkbox, 0, 0, 1, 1);
-        grid.attach(&action_window, 0, 1, 1, 1);
-        grid.attach(&add_button, 0, 2, 1, 1);
-        grid.set_column_spacing(10); // Add some space
-        grid.set_row_spacing(10);
-
-        // Create and return the trigger events variant
-        EditDetail {
-            grid,
-            edit_action,
-            detail_checkbox,
-            event_actions,
-            next_position,
-            action_list,
-        }
-    }
-
-    // A method to return the top element
-    //
-    fn get_top_element(&self) -> &gtk::Grid {
-        &self.grid
-    }
-
-    // A method to load an existing event detail, or no detail
-    //
-    fn load_detail(&self, event_detail: Option<EventDetail>) {
-        // See if a detail was specified
-        let mut detail = match event_detail {
-            // If a detail was specified, switch the checkbox
-            Some(detail) => {
-                self.detail_checkbox.set_active(true);
-                detail
-            }
-
-            // Otherwise, uncheck the checkbox and return
-            None => {
-                self.detail_checkbox.set_active(false);
-                return;
-            }
-        };
-
-        // Remove the existing event actions
-        if let Ok(mut actions) = self.event_actions.try_borrow_mut() {
-            actions.clear();
-        }
-
-        // Clear the existing list of actions
-        for item in self.action_list.get_children() {
-            item.destroy();
-        }
-
-        // For each event action, create a new action in the list
-        for action in detail.drain(..) {
-            EditDetail::add_event(
-                &self.edit_action,
-                &self.event_actions,
-                &self.next_position,
-                &self.action_list,
-                Some(action),
-            );
-        }
-    }
-
-    // A method to pack the listed actions into an event detail
-    //
-    fn pack_detail(&self) -> Option<EventDetail> {
-
-        // If the checkbox was not selected, return None
-        if !self.detail_checkbox.get_active() {
-            return None;
-        }
-
-        // Access the current event detail
-        match self.event_actions.try_borrow_mut() {
-            // Return the current event detail, composed as a vector
-            Ok(detail) => {
-                // Create a vector to hold the actions and a counter
-                let mut actions = Vec::new();
-                let mut count = 0;
-
-                while actions.len() < detail.len() {
-                    // Try to get each element, zero indexed
-                    if let Some(action) = detail.get(&count) {
-                        actions.push(action.clone());
-                    }
-
-                    // Increment the count
-                    count = count + 1;
-                }
-
-                // Return the completed vector
-                Some(actions)
-            }
-
-            // Unreachable
-            _ => unreachable!(),
-        }
-    }
-
-    // A method to load new information into the edit action dialog
-    //
-    fn update_info(&self, status_detail: Option<StatusDetail>) {
-        // Try to get access the edit action dialog
-        if let Ok(dialog) = self.edit_action.try_borrow() {
-            dialog.update_info(status_detail);
-        }
-    }
-
-    // A helper function to add an action to the action list
-    //
-    fn add_event(
-        edit_action: &Rc<RefCell<EditAction>>,
-        event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
-        next_position: &Rc<RefCell<usize>>,
-        action_list: &gtk::ListBox,
-        action: Option<EventAction>,
-    ) {
-        // Try to get a mutable copy of the event actions
-        let mut actions = match event_actions.try_borrow_mut() {
-            Ok(actions) => actions,
-
-            // If unable, exit immediately
-            _ => return,
-        };
-
-        // Try to get a mutable copy of the next_position
-        let position = match next_position.try_borrow_mut() {
-            Ok(mut position) => {
-                let tmp = position.clone();
-                *position = *position + 1;
-                tmp
-            }
-
-            // If unable, exit immediately
-            _ => return,
-        };
-
-        // Create and populate the information-holding label
-        let overview = gtk::Label::new(Some("Unspecified Action"));
-        if let Some(action) = action {
-            // Add a copy of the action to the detail
-            actions.insert(position, action.clone());
-
-            // Unpack the action
-            match action {
-                EventAction::NewScene { .. } => overview.set_text("New Scene"),
-                EventAction::ModifyStatus { .. } => overview.set_text("Modify Status"),
-                EventAction::QueueEvent { .. } => overview.set_text("Queue Event"),
-                EventAction::CancelEvent { .. } => overview.set_text("Cancel Event"),
-                EventAction::SaveData { .. } => overview.set_text("Save Data"),
-                EventAction::SendData { .. } => overview.set_text("Send Data"),
-                EventAction::GroupedEvent { .. } => overview.set_text("Grouped Event"),
-            }
-
-        // Default to a new scene action
-        } else {
-            actions.insert(
-                position,
-                EventAction::NewScene {
-                    new_scene: ItemId::new_unchecked(0),
-                },
-            );
-        }
-
-        // Create the list box row container
-        let row = gtk::ListBoxRow::new();
-
-        // Create the edit button
-        let edit_button = gtk::Button::new_from_icon_name(
-            Some("document-edit-symbolic"),
-            gtk::IconSize::Button.into(),
-        );
-        edit_button.connect_clicked(
-            clone!(edit_action, position, overview, row => move |_| {
-                // Try to get access to the edit action element
-                if let Ok(edit_action) = edit_action.try_borrow() {
-                    // Load the edit action element
-                    edit_action.load_action(position, &overview, &row);
-                }
-            }),
-        );
-
-        // Create the grid and add the items to the grid
-        let grid = gtk::Grid::new();
-        grid.attach(&overview, 0, 0, 1, 1);
-        grid.attach(&edit_button, 1, 0, 1, 1);
-        grid.set_column_spacing(10); // Add some space
-        grid.set_row_spacing(10);
-        row.add(&grid);
-        row.show_all();
-
-        // Add the new action to the list
-        action_list.add(&row);
-    }
-}

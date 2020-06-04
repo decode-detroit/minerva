@@ -65,7 +65,7 @@ pub type KeyMap = FnvHashMap<u32, ItemPair>;
 
 /// A structure to define the parameters of a scene
 ///
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct Scene {
     pub events: FnvHashSet<ItemId>, // hash set of the events in this scene
     pub key_map: Option<KeyMapId>,  // an optional mapping of key codes to events
@@ -75,8 +75,8 @@ pub struct Scene {
 /// as opposed to only ItemIds
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct DescriptiveScene {
-    pub events: Vec<ItemPair>,                     // a vector of the events and descriptions in this scene
-    pub key_map: Option<FnvHashMap<ItemId, u32>>,  // an optional mapping of event ids to key codes
+    pub events: Vec<ItemPair>,     // a vector of the events and descriptions in this scene
+    pub key_map: Option<FnvHashMap<ItemPair, u32>>,  // an optional mapping of event ids to key codes
 }
 
 /// A struct to define the elements of a background process
@@ -526,46 +526,34 @@ impl Config {
             None => None,
 
             // If it does match, get the items and optional key map
-            Some(scene_id) => {
-                // Create an empty events vector
-                let mut items = Vec::new();
-
-                // Compile a list of the available items
-                let mut id_vec = Vec::new();
-                for item_id in scene_id.events.iter() {
-                    id_vec.push(item_id);
+            Some(scene) => {
+                // Compile a list of the events as item pairs
+                let mut events = Vec::new();
+                for item_id in scene.events.iter() {
+                    events.push(ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
                 }
 
-                // Sort them in order and then pair them with their descriptions
-                id_vec.sort_unstable();
-                for item_id in id_vec {
-                    // Get the item description
-                    let description = self.get_description(&item_id);
+                // Sort the items in order
+                events.sort_unstable();
 
-                    // Combine the item id and description
-                    items.push(ItemPair::from_item(item_id.clone(), description));
-                }
-
-                match &scene_id.key_map {
+                // Check to see if a key map was specified
+                match &scene.key_map {
                     // If the key map exists, reverse it
                     Some(key_map) => {
                         // Create an empty key map
                         let mut map = FnvHashMap::default();
 
                         // Iterate through the key map for this scene
-                        for (key, id) in key_map.iter() {
-                            // Get the item description
-                            let description = self.get_description(&id);
-
-                            // Combine the item id and description
-                            map.insert(id.clone(), key.clone());
+                        for (key, item_id) in key_map.iter() {
+                            // Combine the item pair and key value
+                            map.insert(ItemPair::from_item(item_id.clone(), self.get_description(&item_id)), key.clone());
                         }
                         // Return the Scene with the reversed key map
-                        Some(DescriptiveScene { events: items, key_map: Some(map) })
+                        Some(DescriptiveScene { events, key_map: Some(map) })
                     }
 
                     // Otherwise, return the DescriptiveScene with no key map
-                    None => Some(DescriptiveScene { events: items, key_map: None })
+                    None => Some(DescriptiveScene { events, key_map: None }),
                 }
             }
         }
@@ -779,43 +767,7 @@ impl Config {
         }
     }
 
-    /// A method to modify or add the item description within the current
-    /// lookup based on the provided id and new description.
-    ///
-    /// # Errors
-    ///
-    /// This function will notify the system if it updated the description or
-    /// added a new description.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and making no
-    /// modifications to the current scene.
-    ///
-    pub fn edit_description(&mut self, item_pair: &ItemPair) {
-        // If the item is in the lookup, update the description
-        if let Some(description) = self.lookup.get_mut(&item_pair.get_id()) {
-            // Update the description and notify the system
-            *description = item_pair.get_description();
-            update!(update &self.general_update => "Item Description Updated: {}", item_pair.description());
-            return;
-        }
-
-        // Otherwise create a new item in the lookup
-        self.lookup
-            .insert(item_pair.get_id(), item_pair.get_description());
-        update!(update &self.general_update => "Item Description Added: {}", item_pair.description());
-    }
-
     /// A method to delete an event from the configuration
-    ///
-    /// # Errors
-    ///
-    /// This method will raise a warning if the new event detail creates an
-    /// inconsistency within the configuration. FIXME Not implemented
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and making no
-    /// modifications to the configuration.
     ///
     pub fn delete_event(&mut self, event_id: &ItemId) {
         // Remove the event description from the lookup
@@ -831,20 +783,21 @@ impl Config {
     /// A method to modify or add an item with provided item pair
     ///
     pub fn edit_item(&mut self, item_pair: &ItemPair) {
-        // Update or add the event description in the lookup
-        self.edit_description(item_pair);
+        // If the item is in the lookup, update the description
+        if let Some(description) = self.lookup.get_mut(&item_pair.get_id()) {
+            // Update the description and notify the system
+            *description = item_pair.get_description();
+            update!(update &self.general_update => "Item Description Updated: {}", item_pair.description());
+            return;
+        }
+
+        // Otherwise create a new item in the lookup
+        self.lookup
+            .insert(item_pair.get_id(), item_pair.get_description());
+        update!(update &self.general_update => "Item Description Added: {}", item_pair.description());
     }
 
     /// A method to modify or add an event with provided event id and new detail.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise a warning if the new event detail creates an
-    /// inconsistency within the configuration. FIXME Not implemented
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and making no
-    /// modifications to the configuration.
     ///
     pub fn edit_event(&mut self, event_id: &ItemId, new_detail: &EventDetail) {
         // If the event is in the event list, update the event detail
@@ -855,9 +808,25 @@ impl Config {
             return;
         }
 
-        // Otherwise, add the event and event detail
+        // Otherwise, add the event
         self.events.insert(event_id.clone(), new_detail.clone());
         update!(update &self.general_update => "Event Detail Added: {}", self.get_description(&event_id));
+    }
+
+    /// A method to modify or add a scene with provided id.
+    ///
+    pub fn edit_scene(&mut self, scene_id: &ItemId, new_scene: &Scene) {
+        // If the scene is in the scene list, update the scene
+        if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
+            // Update the scene and notify the system
+            *scene = new_scene.clone();
+            update!(update &self.general_update => "Scene Detail Updated: {}", self.get_description(&scene_id));
+            return;
+        }
+
+        // Otherwise, add the scene
+        self.all_scenes.insert(scene_id.clone(), new_scene.clone());
+        update!(update &self.general_update => "Scene Detail Added: {}", self.get_description(&scene_id));
     }
 
     /// A method to return the event detail based on the event id.

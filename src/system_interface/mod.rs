@@ -27,7 +27,9 @@ pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
     ItemPair, LabelControl, LabelHidden,
 };
-pub use self::event_handler::{DescriptiveScene, FullStatus, KeyMap, StatusDescription, StatusDetail};
+pub use self::event_handler::{
+    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, StatusDetail
+};
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 
 // Define private submodules
@@ -341,6 +343,14 @@ impl SystemInterface {
                             } => {
                                 handler.edit_event(&item_id, &event_detail);
                             }
+                            
+                            // Add or modify the scene
+                            Modification::ModifyScene {
+                                item_id,
+                                scene,
+                            } => {
+                                handler.edit_scene(&item_id, &scene);
+                            }
                         }
                     }
 
@@ -451,7 +461,7 @@ impl SystemInterface {
                         }
 
                         // Reply to a request for the event detail
-                        RequestType::Detail { item_id } => {
+                        RequestType::Event { item_id } => {
                             // Try to get the event detail
                             let event_detail = handler.get_detail(&item_id);
 
@@ -459,7 +469,7 @@ impl SystemInterface {
                             self.interface_send
                                 .send(Reply {
                                     reply_to, // echo the display component
-                                    reply: ReplyType::Detail { event_detail },
+                                    reply: ReplyType::Event { event_detail },
                                 })
                                 .unwrap_or(());
                         }
@@ -826,7 +836,13 @@ pub enum Modification {
     ModifyEvent {
         item_id: ItemId,
         event_detail: EventDetail,
-    }
+    },
+    
+    /// A modification to add a scene or modify an existing one
+    ModifyScene {
+        item_id: ItemId,
+        scene: Scene,
+    },
 }
 
 /// An enum to specify the type of information request
@@ -837,7 +853,7 @@ pub enum RequestType {
     Description { item_id: ItemId },
 
     /// A variant for the detail of an event
-    Detail { item_id: ItemId },
+    Event { item_id: ItemId },
 
     /// A variant for the list of all items
     Items,
@@ -860,9 +876,6 @@ pub enum DisplayComponent {
 
     /// A variant for the item list panel
     ItemList,
-
-    /// A variant for the edit scene element
-    EditScene,
 
     /// A variant for the trigger dialog
     TriggerDialog,
@@ -1019,7 +1032,7 @@ pub enum ReplyType {
     Description { description: ItemDescription },
 
     /// A variant for the detail of an event
-    Detail { event_detail: Option<EventDetail> },
+    Event { event_detail: Option<EventDetail> },
 
     /// A variant for the list of item pairs
     Items { items: Vec<ItemPair> },

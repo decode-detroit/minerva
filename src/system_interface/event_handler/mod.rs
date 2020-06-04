@@ -22,7 +22,9 @@
 //! of the program.
 
 // Reexport the key structures and types
-pub use self::config::{DescriptiveScene, FullStatus, KeyMap, StatusDescription, StatusDetail};
+pub use self::config::{
+    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, StatusDetail
+};
 pub use self::queue::ComingEvent;
 
 // Define public submodules
@@ -386,15 +388,6 @@ impl EventHandler {
 
     /// A method to delete an event within the current configuration.
     ///
-    /// # Errors
-    ///
-    /// This method will raise a warning if the new event detail creates an
-    /// inconsistency within the configuration. FIXME Not currently implemented.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and leaving the
-    /// current configuration unmodified.
-    ///
     pub fn delete_event(&mut self, event_id: &ItemId) {
         self.config.delete_event(event_id);
     }
@@ -407,17 +400,14 @@ impl EventHandler {
 
     /// A method to add or modify an event within the current configuration.
     ///
-    /// # Errors
-    ///
-    /// This method will raise a warning if the new event detail creates an
-    /// inconsistency within the configuration. FIXME Not currently implemented.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and leaving the
-    /// current configuration unmodified.
-    ///
     pub fn edit_event(&mut self, event_id: &ItemId, new_detail: &EventDetail) {
         self.config.edit_event(event_id, new_detail);
+    }
+    
+    /// A method to add or modify a scene within the current configuration.
+    ///
+    pub fn edit_scene(&mut self, scene_id: &ItemId, new_scene: &Scene) {
+        self.config.edit_scene(scene_id, new_scene);
     }
 
     /// A method to change the selected scene within the current configuration.
