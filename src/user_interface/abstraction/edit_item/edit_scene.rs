@@ -31,9 +31,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::mem;
 
-// Import FNV HashMap
+// Import FNV HashSet
 extern crate fnv;
-use self::fnv::FnvHashMap;
+use self::fnv::FnvHashSet;
 
 // Import GTK and GDK libraries
 extern crate gdk;
@@ -51,9 +51,9 @@ pub struct EditScene {
     system_send: SystemSend,                 // a reference to the system send line
     current_id: Rc<RefCell<Option<ItemId>>>, // the wrapped current item id
     events_list: gtk::ListBox,               // a list box to hold the events in the scene
-    events_data: Rc<RefCell<Vec<ItemPair>>>,              // a database for the events in the scene
+    events_data: Rc<RefCell<FnvHashSet<ItemId>>>, // a database for the events in the scene
     keys_list: gtk::ListBox,                 // a list box to hold the key bindings for the scene
-    keys_data: Rc<RefCell<Option<FnvHashMap<u32, ItemId>>>>, // a database for the key mapping
+    keys_data: Rc<RefCell<FnvHashSet<ItemId>>>, // a database for the events with key bindings
     detail_checkbox: gtk::CheckButton,       // the button that toggles visibility of the detail
     key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>, // the active handler for setting shortcuts
     window: gtk::ApplicationWindow,         // a copy of the application window
@@ -68,8 +68,8 @@ impl EditScene {
         system_send: &SystemSend,
     ) -> EditScene {
 
-        // Create the vector to hold the event data
-        let events_data = Rc::new(RefCell::new(Vec::new()));
+        // Create the database to hold the event data
+        let events_data = Rc::new(RefCell::new(FnvHashSet::default()));
 
         // Create the scrolling window to hold the list box of events
         let events_scroll = gtk::ScrolledWindow::new(
@@ -92,7 +92,7 @@ impl EditScene {
         let events_label = gtk::Label::new(Some("Events in the scene"));
 
         // Create the key map that will hold the key binding data
-        let keys_data = Rc::new(RefCell::new(None));
+        let keys_data = Rc::new(RefCell::new(FnvHashSet::default()));
 
         // Create a scrolling window to hold the list box of key bindings
         let keys_scroll = gtk::ScrolledWindow::new(
@@ -297,9 +297,9 @@ impl EditScene {
     ///
     fn add_event(
         event_list: &gtk::ListBox,
-        event_data: Rc<RefCell<Vec<ItemPair>>>,
+        event_data: Rc<RefCell<FnvHashSet<ItemId>>>,
         keybinding_list: &gtk::ListBox,
-        key_data: Rc<RefCell<Option<FnvHashMap<u32, ItemId>>>>,
+        key_data: Rc<RefCell<FnvHashSet<ItemId>>>,
         event: &ItemPair,
         keybinding: Option<&u32>,
         key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
@@ -311,7 +311,7 @@ impl EditScene {
 
         // Add the event to the event database
         if let Ok(mut events_database) = event_data.try_borrow_mut() {
-            events_database.push(event.clone());
+            events_database.insert(event.get_id());
         }
 
         // If a keybinding exists, add it to the keybinding list
@@ -331,7 +331,7 @@ impl EditScene {
     ///
     fn add_keybinding(
         keybinding_list: &gtk::ListBox,
-        key_data: Rc<RefCell<Option<FnvHashMap<u32, ItemId>>>>, //FIXME: not updated
+        key_data: Rc<RefCell<FnvHashSet<ItemId>>>, //FIXME: not updated
         event: Option<&ItemPair>,
         keybinding: Option<&u32>,
         key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
@@ -339,13 +339,18 @@ impl EditScene {
     ){
         // Create a label to hold the event description
         let event_label = gtk::Label::new(Some("Event: None"));
-        // If an event is given, display it on the label
+        // If an event is given
         if let Some(event) = event {
+            // Display the event description in the user interface
             event_label.set_label(&format!("Event: {}", &event.description()));
+            // Add the event id to the keys database
+            if let Ok(mut keys_db) = key_data.try_borrow_mut() {
+                keys_db.insert(event.get_id());
+            }
         }
 
         // Attach a drag receiver to the event label
-        event_label.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        event_label.connect_drag_data_received(clone!(key_data => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -355,22 +360,27 @@ impl EditScene {
                 };
                 // Update the label with the item description
                 widget.set_label(&format!("Event: {}", &item_pair.description()));
+
+                // Add the event id to the keys database
+                if let Ok(mut keys_db) = key_data.try_borrow_mut() {
+                    keys_db.insert(item_pair.get_id());
+                }
             }
-        });
+        }));
 
         // Create a label for the keybinding button
         let key_label = gtk::Label::new(Some("Keyboard shortcut:"));
 
         // Create a button to hold the key binding
         let key_button = gtk::Button::new_with_label("None");
-        // If a key binding is given, display it in the button
+        // If a key binding is given
         if let Some(key) = keybinding {
             // Get the name of the key
             let key_name = match gdk::keyval_name(*key) {
                 Some(gstring) => String::from(gstring),
                 None => String::from("Invalid Key Code"),
             };
-            // Display it
+            // Display it as a label on the button
             key_button.set_label(&key_name);
         }
 
@@ -437,6 +447,16 @@ impl EditScene {
         let to_remove_keys = self.keys_list.get_children();
         for item in to_remove_keys {
             item.destroy();
+        }
+
+        // Empty the events database
+        if let Ok(mut events_db) = self.events_data.try_borrow_mut() {
+            events_db.clear();
+        }
+
+        // Empty the key bindings database
+        if let Ok(mut keys_db) = self.keys_data.try_borrow_mut() {
+            keys_db.clear();
         }
     }
 
