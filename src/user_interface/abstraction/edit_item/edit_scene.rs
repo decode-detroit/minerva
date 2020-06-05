@@ -84,6 +84,7 @@ impl EditScene {
 
         // Create the list box to hold the event data and add it to the scrolling window
         let events_list = gtk::ListBox::new();
+        events_list.set_selection_mode(gtk::SelectionMode::None);
         events_scroll.add(&events_list);
 
         // Create a label for the list of events
@@ -318,6 +319,9 @@ impl EditScene {
                 window
             );
         }
+
+        // Show the event
+        event_list.show_all();
     }
 
     /// A helper function to add a keybinding button to the keybinding list

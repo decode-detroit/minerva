@@ -418,6 +418,7 @@ impl ItemList {
 
         // Create the list box to hold the buttons with the item data and add it to the scrolling window
         let items_list_box = gtk::ListBox::new();
+        items_list_box.set_selection_mode(gtk::SelectionMode::None);
         items_scroll.add(&items_list_box);
 
         // Iterate through the item pairs in the items vector
