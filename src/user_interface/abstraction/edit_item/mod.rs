@@ -32,6 +32,7 @@ use super::super::super::system_interface::{
     LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType,
     SystemSend,
 };
+use super::super::utils::{clean_text, color_label};
 
 // Import standard library features
 use std::cell::RefCell;
@@ -47,6 +48,9 @@ extern crate gio;
 extern crate glib;
 extern crate gtk;
 use self::gtk::prelude::*;
+
+// Define module constants
+const LABEL_LIMIT: usize = 30; // maximum character width of labels
 
 /// A structure to contain the the item editing funcitonality.
 ///
@@ -423,11 +427,20 @@ impl ItemList {
 
         // Iterate through the item pairs in the items vector
         for item_pair in items {
-            // Create the button to hold the data
-            let item_button = gtk::Button::new_with_label(&item_pair.description());
+            // Create the label to hold the data
+            let item_label = gtk::Label::new(None);
+            let item_markup = &format!(
+                "<span size='12000'>{}</span>",
+                clean_text(&item_pair.description, LABEL_LIMIT, true, false, true));
+            color_label(
+                &item_label,
+                &item_markup,
+                item_pair.display,
+                12, // font size
+            );
 
-            // Make the button a drag source
-            item_button.drag_source_set(
+            // Make the label a drag source
+            item_label.drag_source_set(
                 gdk::ModifierType::MODIFIER_MASK,
                 &vec![
                     gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
@@ -436,14 +449,14 @@ impl ItemList {
             );
 
             // Serialize the item pair data
-            item_button.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+            item_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
                 if let Ok(data) = serde_yaml::to_string(&item_pair) {
                     selection_data.set_text(data.as_str());
                 }
             }));
 
             // Add the button to the list box
-            items_list_box.add(&item_button);
+            items_list_box.add(&item_label);
         }
         // Show all the buttons in the grid
         self.grid.show_all();

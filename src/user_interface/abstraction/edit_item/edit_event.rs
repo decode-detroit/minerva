@@ -105,7 +105,7 @@ impl EditEvent {
 
         // Format the scrolling window
         action_window.set_hexpand(true);
-        action_window.set_size_request(-1, 150);
+        action_window.set_size_request(-1, 200);
 
         // Connect the checkbox to the visibility of the other elements
         detail_checkbox.connect_toggled(clone!(

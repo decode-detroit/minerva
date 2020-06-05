@@ -23,7 +23,6 @@
 use super::super::super::super::system_interface::{
     DescriptiveScene, ItemId, ItemPair, Scene, SystemSend,
 };
-use super::super::super::utils::{clean_text, decorate_label};
 
 // Import standard library features
 use std::cell::RefCell;
@@ -81,6 +80,7 @@ impl EditScene {
         events_scroll.set_vexpand(true);
         events_scroll.set_halign(gtk::Align::Fill);
         events_scroll.set_valign(gtk::Align::Fill);
+        events_scroll.set_size_request(-1, 100);
 
         // Create the list box to hold the event data and add it to the scrolling window
         let events_list = gtk::ListBox::new();
@@ -105,6 +105,7 @@ impl EditScene {
         keys_scroll.set_vexpand(true);
         keys_scroll.set_halign(gtk::Align::Fill);
         keys_scroll.set_valign(gtk::Align::Fill);
+        keys_scroll.set_size_request(-1, 200);
 
         // Create the list box to hold the key binding data and add it to the scrolling window
         let keys_list = gtk::ListBox::new();
@@ -411,7 +412,7 @@ impl EditScene {
                     Ok(item_pair) => item_pair,
                     _ => return,
                 };
-                
+
                 // Update the event label with the item description
                 event_label.set_label(&format!("Event: {}", &item_pair.description()));
 
@@ -504,7 +505,7 @@ impl EditScene {
                             key_database_mut.insert(key_press.get_keyval(), event.clone());
                         }
                     }
-                    
+
                     // Disconnect the signal handler
                     if let Ok(mut key_press_handler) = handler.try_borrow_mut() {
                         // Clear the old key press handler
