@@ -395,7 +395,7 @@ impl EditScene {
         let row = gtk::ListBoxRow::new();
 
         // Attach a drag receiver to the listbox row
-        row.connect_drag_data_received(clone!(
+        event_label.connect_drag_data_received(clone!(
             key_data,
             event_label,
             key_button
@@ -407,6 +407,7 @@ impl EditScene {
                     Ok(item_pair) => item_pair,
                     _ => return,
                 };
+                
                 // Update the event label with the item description
                 event_label.set_label(&format!("Event: {}", &item_pair.description()));
 
@@ -461,7 +462,7 @@ impl EditScene {
 
             *key_press_handler = Some(
                 // Attach the handler
-                window.connect_key_press_event(clone!(button => move |_, key_press| {
+                window.connect_key_press_event(clone!(button, handler, window => move |_, key_press| {
                     // Get the name of the key pressed
                     let key = match gdk::keyval_name(key_press.get_keyval()) {
                         Some(gstring) => String::from(gstring),
@@ -497,6 +498,16 @@ impl EditScene {
 
                             // Add the new key binding information
                             key_database_mut.insert(key_press.get_keyval(), event.clone());
+                        }
+                    }
+                    
+                    // Disconnect the signal handler
+                    if let Ok(mut key_press_handler) = handler.try_borrow_mut() {
+                        // Clear the old key press handler
+                        let mut tmp = None;
+                        mem::swap(&mut tmp, &mut key_press_handler);
+                        if let Some(key_press_handler) = tmp {
+                            window.disconnect(key_press_handler);
                         }
                     }
 
