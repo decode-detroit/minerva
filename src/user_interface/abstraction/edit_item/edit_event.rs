@@ -81,7 +81,7 @@ impl EditEvent {
         // Create a new edit action dialog
         let tmp_edit_action = EditAction::new(system_send, &event_actions);
         grid.attach(tmp_edit_action.get_top_element(), 1, 1, 1, 2);
-        let edit_action = Rc::new(RefCell::new(tmp_edit_action));
+        let edit_action = Rc::new(RefCell::new(tmp_edit_action.clone()));
 
         // Create a button to add actions to the list
         let add_button = gtk::Button::new_from_icon_name(
@@ -108,14 +108,20 @@ impl EditEvent {
         action_window.set_size_request(-1, 150);
 
         // Connect the checkbox to the visibility of the other elements
-        detail_checkbox.connect_toggled(clone!(action_window, add_button => move | checkbox | {
+        detail_checkbox.connect_toggled(clone!(
+            action_window,
+            add_button,
+            tmp_edit_action
+        => move | checkbox | {
             // Make the elements invisible if the box isn't checked
             if checkbox.get_active() {
                 action_window.show();
                 add_button.show();
+                tmp_edit_action.get_top_element().show();
             } else {
                 action_window.hide();
                 add_button.hide();
+                tmp_edit_action.get_top_element().hide();
             }
         }));
 

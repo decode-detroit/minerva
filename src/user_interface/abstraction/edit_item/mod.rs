@@ -200,7 +200,7 @@ impl EditItemAbstraction {
         // Connect the save button click callback
         let edit_overview = Rc::new(RefCell::new(edit_overview));
         let edit_event = Rc::new(RefCell::new(edit_event));
-        save.connect_clicked(clone!(system_send, current_id, edit_overview, edit_event => move |_| {
+        save.connect_clicked(clone!(system_send, current_id, edit_overview, edit_event, edit_scene => move |_| {
             // Try to borrow the the current id
             let current_id = match current_id.try_borrow() {
                 Ok(id) => id,
@@ -214,7 +214,13 @@ impl EditItemAbstraction {
             };
 
             // Try to borrow the edit detail
-            let detail = match edit_event.try_borrow() {
+            let event_detail = match edit_event.try_borrow() {
+                Ok(detail) => detail,
+                _ => return,
+            };
+
+            // Try to borrow the scene detail
+            let scene_detail = match edit_scene.try_borrow() {
                 Ok(detail) => detail,
                 _ => return,
             };
@@ -229,9 +235,14 @@ impl EditItemAbstraction {
             let item_pair = ItemPair::from_item(item_id, overview.pack_description());
             let mut modifications = vec!(Modification::ModifyItem { item_pair });
 
-            // If the detail was provided, update it
-            if let Some(event_detail) = detail.pack_detail() {
+            // If the event detail was provided, update it
+            if let Some(event_detail) = event_detail.pack_detail() {
                 modifications.push(Modification::ModifyEvent { item_id, event_detail });
+            }
+
+            // If the scene detail was provided, update it
+            if let Some(scene) = scene_detail.pack_detail() {
+                modifications.push(Modification::ModifyScene { item_id, scene });
             }
 
             // Save the edit to the configuration
@@ -327,7 +338,7 @@ impl EditItemAbstraction {
                             edit_event.load_event(event_detail);
                         }
                     }
-                    
+
                     ReplyType::Scene { scene } => {
                         // Try to borrow the edit scene detail
                         if let Ok(edit_scene) = self.edit_scene.try_borrow() {
@@ -1224,4 +1235,3 @@ impl EditOverview {
         ItemDescription::new(&tmp_description, tmp_display)
     }
 }
-
