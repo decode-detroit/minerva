@@ -206,6 +206,7 @@ impl EditEvent {
                 let mut actions = Vec::new();
                 let mut count = 0;
 
+                // Search until we've found all the actions
                 while actions.len() < detail.len() {
                     // Try to get each element, zero indexed
                     if let Some(action) = detail.get(&count) {
@@ -1667,7 +1668,7 @@ impl EditGroupedEvent {
 
         // Format the scrolling window
         group_window.set_hexpand(true);
-        group_window.set_size_request(-1, 100);
+        group_window.set_size_request(-1, 120);
 
         // Connect the function to trigger when the status spin changes
         status_spin.connect_changed(clone!(system_send => move |spin| {

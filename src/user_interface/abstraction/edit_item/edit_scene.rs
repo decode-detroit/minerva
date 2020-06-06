@@ -21,14 +21,14 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DescriptiveScene, ItemId, ItemPair, Scene, SystemSend,
+    DescriptiveScene, ItemId, ItemPair, Scene,
 };
 use super::super::super::utils::{clean_text, decorate_label};
 
 // Import standard library features
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::mem;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 // Import FNV HashSet
 extern crate fnv;
@@ -42,19 +42,55 @@ use self::gtk::prelude::*;
 use self::gtk::GridExt;
 
 
+/// A structure to keep track of keybindings
+///
+#[derive(Clone, Debug)]
+struct Keybinding {
+    key_value: Option<u32>,     // the key value that triggers an event
+    event_id: Option<ItemId>,   // the event id bound to this key
+}
+
+// Implement key features of the Keybinding
+impl Keybinding {
+    /// A method to update the key value
+    ///
+    fn update_key(&mut self, new_value: u32) {
+        self.key_value = Some(new_value);
+    }
+    
+    /// A method to update the event id
+    fn update_event(&mut self, new_id: ItemId) {
+        self.event_id = Some(new_id);
+    }
+    
+    /// A method to pack the key value pair
+    fn pack_binding(&self) -> Option<(u32, ItemId)> {
+        // If both are specified, return the binding
+        if let Some(value) = self.key_value {
+            if let Some(id) = self.event_id {
+                return Some((value, id));
+            }
+        }
+        
+        // Otherwise, return None
+        None
+    }
+}
+
 /// A structure to contain the grid for editing an individual scene.
 ///
 #[derive(Clone, Debug)]
 pub struct EditScene {
-    grid: gtk::Grid,                         // a grid to hold the events
-    system_send: SystemSend,                 // a reference to the system send line
-    events_list: gtk::ListBox,               // a list box to hold the events in the scene
-    events_data: Rc<RefCell<FnvHashSet<ItemId>>>, // a database for the events in the scene
-    keys_list: gtk::ListBox,                 // a list box to hold the key bindings for the scene
-    keys_data: Rc<RefCell<FnvHashMap<u32, ItemId>>>, // a database for the events with key bindings
-    detail_checkbox: gtk::CheckButton,       // the button that toggles visibility of the detail
+    grid: gtk::Grid,                   // a grid to hold the events
+    window: gtk::ApplicationWindow,    // a copy of the application window
+    scene_checkbox: gtk::CheckButton,  // the button that toggles whether the item is a scene
+    events_list: gtk::ListBox,         // a list box to hold the events in the scene
+    events_data: Rc<RefCell<FnvHashMap<usize, ItemId>>>, // a database of events in the scene
+    next_event: Rc<RefCell<usize>>,    // the next available event location
+    keys_list: gtk::ListBox,           // a list box to hold the key bindings for the scene
+    keys_data: Rc<RefCell<FnvHashMap<usize, Keybinding>>>, // a database for the key bindings
+    next_keybinding: Rc<RefCell<usize>>, // the next available keybinding location
     key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>, // the active handler for setting shortcuts
-    window: gtk::ApplicationWindow,         // a copy of the application window
 }
 
 // Implement key features of the EditScene
@@ -63,11 +99,11 @@ impl EditScene {
     ///
     pub fn new(
         window: &gtk::ApplicationWindow,
-        system_send: &SystemSend,
     ) -> EditScene {
 
         // Create the database to hold the event data
-        let events_data = Rc::new(RefCell::new(FnvHashSet::default()));
+        let events_data = Rc::new(RefCell::new(FnvHashMap::default()));
+        let next_event = Rc::new(RefCell::new(0));
 
         // Create the scrolling window to hold the list box of events
         let events_scroll = gtk::ScrolledWindow::new(
@@ -78,19 +114,44 @@ impl EditScene {
 
         // Format the scrolling window
         events_scroll.set_hexpand(true);
-        events_scroll.set_vexpand(true);
-        events_scroll.set_halign(gtk::Align::Fill);
-        events_scroll.set_valign(gtk::Align::Fill);
-
-        // Create the list box to hold the event data and add it to the scrolling window
+        events_scroll.set_size_request(-1, 100);
+        
+        // Create the list box to hold the events and add it to the scrolling window
         let events_list = gtk::ListBox::new();
+        events_list.set_selection_mode(gtk::SelectionMode::None);
         events_scroll.add(&events_list);
 
         // Create a label for the list of events
         let events_label = gtk::Label::new(Some("Events in the scene"));
 
+        // Make the list box a drag destination for events
+        events_list.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+
+        // Set the callback function when data is received
+        events_list.connect_drag_data_received(clone!(events_data, next_event =>
+        move |events_list, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Add the event to the event list
+                EditScene::add_event(&events_list, &events_data, &next_event, item_pair);
+            }
+        }));
+
         // Create the key map that will hold the key binding data
         let keys_data = Rc::new(RefCell::new(FnvHashMap::default()));
+        let next_keybinding = Rc::new(RefCell::new(0));
 
         // Create a scrolling window to hold the list box of key bindings
         let keys_scroll = gtk::ScrolledWindow::new(
@@ -101,11 +162,9 @@ impl EditScene {
 
         // Format the scrolling window
         keys_scroll.set_hexpand(true);
-        keys_scroll.set_vexpand(true);
-        keys_scroll.set_halign(gtk::Align::Fill);
-        keys_scroll.set_valign(gtk::Align::Fill);
+        keys_scroll.set_size_request(-1, 100);
 
-        // Create the list box to hold the key binding data and add it to the scrolling window
+        // Create the list box to hold the key bindings and add it to the scrolling window
         let keys_list = gtk::ListBox::new();
         keys_list.set_selection_mode(gtk::SelectionMode::None);
         keys_scroll.add(&keys_list);
@@ -117,65 +176,27 @@ impl EditScene {
         let key_press_handler = Rc::new(RefCell::new(None));
 
         // When the button is clicked, add a new keybinding button
-        add_key.connect_clicked(clone!(keys_list, keys_data, window, key_press_handler => move |_| {
+        add_key.connect_clicked(clone!(window, keys_list, keys_data, next_keybinding, key_press_handler => move |_| {
             EditScene::add_keybinding(
+                &window,
                 &keys_list,
-                keys_data.clone(),
+                &keys_data,
+                &next_keybinding,
+                &key_press_handler,
                 None, // No default keybinding
                 None, // No default event
-                key_press_handler.clone(),
-                &window
             );
         }));
 
         // Create a label for the key bindings window
         let keys_label = gtk::Label::new(Some("Keyboard shortcuts"));
 
-        // Make the list box a drag source for events
-        events_list.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
-
-        // Set the callback function when data is received
-        events_list.connect_drag_data_received(clone!(
-            events_data,
-            keys_list,
-            keys_data,
-            window,
-            key_press_handler =>
-        move |widget, _, _, _, selection_data, _, _| {
-            // Try to extract the selection data
-            if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to an ItemPair
-                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_pair) => item_pair,
-                    _ => return,
-                };
-
-                // Add the event to the appropriate lists (without a keybinding)
-                EditScene::add_event(
-                    &widget,
-                    events_data.clone(),
-                    &keys_list,
-                    keys_data.clone(),
-                    item_pair.clone(),
-                    None,
-                    key_press_handler.clone(),
-                    &window
-                );
-            }
-        }));
-
         // Construct the checkbox for the scene detail
-        let detail_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Scene");
-        detail_checkbox.set_active(false);
+        let scene_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Scene");
+        scene_checkbox.set_active(false);
 
         // Connect the checkbox to the visibility of the other elements
-        detail_checkbox.connect_toggled(clone!(
+        scene_checkbox.connect_toggled(clone!(
             events_label,
             events_scroll,
             keys_label,
@@ -200,17 +221,13 @@ impl EditScene {
 
         // Create a grid to hold the events and keyboard shortcuts
         let grid = gtk::Grid::new();
-
-        // Add some space on the top and bottom
-        grid.set_margin_top(10);
+        grid.set_margin_top(10);  // Add some space on the top and bottom
         grid.set_margin_bottom(10);
-
-        // Add some space within
-        grid.set_column_spacing(10);
+        grid.set_column_spacing(10); // Add some space within
         grid.set_row_spacing(10);
 
         // Attach the elements to the grid
-        grid.attach(&detail_checkbox, 0, 0, 2, 1);
+        grid.attach(&scene_checkbox, 0, 0, 2, 1);
         grid.attach(&events_label, 0, 1, 1, 1);
         grid.attach(&events_scroll, 0, 2, 1, 1);
         grid.attach(&keys_label, 1, 1, 1, 1);
@@ -218,20 +235,27 @@ impl EditScene {
         grid.attach(&add_key, 1, 3, 1, 1);
 
         // Make the checkbox visible but hide the other elements by default
-        grid.show();
-        detail_checkbox.show();
+        grid.show_all();
+        scene_checkbox.set_active(false);
 
         EditScene{
             grid,
-            system_send: system_send.clone(),
+            window: window.clone(),
+            scene_checkbox,
             events_list,
             events_data,
+            next_event,
             keys_list,
             keys_data,
-            detail_checkbox,
+            next_keybinding,
             key_press_handler,
-            window: window.clone(),
         }
+    }
+
+    /// A method to return the top element
+    ///
+    pub fn get_top_element(&self) -> &gtk::Grid {
+        &self.grid
     }
 
     /// A method to update the list of all events in the scene
@@ -242,283 +266,46 @@ impl EditScene {
 
         // Check if the scene is valid
         match scene {
-            Some(scene) =>  {
+            Some(mut scene) =>  {
                 // Show the scene detail by setting the check box
-                self.detail_checkbox.set_active(true);
+                self.scene_checkbox.set_active(true);
 
                 // Iterate through the item pairs in the events vector
-                for item_pair in scene.events {
-                    // Check to see if the the keymap exists
-                    match scene.key_map.clone() {
-                        // If so, add the event with the binding
-                        Some(keymap) => EditScene::add_event(
-                            &self.events_list,
-                            self.events_data.clone(),
-                            &self.keys_list,
-                            self.keys_data.clone(),
-                            item_pair.clone(),
-                            keymap.get(&item_pair),
-                            self.key_press_handler.clone(),
+                for item_pair in scene.events.drain(..) {
+                    // Add each event to the events list
+                    EditScene::add_event(
+                        &self.events_list, 
+                        &self.events_data,
+                        &self.next_event,
+                        item_pair,
+                    );
+                }
+                
+                // Add any keybindings to the list
+                if let Some(mut key_map) = scene.key_map {
+                    // Look at each binding
+                    for (key, id) in key_map.drain() {
+                        // Add each to the interface
+                        EditScene::add_keybinding(
                             &self.window,
-                        ),
-                        // Otherwise, add the event without a key binding
-
-                        None => EditScene::add_event(
-                            &self.events_list,
-                            self.events_data.clone(),
                             &self.keys_list,
-                            self.keys_data.clone(),
-                            item_pair.clone(),
-                            None,
-                            self.key_press_handler.clone(),
-                            &self.window,
-                        )
+                            &self.keys_data,
+                            &self.next_keybinding,
+                            &self.key_press_handler,
+                            Some(id),
+                            Some(key)
+                        );
                     }
                 }
-                // Show all the new items in the grid
-                self.grid.show_all();
             }
 
             None => {
                 // Hide the scene detail by unsetting the check box
-                self.detail_checkbox.set_active(false);
+                self.scene_checkbox.set_active(false);
             }
         }
     }
-
-    /// A helper function to add an event and optional keybinding to the window
-    ///
-    fn add_event(
-        event_list: &gtk::ListBox,
-        event_data: Rc<RefCell<FnvHashSet<ItemId>>>,
-        keybinding_list: &gtk::ListBox,
-        key_data: Rc<RefCell<FnvHashMap<u32, ItemId>>>,
-        event: ItemPair,
-        keybinding: Option<&u32>,
-        key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
-        window: &gtk::ApplicationWindow,
-    ){
-        // Create a label with the event description and add it to the user interface event list
-        let event_description = gtk::Label::new(Some(&event.description()));
-        event_list.add(&event_description);
-
-        // Add the event to the event database
-        if let Ok(mut events_database) = event_data.try_borrow_mut() {
-            events_database.insert(event.get_id());
-        }
-
-        // If a keybinding exists, add it to the keybinding list
-        if let Some(key) = keybinding {
-            EditScene::add_keybinding(
-                keybinding_list,
-                key_data,
-                Some(event),
-                Some(key),
-                key_press_handler,
-                window
-            );
-        }
-    }
-
-    /// A helper function to add a keybinding button to the keybinding list
-    ///
-    fn add_keybinding(
-        keybinding_list: &gtk::ListBox,
-        key_data: Rc<RefCell<FnvHashMap<u32, ItemId>>>,
-        event: Option<ItemPair>,
-        keybinding: Option<&u32>,
-        key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
-        window: &gtk::ApplicationWindow,
-    ){
-        // Create a label to hold the event description
-        let event_label = gtk::Label::new(Some("Event: None"));
-        // If an event is given
-        if let Some(event) = event.clone() {
-            // Display the event description in the user interface
-            event_label.set_label(&format!("Event: {}", &event.description()));
-        }
-
-        // Create a label for the keybinding button
-        let key_label = gtk::Label::new(Some("Keyboard shortcut:"));
-
-        // Create a button to hold the key binding
-        let key_button = gtk::Button::new_with_label("None");
-        // If a key binding is given
-        if let Some(key) = keybinding {
-            // Get the name of the key
-            let key_name = match gdk::keyval_name(*key) {
-                Some(gstring) => String::from(gstring),
-                None => String::from("Invalid Key Code"),
-            };
-            // Display it as a label on the button
-            key_button.set_label(&key_name);
-        }
-
-        // Unwrap the key database
-        if let Ok(mut key_database) = key_data.try_borrow_mut() {
-            // Add the event/key pair to the keys database
-            match event.clone() {
-                Some(event) => {
-                    match keybinding {
-                        // If the key and event exist, add them
-                        Some(key) => key_database.insert(key.clone(), event.get_id()),
-                        // Otherwise add the default key
-                        None => key_database.insert(0, event.get_id()), // FIXME default key?
-                    };
-                },
-                None => {
-                    match keybinding {
-                        // If the key exists, add it with the default event
-                        Some(key) => key_database.insert(key.clone(), ItemId::all_stop()),
-                        // Otherwise add the default key and event
-                        None => key_database.insert(0, ItemId::all_stop()),
-                    };
-                }
-            }
-        }
-
-        // Connect the key press event handler to the key button
-        key_button.connect_clicked(clone!(event, window, key_data => move |button| {
-            // Display a message on the button for the user to press a key
-            button.set_label("Press a key");
-
-            // Connect the handler
-            EditScene::register_input(
-                &button,
-                key_data.clone(),
-                &window,
-                key_press_handler.clone()
-            );
-        }));
-
-        // Create the list box row container
-        let row = gtk::ListBoxRow::new();
-
-        // Attach a drag receiver to the listbox row
-        event_label.connect_drag_data_received(clone!(
-            key_data,
-            event_label,
-            key_button
-        => move |_, _, _, _, selection_data, _, _| {
-            // Try to extract the selection data
-            if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to an ItemPair
-                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_pair) => item_pair,
-                    _ => return,
-                };
-                
-                // Update the event label with the item description
-                event_label.set_label(&format!("Event: {}", &item_pair.description()));
-
-                // Add the event id to the keys database
-                if let Ok(mut keys_db) = key_data.try_borrow_mut() {
-                    // Get the key binding on the button
-                    if let Some(button_name) = key_button.get_label() {
-                        // Convert the button name to the associated key value
-                        let button_val = match button_name.as_str() {
-                            // If "None", assign the default value
-                            "None" => 0,
-                            // Otherwise, get the value
-                            _ => gdk::keyval_from_name(button_name.as_str())
-                        };
-
-                        // Insert the new item id into the database
-                        keys_db.insert(button_val.clone(), item_pair.get_id());
-                    }
-                }
-            }
-        }));
-
-        // Wrap all the info in a grid and add it to the list box row
-        let keybinding_info = gtk::Grid::new();
-        keybinding_info.attach(&event_label, 0, 0, 2, 1);
-        keybinding_info.attach(&key_label, 0, 1, 1, 1);
-        keybinding_info.attach(&key_button, 1, 1, 1, 1);
-        row.add(&keybinding_info);
-
-        // Add the row to the list box
-        keybinding_list.add(&row);
-
-        // Show the new row
-        keybinding_list.show_all();
-    }
-
-    /// A method to register a keyboard input and display it on a button
-    fn register_input(
-        button: &gtk::Button,
-        key_data: Rc<RefCell<FnvHashMap<u32, ItemId>>>,
-        window: &gtk::ApplicationWindow,
-        handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>
-    ){
-        // Unwrap the key press handler
-        if let Ok(mut key_press_handler) = handler.try_borrow_mut() {
-            // Clear the old key press handler
-            let mut tmp = None;
-            mem::swap(&mut tmp, &mut key_press_handler);
-            if let Some(key_press_handler) = tmp {
-                window.disconnect(key_press_handler);
-            }
-
-            *key_press_handler = Some(
-                // Attach the handler
-                window.connect_key_press_event(clone!(button, handler, window => move |_, key_press| {
-                    // Get the name of the key pressed
-                    let key = match gdk::keyval_name(key_press.get_keyval()) {
-                        Some(gstring) => String::from(gstring),
-                        None => String::from("Invalid Key Code"),
-                    };
-
-                    // Get the old key name to update the key_database
-                    let old_name = match button.get_label() {
-                        Some(name) => name,
-                        _ => unreachable!()
-                    };
-
-                    // Get the old key value
-                    let old_value = match old_name.as_str() {
-                        // If "None", assign the default value
-                        "None" => 0,
-                        // Otherwise, get the value from the name
-                        _ => gdk::keyval_from_name(old_name.as_str())
-                    };
-
-                    // Display the key name on the button
-                    button.set_label(&key);
-
-                    // Unwrap the key binding database
-                    if let Ok(key_database) = key_data.try_borrow_mut() {
-                        // Get the event associated with the old button
-                        if let Some(event) = key_database.get(&old_value) {
-                            // Create a mutable copy to insert and remove
-                            let mut key_database_mut = key_database.clone();
-
-                            // Delete the old key binding information
-                            key_database_mut.remove(&old_value);
-
-                            // Add the new key binding information
-                            key_database_mut.insert(key_press.get_keyval(), event.clone());
-                        }
-                    }
-                    
-                    // Disconnect the signal handler
-                    if let Ok(mut key_press_handler) = handler.try_borrow_mut() {
-                        // Clear the old key press handler
-                        let mut tmp = None;
-                        mem::swap(&mut tmp, &mut key_press_handler);
-                        if let Some(key_press_handler) = tmp {
-                            window.disconnect(key_press_handler);
-                        }
-                    }
-
-                    // Prevent any other keypress handlers from running
-                    gtk::Inhibit(true)
-                })),
-            );
-        }
-    }
-
-
+    
     /// A method to clear all the listed events in the ListBoxes
     ///
     pub fn clear(&self) {
@@ -549,39 +336,280 @@ impl EditScene {
     //
     pub fn pack_detail(&self) -> Option<Scene> {
         // If the checkbox was not selected, return None
-        if !self.detail_checkbox.get_active() {
+        if !self.scene_checkbox.get_active() {
             return None;
         }
 
         // Unwrap the events database
-        match self.events_data.try_borrow() {
-            Ok(events) => {
-                // Unwrap the keys database
-                match self.keys_data.try_borrow() {
-                    Ok(key_map) =>  {
-                        // Pack the data into a scene
-                        let scene = Scene {
-                            events: events.clone(),
-                            key_map: Some(key_map.clone())
-                        };
+        if let Ok(events_data) = self.events_data.try_borrow() {
+            // Unwrap the keys database
+            if let Ok(keys_data) = self.keys_data.try_borrow() {
+                // Create a hash set to hold the events and a counter
+                let mut events = FnvHashSet::default();
+                let mut count = 0;
 
-                        // Return the complete scene
-                        Some(scene)
-                    },
+                // Search until we've found all the events FIXME Infinite loop
+                while events.len() < events_data.len() {
+                    // Try to get each element, zero indexed
+                    if let Some(event) = events_data.get(&count) {
+                        events.insert(event.clone());
+                    }
 
-                    //Unreachable
-                    _ => unreachable!()
+                    // Increment the count
+                    count = count + 1;
                 }
-            },
+                
+                // Create a hash set to hold the events and a couple counters
+                let mut key_map = FnvHashMap::default();
+                let mut count = 0;
+                let mut found = 0;
 
-            // Unreachable
-            _ => unreachable!()
+                // Search until we've found all the key bindings
+                while found < keys_data.len() {
+                    // Try to get each element, zero indexed
+                    if let Some(binding) = keys_data.get(&count) {
+                        // Increment the found count, even if it isn't valid
+                        found = found + 1;
+                    
+                        // Try to pack the binding
+                        if let Some((key, id)) = binding.pack_binding() {
+                            key_map.insert(key, id);
+                        }
+                    }
+
+                    // Increment the count
+                    count = count + 1;
+                }
+                
+                // Set the key map as none if there are no bindings
+                let key_map = match key_map.len() {
+                    0 => None,
+                    _ => Some(key_map),
+                };
+                
+                // Pack and return the data as a scene
+                return Some(Scene {
+                    events,
+                    key_map,
+                });
+            }
         }
+        
+        // Unreachable
+        None
     }
 
-    /// A method to return the top element
+    /// A helper function to add an event to the events list and database
     ///
-    pub fn get_top_element(&self) -> &gtk::Grid {
-        &self.grid
+    fn add_event(
+        event_list: &gtk::ListBox,
+        event_data: &Rc<RefCell<FnvHashMap<usize, ItemId>>>,
+        next_event: &Rc<RefCell<usize>>,
+        event: ItemPair,
+    ){   
+        // Try to get a mutable copy of the next_event
+        let position = match next_event.try_borrow_mut() {
+            Ok(mut position) => {
+                let tmp = position.clone();
+                *position = *position + 1;
+                tmp
+            }
+
+            // If unable, exit immediately
+            _ => return,
+        };
+    
+        // Add the event to the event database
+        if let Ok(mut events_database) = event_data.try_borrow_mut() {
+            events_database.insert(position, event.get_id());
+        }
+        
+        // Create a label with the event description and add it to the event list
+        let event_description = gtk::Label::new(Some(&event.description()));
+        event_list.add(&event_description);
+        event_description.show();
+    }
+
+    /// A helper function to add a keybinding button to the keybinding list
+    ///
+    fn add_keybinding(
+        window: &gtk::ApplicationWindow,
+        keys_list: &gtk::ListBox,
+        keys_data: &Rc<RefCell<FnvHashMap<usize, Keybinding>>>,
+        next_keybinding: &Rc<RefCell<usize>>,
+        key_press_handler: &Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
+        event: Option<ItemPair>,
+        key_value: Option<u32>,
+    ){
+        // Try to get a mutable copy of the next_keybinding
+        let position = match next_keybinding.try_borrow_mut() {
+            Ok(mut position) => {
+                let tmp = position.clone();
+                *position = *position + 1;
+                tmp
+            }
+
+            // If unable, exit immediately
+            _ => return,
+        };
+        
+        // Create a label to hold the event description
+        let event_label = gtk::Label::new(Some("Event: None"));
+        
+        // If an event is given
+        if let Some(event) = event.clone() {
+            // Display the event description in the user interface
+            event_label.set_text(&format!("Event: {}", &event.description()));
+        }
+
+        // Create a label for the keybinding button
+        let key_label = gtk::Label::new(Some("Keyboard shortcut:"));
+
+        // Create a button to hold the key binding
+        let key_button = gtk::Button::new_with_label("None");
+        
+        // If a key value is given
+        if let Some(key) = key_value {
+            // Get the name of the key
+            let key_name = match gdk::keyval_name(key) {
+                Some(gstring) => String::from(gstring),
+                None => String::from("Invalid Key Code"),
+            };
+            
+            // Display it as a label on the button
+            key_button.set_label(&key_name);
+        }
+
+        // Connect the key press event handler to the key button
+        key_button.connect_clicked(clone!(
+            window, 
+            keys_data, 
+            key_press_handler
+        => move |button| {
+            // Display a message on the button for the user to press a key
+            button.set_label("Press a key");
+
+            // Connect the handler
+            EditScene::register_binding(
+                &button,
+                &window,
+                &keys_data,
+                position,
+                &key_press_handler
+            );
+        }));
+                
+        // Unwrap the key database
+        if let Ok(mut data) = keys_data.try_borrow_mut() {
+            // Compose the keybinding
+            let keybinding = match event {
+                Some(event) => Keybinding { key_value, event_id: Some(event.get_id()) },
+                None => Keybinding { key_value, event_id: None },
+            };
+            
+            // Add the key binding to the keys database
+            data.insert(position, keybinding);
+        }
+
+        // Create the list box row container
+        let row = gtk::ListBoxRow::new();
+
+        // Attach a drag receiver to the listbox row
+        event_label.connect_drag_data_received(clone!(keys_data, event_label => move
+        |_, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+                
+                // Unwrap the key binding database
+                if let Ok(mut data) = keys_data.try_borrow_mut() {
+                
+                    // Get the keybinding for the position
+                    if let Some(binding) = data.get_mut(&position) {
+                    
+                        // Update the key value
+                        binding.update_event(item_pair.get_id());
+                    }
+                }
+                
+                // Update the event label with the item description
+                event_label.set_label(&format!("Event: {}", &item_pair.description()));
+            }
+        }));
+
+        // Wrap all the info in a grid and add it to the list box row
+        let keybinding_info = gtk::Grid::new();
+        keybinding_info.attach(&event_label, 0, 0, 2, 1);
+        keybinding_info.attach(&key_label, 0, 1, 1, 1);
+        keybinding_info.attach(&key_button, 1, 1, 1, 1);
+        row.add(&keybinding_info);
+
+        // Add the row to the list box
+        keys_list.add(&row);
+
+        // Show the new row
+        row.show_all();
+    }
+
+    /// A helper function to register a keyboard input and display it on a button
+    ///
+    fn register_binding(
+        button: &gtk::Button,
+        window: &gtk::ApplicationWindow,
+        keys_data: &Rc<RefCell<FnvHashMap<usize, Keybinding>>>,
+        position: usize,
+        handler: &Rc<RefCell<Option<glib::signal::SignalHandlerId>>>
+    ){
+        // Unwrap the key press handler
+        if let Ok(mut key_press_handler) = handler.try_borrow_mut() {
+            // Clear the old key press handler
+            let mut tmp = None;
+            mem::swap(&mut tmp, &mut key_press_handler);
+            if let Some(key_press_handler) = tmp {
+                window.disconnect(key_press_handler);
+            }
+
+            // Attach the new handler
+            *key_press_handler = Some(
+                window.connect_key_press_event(clone!(button, keys_data, handler, window => move |_, key_press| {
+                    // Get the name of the key pressed
+                    let key = match gdk::keyval_name(key_press.get_keyval()) {
+                        Some(gstring) => String::from(gstring),
+                        None => String::from("Invalid Key Code"),
+                    };
+
+                    // Display the key name on the button
+                    button.set_label(&key);
+
+                    // Unwrap the key binding database
+                    if let Ok(mut data) = keys_data.try_borrow_mut() {
+                    
+                        // Get the keybinding for the position
+                        if let Some(binding) = data.get_mut(&position) {
+                        
+                            // Update the key value
+                            binding.update_key(key_press.get_keyval());
+                        }
+                    }
+                    
+                    // Disconnect the signal handler
+                    if let Ok(mut key_press_handler) = handler.try_borrow_mut() {
+                        // Clear the old key press handler
+                        let mut tmp = None;
+                        mem::swap(&mut tmp, &mut key_press_handler);
+                        if let Some(key_press_handler) = tmp {
+                            window.disconnect(key_press_handler);
+                        }
+                    }
+
+                    // Prevent any other keypress handlers from running
+                    gtk::Inhibit(true)
+                })),
+            );
+        }
     }
 }

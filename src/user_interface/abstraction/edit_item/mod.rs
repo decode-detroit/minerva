@@ -89,7 +89,6 @@ impl EditItemAbstraction {
         grid.set_hexpand(false);
         grid.set_vexpand(true);
 
-
         // Create the item list title and attach it to the grid
         let grid_title = gtk::Label::new(Some("All Items"));
         grid.attach(&grid_title, 0, 0, 1, 1);
@@ -110,7 +109,7 @@ impl EditItemAbstraction {
         let edit_grid = gtk::Grid::new();
 
         // Create the edit scene window and attach it to the edit grid
-        let edit_scene = EditScene::new(window, system_send);
+        let edit_scene = EditScene::new(window);
         edit_grid.attach(edit_scene.get_top_element(), 1, 3, 2, 1);
 
         // Wrap the edit scene window
@@ -192,7 +191,6 @@ impl EditItemAbstraction {
         let edit_event = EditEvent::new(system_send);
         edit_grid.attach(edit_event.get_top_element(), 1, 2, 2, 1);
 
-
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
         grid.attach(&save, 2, 0, 1, 1);
@@ -251,9 +249,6 @@ impl EditItemAbstraction {
             // Refresh from the underlying data (will process after the save)
             EditItemAbstraction::refresh(item_id, &system_send);
         }));
-
-
-
 
         // Add some space on all the sides and show the components
         grid.set_column_spacing(100); // Add some space between the left and right

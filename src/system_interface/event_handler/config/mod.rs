@@ -76,7 +76,7 @@ pub struct Scene {
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct DescriptiveScene {
     pub events: Vec<ItemPair>,     // a vector of the events and descriptions in this scene
-    pub key_map: Option<FnvHashMap<ItemPair, u32>>,  // an optional mapping of event ids to key codes
+    pub key_map: Option<FnvHashMap<u32, ItemPair>>,  // an optional mapping of event ids to key codes
 }
 
 /// A struct to define the elements of a background process
@@ -546,7 +546,7 @@ impl Config {
                         // Iterate through the key map for this scene
                         for (key, item_id) in key_map.iter() {
                             // Combine the item pair and key value
-                            map.insert(ItemPair::from_item(item_id.clone(), self.get_description(&item_id)), key.clone());
+                            map.insert(key.clone(), ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
                         }
                         // Return the Scene with the reversed key map
                         Some(DescriptiveScene { events, key_map: Some(map) })
