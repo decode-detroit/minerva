@@ -301,6 +301,84 @@ pub fn decorate_label(
     }
 }
 
+
+/// A helper function to properly color label for editing purposes. The function
+/// sets the markup for the existing label and returns the position from
+/// the DisplayType, if it exists.
+///
+/// This function assumes that the text has already been cleaned and sized.
+///
+pub fn color_label(
+    label: &gtk::Label,
+    text: &str,
+    display: DisplayType,
+    font_size: u32,
+) -> Option<u32> {
+    // Decorate based on the display type
+    match display {
+        // Match the display control variant
+        DisplayControl {
+            color,
+            highlight,
+            highlight_state,
+            spotlight,
+            position,
+        }
+        | DisplayWith {
+            color,
+            highlight,
+            highlight_state,
+            spotlight,
+            position,
+            ..
+        }
+        | DisplayDebug {
+            color,
+            highlight,
+            highlight_state,
+            spotlight,
+            position,
+            ..
+        }
+        | LabelControl {
+            color,
+            highlight,
+            highlight_state,
+            spotlight,
+            position,
+        }
+        | LabelHidden {
+            color,
+            highlight,
+            highlight_state,
+            spotlight,
+            position,
+        } => {
+            // Define the default markup
+            let mut markup = format!("<span size='{}'>{}</span>", font_size, text);
+
+            // Set the markup color, if specified
+            if let Some((red, green, blue)) = color {
+                markup = format!(
+                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
+                    red, green, blue, font_size, text
+                );
+            }
+            // Set the markup (using the default above if no color was specified)
+            label.set_markup(&markup);
+
+            // Return the position
+            return position;
+        }
+
+        // Otherwise, use the default color and position
+        Hidden => {
+            label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
+            return None;
+        }
+    }
+}
+
 /// A private helper function to properly spotlight the highlight color on a label
 /// until the provided expiration is complete. The function sets the markup for
 /// the existing label to or from the highlight color until expiration equals
