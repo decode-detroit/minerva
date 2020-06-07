@@ -424,18 +424,20 @@ impl ItemList {
         for item_pair in items {
             // Create the label to hold the data
             let item_label = gtk::Label::new(None);
-            let item_markup = &format!(
-                "<span size='12000'>{}</span>",
-                clean_text(&item_pair.description, LABEL_LIMIT, true, false, true));
+            let item_markup = clean_text(&item_pair.description, LABEL_LIMIT, true, false, true);
             color_label(
                 &item_label,
                 &item_markup,
                 item_pair.display,
-                12, // font size
+                12000, // font size FIXME should be a variable
             );
+            
+            // Add the label to a button
+            let item_button = gtk::Button::new();
+            item_button.add(&item_label);
 
             // Make the label a drag source
-            item_label.drag_source_set(
+            item_button.drag_source_set(
                 gdk::ModifierType::MODIFIER_MASK,
                 &vec![
                     gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
@@ -444,14 +446,14 @@ impl ItemList {
             );
 
             // Serialize the item pair data
-            item_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+            item_button.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
                 if let Ok(data) = serde_yaml::to_string(&item_pair) {
                     selection_data.set_text(data.as_str());
                 }
             }));
 
             // Add the button to the list box
-            items_list_box.add(&item_label);
+            items_list_box.add(&item_button);
         }
         // Show all the buttons in the grid
         self.grid.show_all();

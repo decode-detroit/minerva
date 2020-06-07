@@ -313,47 +313,15 @@ pub fn color_label(
     text: &str,
     display: DisplayType,
     font_size: u32,
-) -> Option<u32> {
+) {
     // Decorate based on the display type
     match display {
         // Match the display control variant
-        DisplayControl {
-            color,
-            highlight,
-            highlight_state,
-            spotlight,
-            position,
-        }
-        | DisplayWith {
-            color,
-            highlight,
-            highlight_state,
-            spotlight,
-            position,
-            ..
-        }
-        | DisplayDebug {
-            color,
-            highlight,
-            highlight_state,
-            spotlight,
-            position,
-            ..
-        }
-        | LabelControl {
-            color,
-            highlight,
-            highlight_state,
-            spotlight,
-            position,
-        }
-        | LabelHidden {
-            color,
-            highlight,
-            highlight_state,
-            spotlight,
-            position,
-        } => {
+        DisplayControl { color, .. }
+        | DisplayWith { color, .. }
+        | DisplayDebug { color, .. }
+        | LabelControl { color, .. }
+        | LabelHidden { color, .. } => {
             // Define the default markup
             let mut markup = format!("<span size='{}'>{}</span>", font_size, text);
 
@@ -366,15 +334,11 @@ pub fn color_label(
             }
             // Set the markup (using the default above if no color was specified)
             label.set_markup(&markup);
-
-            // Return the position
-            return position;
         }
 
         // Otherwise, use the default color and position
         Hidden => {
             label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
-            return None;
         }
     }
 }

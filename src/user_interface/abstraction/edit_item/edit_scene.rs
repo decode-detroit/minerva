@@ -23,7 +23,6 @@
 use super::super::super::super::system_interface::{
     DescriptiveScene, ItemId, ItemPair, Scene,
 };
-use super::super::super::utils::{clean_text, decorate_label};
 
 // Import standard library features
 use std::mem;
@@ -346,39 +345,21 @@ impl EditScene {
             if let Ok(keys_data) = self.keys_data.try_borrow() {
                 // Create a hash set to hold the events and a counter
                 let mut events = FnvHashSet::default();
-                let mut count = 0;
 
-                // Search until we've found all the events FIXME Infinite loop
-                while events.len() < events_data.len() {
-                    // Try to get each element, zero indexed
-                    if let Some(event) = events_data.get(&count) {
-                        events.insert(event.clone());
-                    }
-
-                    // Increment the count
-                    count = count + 1;
+                // Copy all the elements into the hash set
+                for event in events_data.values() {
+                    events.insert(event.clone());
                 }
                 
                 // Create a hash set to hold the events and a couple counters
                 let mut key_map = FnvHashMap::default();
-                let mut count = 0;
-                let mut found = 0;
 
-                // Search until we've found all the key bindings
-                while found < keys_data.len() {
-                    // Try to get each element, zero indexed
-                    if let Some(binding) = keys_data.get(&count) {
-                        // Increment the found count, even if it isn't valid
-                        found = found + 1;
-                    
-                        // Try to pack the binding
-                        if let Some((key, id)) = binding.pack_binding() {
-                            key_map.insert(key, id);
-                        }
+                // Copy all the valid bindings into the hash map
+                for binding in keys_data.values() {
+                    // Try to pack the binding
+                    if let Some((key, id)) = binding.pack_binding() {
+                        key_map.insert(key, id);
                     }
-
-                    // Increment the count
-                    count = count + 1;
                 }
                 
                 // Set the key map as none if there are no bindings
