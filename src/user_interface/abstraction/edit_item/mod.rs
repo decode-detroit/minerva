@@ -22,10 +22,12 @@
 // Define private submodules
 mod edit_event;
 mod edit_scene;
+mod edit_status;
 
 // Import the relevant structures into the correct namespace
 use self::edit_event::EditEvent;
 use self::edit_scene::EditScene;
+use self::edit_status::EditStatus;
 use super::super::super::system_interface::{
     DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit,
     Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
@@ -67,6 +69,7 @@ pub struct EditItemAbstraction {
     edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section
     edit_event: Rc<RefCell<EditEvent>>,           // the wrapped edit event section
     edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section
+    edit_status: Rc<RefCell<EditStatus>>,          // the wrapped edit status section
 }
 
 // Implement key features for the EditItemAbstration
@@ -191,10 +194,13 @@ impl EditItemAbstraction {
         separator.set_hexpand(true);
         edit_grid.attach(&separator, 1, 1, 2, 1);
 
-        // Create the edit detail and add it to the grid
+        // Create the edit event detail and add it to the grid
         let edit_event = EditEvent::new(system_send);
         edit_grid.attach(edit_event.get_top_element(), 1, 2, 2, 1);
 
+        // Create the edit status detail and add it to the grid
+        let edit_status = EditStatus::new(system_send);
+        edit_grid.attach(edit_status.get_top_element(), 1, 4, 2, 1);
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
         grid.attach(&save, 2, 0, 1, 1);
@@ -202,6 +208,7 @@ impl EditItemAbstraction {
         // Connect the save button click callback
         let edit_overview = Rc::new(RefCell::new(edit_overview));
         let edit_event = Rc::new(RefCell::new(edit_event));
+        let edit_status = Rc::new(RefCell::new(edit_status));
         save.connect_clicked(clone!(system_send, current_id, edit_overview, edit_event, edit_scene => move |_| {
             // Try to borrow the the current id
             let current_id = match current_id.try_borrow() {
@@ -271,6 +278,7 @@ impl EditItemAbstraction {
             edit_overview,
             edit_event,
             edit_scene,
+            edit_status,
         }
     }
 
@@ -338,10 +346,19 @@ impl EditItemAbstraction {
                         }
                     }
 
+                    // The scene variant
                     ReplyType::Scene { scene } => {
                         // Try to borrow the edit scene detail
                         if let Ok(edit_scene) = self.edit_scene.try_borrow() {
                             edit_scene.update_info(scene);
+                        }
+                    }
+
+                    // The status variant
+                    ReplyType::Status { status_detail } => {
+                        // Try to borrow the edit status detail
+                        if let Ok(mut edit_status) = self.edit_status.try_borrow_mut() {
+                            edit_status.load_status(status_detail);
                         }
                     }
 
@@ -431,7 +448,7 @@ impl ItemList {
                 item_pair.display,
                 12000, // font size FIXME should be a variable
             );
-            
+
             // Add the label to a button
             let item_button = gtk::Button::new();
             item_button.add(&item_label);
