@@ -107,7 +107,7 @@ impl EditItemAbstraction {
         grid.attach(&items_separator, 0, 1, 1, 1);
 
         // Create the item list that holds the buttons with all item data
-        let item_list = ItemList::new(system_send);
+        let item_list = ItemList::new();
 
         // Add the item list to the grid on the left
         grid.attach(item_list.get_top_element(), 0, 2, 1, 2);
@@ -153,7 +153,7 @@ impl EditItemAbstraction {
                 }
 
                 // Refresh the current data
-                EditItemAbstraction::refresh(item_pair.get_id(), &system_send)
+                EditItemAbstraction::refresh_item(item_pair.get_id(), &system_send)
             }
         }));
 
@@ -258,7 +258,7 @@ impl EditItemAbstraction {
             system_send.send(Edit { modifications });
 
             // Refresh from the underlying data (will process after the save)
-            EditItemAbstraction::refresh(item_id, &system_send);
+            EditItemAbstraction::refresh_item(item_id, &system_send);
         }));
 
         // Add some space on all the sides and show the components
@@ -300,13 +300,32 @@ impl EditItemAbstraction {
 
         // Refresh all the item components
         if let Some(item_id) = id {
-            EditItemAbstraction::refresh(item_id, &self.system_send);
+            EditItemAbstraction::refresh_item(item_id, &self.system_send);
+        }
+    }
+
+    // A function to refresh the entire edit window
+    //
+    pub fn refresh_all(&self) {
+        // Refresh the available items
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::ItemList,
+            request: RequestType::Items,
+        });
+        
+        // Try to get a copy of the current id
+        if let Ok(current_id) = self.current_id.try_borrow() {
+            // If a current id is specified
+            if let Some(ref id) = *current_id {
+               // Refresh the current item
+               EditItemAbstraction::refresh_item(id.clone(), &self.system_send);
+            }
         }
     }
 
     // A function to refresh the components of the current item
     //
-    fn refresh(item_id: ItemId, system_send: &SystemSend) {
+    fn refresh_item(item_id: ItemId, system_send: &SystemSend) {
         // Request new data for each component
         system_send.send(Request {
             reply_to: DisplayComponent::EditItemOverview,
@@ -319,6 +338,10 @@ impl EditItemAbstraction {
         system_send.send(Request {
             reply_to: DisplayComponent::EditItemOverview,
             request: RequestType::Scene { item_id, },
+        });
+        system_send.send(Request {
+            reply_to: DisplayComponent::EditItemOverview,
+            request: RequestType::Status { item_id, },
         });
     }
 
@@ -392,27 +415,18 @@ impl EditItemAbstraction {
 #[derive(Clone, Debug)]
 struct ItemList {
     grid: gtk::Grid,              // the main grid for this element
-    system_send: SystemSend,      // a copy of the system send line
 }
 
 // Implement key features of the ItemList
 impl ItemList {
     /// A function to create a new ItemList
     ///
-    fn new(system_send: &SystemSend,) -> ItemList {
-        // Get all items in the configuration
-        system_send.send(Request {
-            reply_to: DisplayComponent::ItemList,
-            request: RequestType::Items,
-        });
-
+    fn new() -> ItemList {
         // Add the top-level grid
         let grid = gtk::Grid::new();
 
-        ItemList {
-            grid,
-            system_send: system_send.clone(),
-        }
+        // Return the completed structure
+        ItemList { grid }
     }
 
     /// A method to make a button for each item in the configuration file

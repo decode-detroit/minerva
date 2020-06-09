@@ -213,6 +213,7 @@ impl EditMultiState {
         for state_id in allowed.drain(..) {
             // Create a new label with the state id
             let state_label = gtk::Label::new(Some(&state_id.id().to_string()));
+            state_label.show();
 
             // Attach the label to the list box
             self.states_list.add(&state_label);

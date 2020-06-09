@@ -241,6 +241,9 @@ impl InterfaceAbstraction {
 
             // Diable shortcuts
             self.shortcuts_dialog.enable_shortcuts(false);
+            
+            // Refresh the available items
+            self.edit_item.refresh_all();
 
         // Otherwise, switch to operations mode
         } else {

@@ -419,9 +419,9 @@ impl EditScene {
         event_grid.show_all();
 
         // Connect functionality to delete an event on the button click
-        event_delete.connect_clicked(clone!(event_list, event_data, position => move |button| {
+        event_delete.connect_clicked(clone!(event_list, event_data, position => move |_| {
             // Remove the event element from the user interface
-            if let Some(widget) = button.get_parent() {
+            if let Some(widget) = event_grid.get_parent() {
                 event_list.remove(&widget);
             }
 
@@ -520,7 +520,7 @@ impl EditScene {
         let keybinding_info = gtk::Grid::new();
 
         // Remove the user interface element and database entry when clicked
-        key_delete.connect_clicked(clone!(keys_list, keys_data, keybinding_info, position => move |button| {
+        key_delete.connect_clicked(clone!(keys_list, keys_data, keybinding_info, position => move |_| {
             // Remove the event element from the user interface
             if let Some(widget) = keybinding_info.get_parent() {
                 keys_list.remove(&widget);
