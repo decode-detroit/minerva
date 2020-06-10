@@ -20,7 +20,7 @@
 //! program.
 
 // Reexport the key structures and types
-pub use self::status::{FullStatus, StatusDescription, StatusDetail};
+pub use self::status::{FullStatus, StatusDescription, Status};
 
 // Define private submodules
 mod status;
@@ -30,7 +30,7 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
 use super::event::{
-    CancelEvent, EventDetail, EventUpdate, GroupedEvent, ModifyStatus, NewScene, QueueEvent,
+    CancelEvent, Event, EventUpdate, GroupedEvent, ModifyStatus, NewScene, QueueEvent,
     SaveData, SendData,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
@@ -224,7 +224,7 @@ struct YamlConfig {
     fullscreen: Option<bool>, // whether the interface should begin fullscreen
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap, // hash map of the default game status
-    event_set: FnvHashMap<ItemPair, Option<EventDetail>>, // hash map of all the item pairs and event details
+    event_set: FnvHashMap<ItemPair, Option<Event>>, // hash map of all the item pairs and events
 } // Private struct to allow deserialization of the configuration
 
 /// A structure to hold the whole configuration for current instantiation of the
@@ -241,7 +241,7 @@ pub struct Config {
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_handler: StatusHandler,    // status handler for the current game status
     lookup: FnvHashMap<ItemId, ItemDescription>, // hash map of all the item descriptions
-    events: FnvHashMap<ItemId, EventDetail>, // hash map of all the item details
+    events: FnvHashMap<ItemId, Event>, // hash map of all the events
     general_update: GeneralUpdate,    // line to provide updates to the higher-level system
 }
 
@@ -301,7 +301,7 @@ impl Config {
         // Turn the ItemPairs in to the lookup and event set
         let mut lookup = FnvHashMap::default();
         let mut events = FnvHashMap::default();
-        for (item_pair, possible_detail) in yaml_config.event_set.iter() {
+        for (item_pair, possible_event) in yaml_config.event_set.iter() {
             // Insert the event description into the lookup
             match lookup.insert(item_pair.get_id(), item_pair.get_description()) {
                 // Warn of events defined multiple times
@@ -309,11 +309,11 @@ impl Config {
                 None => (),
             }
 
-            // If the event detail is specified
-            if let &Some(ref event_detail) = possible_detail {
-                // Insert the event detail into the events hash map
-                match events.insert(item_pair.get_id(), event_detail.clone()) {
-                    // Warn of an event detail defined multiple times
+            // If the event is specified
+            if let &Some(ref event) = possible_event {
+                // Insert the event into the events hash map
+                match events.insert(item_pair.get_id(), event.clone()) {
+                    // Warn of an event defined multiple times
                     Some(_) => update!(warn general_update => "Item {} Has Multiple Definitions In Event List.", &item_pair.id()),
                     None => (),
                 }
@@ -413,7 +413,7 @@ impl Config {
         }
     }
 
-    /// A method to return the detail of a status from the status handler.
+    /// A method to return a status from the status handler.
     ///
     /// # Errors
     ///
@@ -424,9 +424,9 @@ impl Config {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning None.
     ///
-    pub fn get_status_detail(&self, item_id: &ItemId) -> Option<StatusDetail> {
-        // Return a status detail based on the provided item id
-        self.status_handler.get_status_detail(item_id)
+    pub fn get_status(&self, item_id: &ItemId) -> Option<Status> {
+        // Return a status based on the provided item id
+        self.status_handler.get_status(item_id)
     }
 
     /// A method to return a vector of the valid status ids.
@@ -749,40 +749,9 @@ impl Config {
         None
     }
 
-    /// A method to delete the item description within the current lookup.
-    ///
-    /// # Errors
-    ///
-    /// This function will notify the user if the description was removed.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and making no
-    /// modifications to the current scene.
-    ///
-    pub fn delete_description(&mut self, item_id: &ItemId) {
-        // Try to remove the item from the lookup
-        if let Some(description) = self.lookup.remove(&item_id) {
-            // Notify the user that it was removed
-            update!(update &self.general_update => "Item Description Removed: {}", description);
-        }
-    }
-
-    /// A method to delete an event from the configuration
-    ///
-    pub fn delete_event(&mut self, event_id: &ItemId) {
-        // Remove the event description from the lookup
-        self.delete_description(event_id);
-
-        // If the event is in the event list, remove it
-        if let Some(_) = self.events.remove(&event_id) {
-            // Update the detail and notify the system
-            update!(update &self.general_update => "Event Detail Removed.");
-        }
-    }
-
     /// A method to modify or add an item with provided item pair
     ///
-    pub fn edit_item(&mut self, item_pair: &ItemPair) {
+    pub fn edit_item(&mut self, item_pair: ItemPair) {
         // If the item is in the lookup, update the description
         if let Some(description) = self.lookup.get_mut(&item_pair.get_id()) {
             // Update the description and notify the system
@@ -797,39 +766,79 @@ impl Config {
         update!(update &self.general_update => "Item Description Added: {}", item_pair.description());
     }
 
-    /// A method to modify or add an event with provided event id and new detail.
+    /// A method to modify or add an event with provided event id and new event.
     ///
-    pub fn edit_event(&mut self, event_id: &ItemId, new_detail: &EventDetail) {
-        // If the event is in the event list, update the event detail
-        if let Some(detail) = self.events.get_mut(&event_id) {
-            // Update the detail and notify the system
-            *detail = new_detail.clone();
-            update!(update &self.general_update => "Event Detail Updated: {}", self.get_description(&event_id));
-            return;
+    pub fn edit_event(&mut self, event_id: ItemId, possible_event: Option<Event>) {
+        // If a new event was specified
+        if let Some(new_event) = possible_event {        
+            // If the event is in the event list, update the event
+            if let Some(event) = self.events.get_mut(&event_id) {
+                // Update the event and notify the system
+                *event = new_event;
+                update!(update &self.general_update => "Event Updated: {}", self.get_description(&event_id));
+            
+            // Otherwise, add the event
+            } else {
+                update!(update &self.general_update => "Event Added: {}", self.get_description(&event_id));
+                self.events.insert(event_id, new_event);
+            }
+        
+        // If no new event was specified
+        } else {
+            // If the event is in the event list, remove it
+            if let Some(_) = self.events.remove(&event_id) {
+                // Notify the user that it was removed
+                update!(update &self.general_update => "Event Removed: {}", self.get_description(&event_id));
+            }
         }
-
-        // Otherwise, add the event
-        self.events.insert(event_id.clone(), new_detail.clone());
-        update!(update &self.general_update => "Event Detail Added: {}", self.get_description(&event_id));
+    }
+    
+    /// A method to modify or add a status with provided id.
+    ///
+    pub fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
+        // Get the item description and then pass the change to the status handler
+        let description = self.get_description(&status_id).description;
+        self.status_handler.edit_status(status_id, new_status, description);
     }
 
     /// A method to modify or add a scene with provided id.
     ///
-    pub fn edit_scene(&mut self, scene_id: &ItemId, new_scene: &Scene) {
-        // If the scene is in the scene list, update the scene
-        if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
-            // Update the scene and notify the system
-            *scene = new_scene.clone();
-            update!(update &self.general_update => "Scene Detail Updated: {}", self.get_description(&scene_id));
-            return;
+    pub fn edit_scene(&mut self, scene_id: ItemId, possible_scene: Option<Scene>) {
+        // If a new scene was specified
+        if let Some(new_scene) = possible_scene {
+            // If the scene is in the scene list, update the scene
+            if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
+                // Update the scene and notify the system
+                *scene = new_scene;
+                update!(update &self.general_update => "Scene Updated: {}", self.get_description(&scene_id));
+            
+            // Otherwise, add the scene
+            } else {
+                update!(update &self.general_update => "Scene Added: {}", self.get_description(&scene_id));
+                self.all_scenes.insert(scene_id, new_scene);
+            }
+        
+        // If no new event was specified
+        } else {
+            // If the scene is in the scene list, remove it
+            if let Some(_) = self.all_scenes.remove(&scene_id) {
+                // Notify the user that it was removed
+                update!(update &self.general_update => "Scene Removed: {}", self.get_description(&scene_id));
+            }
         }
-
-        // Otherwise, add the scene
-        self.all_scenes.insert(scene_id.clone(), new_scene.clone());
-        update!(update &self.general_update => "Scene Detail Added: {}", self.get_description(&scene_id));
+    }
+    
+    /// A method to delete the item description within the lookup.
+    ///
+    pub fn delete_description(&mut self, item_id: &ItemId) {
+        // Try to remove the item from the lookup
+        if let Some(description) = self.lookup.remove(item_id) {
+            // Notify the user that it was removed
+            update!(update &self.general_update => "Item Description Removed: {}", description);
+        }
     }
 
-    /// A method to return the event detail based on the event id.
+    /// A method to return the event based on the event id.
     ///
     /// # Errors
     ///
@@ -841,57 +850,37 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning
     /// None.
     ///
-    pub fn try_event(&mut self, id: &ItemId, checkscene: bool) -> Option<EventDetail> {
+    pub fn try_event(&mut self, id: &ItemId, checkscene: bool) -> Option<Event> {
         // If the checkscene flag is set
         if checkscene {
             // Try to open the current scene
             if let Some(scene) = self.all_scenes.get(&self.current_scene) {
                 // Check to see if the event is listed in the current scene
-                if scene.events.contains(id) {
-                    // Return the event detail for the event
-                    return match self.events.get(id) {
-                        // Return the found event detail
-                        Some(detail) => Some(detail.clone()),
-
-                        // Return None if the id doesn't exist
-                        None => {
-                            // Notify of an invalid event
-                            update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id)) => "Event Not Found.");
-
-                            // Return None
-                            None
-                        }
-                    };
+                if !scene.events.contains(id) {
+                    // If the event is not listed in the current scene, notify
+                    update!(warnevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not In Current Scene.");
+                    return None;
                 }
-
-                // If the event is not listed in the current scene, notify
-                update!(warnevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not In Current Scene.");
-
-                // And return none
-                None
-
             // Warn that there isn't a current scene
             } else {
-                update!(err &self.general_update => "Scene ID Not Found In Configuration: {}", &self.current_scene);
+                update!(err &self.general_update => "Current Scene Not Found.");
                 return None;
             }
+        }
+        
+        // Try to return the event
+        match self.events.get(id) {
+            // Return the found event
+            Some(event) => Some(event.clone()),
 
-        // Otherwise, try to execute the event without verifying the current scene
-        } else {
-            // Return the event detail for the event
-            return match self.events.get(id) {
-                // Return the found event detail
-                Some(detail) => Some(detail.clone()),
+            // Return None if the id doesn't exist
+            None => {
+                // Notify of an invalid event
+                update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id)) => "Event Not Found.");
 
-                // Return None if the id doesn't exist
-                None => {
-                    // Notify of an invalid event
-                    update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not Found.");
-
-                    // Return None
-                    None
-                }
-            };
+                // Return None
+                None
+            }
         }
     }
 
@@ -914,11 +903,11 @@ impl Config {
             // Compose the item pair
             let item_pair = ItemPair::from_item(item_id.clone(), description.clone());
 
-            // Add the event detail, if found
+            // Add the event if found
             match self.events.get(item_id) {
-                // Include the event detail, when found
-                Some(detail) => {
-                    event_set.insert(item_pair, Some(detail.clone()));
+                // Include the event, when found
+                Some(event) => {
+                    event_set.insert(item_pair, Some(event.clone()));
                 }
 
                 // Otherwise, default to None
@@ -980,7 +969,7 @@ impl Config {
         all_scenes: &FnvHashMap<ItemId, Scene>,
         status_map: &StatusMap,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
-        events: &FnvHashMap<ItemId, EventDetail>,
+        events: &FnvHashMap<ItemId, Event>,
     ) {
         // Verify each scene in the config
         for (id, scene) in all_scenes.iter() {
@@ -1019,24 +1008,24 @@ impl Config {
         all_scenes: &FnvHashMap<ItemId, Scene>,
         status_map: &StatusMap,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
-        events: &FnvHashMap<ItemId, EventDetail>,
+        events: &FnvHashMap<ItemId, Event>,
     ) -> bool {
-        // Verify that each event detail in the scene is valid
+        // Verify that each event in the scene is valid
         let mut test = true;
         for id in scene.events.iter() {
-            // Find the matching event detail
-            if let Some(event_detail) = events.get(id) {
-                // Verify the event detail
-                if !Config::verify_detail(
+            // Find the matching event
+            if let Some(event) = events.get(id) {
+                // Verify the event
+                if !Config::verify_event(
                     general_update,
-                    event_detail,
+                    event,
                     scene,
                     all_scenes,
                     status_map,
                     lookup,
                     events,
                 ) {
-                    update!(warn general_update => "Invalid Event Detail: {}", id);
+                    update!(warn general_update => "Invalid Event: {}", id);
                     test = false;
                 }
 
@@ -1057,7 +1046,7 @@ impl Config {
             for (_, id) in key_map.iter() {
                 // Make sure the event is listed in the scene
                 if !scene.events.contains(id) {
-                    update!(warn general_update => "Event In Keymapping, But Not In Scene: {}", id);
+                    update!(warn general_update => "Event In Shortcuts, But Not In Scene: {}", id);
                     test = false;
                 } // Events in the scene have already been tested for other validity
             }
@@ -1065,7 +1054,7 @@ impl Config {
         test // return the result
     }
 
-    /// An internal function to verify a particular event detail in the context
+    /// An internal function to verify a particular event in the context
     /// of scene and config.
     ///
     /// Like all EventHandler functions and methods, this method will fail
@@ -1077,17 +1066,17 @@ impl Config {
     /// This function raises a warning at the first inconsistency and is not
     /// guaranteed to catch later inconsistencies.
     ///
-    fn verify_detail(
+    fn verify_event(
         general_update: &GeneralUpdate,
-        event_detail: &EventDetail,
+        event: &Event,
         scene: &Scene,
         all_scenes: &FnvHashMap<ItemId, Scene>,
         status_map: &StatusMap,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
-        event_list: &FnvHashMap<ItemId, EventDetail>,
+        event_list: &FnvHashMap<ItemId, Event>,
     ) -> bool {
-        // Unpack each action in the event detail
-        for action in event_detail {
+        // Unpack each action in the event
+        for action in event {
             // Check each action, exiting early if any action fails the check
             match action {
                 // If there is a new scene, verify the id is valid
@@ -1117,9 +1106,9 @@ impl Config {
                     ref new_state,
                 } => {
                     // Check that the status_id is valid
-                    if let Some(detail) = status_map.get(status_id) {
+                    if let Some(status) = status_map.get(status_id) {
                         // Also verify the new state
-                        if !detail.is_allowed(new_state) {
+                        if !status.is_allowed(new_state) {
                             update!(warn general_update => "Event Contains Invalid New State: {}", &new_state);
                             return false;
                         }
@@ -1167,9 +1156,9 @@ impl Config {
                     ref event_map,
                 } => {
                     // Check that the status_id is valid
-                    if let Some(detail) = status_map.get(status_id) {
+                    if let Some(status) = status_map.get(status_id) {
                         // Verify that the allowed states vector isn't empty
-                        let allowed = detail.allowed();
+                        let allowed = status.allowed();
                         if allowed.is_empty() {
                             update!(warn general_update => "Event Contains Empty Grouped Event: {}", status_id);
                             return false;

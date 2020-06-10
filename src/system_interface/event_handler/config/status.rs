@@ -33,7 +33,7 @@ use self::fnv::FnvHashMap;
 
 /// A type to store a hashmap of status ids and status descriptions
 ///
-pub type StatusMap = FnvHashMap<ItemId, StatusDetail>; // a hash map of status id and status detail pairs
+pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and status pairs
 
 /// A type to store a vector of status ids and status descriptions
 ///
@@ -86,9 +86,9 @@ impl StatusHandler {
     ///
     pub fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Try to return the local status as an id
-        if let Some(detail) = self.status_map.get(status_id) {
+        if let Some(status) = self.status_map.get(status_id) {
             // Return the current state
-            return Some(detail.current());
+            return Some(status.current());
 
         // Warn that there is an error with the provided status id
         } else {
@@ -97,24 +97,42 @@ impl StatusHandler {
         }
     }
 
-    /// A method to get the status detail of the requested item id.
+    /// A method to get the status of the requested item id.
     ///
-    /// # Errors
-    ///
-    /// This method will return None if the provided item id was not found
-    /// in the configuration. This usually indicates a problem with the
-    /// underlying confirguration file.
-    ///
-    /// Like all StatusHandler functions and methods, this function will fail
-    /// gracefully by notifying of any errors on the update line and returning
-    /// None.
-    ///
-    pub fn get_status_detail(&self, status_id: &ItemId) -> Option<StatusDetail> {
-        // Return the status detail if found
+    pub fn get_status(&self, status_id: &ItemId) -> Option<Status> {
+        // Return the status if found
         match self.status_map.get(status_id) {
-            Some(detail) => Some(detail.clone()),
+            Some(status) => Some(status.clone()),
             None => None,
         }
+    }
+    
+    /// A method to edit an existing status, add a new one, or delete the existing
+    ///
+    pub fn edit_status(&mut self, status_id: ItemId, possible_status: Option<Status>, description: String) {
+        // If a new status was specified
+        if let Some(new_status) = possible_status {
+            // If the scene is in the status_map
+            if let Some(status) = self.status_map.get_mut(&status_id) {
+                // Update the status and notify the system
+                *status = new_status;
+                update!(update &self.update_line => "Status Updated: {}", description);
+            
+            // Otherwise, add the status
+            } else {
+                update!(update &self.update_line => "Status Added: {}", description);
+                self.status_map.insert(status_id, new_status);
+            }
+        
+        // If no new status was specified
+        } else {
+            // If the status is in the status map, remove it
+            if let Some(_) = self.status_map.remove(&status_id) {
+                // Notify the user that it was removed
+                update!(update &self.update_line => "Status Removed: {}", description);
+            }
+        }
+    
     }
 
     /// A method to modify a status state within the current scene based
@@ -131,10 +149,10 @@ impl StatusHandler {
     /// gracefully by notifying of errors on the update line and returning false.
     ///
     pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
-        // Try to get a mutable reference to the status detail
-        if let Some(status_detail) = self.status_map.get_mut(status_id) {
-            // Try to update the status detail
-            match status_detail.update(new_state.clone()) {
+        // Try to get a mutable reference to the status
+        if let Some(status) = self.status_map.get_mut(status_id) {
+            // Try to update the status
+            match status.update(new_state.clone()) {
                 // If the update was successful, return the new state
                 Some(new_id) => Some(new_id),
 
@@ -211,17 +229,17 @@ impl StatusHandler {
             let description = get_description(&status_id);
             let status_pair = ItemPair::from_item(status_id.clone(), description);
 
-            // Compose the status detail into a status description
+            // Compose the status into a status description
             let status_description = match self.status_map.get(&status_id) {
-                // The status detail exists
-                Some(detail) => {
+                // The status exists
+                Some(status) => {
                     // Repackage as a new status description
                     let current_pair =
-                        ItemPair::from_item(detail.current(), get_description(&detail.current()));
+                        ItemPair::from_item(status.current(), get_description(&status.current()));
 
                     // Rapackage the allowed states
                     let mut allowed_pairs = Vec::new();
-                    for state in detail.allowed() {
+                    for state in status.allowed() {
                         allowed_pairs
                             .push(ItemPair::from_item(state.clone(), get_description(&state)));
                     }
@@ -246,10 +264,10 @@ impl StatusHandler {
     }
 }
 
-/// An enum to hold all status detail variants.
+/// An enum to hold all status variants.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub enum StatusDetail {
+pub enum Status {
     /// The MultState variant
     ///
     MultiState {
@@ -269,11 +287,11 @@ pub enum StatusDetail {
     },
 }
 
-// Reexport the status detail variants
-use self::StatusDetail::{CountedState, MultiState};
+// Reexport the status variants
+use self::Status::{CountedState, MultiState};
 
-// Implement key features for Status Detail
-impl StatusDetail {
+// Implement key features for Status
+impl Status {
     /// A method to return the current state of the status
     ///
     pub fn current(&self) -> ItemId {

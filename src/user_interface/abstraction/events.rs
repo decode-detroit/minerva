@@ -360,7 +360,7 @@ impl EventAbstraction {
             self.side_panel
                 .attach(&status_title, 0, 3 + status_count, 1, 1);
 
-            // Find the corresponding current state detail
+            // Find the corresponding current state
             let state = gtk::Label::new(Some("Not Available"));
             if let Some(&StatusDescription { ref current, .. }) = full_status.get(
                 &ItemPair::from_item(status.get_id(), ItemDescription::new("", Hidden)),

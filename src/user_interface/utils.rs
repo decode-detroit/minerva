@@ -257,7 +257,7 @@ pub fn decorate_label(
 
                 // Check to see if the highlight state is specified
                 if let Some((status_id, state_id)) = highlight_state {
-                    // Find the corresponding detail
+                    // Find the corresponding status
                     if let Some(&StatusDescription { ref current, .. }) = full_status.get(
                         &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
                     ) {

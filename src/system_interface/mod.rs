@@ -21,14 +21,14 @@
 
 // Reexport the key structures and types
 pub use self::event_handler::event::{
-    DataType, EventAction, EventDelay, EventDetail, EventUpdate, UpcomingEvent,
+    DataType, EventAction, EventDelay, Event, EventUpdate, UpcomingEvent,
 };
 pub use self::event_handler::item::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
     ItemPair, LabelControl, LabelHidden,
 };
 pub use self::event_handler::{
-    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, StatusDetail
+    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
 };
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 
@@ -324,32 +324,35 @@ impl SystemInterface {
                     for modification in modifications.drain(..) {
                         // Match the specified moficiation
                         match modification {
-                            // Delete the event entirely
-                            Modification::DeleteEvent { event_id } => {
-                                handler.delete_event(&event_id);
-                            }
-
                             // Add or modify the item
                             Modification::ModifyItem {
                                 item_pair,
                             } => {
-                                handler.edit_item(&item_pair);
+                                handler.edit_item(item_pair);
                             }
 
                             // Add or modify the event
                             Modification::ModifyEvent {
                                 item_id,
-                                event_detail,
+                                event,
                             } => {
-                                handler.edit_event(&item_id, &event_detail);
+                                handler.edit_event(item_id, event);
                             }
+                            
+                            // Add or modify the status
+                            Modification::ModifyStatus {
+                                item_id,
+                                status,
+                            } => {
+                                handler.edit_status(item_id, status);
+                            }   
                             
                             // Add or modify the scene
                             Modification::ModifyScene {
                                 item_id,
                                 scene,
                             } => {
-                                handler.edit_scene(&item_id, &scene);
+                                handler.edit_scene(item_id, scene);
                             }
                         }
                     }
@@ -460,16 +463,16 @@ impl SystemInterface {
                                 .unwrap_or(());
                         }
 
-                        // Reply to a request for the event detail
+                        // Reply to a request for the event
                         RequestType::Event { item_id } => {
-                            // Try to get the event detail
-                            let event_detail = handler.get_detail(&item_id);
+                            // Try to get the event
+                            let event = handler.get_event(&item_id);
 
-                            // Send an update with the event detail (or None)
+                            // Send an update with the event (or None)
                             self.interface_send
                                 .send(Reply {
                                     reply_to, // echo the display component
-                                    reply: ReplyType::Event { event_detail },
+                                    reply: ReplyType::Event { event },
                                 })
                                 .unwrap_or(());
                         }
@@ -501,16 +504,16 @@ impl SystemInterface {
                                 })
                                 .unwrap_or(());
                         }
-                        // Reply to a request for the status detail
+                        // Reply to a request for the status
                         RequestType::Status { item_id } => {
-                            // Try to get the event detail
-                            let status_detail = handler.get_status_detail(&item_id);
+                            // Try to get the status
+                            let status = handler.get_status(&item_id);
 
-                            // Send an update with the event detail (or None)
+                            // Send an update with the status (or None)
                             self.interface_send
                                 .send(Reply {
                                     reply_to, // echo the display component
-                                    reply: ReplyType::Status { status_detail },
+                                    reply: ReplyType::Status { status },
                                 })
                                 .unwrap_or(());
                         }
@@ -824,24 +827,30 @@ impl SystemSend {
 ///
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Modification {
-    /// A modification to delete an existing event
-    DeleteEvent { event_id: ItemId },
-
     /// A modification to add an item or modify an existing one
     ModifyItem {
         item_pair: ItemPair,
     },
 
-    /// A modification to add an event or modify an existing one
+    /// A modification to add an event, modify an existing one, or delete it
+    /// (if None provided)
     ModifyEvent {
         item_id: ItemId,
-        event_detail: EventDetail,
+        event: Option<Event>,
     },
     
-    /// A modification to add a scene or modify an existing one
+    /// A modification to add a status, modify an existing one, or delete it
+    /// (if None provided)
+    ModifyStatus {
+        item_id: ItemId,
+        status: Option<Status>,
+    },
+    
+    /// A modification to add a scene, modify an existing one, or delete it
+    /// (if None provided)
     ModifyScene {
         item_id: ItemId,
-        scene: Scene,
+        scene: Option<Scene>,
     },
 }
 
@@ -852,17 +861,17 @@ pub enum RequestType {
     /// A variant for the description of an item
     Description { item_id: ItemId },
 
-    /// A variant for the detail of an event
+    /// A variant for the event associated with an item
     Event { item_id: ItemId },
-
-    /// A variant for the list of all items
-    Items,
-
-    /// A variant for the list of all events in a scene
-    Scene { item_id: ItemId },
 
     /// A variant for the status associated with an item
     Status { item_id: ItemId },
+    
+    /// A variant for the list of all events in a scene
+    Scene { item_id: ItemId },
+
+    /// A variant for the list of all items
+    Items,
 }
 
 /// An enum to specify which display component has requested the information
@@ -1031,17 +1040,17 @@ pub enum ReplyType {
     /// A variant for the description of an item
     Description { description: ItemDescription },
 
-    /// A variant for the detail of an event
-    Event { event_detail: Option<EventDetail> },
-
-    /// A variant for the list of item pairs
-    Items { items: Vec<ItemPair> },
-
+    /// A variant for the event associated with an item
+    Event { event: Option<Event> },
+    
+    /// A variant for the status associated with an item
+    Status { status: Option<Status> },
+    
     /// A variant for the list of events in a scene
     Scene { scene: Option<DescriptiveScene> },
 
-    /// A variant for the status associated with an item
-    Status { status_detail: Option<StatusDetail> },
+    /// A variant for the list of item pairs
+    Items { items: Vec<ItemPair> },
 }
 
 /// An enum type to provide interface updates back to the user interface thread.

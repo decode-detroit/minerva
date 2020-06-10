@@ -137,10 +137,10 @@ impl StatusDialog {
                     // Try to compose the id into an item
                     if let Some(id) = ItemPair::new(id_number, "", Hidden) {
 
-                        // Look up the corresponding status detail
+                        // Get a copy of the full status
                         if let Ok(full_status) = protected_status.try_borrow() {
 
-                            // Find the corresponding detail
+                            // Find the corresponding status
                             if let Some(&StatusDescription { ref current, ref allowed }) = full_status.get(&id) {
                                 // Extract the allowed ids and add them to the states
                                 for (num, state_pair) in allowed.iter().enumerate() {

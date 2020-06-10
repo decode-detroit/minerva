@@ -128,16 +128,16 @@ pub enum EventAction {
     SendData { data: DataType },
 
     /// A variant which indicates a grouped event. This event changes its
-    /// event detail based on the state of the corresponding status.
+    /// triggered event based on the state of the corresponding status.
     GroupedEvent {
         status_id: ItemId,
         event_map: FnvHashMap<ItemId, ItemId>,
     },
 }
 
-/// A convenient type definition to specify the detail of each event
+/// A convenient type definition to specify each event
 ///
-pub type EventDetail = Vec<EventAction>;
+pub type Event = Vec<EventAction>;
 
 // Reexport the event action type variants
 pub use self::EventAction::{

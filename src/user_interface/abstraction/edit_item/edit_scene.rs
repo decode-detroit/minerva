@@ -190,7 +190,7 @@ impl EditScene {
         // Create a label for the key bindings window
         let keys_label = gtk::Label::new(Some("Keyboard shortcuts"));
 
-        // Construct the checkbox for the scene detail
+        // Construct the checkbox for the scene
         let scene_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Scene");
         scene_checkbox.set_active(false);
 
@@ -266,7 +266,7 @@ impl EditScene {
         // Check if the scene is valid
         match scene {
             Some(mut scene) =>  {
-                // Show the scene detail by setting the check box
+                // Show the scene by setting the check box
                 self.scene_checkbox.set_active(true);
 
                 // Iterate through the item pairs in the events vector
@@ -299,7 +299,7 @@ impl EditScene {
             }
 
             None => {
-                // Hide the scene detail by unsetting the check box
+                // Hide the scene by unsetting the check box
                 self.scene_checkbox.set_active(false);
             }
         }
@@ -333,7 +333,7 @@ impl EditScene {
 
     // A method to pack and return the scene
     //
-    pub fn pack_detail(&self) -> Option<Scene> {
+    pub fn pack_scene(&self) -> Option<Scene> {
         // If the checkbox was not selected, return None
         if !self.scene_checkbox.get_active() {
             return None;

@@ -21,8 +21,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, DisplayComponent, EventAction, EventDetail, EventDelay, ItemId, ItemPair,
-    Request, RequestType, StatusDetail, SystemSend,
+    DataType, DisplayComponent, EventAction, Event, EventDelay, ItemId, ItemPair,
+    Request, RequestType, Status, SystemSend,
 };
 
 // Import standard library features
@@ -45,12 +45,12 @@ use self::gtk::GridExt;
 const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
 
 
-// Create a structure for editing the event detail
+// Create a structure for editing the event
 #[derive(Clone, Debug)]
 pub struct EditEvent {
     grid: gtk::Grid,                   // the main grid for this element
     edit_action: Rc<RefCell<EditAction>>, // a wrapped dialog to edit the current action
-    detail_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
+    event_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
     next_position: Rc<RefCell<usize>>, // the next available position in the hash map
     action_list: gtk::ListBox,         // the visible list for event actions
@@ -64,9 +64,9 @@ impl EditEvent {
         // Create the grid
         let grid = gtk::Grid::new();
 
-        // Construct the checkbox for the event detail
-        let detail_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
-        detail_checkbox.set_active(true);
+        // Construct the checkbox for the event
+        let event_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
+        event_checkbox.set_active(true);
 
         // Create the empty event actions
         let event_actions = Rc::new(RefCell::new(FnvHashMap::default()));
@@ -108,7 +108,7 @@ impl EditEvent {
         action_window.set_size_request(-1, 200);
 
         // Connect the checkbox to the visibility of the other elements
-        detail_checkbox.connect_toggled(clone!(
+        event_checkbox.connect_toggled(clone!(
             action_window,
             add_button,
             tmp_edit_action
@@ -126,7 +126,7 @@ impl EditEvent {
         }));
 
         // Add the button below the data list
-        grid.attach(&detail_checkbox, 0, 0, 1, 1);
+        grid.attach(&event_checkbox, 0, 0, 1, 1);
         grid.attach(&action_window, 0, 1, 1, 1);
         grid.attach(&add_button, 0, 2, 1, 1);
         grid.set_column_spacing(10); // Add some space
@@ -136,7 +136,7 @@ impl EditEvent {
         EditEvent {
             grid,
             edit_action,
-            detail_checkbox,
+            event_checkbox,
             event_actions,
             next_position,
             action_list,
@@ -149,20 +149,20 @@ impl EditEvent {
         &self.grid
     }
 
-    // A method to load an existing event detail, or none
+    // A method to load an existing event, or none
     //
-    pub fn load_event(&self, event_detail: Option<EventDetail>) {
-        // See if a detail was specified
-        let mut detail = match event_detail {
-            // If a detail was specified, switch the checkbox
-            Some(detail) => {
-                self.detail_checkbox.set_active(true);
-                detail
+    pub fn load_event(&self, event: Option<Event>) {
+        // See if an event was specified
+        let mut event = match event {
+            // If a event was specified, switch the checkbox
+            Some(event) => {
+                self.event_checkbox.set_active(true);
+                event
             }
 
             // Otherwise, uncheck the checkbox and return
             None => {
-                self.detail_checkbox.set_active(false);
+                self.event_checkbox.set_active(false);
                 return;
             }
         };
@@ -178,7 +178,7 @@ impl EditEvent {
         }
 
         // For each event action, create a new action in the list
-        for action in detail.drain(..) {
+        for action in event.drain(..) {
             EditEvent::add_action(
                 &self.edit_action,
                 &self.event_actions,
@@ -189,27 +189,27 @@ impl EditEvent {
         }
     }
 
-    // A method to pack the listed actions into an event detail
+    // A method to pack the listed actions into an event
     //
-    pub fn pack_detail(&self) -> Option<EventDetail> {
+    pub fn pack_event(&self) -> Option<Event> {
 
         // If the checkbox was not selected, return None
-        if !self.detail_checkbox.get_active() {
+        if !self.event_checkbox.get_active() {
             return None;
         }
 
-        // Access the current event detail
+        // Access the current event
         match self.event_actions.try_borrow_mut() {
-            // Return the current event detail, composed as a vector
-            Ok(detail) => {
+            // Return the current event, composed as a vector
+            Ok(event) => {
                 // Create a vector to hold the actions and a counter
                 let mut actions = Vec::new();
                 let mut count = 0;
 
                 // Search until we've found all the actions
-                while actions.len() < detail.len() {
+                while actions.len() < event.len() {
                     // Try to get each element, zero indexed
-                    if let Some(action) = detail.get(&count) {
+                    if let Some(action) = event.get(&count) {
                         actions.push(action.clone());
                     }
 
@@ -228,10 +228,10 @@ impl EditEvent {
 
     // A method to load new information into the edit action dialog
     //
-    pub fn update_info(&self, status_detail: Option<StatusDetail>) {
+    pub fn update_info(&self, status: Option<Status>) {
         // Try to get access the edit action dialog
         if let Ok(dialog) = self.edit_action.try_borrow() {
-            dialog.update_info(status_detail);
+            dialog.update_info(status);
         }
     }
 
@@ -267,7 +267,7 @@ impl EditEvent {
         // Create and populate the information-holding label
         let overview = gtk::Label::new(Some("Unspecified Action"));
         if let Some(action) = action {
-            // Add a copy of the action to the detail
+            // Add a copy of the action to the action list
             actions.insert(position, action.clone());
 
             // Unpack the action
@@ -383,9 +383,9 @@ impl EditAction {
         // Connect the function to trigger action selection changes
         action_selection.connect_changed(clone!(action_stack => move |dropdown| {
             // Identify the selected action type
-            if let Some(detail_str) = dropdown.get_active_id() {
+            if let Some(action_str) = dropdown.get_active_id() {
                 // Change the action stack to the requested variation
-                action_stack.set_visible_child_full(&detail_str, gtk::StackTransitionType::None);
+                action_stack.set_visible_child_full(&action_str, gtk::StackTransitionType::None);
             }
         }));
 
@@ -677,11 +677,11 @@ impl EditAction {
         &self.grid
     }
 
-    /// A method to pass the status detail to the EditGroupedEvent structure
+    /// A method to pass the status to the EditGroupedEvent structure
     ///
-    fn update_info(&self, status_detail: Option<StatusDetail>) {
+    fn update_info(&self, status: Option<Status>) {
         if let Ok(mut edit_grouped_event) = self.edit_grouped_event.try_borrow_mut() {
-            edit_grouped_event.update_info(status_detail);
+            edit_grouped_event.update_info(status);
         }
     }
 }
@@ -1722,14 +1722,14 @@ impl EditGroupedEvent {
     }
 
     // A method to update the listed states in the grouped event
-    fn update_info(&mut self, status_detail: Option<StatusDetail>) {
+    fn update_info(&mut self, possible_status: Option<Status>) {
         // Clear the ListBox
         self.clear();
 
         // Check to see if the status is valid
-        if let Some(detail) = status_detail {
+        if let Some(status) = possible_status {
             // Show the states associated with the valid status
-            for state_id in detail.allowed() {
+            for state_id in status.allowed() {
                 EditGroupedEvent::add_event(
                     &self.grouped_events,
                     &self.grouped_event_list,
