@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    ItemId, ItemPair, StatusDetail, SystemSend,
+    ItemId, ItemPair, StatusDetail,
 };
 
 // Import standard library features
@@ -55,7 +55,7 @@ pub struct EditStatus {
 impl EditStatus {
     // A function to create a new Edit Detail
     //
-    pub fn new(system_send: &SystemSend) -> EditStatus {
+    pub fn new() -> EditStatus {
         // Create the top-level grid
         let grid = gtk::Grid::new();
 
@@ -146,6 +146,10 @@ impl EditStatus {
                     self.edit_countedstate.load_countedstate(&current, &trigger, &anti_trigger, &reset, default_count);
                 }
             }
+        
+        // Otherwise, deselect the status detail
+        } else {
+            self.status_checkbox.set_active(false);
         }
     }
 
@@ -163,7 +167,7 @@ impl EditStatus {
                 // Match the selection and change the visible options
                 match status_type.as_str() {
                     // The multistate variant
-                    "multistate" => return self.edit_multistate.pack_multistate(),
+                    "multistate" => return Some(self.edit_multistate.pack_multistate()),
 
                     // The counted state variant
                     "countedstate" => return self.edit_countedstate.pack_countedstate(),
@@ -191,7 +195,7 @@ impl EditStatus {
 struct EditMultiState {
     grid: gtk::Grid,                       // the main grid for this element
     current_label: gtk::Label,             // a label to display the current state
-    current_data: ItemId,                   // the data of the current state
+    current_data: Rc<RefCell<ItemId>>,     // the data of the current state
     states_list: gtk::ListBox,             // a list box to display the allowed states
     states_data: Rc<RefCell<FnvHashMap<usize, ItemId>>>,  // the database of the allowed state ids
     next_state: Rc<RefCell<usize>>,   // the next available state location
@@ -206,10 +210,10 @@ impl EditMultiState {
         let grid = gtk::Grid::new();
 
         // Create a label to hold the current state description
-        let current_label = gtk::Label::new(Some("Current state: None"));
+        let current_label = gtk::Label::new(Some("Current State: None"));
 
         // Create an ItemId to hold the current state data
-        let current_data = ItemId::new_unchecked(1);
+        let current_data = Rc::new(RefCell::new(ItemId::all_stop()));
 
         // Make the current label a drag destination
         current_label.drag_dest_set(
@@ -231,11 +235,12 @@ impl EditMultiState {
                 };
 
                 // Update the user interface
-                &widget.set_text(&item_pair.description());
+                &widget.set_text(&format!("Current State: {}", item_pair.description()));
 
                 // Update the current data
-                let mut current_data_mut = current_data.clone();
-                current_data_mut = item_pair.get_id();
+                if let Ok(mut current) = current_data.try_borrow_mut() {
+                    *current = item_pair.get_id();
+                }
             }
         }));
 
@@ -315,9 +320,13 @@ impl EditMultiState {
         // Clear the previous data
         self.clear();
 
-        // Add the current id to the user interface and the database
-        self.current_data = current.clone();
-        self.current_label.set_text(&current.id().to_string());
+        // Add the current id to the database
+        if let Ok(mut current_data) = self.current_data.try_borrow_mut() {
+            *current_data = current.clone();
+        }
+
+        // Add the current id to the user interface
+        self.current_label.set_text(&format!("Current State: {}", current.id())); // FIXME get description
 
         // Add the states to the user interface and database
         for state_id in allowed.drain(..) {
@@ -332,26 +341,27 @@ impl EditMultiState {
 
     /// A method to pack a multistate status
     ///
-    pub fn pack_multistate(&self) -> Option<StatusDetail> {
+    pub fn pack_multistate(&self) -> StatusDetail {
         // Unwrap the states database
         if let Ok(states_data) = self.states_data.try_borrow() {
-            // Create a vector to hold the events and a counter
-            let mut allowed = Vec::new();
+            // Unwrap the current data
+            if let Ok(current_data) = self.current_data.try_borrow() {
+                // Create a vector to hold the events and a counter
+                let mut allowed = Vec::new();
 
-            // Copy all the elements into the vector
-            for state in states_data.values() {
-                allowed.push(state.clone());
+                // Copy all the elements into the vector
+                for state in states_data.values() {
+                    allowed.push(state.clone());
+                }
+
+                // Pack and return the data as a status detail
+                return StatusDetail::MultiState {
+                    current: current_data.clone(),
+                    allowed
+                };
             }
-
-            // Pack and return the data as a status detail
-            return Some(StatusDetail::MultiState {
-                current: self.current_data.clone(),
-                allowed
-            });
         }
-
-        // Unreachable
-        None
+        unreachable!();
     }
 
     /// A method to clear all the states
@@ -435,7 +445,7 @@ impl EditMultiState {
     }
 }
 
-// FIXME Create the counted state variant
+// Create the counted state variant
 #[derive(Clone, Debug)]
 struct EditCountedState {
     grid: gtk::Grid,                    // the main grid for this element

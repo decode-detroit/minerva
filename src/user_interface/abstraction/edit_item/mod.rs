@@ -199,7 +199,7 @@ impl EditItemAbstraction {
         edit_grid.attach(edit_event.get_top_element(), 1, 2, 2, 1);
 
         // Create the edit status detail and add it to the grid
-        let edit_status = EditStatus::new(system_send);
+        let edit_status = EditStatus::new();
         edit_grid.attach(edit_status.get_top_element(), 1, 4, 2, 1);
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
@@ -268,8 +268,7 @@ impl EditItemAbstraction {
             }
 
             // If the status detail was provided, update it
-            if let Some(status) = status_detail.pack_detail() {
-                // FIXME implement this modification
+            if let Some(status) = status_detail.pack_status() {
                 //modifications.push(Modification::ModifyStatus { item_id, status });
             }
 
