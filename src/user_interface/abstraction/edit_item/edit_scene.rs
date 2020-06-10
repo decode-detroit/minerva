@@ -418,6 +418,12 @@ impl EditScene {
         event_list.add(&event_grid);
         event_grid.show_all();
 
+        // Add some space
+        event_grid.set_margin_top(10);
+        event_grid.set_margin_bottom(10);
+        event_grid.set_column_spacing(10);
+        event_grid.set_row_spacing(10);
+
         // Connect functionality to delete an event on the button click
         event_delete.connect_clicked(clone!(event_list, event_data, position => move |_| {
             // Remove the event element from the user interface
@@ -538,6 +544,12 @@ impl EditScene {
         keybinding_info.attach(&key_button, 1, 1, 1, 1);
         keybinding_info.attach(&key_delete, 2, 0, 1, 1);
         keys_list.add(&keybinding_info);
+
+        // Add some space
+        keybinding_info.set_margin_top(10);
+        keybinding_info.set_margin_bottom(10);
+        keybinding_info.set_column_spacing(10);
+        //keybinding_info.set_row_spacing(10);
 
         // Set up the row to receive a dropped item pair
         keybinding_info.drag_dest_set(

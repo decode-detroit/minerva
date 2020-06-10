@@ -209,7 +209,14 @@ impl EditItemAbstraction {
         let edit_overview = Rc::new(RefCell::new(edit_overview));
         let edit_event = Rc::new(RefCell::new(edit_event));
         let edit_status = Rc::new(RefCell::new(edit_status));
-        save.connect_clicked(clone!(system_send, current_id, edit_overview, edit_event, edit_scene => move |_| {
+        save.connect_clicked(clone!(
+            system_send,
+            current_id,
+            edit_overview,
+            edit_event,
+            edit_scene,
+            edit_status
+        => move |_| {
             // Try to borrow the the current id
             let current_id = match current_id.try_borrow() {
                 Ok(id) => id,
@@ -234,6 +241,12 @@ impl EditItemAbstraction {
                 _ => return,
             };
 
+            // Try to borrow the status detail
+            let status_detail = match edit_status.try_borrow() {
+                Ok(detail) => detail,
+                _ => return,
+            };
+
             // Check to make sure there is a current id
             let item_id = match *current_id {
                 Some(id) => id,
@@ -252,6 +265,12 @@ impl EditItemAbstraction {
             // If the scene detail was provided, update it
             if let Some(scene) = scene_detail.pack_detail() {
                 modifications.push(Modification::ModifyScene { item_id, scene });
+            }
+
+            // If the status detail was provided, update it
+            if let Some(status) = status_detail.pack_detail() {
+                // FIXME implement this modification
+                //modifications.push(Modification::ModifyStatus { item_id, status });
             }
 
             // Save the edit to the configuration
@@ -312,7 +331,7 @@ impl EditItemAbstraction {
             reply_to: DisplayComponent::ItemList,
             request: RequestType::Items,
         });
-        
+
         // Try to get a copy of the current id
         if let Ok(current_id) = self.current_id.try_borrow() {
             // If a current id is specified
