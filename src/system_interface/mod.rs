@@ -343,7 +343,7 @@ impl SystemInterface {
                             } => {
                                 handler.edit_event(&item_id, &event_detail);
                             }
-                            
+
                             // Add or modify the scene
                             Modification::ModifyScene {
                                 item_id,
@@ -837,7 +837,7 @@ pub enum Modification {
         item_id: ItemId,
         event_detail: EventDetail,
     },
-    
+
     /// A modification to add a scene or modify an existing one
     ModifyScene {
         item_id: ItemId,
@@ -869,7 +869,7 @@ pub enum RequestType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DisplayComponent {
     /// A variant for the edit item window
-    EditItemOverview,
+    EditItemOverview { side: String },
 
     /// A variant for the edit action element
     EditAction,

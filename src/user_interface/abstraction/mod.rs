@@ -39,7 +39,7 @@ use super::super::system_interface::{
     KeyMap, Notification, ReplyType, StatusDescription, SystemSend, UpcomingEvent,
 };
 use super::utils::clean_text;
-use edit_item::EditItemAbstraction;
+use edit_item::EditWindow;
 
 // Import standard library features
 use std::cell::RefCell;
@@ -79,7 +79,7 @@ pub struct InterfaceAbstraction {
     control: ControlAbstraction, // the abstraction for the user control window
     events: EventAbstraction, // the abstraction for the event window
     notification_bar: gtk::Statusbar, // the notification bar at the bottom of the window
-    edit_item: EditItemAbstraction, // the abstraction for the edit item window
+    edit_item: EditWindow, // the edit window
     jump_dialog: JumpDialog, // the jump dialog
     status_dialog: StatusDialog, // the status dialog
     shortcuts_dialog: ShortcutsDialog, // the shortcuts dialog
@@ -185,8 +185,8 @@ impl InterfaceAbstraction {
         edit_grid.set_margin_end(10);
 
         // Create the edit item abstraction and add it to the user interface
-        let edit_item = EditItemAbstraction::new(window, system_send, interface_send);
-        edit_grid.attach(edit_item.get_top_element(), 1, 0, 1, 1);
+        let edit_item = EditWindow::new(window, system_send, interface_send);
+        edit_grid.attach(edit_item.get_top_element(), 0, 0, 1, 1);
 
         // Create internal storage for the full status of the system
         let full_status = Rc::new(RefCell::new(FullStatus::default()));
@@ -241,7 +241,7 @@ impl InterfaceAbstraction {
 
             // Diable shortcuts
             self.shortcuts_dialog.enable_shortcuts(false);
-            
+
             // Refresh the available items
             self.edit_item.refresh_all();
 

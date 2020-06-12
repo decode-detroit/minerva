@@ -54,35 +54,32 @@ use self::gtk::prelude::*;
 // Define module constants
 const LABEL_LIMIT: usize = 30; // maximum character width of labels
 
-/// A structure to contain the the item editing funcitonality.
+
+/// A structure to hold all editing components.
 ///
-/// This structure automatically detects if an item corresponds to an event,
-/// status, or scene (or a combination of those items) and allows the user to
-/// modify all the details associated with that item.
+/// This structure consists of a list of all possible items,
+/// and two copies of the edit item overviews for editing
+/// individual items.
 #[derive(Clone, Debug)]
-pub struct EditItemAbstraction {
-    grid: gtk::Grid,                               // the grid to hold underlying elements
-    system_send: SystemSend,                       // a copy of the system send line
-    interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
-    current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
-    item_list: ItemList,                           // the item list section of the window
-    edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section
-    edit_event: Rc<RefCell<EditEvent>>,           // the wrapped edit event section
-    edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section
-    edit_status: Rc<RefCell<EditStatus>>,          // the wrapped edit status section
+pub struct EditWindow {
+    scroll_window: gtk::ScrolledWindow,            // the scroll window to hold the underlying elements
+    system_send: SystemSend,              // a copy of the system send line
+    item_list: ItemList,                  // the list of all possible items
+    edit_item_left: EditItemAbstraction,   // the left overview to edit an item
+    edit_item_right: EditItemAbstraction, // the right overview to edit an item
 }
 
-// Implement key features for the EditItemAbstration
-impl EditItemAbstraction {
-    /// A function to create a new instance of the Edit Item Abstraction. This
-    /// function loads all the default widgets into the interface and returns
+// Implement key features for the EditWindow
+impl EditWindow {
+    /// A function to create a new instance of the Edit Window. This
+    /// function loads the default widgets into the interface and returns
     /// a new copy to allow insertion into higher-level elements.
     ///
     pub fn new(
         window: &gtk::ApplicationWindow,
         system_send: &SystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
-    ) -> EditItemAbstraction {
+    ) -> EditWindow {
         // Create the control grid for holding all the universal controls
         let grid = gtk::Grid::new();
 
@@ -96,21 +93,168 @@ impl EditItemAbstraction {
         grid.set_hexpand(false);
         grid.set_vexpand(true);
 
-        // Create the item list title and attach it to the grid
-        let grid_title = gtk::Label::new(Some("All Items"));
-        grid.attach(&grid_title, 0, 0, 1, 1);
+        // Create a scrolling window to hold the top-level grid
+        let scroll_window = gtk::ScrolledWindow::new(
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+            Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
+        ); // Should be None, None, but the compiler has difficulty inferring types
+        scroll_window.set_policy(gtk::PolicyType::Automatic, gtk::PolicyType::Never);
 
-        // Add the top separator for the item list
-        let items_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        items_separator.set_halign(gtk::Align::Fill);
-        items_separator.set_hexpand(true);
-        grid.attach(&items_separator, 0, 1, 1, 1);
+        // Format the scrolling window
+        scroll_window.set_hexpand(true);
+        scroll_window.set_vexpand(true);
+
+        // Add the grid to the scroll window
+        scroll_window.add(&grid);
+
 
         // Create the item list that holds the buttons with all item data
         let item_list = ItemList::new();
 
         // Add the item list to the grid on the left
-        grid.attach(item_list.get_top_element(), 0, 2, 1, 2);
+        grid.attach(item_list.get_top_element(), 0, 0, 1, 2);
+
+        // Create an EditItemAbstraction copy for the left side
+        let edit_item_left = EditItemAbstraction::new(
+            window,
+            system_send,
+            interface_send,
+            String::from("left")
+        );
+
+        // Create an EditItemAbstraction copy for the right side
+        let edit_item_right = EditItemAbstraction::new(
+            window,
+            system_send,
+            interface_send,
+            String::from("right")
+        );
+
+        // Attach the both edit item abstractions to the grid
+        grid.attach(edit_item_left.get_top_element(), 1, 0, 1, 1);
+        grid.attach(edit_item_right.get_top_element(), 2, 0, 1, 1);
+        scroll_window.show_all();
+
+        // Return a copy of the Edit window
+        EditWindow {
+            scroll_window,
+            system_send: system_send.clone(),
+            item_list,
+            edit_item_left,
+            edit_item_right,
+        }
+    }
+
+    /// A method to return a reference to the top element of the interface,
+    /// currently grid.
+    ///
+    pub fn get_top_element(&self) -> &gtk::ScrolledWindow {
+        &self.scroll_window
+    }
+
+    // A function to refresh the entire edit window
+    //
+    pub fn refresh_all(&self) {
+        // Refresh the available items
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::ItemList,
+            request: RequestType::Items,
+        });
+
+        // FIXME
+        // Try to get a copy of the current id for the left editor
+        if let Ok(current_id) = self.edit_item_left.current_id.try_borrow() {
+            // If a current id is specified
+            if let Some(ref id) = *current_id {
+               // Refresh the current item
+               EditItemAbstraction::refresh_item(id.clone(), String::from("left"), &self.system_send);
+            }
+        }
+
+        // Try to get a copy of the current id for the right editor
+        if let Ok(current_id) = self.edit_item_right.current_id.try_borrow() {
+            // If a current id is specified
+            if let Some(ref id) = *current_id {
+               // Refresh the current item
+               EditItemAbstraction::refresh_item(id.clone(), String::from("right"), &self.system_send);
+            }
+        }
+    }
+
+    /// A method to process information updates received from the system
+    ///
+    pub fn update_info(&self, reply_to: DisplayComponent, reply: ReplyType) {
+        // Unpack reply_to
+        match reply_to.clone() {
+            // Unpack the reply
+            DisplayComponent::ItemList => {
+                if let ReplyType::Items { items } = reply {
+                    self.item_list.update_info(items);
+                }
+            }
+
+            DisplayComponent::EditItemOverview { side } => {
+                match side.as_str() {
+                    // Send to the left side
+                    "left" => self.edit_item_left.update_info(reply_to, reply),
+
+                    // Send to the right side
+                    "right" => self.edit_item_right.update_info(reply_to, reply),
+
+                    _ => unreachable!(),
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+
+}
+
+
+
+
+/// A structure to contain the the item editing funcitonality.
+///
+/// This structure automatically detects if an item corresponds to an event,
+/// status, or scene (or a combination of those items) and allows the user to
+/// modify all the details associated with that item.
+#[derive(Clone, Debug)]
+pub struct EditItemAbstraction {
+    grid: gtk::Grid,                               // the grid to hold underlying elements
+    system_send: SystemSend,                       // a copy of the system send line
+    interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
+    current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
+    side: String,                                  // the side (left or right) of the element
+    edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section
+    edit_event: Rc<RefCell<EditEvent>>,           // the wrapped edit event section
+    edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section
+    edit_status: Rc<RefCell<EditStatus>>,          // the wrapped edit status section
+}
+
+// Implement key features for the EditItemAbstraction
+impl EditItemAbstraction {
+    /// A function to create a new instance of the Edit Item Abstraction. This
+    /// function loads all the default widgets into the interface and returns
+    /// a new copy to allow insertion into higher-level elements.
+    ///
+    pub fn new(
+        window: &gtk::ApplicationWindow,
+        system_send: &SystemSend,
+        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        side: String,
+    ) -> EditItemAbstraction {
+        // Create the control grid for holding all the universal controls
+        let grid = gtk::Grid::new();
+
+        // Set the features of the grid
+        grid.set_column_homogeneous(false); // set the row and column heterogeneous
+        grid.set_row_homogeneous(false);
+        grid.set_column_spacing(10); // add some internal space
+        grid.set_row_spacing(10);
+
+        // Format the whole grid
+        grid.set_hexpand(false);
+        grid.set_vexpand(true);
 
         // Create the grid that holds all the edit item options
         let edit_grid = gtk::Grid::new();
@@ -138,7 +282,7 @@ impl EditItemAbstraction {
 
         // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
-        edit_title.connect_drag_data_received(clone!(system_send, current_id => move |_, _, _, _, selection_data, _, _| {
+        edit_title.connect_drag_data_received(clone!(system_send, current_id, side => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -153,7 +297,7 @@ impl EditItemAbstraction {
                 }
 
                 // Refresh the current data
-                EditItemAbstraction::refresh_item(item_pair.get_id(), &system_send)
+                EditItemAbstraction::refresh_item(item_pair.get_id(), side.clone(), &system_send)
             }
         }));
 
@@ -215,7 +359,8 @@ impl EditItemAbstraction {
             edit_overview,
             edit_event,
             edit_scene,
-            edit_status
+            edit_status,
+            side
         => move |_| {
             // Try to borrow the the current id
             let current_id = match current_id.try_borrow() {
@@ -276,7 +421,7 @@ impl EditItemAbstraction {
             system_send.send(Edit { modifications });
 
             // Refresh from the underlying data (will process after the save)
-            EditItemAbstraction::refresh_item(item_id, &system_send);
+            EditItemAbstraction::refresh_item(item_id, side.clone(), &system_send);
         }));
 
         // Add some space on all the sides and show the components
@@ -292,7 +437,7 @@ impl EditItemAbstraction {
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
             current_id,
-            item_list,
+            side: side.clone(),
             edit_overview,
             edit_event,
             edit_scene,
@@ -318,47 +463,28 @@ impl EditItemAbstraction {
 
         // Refresh all the item components
         if let Some(item_id) = id {
-            EditItemAbstraction::refresh_item(item_id, &self.system_send);
-        }
-    }
-
-    // A function to refresh the entire edit window
-    //
-    pub fn refresh_all(&self) {
-        // Refresh the available items
-        self.system_send.send(Request {
-            reply_to: DisplayComponent::ItemList,
-            request: RequestType::Items,
-        });
-
-        // Try to get a copy of the current id
-        if let Ok(current_id) = self.current_id.try_borrow() {
-            // If a current id is specified
-            if let Some(ref id) = *current_id {
-               // Refresh the current item
-               EditItemAbstraction::refresh_item(id.clone(), &self.system_send);
-            }
+            EditItemAbstraction::refresh_item(item_id, self.side.clone(), &self.system_send);
         }
     }
 
     // A function to refresh the components of the current item
     //
-    fn refresh_item(item_id: ItemId, system_send: &SystemSend) {
+    fn refresh_item(item_id: ItemId, side: String, system_send: &SystemSend) {
         // Request new data for each component
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview,
+            reply_to: DisplayComponent::EditItemOverview { side: side.clone() },
             request: RequestType::Description { item_id },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview,
+            reply_to: DisplayComponent::EditItemOverview { side: side.clone() },
             request: RequestType::Event { item_id },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview,
+            reply_to: DisplayComponent::EditItemOverview { side: side.clone() },
             request: RequestType::Scene { item_id, },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview,
+            reply_to: DisplayComponent::EditItemOverview { side:side.clone() },
             request: RequestType::Status { item_id, },
         });
     }
@@ -369,7 +495,7 @@ impl EditItemAbstraction {
         // Unpack reply_to
         match reply_to {
             // Unpack the reply
-            DisplayComponent::EditItemOverview => {
+            DisplayComponent::EditItemOverview {..} => {
                 match reply {
                     // The description variant
                     ReplyType::Description { description } => {
@@ -418,12 +544,6 @@ impl EditItemAbstraction {
                 }
             }
 
-            DisplayComponent::ItemList => {
-                if let ReplyType::Items { items } = reply {
-                    self.item_list.update_info(items);
-                }
-            }
-
             _ => unreachable!(),
         }
     }
@@ -442,6 +562,16 @@ impl ItemList {
     fn new() -> ItemList {
         // Add the top-level grid
         let grid = gtk::Grid::new();
+
+        // Create the item list title and attach it to the grid
+        let grid_title = gtk::Label::new(Some("All Items"));
+        grid.attach(&grid_title, 0, 0, 1, 1);
+
+        // Add the top separator for the item list
+        let items_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
+        items_separator.set_halign(gtk::Align::Fill);
+        items_separator.set_hexpand(true);
+        grid.attach(&items_separator, 0, 1, 1, 1);
 
         // Return the completed structure
         ItemList { grid }
@@ -462,7 +592,7 @@ impl ItemList {
         items_scroll.set_vexpand(true);
         items_scroll.set_halign(gtk::Align::Fill);
         items_scroll.set_valign(gtk::Align::Fill);
-        self.grid.attach(&items_scroll, 0, 1, 1, 1);
+        self.grid.attach(&items_scroll, 0, 2, 1, 1);
 
         // Create the list box to hold the buttons with the item data and add it to the scrolling window
         let items_list_box = gtk::ListBox::new();
