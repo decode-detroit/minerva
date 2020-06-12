@@ -878,7 +878,7 @@ pub enum RequestType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DisplayComponent {
     /// A variant for the edit item window
-    EditItemOverview,
+    EditItemOverview { side: String },
 
     /// A variant for the edit action element
     EditAction,
