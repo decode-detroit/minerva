@@ -110,7 +110,6 @@ impl EditStatus {
         grid.attach(&status_grid, 0, 1, 1, 1);
         grid.set_column_spacing(10); // add some space
         grid.set_row_spacing(10);
-        grid.show_all();
 
         // Return the EditStatus struct
         EditStatus {
@@ -146,7 +145,7 @@ impl EditStatus {
                     self.edit_countedstate.load_countedstate(&current, &trigger, &anti_trigger, &reset, default_count);
                 }
             }
-        
+
         // Otherwise, deselect the status detail
         } else {
             self.status_checkbox.set_active(false);
@@ -411,7 +410,7 @@ impl EditMultiState {
         // Create a delete button
         let state_delete = gtk::Button::new_with_label("Delete");
 
-        // Create a grid to display the label and button, and add it to the event list
+        // Create a grid to display the label and delete button, and add it to the event list
         let state_grid = gtk::Grid::new();
         state_grid.attach(&state_description, 0, 0, 1, 1);
         state_grid.attach(&state_delete, 1, 0, 1, 1);
@@ -438,8 +437,8 @@ impl EditMultiState {
         }));
     }
 
-    // A method to return the top element
-    //
+    /// A method to return the top element
+    ///
     pub fn get_top_element(&self) -> &gtk::Grid {
         &self.grid
     }

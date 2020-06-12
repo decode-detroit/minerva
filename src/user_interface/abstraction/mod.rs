@@ -173,7 +173,6 @@ impl InterfaceAbstraction {
         let edit_grid = gtk::Grid::new();
         top_element.add_named(&edit_grid, "edit");
 
-
         // Set the features of the edit grid
         edit_grid.set_column_homogeneous(false); // Allow everything to adjust
         edit_grid.set_row_homogeneous(false);

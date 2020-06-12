@@ -408,12 +408,32 @@ impl EditScene {
         // Create a label with the event description
         let event_description = gtk::Label::new(Some(&event.description()));
 
+        // Put the label in a button for drag capabilities
+        let event_button = gtk::Button::new();
+        event_button.add(&event_description);
+
+        // Connect the button as a drag source
+        event_button.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &vec![
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY,
+        );
+
+        // Serialize the item pair data
+        event_button.connect_drag_data_get(clone!(event => move |_, _, selection_data, _, _| {
+            if let Ok(data) = serde_yaml::to_string(&event) {
+                selection_data.set_text(data.as_str());
+            }
+        }));
+
         // Create a delete button
         let event_delete = gtk::Button::new_with_label("Delete");
 
         // Create a grid to display the label and button, and add it to the event list
         let event_grid = gtk::Grid::new();
-        event_grid.attach(&event_description, 0, 0, 1, 1);
+        event_grid.attach(&event_button, 0, 0, 1, 1);
         event_grid.attach(&event_delete, 1, 0, 1, 1);
         event_list.add(&event_grid);
         event_grid.show_all();
