@@ -343,10 +343,10 @@ impl EditItemAbstraction {
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
 
-        // Create the edit event detail
+        // Create the edit event
         let edit_event = EditEvent::new(system_send);
 
-        // Create the edit status detail
+        // Create the edit status
         let edit_status = EditStatus::new(system_send, is_left);
 
         // Create the save button
@@ -581,7 +581,7 @@ impl EditItemAbstraction {
 
             DisplayComponent::EditMultiStateStatus { position, .. } => {
                 if let ReplyType::Description { description } = reply {
-                    // Try to borrow the edit status detail
+                    // Try to borrow the edit status
                     if let Ok(edit_status) = self.edit_status.try_borrow() {
                         edit_status.update_multistate_description(description, position);
                     }
@@ -590,7 +590,7 @@ impl EditItemAbstraction {
 
             DisplayComponent::EditCountedStateStatus { state_type, .. } => {
                 if let ReplyType::Description { description } = reply {
-                    // Try to borrow the edit status detail
+                    // Try to borrow the edit status
                     if let Ok(edit_status) = self.edit_status.try_borrow() {
                         edit_status.update_countedstate_description(description, state_type);
                     }

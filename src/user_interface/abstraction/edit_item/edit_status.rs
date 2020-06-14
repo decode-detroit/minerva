@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DisplayComponent, ItemDescription, ItemId, ItemPair, Request, RequestType, StatusDetail, SystemSend,
+    DisplayComponent, ItemDescription, ItemId, ItemPair, Request, RequestType, Status, SystemSend,
 };
 
 // Import standard library features
@@ -146,7 +146,7 @@ impl EditStatus {
                     // Change the dropdown
                     self.status_selection.set_active_id(Some("multistate"));
 
-                    // Load the data into the Edit MultiState detail
+                    // Load the data into the Edit MultiState
                     self.edit_multistate.load_multistate(&self.system_send, &current, allowed)
                 }
                 Status::CountedState { current, trigger, anti_trigger, reset, default_count, .. } => {
