@@ -111,15 +111,12 @@ impl EditWindow {
         // Create the item list that holds the buttons with all item data
         let item_list = ItemList::new();
 
-        // Add the item list to the grid on the left
-        grid.attach(item_list.get_top_element(), 0, 0, 1, 2);
-
         // Create an EditItemAbstraction copy for the left side
         let edit_item_left = EditItemAbstraction::new(
             window,
             system_send,
             interface_send,
-            String::from("left")
+            true // left side
         );
 
         // Create an EditItemAbstraction copy for the right side
@@ -127,10 +124,11 @@ impl EditWindow {
             window,
             system_send,
             interface_send,
-            String::from("right")
+            false // right side
         );
 
-        // Attach the both edit item abstractions to the grid
+        // Attach the edit elements to the grid
+        grid.attach(item_list.get_top_element(), 0, 0, 1, 2);
         grid.attach(edit_item_left.get_top_element(), 1, 0, 1, 1);
         grid.attach(edit_item_right.get_top_element(), 2, 0, 1, 1);
         scroll_window.show_all();
@@ -161,13 +159,12 @@ impl EditWindow {
             request: RequestType::Items,
         });
 
-        // FIXME
         // Try to get a copy of the current id for the left editor
         if let Ok(current_id) = self.edit_item_left.current_id.try_borrow() {
             // If a current id is specified
             if let Some(ref id) = *current_id {
                // Refresh the current item
-               EditItemAbstraction::refresh_item(id.clone(), String::from("left"), &self.system_send);
+               EditItemAbstraction::refresh_item(id.clone(), true, &self.system_send);
             }
         }
 
@@ -176,7 +173,7 @@ impl EditWindow {
             // If a current id is specified
             if let Some(ref id) = *current_id {
                // Refresh the current item
-               EditItemAbstraction::refresh_item(id.clone(), String::from("right"), &self.system_send);
+               EditItemAbstraction::refresh_item(id.clone(), false, &self.system_send);
             }
         }
     }
@@ -193,15 +190,33 @@ impl EditWindow {
                 }
             }
 
-            DisplayComponent::EditItemOverview { side } => {
-                match side.as_str() {
+            DisplayComponent::EditItemOverview { is_left } => {
+                match is_left {
                     // Send to the left side
-                    "left" => self.edit_item_left.update_info(reply_to, reply),
+                    true => self.edit_item_left.update_info(reply_to, reply),
 
                     // Send to the right side
-                    "right" => self.edit_item_right.update_info(reply_to, reply),
+                    false => self.edit_item_right.update_info(reply_to, reply),
+                }
+            }
 
-                    _ => unreachable!(),
+            DisplayComponent::EditMultiStateStatus { is_left, .. } => {
+                match is_left {
+                    // Send to the left side
+                    true => self.edit_item_left.update_info(reply_to, reply),
+
+                    // Send to the right side
+                    false => self.edit_item_right.update_info(reply_to, reply),
+                }
+            }
+
+            DisplayComponent::EditCountedStateStatus { is_left, .. } => {
+                match is_left {
+                    // Send to the left side
+                    true => self.edit_item_left.update_info(reply_to, reply),
+
+                    // Send to the right side
+                    false => self.edit_item_right.update_info(reply_to, reply),
                 }
             }
             _ => unreachable!(),
@@ -224,9 +239,10 @@ pub struct EditItemAbstraction {
     system_send: SystemSend,                       // a copy of the system send line
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
     current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
-    side: String,                                  // the side (left or right) of the element
+    is_left: bool,                                 // whether the element is on the left or right
+    item_description: gtk::Entry,                 // the description of the item being edited
     edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section
-    edit_event: Rc<RefCell<EditEvent>>,           // the wrapped edit event section
+    edit_event: Rc<RefCell<EditEvent>>,            // the wrapped edit event section
     edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section
     edit_status: Rc<RefCell<EditStatus>>,          // the wrapped edit status section
 }
@@ -241,7 +257,7 @@ impl EditItemAbstraction {
         window: &gtk::ApplicationWindow,
         system_send: &SystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
-        side: String,
+        is_left: bool,
     ) -> EditItemAbstraction {
         // Create the control grid for holding all the universal controls
         let grid = gtk::Grid::new();
@@ -259,17 +275,12 @@ impl EditItemAbstraction {
         // Create the grid that holds all the edit item options
         let edit_grid = gtk::Grid::new();
 
-        // Create the edit scene window and attach it to the edit grid
+        // Create the edit scene window
         let edit_scene = EditScene::new(window);
-        edit_grid.attach(edit_scene.get_top_element(), 1, 3, 2, 1);
-
-        // Wrap the edit scene window
-        let edit_scene = Rc::new(RefCell::new(edit_scene));
 
         // Create the edit title
         let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
         edit_title.set_size_request(-1, 30);
-        grid.attach(&edit_title, 1, 0, 1, 1);
 
         // Connect the drag destination to edit_title
         edit_title.drag_dest_set(
@@ -282,7 +293,7 @@ impl EditItemAbstraction {
 
         // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
-        edit_title.connect_drag_data_received(clone!(system_send, current_id, side => move |_, _, _, _, selection_data, _, _| {
+        edit_title.connect_drag_data_received(clone!(system_send, current_id, is_left => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -297,7 +308,7 @@ impl EditItemAbstraction {
                 }
 
                 // Refresh the current data
-                EditItemAbstraction::refresh_item(item_pair.get_id(), side.clone(), &system_send)
+                EditItemAbstraction::refresh_item(item_pair.get_id(), is_left, &system_send)
             }
         }));
 
@@ -305,7 +316,6 @@ impl EditItemAbstraction {
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
-        grid.attach(&separator, 1, 1, 2, 1);
 
         // Create the scrollable window for the edit item fields
         let edit_window = gtk::ScrolledWindow::new(
@@ -316,9 +326,6 @@ impl EditItemAbstraction {
         // Set the scrollable window to scroll up/down
         edit_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
-        // Add the scrollable window to the grid
-        grid.attach(&edit_window, 1, 2, 2, 1);
-
         // Add the edit grid as a child of the scrollable window
         edit_window.add(&edit_grid);
 
@@ -328,39 +335,57 @@ impl EditItemAbstraction {
         edit_window.set_halign(gtk::Align::Fill);
         edit_window.set_valign(gtk::Align::Fill);
 
-        // Create the edit overview and add it to the edit grid
+        // Create the edit overview
         let edit_overview = EditOverview::new();
-        edit_grid.attach(edit_overview.get_top_element(), 1, 0, 2, 1);
 
         // Add the event separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         separator.set_halign(gtk::Align::Fill);
         separator.set_hexpand(true);
-        edit_grid.attach(&separator, 1, 1, 2, 1);
 
-        // Create the edit event detail and add it to the grid
+        // Create the edit event detail
         let edit_event = EditEvent::new(system_send);
-        edit_grid.attach(edit_event.get_top_element(), 1, 2, 2, 1);
 
-        // Create the edit status detail and add it to the grid
-        let edit_status = EditStatus::new();
-        edit_grid.attach(edit_status.get_top_element(), 1, 4, 2, 1);
+        // Create the edit status detail
+        let edit_status = EditStatus::new(system_send, is_left);
+
         // Create the save button
         let save = gtk::Button::new_with_label("  Save Changes  ");
-        grid.attach(&save, 2, 0, 1, 1);
+
+        // Create the entry for the item description
+        let overview_label = gtk::Label::new(Some("Item Description:"));
+        let item_description = gtk::Entry::new();
+        item_description.set_placeholder_text(Some("Enter Item Description Here"));
+
+        // Attach all elements to the edit grid
+        edit_grid.attach(edit_overview.get_top_element(), 0, 0, 2, 1);
+        //edit_grid.attach(&separator, 0, 1, 2, 1);
+        edit_grid.attach(edit_event.get_top_element(), 0, 2, 2, 1);
+        edit_grid.attach(edit_scene.get_top_element(), 0, 3, 2, 1);
+        edit_grid.attach(edit_status.get_top_element(), 0, 4, 2, 1);
+
+        // Attach the edit window and other elements to the top-level grid
+        grid.attach(&edit_title, 0, 0, 2, 1);
+        grid.attach(&save, 2, 0, 2, 1);
+        grid.attach(&separator, 0, 1, 4, 1);
+        grid.attach(&overview_label, 0, 2, 1, 1);
+        grid.attach(&item_description, 1, 2, 3, 1);
+        grid.attach(&edit_window, 0, 3, 4, 1);
 
         // Connect the save button click callback
         let edit_overview = Rc::new(RefCell::new(edit_overview));
         let edit_event = Rc::new(RefCell::new(edit_event));
+        let edit_scene = Rc::new(RefCell::new(edit_scene));
         let edit_status = Rc::new(RefCell::new(edit_status));
         save.connect_clicked(clone!(
             system_send,
             current_id,
+            item_description,
             edit_overview,
             edit_event,
             edit_scene,
             edit_status,
-            side
+            is_left
         => move |_| {
             // Try to borrow the the current id
             let current_id = match current_id.try_borrow() {
@@ -398,8 +423,11 @@ impl EditItemAbstraction {
                 _ => return, // FIXME warn the user
             };
 
+            // Get the text in the description entry box
+            let tmp_description = item_description.get_text().unwrap_or(String::new().into());
+
             // Collect the information and save it
-            let item_pair = ItemPair::from_item(item_id, overview.pack_description());
+            let item_pair = ItemPair::from_item(item_id, overview.pack_description(tmp_description.to_string()));
             let mut modifications = vec!(Modification::ModifyItem { item_pair });
 
             // If the event detail was provided, update it
@@ -421,7 +449,7 @@ impl EditItemAbstraction {
             system_send.send(Edit { modifications });
 
             // Refresh from the underlying data (will process after the save)
-            EditItemAbstraction::refresh_item(item_id, side.clone(), &system_send);
+            EditItemAbstraction::refresh_item(item_id, is_left, &system_send);
         }));
 
         // Add some space on all the sides and show the components
@@ -437,7 +465,8 @@ impl EditItemAbstraction {
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
             current_id,
-            side: side.clone(),
+            is_left,
+            item_description,
             edit_overview,
             edit_event,
             edit_scene,
@@ -463,28 +492,28 @@ impl EditItemAbstraction {
 
         // Refresh all the item components
         if let Some(item_id) = id {
-            EditItemAbstraction::refresh_item(item_id, self.side.clone(), &self.system_send);
+            EditItemAbstraction::refresh_item(item_id, self.is_left, &self.system_send);
         }
     }
 
     // A function to refresh the components of the current item
     //
-    fn refresh_item(item_id: ItemId, side: String, system_send: &SystemSend) {
+    fn refresh_item(item_id: ItemId, is_left: bool, system_send: &SystemSend) {
         // Request new data for each component
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { side: side.clone() },
+            reply_to: DisplayComponent::EditItemOverview { is_left },
             request: RequestType::Description { item_id },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { side: side.clone() },
+            reply_to: DisplayComponent::EditItemOverview { is_left },
             request: RequestType::Event { item_id },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { side: side.clone() },
+            reply_to: DisplayComponent::EditItemOverview { is_left },
             request: RequestType::Scene { item_id, },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { side:side.clone() },
+            reply_to: DisplayComponent::EditItemOverview { is_left },
             request: RequestType::Status { item_id, },
         });
     }
@@ -495,13 +524,16 @@ impl EditItemAbstraction {
         // Unpack reply_to
         match reply_to {
             // Unpack the reply
-            DisplayComponent::EditItemOverview {..} => {
+            DisplayComponent::EditItemOverview { .. } => {
                 match reply {
                     // The description variant
                     ReplyType::Description { description } => {
+                        // Load the description into the text entry
+                        self.item_description.set_text(&description.description);
+
                         // Try to borrow the edit overview
-                        if let Ok(overview) = self.edit_overview.try_borrow() {
-                            overview.load_description(description);
+                        if let Ok(edit_overview) = self.edit_overview.try_borrow() {
+                            edit_overview.load_description(description);
                         }
                     }
 
@@ -543,7 +575,25 @@ impl EditItemAbstraction {
                     }
                 }
             }
-            
+
+            DisplayComponent::EditMultiStateStatus { position, .. } => {
+                if let ReplyType::Description { description } = reply {
+                    // Try to borrow the edit status detail
+                    if let Ok(edit_status) = self.edit_status.try_borrow() {
+                        edit_status.update_multistate_description(description, position);
+                    }
+                }
+            }
+
+            DisplayComponent::EditCountedStateStatus { state_type, .. } => {
+                if let ReplyType::Description { description } = reply {
+                    // Try to borrow the edit status detail
+                    if let Ok(edit_status) = self.edit_status.try_borrow() {
+                        edit_status.update_countedstate_description(description, state_type);
+                    }
+                }
+            }
+
             _ => unreachable!(),
         }
     }
@@ -650,7 +700,6 @@ impl ItemList {
 #[derive(Clone, Debug)]
 struct EditOverview {
     grid: gtk::Grid,                      // the main grid for this element
-    description: gtk::Entry,              // the description of the item
     display_type: gtk::ComboBoxText,      // the display type selection for the event
     group_checkbox: gtk::CheckButton,     // the checkbox for group id
     group: gtk::SpinButton,               // the spin selection for the group id
@@ -672,11 +721,6 @@ impl EditOverview {
     /// A function to create a new edit overview
     ///
     fn new() -> EditOverview {
-        // Create the entry for the item description
-        let overview_label = gtk::Label::new(Some("Item Description:"));
-        let description = gtk::Entry::new();
-        description.set_placeholder_text(Some("Enter Item Description Here"));
-
         // Add the display type dropdown
         let display_type_label = gtk::Label::new(Some("Where to Display Item:"));
         let display_type = gtk::ComboBoxText::new();
@@ -1076,18 +1120,15 @@ impl EditOverview {
 
         // Create the edit overview grid and populate it
         let grid = gtk::Grid::new();
-        grid.attach(&overview_label, 0, 0, 1, 1);
-        grid.attach(&description, 1, 0, 2, 1);
-        grid.attach(&display_type_label, 0, 1, 1, 1);
-        grid.attach(&display_type, 1, 1, 2, 1);
-        grid.attach(&display_grid, 0, 2, 3, 1);
+        grid.attach(&display_type_label, 0, 0, 1, 1);
+        grid.attach(&display_type, 1, 0, 2, 1);
+        grid.attach(&display_grid, 0, 1, 3, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
         // Create and return the edit overview
         EditOverview {
             grid,
-            description,
             display_type,
             group_checkbox,
             group,
@@ -1114,9 +1155,6 @@ impl EditOverview {
     // A method to load an item description into the edit overview
     //
     fn load_description(&self, description: ItemDescription) {
-        // Update the event description
-        self.description.set_text(&description.description);
-
         // Create default placeholders for the display settings
         let mut new_group = None;
         let mut new_position = None;
@@ -1302,10 +1340,7 @@ impl EditOverview {
 
     // A method to pack the item description
     //
-    fn pack_description(&self) -> ItemDescription {
-        // Create the new item description
-        let tmp_description = self.description.get_text().unwrap_or(String::new().into());
-
+    fn pack_description(&self, tmp_description: String) -> ItemDescription {
         // Create default placeholders for the display settings
         let mut group = None;
         let group_id = ItemId::new_unchecked(self.group.get_value() as u32);

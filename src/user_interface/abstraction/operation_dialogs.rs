@@ -592,7 +592,7 @@ impl TriggerDialog {
             system_send.send(Request {
                 reply_to: DisplayComponent::TriggerDialog,
                 request: RequestType::Description {
-                    item_id: ItemId::new_unchecked(spin.get_value() as u32)
+                    item_id: ItemId::new_unchecked(spin.get_value() as u32),
                 }
             });
         }));

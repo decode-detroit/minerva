@@ -869,10 +869,16 @@ pub enum RequestType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DisplayComponent {
     /// A variant for the edit item window
-    EditItemOverview { side: String },
+    EditItemOverview { is_left: bool },
 
     /// A variant for the edit action element
     EditAction,
+
+    /// A variant for the edit multistate status element
+    EditMultiStateStatus { is_left: bool, position: Option<usize> },
+
+    /// A variant for the edit counted state status element
+    EditCountedStateStatus { is_left: bool, state_type: String },
 
     /// A variant for the item list panel
     ItemList,
