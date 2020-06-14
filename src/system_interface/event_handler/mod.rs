@@ -23,7 +23,7 @@
 
 // Reexport the key structures and types
 pub use self::config::{
-    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, StatusDetail
+    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
 };
 pub use self::queue::ComingEvent;
 
@@ -41,7 +41,7 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    CancelEvent, DataType, EventAction, EventDelay, EventDetail, EventUpdate, GroupedEvent,
+    CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, GroupedEvent,
     ModifyStatus, NewScene, QueueEvent, SaveData, SendData, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
@@ -214,7 +214,7 @@ impl EventHandler {
         upcoming_events
     }
 
-    /// A method to return a copy of the detail of the provided event id.
+    /// A method to return a copy of the event for the provided id.
     ///
     /// # Errors
     ///
@@ -225,8 +225,8 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning None.
     ///
-    pub fn get_detail(&mut self, event_id: &ItemId) -> Option<EventDetail> {
-        // Try to retrieve the event detail
+    pub fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
+        // Try to retrieve the event
         self.config.try_event(event_id, false) // do not check the scene
     }
 
@@ -258,9 +258,9 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning None.
     ///
-    pub fn get_status_detail(&mut self, item_id: &ItemId) -> Option<StatusDetail> {
-        // Try to retrieve the event detail
-        self.config.get_status_detail(item_id)
+    pub fn get_status(&mut self, item_id: &ItemId) -> Option<Status> {
+        // Try to retrieve the status
+        self.config.get_status(item_id)
     }
 
     /// A method to return a hashmap of the full status available in this
@@ -386,27 +386,27 @@ impl EventHandler {
         }
     }
 
-    /// A method to delete an event within the current configuration.
-    ///
-    pub fn delete_event(&mut self, event_id: &ItemId) {
-        self.config.delete_event(event_id);
-    }
-
     /// A method to add or modify an item within the current configuration.
     ///
-    pub fn edit_item(&mut self, item_id: &ItemPair) {
+    pub fn edit_item(&mut self, item_id: ItemPair) {
         self.config.edit_item(item_id);
     }
 
     /// A method to add or modify an event within the current configuration.
     ///
-    pub fn edit_event(&mut self, event_id: &ItemId, new_detail: &EventDetail) {
-        self.config.edit_event(event_id, new_detail);
+    pub fn edit_event(&mut self, event_id: ItemId, new_event: Option<Event>) {
+        self.config.edit_event(event_id, new_event);
+    }
+        
+    /// A method to add or modify a status within the current configuration.
+    ///
+    pub fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
+        self.config.edit_status(status_id, new_status);
     }
     
     /// A method to add or modify a scene within the current configuration.
     ///
-    pub fn edit_scene(&mut self, scene_id: &ItemId, new_scene: &Scene) {
+    pub fn edit_scene(&mut self, scene_id: ItemId, new_scene: Option<Scene>) {
         self.config.edit_scene(scene_id, new_scene);
     }
 
@@ -529,10 +529,10 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line.
     ///
     pub fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) -> bool {
-        // Try to retrieve the event details and unpack the event
-        let event_detail = match self.config.try_event(event_id, checkscene) {
+        // Try to retrieve the event and unpack the event
+        let event = match self.config.try_event(event_id, checkscene) {
             // Process a valid event
-            Some(event_detail) => event_detail,
+            Some(event) => event,
 
             // Return false on failure
             None => return false,
@@ -543,7 +543,7 @@ impl EventHandler {
 
         // Unpack and process each action of the event
         let mut was_broadcast = false;
-        for action in event_detail {
+        for action in event {
             // Switch based on the result of unpacking the action
             match self.unpack_action(action) {
                 // No additional action required
@@ -595,7 +595,7 @@ impl EventHandler {
         true
     }
 
-    /// An internal function to unpack the event detail and act on it. If the
+    /// An internal function to unpack the event and act on it. If the
     /// event results in data to broadcast, the data will be returned.
     ///
     fn unpack_action(&mut self, event_action: EventAction) -> UnpackResult {
@@ -790,7 +790,7 @@ impl EventHandler {
     }
 }
 
-/// A helper enum to return the different results of unpacking an event detail
+/// A helper enum to return the different results of unpacking an event
 ///
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum UnpackResult {

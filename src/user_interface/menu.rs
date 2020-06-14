@@ -432,7 +432,7 @@ impl MenuAbstraction {
             }
         }));
 
-        // Connect the detail of the edit mode action
+        // Connect the edit mode action
         edit.connect_activate(clone!(interface_send, application, save_config, new_event, new_status, new_scene => move |checkbox, _| {
 
             // Update the edit status of the program

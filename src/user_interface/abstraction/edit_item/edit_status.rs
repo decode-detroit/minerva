@@ -58,13 +58,13 @@ pub struct EditStatus {
     system_send: SystemSend,             // a copy of the system send
     status_checkbox: gtk::CheckButton,   // the button that toggles whether the item is a scene
     status_selection: gtk::ComboBoxText, // the dropdown that toggles the status type
-    edit_multistate: EditMultiState,     // the edit multi state detail
-    edit_countedstate: EditCountedState  // the edit counted state detail
+    edit_multistate: EditMultiState,     // the edit multi state
+    edit_countedstate: EditCountedState  // the edit counted state
 }
 
 // Implement key features for edit status
 impl EditStatus {
-    // A function to create a new Edit Detail
+    // A function to create a new Edit Status
     //
     pub fn new(system_send: &SystemSend, is_left: bool) -> EditStatus {
         // Create the top-level grid
@@ -73,7 +73,7 @@ impl EditStatus {
         // Create the grid to hold the status type data
         let status_grid = gtk::Grid::new();
 
-        // Construct the checkbox for the status detail
+        // Construct the checkbox for the status
         let status_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Status");
         status_checkbox.set_active(false);
 
@@ -133,32 +133,32 @@ impl EditStatus {
         }
     }
 
-    // A method to load the status detail
-    pub fn load_status(&mut self, status_detail: Option<StatusDetail>) {
+    // A method to load the status
+    pub fn load_status(&mut self, status: Option<Status>) {
         // Check to see if it is a valid status
-        if let Some(status) = status_detail {
-            // Show the status detail by setting the check box
+        if let Some(status) = status {
+            // Show the status by setting the check box
             self.status_checkbox.set_active(true);
 
             // Check which status variant it is
             match status.clone() {
-                StatusDetail::MultiState { current, allowed } => {
+                Status::MultiState { current, allowed } => {
                     // Change the dropdown
                     self.status_selection.set_active_id(Some("multistate"));
 
                     // Load the data into the Edit MultiState detail
                     self.edit_multistate.load_multistate(&self.system_send, &current, allowed)
                 }
-                StatusDetail::CountedState { current, trigger, anti_trigger, reset, default_count, .. } => {
+                Status::CountedState { current, trigger, anti_trigger, reset, default_count, .. } => {
                     // Change the dropdown
                     self.status_selection.set_active_id(Some("countedstate"));
 
-                    // Load the data into the Edit Counted State detail
+                    // Load the data into the Edit Counted State
                     self.edit_countedstate.load_countedstate(&current, &trigger, &anti_trigger, &reset, default_count);
                 }
             }
 
-        // Otherwise, deselect the status detail
+        // Otherwise, deselect edit status
         } else {
             self.status_checkbox.set_active(false);
         }
@@ -175,7 +175,7 @@ impl EditStatus {
     }
 
     // A method to pack the new status
-    pub fn pack_status(&self) -> Option<StatusDetail> {
+    pub fn pack_status(&self) -> Option<Status> {
         // If the checkbox was not selected, return None
         if !self.status_checkbox.get_active() {
             return None;
@@ -389,7 +389,7 @@ impl EditMultiState {
 
     /// A method to pack a multistate status
     ///
-    pub fn pack_multistate(&self) -> StatusDetail {
+    pub fn pack_multistate(&self) -> Status {
         // Unwrap the states database
         if let Ok(states_data) = self.states_data.try_borrow() {
             // Unwrap the current data
@@ -402,8 +402,8 @@ impl EditMultiState {
                     allowed.push(state.clone().item_id);
                 }
 
-                // Pack and return the data as a status detail
-                return StatusDetail::MultiState {
+                // Pack and return the data as a status
+                return Status::MultiState {
                     current: current_data.clone(),
                     allowed
                 };
@@ -860,14 +860,14 @@ impl EditCountedState {
 
     }
 
-    pub fn pack_countedstate(&self) -> Option<StatusDetail> {
+    pub fn pack_countedstate(&self) -> Option<Status> {
         // Extract the default count from the spin button
         let default_count = self.count_spin.get_value() as u32;
 
         // Try to borrow a copy of the status database
         if let Ok(database) = self.status_data.try_borrow_mut() {
-            // Pack up the data into a status detail
-            return Some(StatusDetail::CountedState {
+            // Pack up the data into a status
+            return Some(Status::CountedState {
                 current: *database.get("current")?,
                 trigger: *database.get("trigger")?,
                 anti_trigger: *database.get("antitrigger")?,

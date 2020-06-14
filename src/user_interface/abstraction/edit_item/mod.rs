@@ -399,21 +399,21 @@ impl EditItemAbstraction {
                 _ => return,
             };
 
-            // Try to borrow the edit detail
-            let event_detail = match edit_event.try_borrow() {
-                Ok(detail) => detail,
+            // Try to borrow the edit event
+            let event = match edit_event.try_borrow() {
+                Ok(event) => event,
                 _ => return,
             };
 
-            // Try to borrow the scene detail
-            let scene_detail = match edit_scene.try_borrow() {
-                Ok(detail) => detail,
+            // Try to borrow the edit status
+            let status = match edit_status.try_borrow() {
+                Ok(status) => status,
                 _ => return,
             };
 
-            // Try to borrow the status detail
-            let status_detail = match edit_status.try_borrow() {
-                Ok(detail) => detail,
+            // Try to borrow the edit scene
+            let scene = match edit_scene.try_borrow() {
+                Ok(scene) => scene,
                 _ => return,
             };
 
@@ -430,20 +430,23 @@ impl EditItemAbstraction {
             let item_pair = ItemPair::from_item(item_id, overview.pack_description(tmp_description.to_string()));
             let mut modifications = vec!(Modification::ModifyItem { item_pair });
 
-            // If the event detail was provided, update it
-            if let Some(event_detail) = event_detail.pack_detail() {
-                modifications.push(Modification::ModifyEvent { item_id, event_detail });
-            }
+            // Update (or delete) the event
+            modifications.push(Modification::ModifyEvent {
+                item_id,
+                event: event.pack_event()
+            });
 
-            // If the scene detail was provided, update it
-            if let Some(scene) = scene_detail.pack_detail() {
-                modifications.push(Modification::ModifyScene { item_id, scene });
-            }
+            // Update (or delete) the status
+            modifications.push(Modification::ModifyStatus {
+                item_id,
+                status: status.pack_status()
+            });
 
-            // If the status detail was provided, update it
-            if let Some(status) = status_detail.pack_status() {
-                //modifications.push(Modification::ModifyStatus { item_id, status });
-            }
+            // Update (or delete) the scene
+            modifications.push(Modification::ModifyScene {
+                item_id,
+                scene: scene.pack_scene()
+            });
 
             // Save the edit to the configuration
             system_send.send(Edit { modifications });
@@ -538,26 +541,26 @@ impl EditItemAbstraction {
                     }
 
                     // The event variant
-                    ReplyType::Event { event_detail } => {
-                        // Try to borrow the edit detail
+                    ReplyType::Event { event } => {
+                        // Try to borrow the edit event
                         if let Ok(edit_event) = self.edit_event.try_borrow() {
-                            edit_event.load_event(event_detail);
+                            edit_event.load_event(event);
                         }
                     }
 
                     // The scene variant
                     ReplyType::Scene { scene } => {
-                        // Try to borrow the edit scene detail
+                        // Try to borrow the edit scene
                         if let Ok(edit_scene) = self.edit_scene.try_borrow() {
                             edit_scene.update_info(scene);
                         }
                     }
 
                     // The status variant
-                    ReplyType::Status { status_detail } => {
-                        // Try to borrow the edit status detail
+                    ReplyType::Status { status } => {
+                        // Try to borrow the edit status
                         if let Ok(mut edit_status) = self.edit_status.try_borrow_mut() {
-                            edit_status.load_status(status_detail);
+                            edit_status.load_status(status);
                         }
                     }
 
@@ -568,10 +571,10 @@ impl EditItemAbstraction {
             }
 
             DisplayComponent::EditAction => {
-                if let ReplyType::Status { status_detail } = reply {
-                    // Try to borrow the edit detail
-                    if let Ok(detail) = self.edit_event.try_borrow() {
-                        detail.update_info(status_detail);
+                if let ReplyType::Status { status } = reply {
+                    // Try to borrow the edit status
+                    if let Ok(edit_event) = self.edit_event.try_borrow() {
+                        edit_event.update_info(status);
                     }
                 }
             }
@@ -963,7 +966,7 @@ impl EditOverview {
             highstate_state,
             state_label
         => move |dropdown| {
-            // Identify the selected detail type
+            // Identify the selected display type
             if let Some(display_type) = dropdown.get_active_id() {
                 // Match the selection and change the visible options
                 match display_type.as_str() {
