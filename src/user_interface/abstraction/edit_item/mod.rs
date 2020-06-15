@@ -201,7 +201,7 @@ impl EditWindow {
             }
 
             // FIXME is there a way to condense all of these?
-            DisplayComponent::EditActionOverview { is_left, .. } => {
+            DisplayComponent::EditActionElement { is_left, .. } => {
                 match is_left {
                     // Send to the left side
                     true => self.edit_item_left.update_info(reply_to, reply),
@@ -581,7 +581,7 @@ impl EditItemAbstraction {
                 }
             }
 
-            DisplayComponent::EditActionOverview { variant, .. } => {
+            DisplayComponent::EditActionElement { variant, .. } => {
                 match reply {
                     // The status variant
                     ReplyType::Status { status } => {

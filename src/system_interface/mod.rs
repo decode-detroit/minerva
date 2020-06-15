@@ -876,7 +876,7 @@ pub enum RequestType {
 
 /// An enum to specify which Edit Action subcomponent has requested the information
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum EditActionOverview {
+pub enum EditActionElement {
     /// A variant for the top level window
     Overview,
 
@@ -885,6 +885,12 @@ pub enum EditActionOverview {
 
     /// A variant for the edit modify status
     EditModifyStatus { is_status: bool },
+
+    /// A variant for the edit queue event
+    EditQueueEvent,
+
+    /// A variant for the edit cancel event
+    EditCancelEvent,
 }
 
 /// An enum to specify which display component has requested the information
@@ -894,7 +900,7 @@ pub enum DisplayComponent {
     EditItemOverview { is_left: bool },
 
     /// A variant for the edit action element
-    EditActionOverview { is_left: bool, variant: EditActionOverview},
+    EditActionElement { is_left: bool, variant: EditActionElement},
 
     /// A variant for the edit multistate status element
     EditMultiStateStatus { is_left: bool, position: Option<usize> },

@@ -271,7 +271,7 @@ impl EditMultiState {
                 }
 
                 // Update the description on the current label
-                widget.set_label(&item_pair.description);
+                widget.set_label(&format!("Current State: {}", &item_pair.description));
 
                 // Set the callback function when data is dragged
                 widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {

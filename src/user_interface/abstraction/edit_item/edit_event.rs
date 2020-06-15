@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, DisplayComponent, EditActionOverview, EventAction, Event, EventDelay, ItemDescription,
+    DataType, DisplayComponent, EditActionElement, EventAction, Event, EventDelay, ItemDescription,
     ItemId, ItemPair, Request, RequestType, Status, SystemSend,
 };
 
@@ -238,7 +238,7 @@ impl EditEvent {
     }
 
     // A method to update the description of an item
-    pub fn update_description(&self, action_type: EditActionOverview, description: ItemDescription) {
+    pub fn update_description(&self, action_type: EditActionElement, description: ItemDescription) {
         // Try to get access to the edit action window
         if let Ok(edit_action) = self.edit_action.try_borrow() {
             edit_action.update_description(action_type, description);
@@ -374,8 +374,8 @@ impl EditAction {
         // Create the different edit windows for the action types
         let edit_new_scene = EditNewScene::new(system_send, is_left);
         let edit_modify_status = EditModifyStatus::new(system_send, is_left);
-        let edit_queue_event = EditQueueEvent::new();
-        let edit_cancel_event = EditCancelEvent::new();
+        let edit_queue_event = EditQueueEvent::new(system_send, is_left);
+        let edit_cancel_event = EditCancelEvent::new(system_send, is_left);
         let edit_save_data = EditSaveData::new();
         let edit_send_data = EditSendData::new();
         let edit_grouped_event = EditGroupedEvent::new(system_send, is_left);
@@ -692,19 +692,33 @@ impl EditAction {
 
     /// A method to update the description of an item
     ///
-    pub fn update_description(&self, action_type: EditActionOverview, description: ItemDescription) {
+    pub fn update_description(&self, action_type: EditActionElement, description: ItemDescription) {
         match action_type {
-            EditActionOverview::EditNewScene { .. } => {
+            EditActionElement::EditNewScene => {
                 // Get a copy of the edit new scene element
                 if let Ok(edit_new_scene) = self.edit_new_scene.try_borrow() {
                     edit_new_scene.update_description(description)
                 }
             }
 
-            EditActionOverview::EditModifyStatus { is_status } => {
+            EditActionElement::EditModifyStatus { is_status } => {
                 // Get a copy of the edit new scene element
                 if let Ok(edit_modify_status) = self.edit_modify_status.try_borrow() {
                     edit_modify_status.update_description(is_status, description)
+                }
+            }
+
+            EditActionElement::EditQueueEvent => {
+                // Get a copy of the edit queue event element
+                if let Ok(edit_queue_event) = self.edit_queue_event.try_borrow() {
+                    edit_queue_event.update_description(description)
+                }
+            }
+
+            EditActionElement::EditCancelEvent => {
+                // Get a copy of the edit cancel event element
+                if let Ok(edit_cancel_event) = self.edit_cancel_event.try_borrow() {
+                    edit_cancel_event.update_description(description)
                 }
             }
 
@@ -817,7 +831,7 @@ impl EditNewScene {
     fn load_action(&self, new_scene: &ItemId) {
         // Request the description associated with the id
         self.system_send.send(Request {
-            reply_to: DisplayComponent::EditActionOverview { is_left: self.is_left, variant: EditActionOverview::EditNewScene },
+            reply_to: DisplayComponent::EditActionElement { is_left: self.is_left, variant: EditActionElement::EditNewScene },
             request: RequestType::Description { item_id: new_scene.clone() },
         });
     }
@@ -989,18 +1003,18 @@ impl EditModifyStatus {
     fn load_action(&self, status_id: &ItemId, new_state: &ItemId) {
         // Request the description associated with the status
         self.system_send.send(Request {
-            reply_to: DisplayComponent::EditActionOverview {
+            reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
-                variant: EditActionOverview::EditModifyStatus { is_status: true }
+                variant: EditActionElement::EditModifyStatus { is_status: true }
             },
             request: RequestType::Description { item_id: status_id.clone() },
         });
 
         // Request the description associated with the state
         self.system_send.send(Request {
-            reply_to: DisplayComponent::EditActionOverview {
+            reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
-                variant: EditActionOverview::EditModifyStatus { is_status: false }
+                variant: EditActionElement::EditModifyStatus { is_status: false }
             },
             request: RequestType::Description { item_id: new_state.clone() },
         });
@@ -1046,27 +1060,43 @@ impl EditModifyStatus {
 //
 #[derive(Clone, Debug)]
 struct EditQueueEvent {
-    grid: gtk::Grid,               // the main grid for this element
-    event_spin: gtk::SpinButton,   // the event spin button
-    minutes_spin: gtk::SpinButton, // the minutes spin button
-    millis_spin: gtk::SpinButton,  // the milliseconds spin button
+    grid: gtk::Grid,                  // the main grid for this element
+    system_send: SystemSend,          // a copy of the system send line
+    event_description: gtk::Button,   // the event description display
+    event_data: Rc<RefCell<ItemId>>,  // the data associated with the event
+    minutes_spin: gtk::SpinButton,    // the minutes spin button
+    millis_spin: gtk::SpinButton,     // the milliseconds spin button
+    is_left: bool,                    // whether the element is on the left
 }
 
 impl EditQueueEvent {
     // A function to ceate a queue event variant
     //
-    fn new() -> EditQueueEvent {
-        // Add a labels and spins to the grid
+    fn new(system_send: &SystemSend, is_left: bool) -> EditQueueEvent {
+        // Create the top-level grid
         let grid = gtk::Grid::new();
-        let event_label = gtk::Label::new(Some("Event Id"));
-        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+
+        // Create the labels and spin buttons
+        let event_description = gtk::Button::new_with_label("Event: None");
         let minutes_label = gtk::Label::new(Some("Delay: Minutes"));
         let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
         let millis_label = gtk::Label::new(Some("Milliseconds"));
         let millis_spin = gtk::SpinButton::new_with_range(0.0, 60000.0, 1.0);
 
+        // Create the id to hold the event data
+        let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
+
+        // Set up the event description to act as a drag source
+        event_description.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &vec![
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY,
+        );
+
         // Set up the event spin button to receive a dropped item pair
-        event_spin.drag_dest_set(
+        event_description.drag_dest_set(
             gtk::DestDefaults::ALL,
             &vec![
                 gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
@@ -1075,7 +1105,7 @@ impl EditQueueEvent {
         );
 
         // Set the callback function when data is received
-        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        event_description.connect_drag_data_received(clone!(event_data => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -1084,18 +1114,30 @@ impl EditQueueEvent {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Update the event description
+                widget.set_label(&format!("Event: {}", item_pair.description));
+
+                // Get a copy of the event data
+                if let Ok(mut event) = event_data.try_borrow_mut() {
+                    // Update the event data
+                    *event = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
-        });
+        }));
 
         // Add all the components to the event grid
-        grid.attach(&event_label, 0, 0, 1, 1);
-        grid.attach(&event_spin, 0, 1, 1, 1);
-        grid.attach(&minutes_label, 1, 0, 1, 1);
-        grid.attach(&minutes_spin, 1, 1, 1, 1);
-        grid.attach(&millis_label, 2, 0, 1, 1);
-        grid.attach(&millis_spin, 2, 1, 1, 1);
+        grid.attach(&event_description, 0, 0, 2, 1);
+        grid.attach(&minutes_label, 0, 1, 1, 1);
+        grid.attach(&minutes_spin, 0, 2, 1, 1);
+        grid.attach(&millis_label, 1, 1, 1, 1);
+        grid.attach(&millis_spin, 1, 2, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -1103,9 +1145,12 @@ impl EditQueueEvent {
         grid.show_all();
         EditQueueEvent {
             grid,
-            event_spin,
+            system_send: system_send.clone(),
+            event_description,
+            event_data,
             minutes_spin,
             millis_spin,
+            is_left,
         }
     }
 
@@ -1118,8 +1163,14 @@ impl EditQueueEvent {
     // A method to load the action
     //
     fn load_action(&self, event_delay: &EventDelay) {
-        // Set the value of the event id
-        self.event_spin.set_value(event_delay.id().id() as f64);
+        // Request the description associated with the event id
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionElement {
+                is_left: self.is_left,
+                variant: EditActionElement::EditQueueEvent,
+            },
+            request: RequestType::Description { item_id: event_delay.id() },
+        });
 
         // Calculate the minutes and seconds of the duration
         if let Some(delay) = event_delay.delay() {
@@ -1138,27 +1189,38 @@ impl EditQueueEvent {
         }
     }
 
+    // A method to update the description of the event
+    //
+    pub fn update_description(&self, description: ItemDescription) {
+        // Update the event label
+        self.event_description.set_label(&format!("Event: {}", description.description));
+    }
+
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
-        // Extract the event id
-        let event_id = self.event_spin.get_value() as u32;
+        // Borrow the event data
+        match self.event_data.try_borrow() {
+            Ok(event_data) => {
+                // Extract the minute count
+                let minutes = self.minutes_spin.get_value() as u32;
 
-        // Extract the minute count
-        let minutes = self.minutes_spin.get_value() as u32;
+                // Extract the millis count
+                let millis = self.millis_spin.get_value() as u32;
 
-        // Extract the millis count
-        let millis = self.millis_spin.get_value() as u32;
+                // Compose the new delay
+                let mut delay = None;
+                if (minutes != 0) | (millis != 0) {
+                    delay = Some(Duration::from_millis((millis + (minutes * 60000)) as u64));
+                }
 
-        // Compose the new delay
-        let mut delay = None;
-        if (minutes != 0) | (millis != 0) {
-            delay = Some(Duration::from_millis((millis + (minutes * 60000)) as u64));
-        }
+                // Compose the event delay and return the event action
+                EventAction::QueueEvent {
+                    event: EventDelay::new(delay, *event_data),
+                }
+            }
 
-        // Compose the event delay and return the event action
-        EventAction::QueueEvent {
-            event: EventDelay::new(delay, ItemId::new_unchecked(event_id)),
+            _ => unreachable!(),
         }
     }
 }
@@ -1167,23 +1229,37 @@ impl EditQueueEvent {
 //
 #[derive(Clone, Debug)]
 struct EditCancelEvent {
-    grid: gtk::Grid,       // the main grid for this element
-    spin: gtk::SpinButton, // the event spin button
+    grid: gtk::Grid,                  // the main grid for this element
+    system_send: SystemSend,          // a copy of the system send line
+    event_description: gtk::Button,   // the event description
+    event_data: Rc<RefCell<ItemId>>,  // the data associated with the event
+    is_left: bool                     // whether the element is on the left or right
 }
 
 impl EditCancelEvent {
     // A function to ceate a cancel event variant
     //
-    fn new() -> EditCancelEvent {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditCancelEvent {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
-        // Create the label and spin button
-        let label = gtk::Label::new(Some("Event Id"));
-        let spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Create the button to hold the event description
+        let event_description = gtk::Button::new_with_label("Event: None");
 
-        // Set up the spin button to receive a dropped item pair
-        spin.drag_dest_set(
+        // Create the variable to hold the event data
+        let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
+
+        // Set up the event description to act as a drag source
+        event_description.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &vec![
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY,
+        );
+
+        // Set up the event description to receive a dropped item pair
+        event_description.drag_dest_set(
             gtk::DestDefaults::ALL,
             &vec![
                 gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
@@ -1192,7 +1268,7 @@ impl EditCancelEvent {
         );
 
         // Set the callback function when data is received
-        spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        event_description.connect_drag_data_received(clone!(event_data => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -1201,20 +1277,38 @@ impl EditCancelEvent {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
-            }
-        });
+                // Update the event description
+                widget.set_label(&format!("Event: {}", item_pair.description));
 
-        // Attach the label and spin to the grid
-        grid.attach(&label, 0, 0, 1, 1);
-        grid.attach(&spin, 1, 0, 1, 1);
+                // Get a copy of the event data
+                if let Ok(mut event) = event_data.try_borrow_mut() {
+                    // Update the event data
+                    *event = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
+            }
+        }));
+
+        // Attach the description to the grid
+        grid.attach(&event_description, 0, 0, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
         // Create and return the cancel event variant
         grid.show_all();
-        EditCancelEvent { grid, spin }
+        EditCancelEvent {
+            grid,
+            system_send: system_send.clone(),
+            event_description,
+            event_data,
+            is_left,
+        }
     }
 
     // A method to return the top element
@@ -1226,19 +1320,35 @@ impl EditCancelEvent {
     // A method to load the action
     //
     fn load_action(&self, event: &ItemId) {
-        // Set the value of the event id
-        self.spin.set_value(event.id() as f64);
+        // Request the description associated with the id
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionElement {
+                is_left: self.is_left,
+                variant: EditActionElement::EditCancelEvent
+            },
+            request: RequestType::Description { item_id: event.clone() },
+        });
+    }
+
+    // A method to update the description of the event
+    pub fn update_description(&self, description: ItemDescription) {
+        // Update the event label
+        self.event_description.set_label(&format!("Event: {}", description.description));
     }
 
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
-        // Extract the event id
-        let id = self.spin.get_value() as u32;
+        // Get the event data
+        match self.event_data.try_borrow() {
+            Ok(event_data) => {
+                // Return the completed action
+                EventAction::CancelEvent {
+                    event: *event_data,
+                }
+            },
 
-        // Return the completed action
-        EventAction::CancelEvent {
-            event: ItemId::new_unchecked(id),
+            _ => unreachable!(),
         }
     }
 }
@@ -1845,7 +1955,7 @@ impl EditGroupedEvent {
         // Connect the function to trigger when the status spin changes
         status_spin.connect_changed(clone!(system_send, is_left => move |spin| {
             system_send.send(Request {
-                reply_to: DisplayComponent::EditActionOverview { is_left, variant: EditActionOverview::Overview },
+                reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::Overview },
                 request: RequestType::Status { item_id: ItemId::new_unchecked(spin.get_value() as u32), },
             });
         }));
