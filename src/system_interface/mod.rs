@@ -882,6 +882,9 @@ pub enum EditActionOverview {
 
     /// A variant for the edit new scene action
     EditNewScene,
+
+    /// A variant for the edit modify status
+    EditModifyStatus { is_status: bool },
 }
 
 /// An enum to specify which display component has requested the information

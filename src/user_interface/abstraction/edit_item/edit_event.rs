@@ -373,7 +373,7 @@ impl EditAction {
 
         // Create the different edit windows for the action types
         let edit_new_scene = EditNewScene::new(system_send, is_left);
-        let edit_modify_status = EditModifyStatus::new();
+        let edit_modify_status = EditModifyStatus::new(system_send, is_left);
         let edit_queue_event = EditQueueEvent::new();
         let edit_cancel_event = EditCancelEvent::new();
         let edit_save_data = EditSaveData::new();
@@ -701,6 +701,13 @@ impl EditAction {
                 }
             }
 
+            EditActionOverview::EditModifyStatus { is_status } => {
+                // Get a copy of the edit new scene element
+                if let Ok(edit_modify_status) = self.edit_modify_status.try_borrow() {
+                    edit_modify_status.update_description(is_status, description)
+                }
+            }
+
             _ => unreachable!(),
         }
     }
@@ -720,7 +727,7 @@ struct EditNewScene {
     grid: gtk::Grid,                      // the main grid for this element
     system_send: SystemSend,              // a copy of the system send line
     description: gtk::Button,             // the description of the scene
-    scene: Rc<RefCell<Option<ItemPair>>>, // the wrapped data associated with the scene
+    scene: Rc<RefCell<ItemId>>,           // the wrapped data associated with the scene
     is_left: bool,                        // whether the edit element is left or right
 }
 
@@ -736,7 +743,7 @@ impl EditNewScene {
         let description = gtk::Button::new_with_label("Scene: None");
 
         // Create the data associated with the scene
-        let scene = Rc::new(RefCell::new(None));
+        let scene = Rc::new(RefCell::new(ItemId::all_stop()));
 
         // Set up the description to act as a drag source
         description.drag_source_set(
@@ -771,7 +778,7 @@ impl EditNewScene {
 
                 // Update the scene data
                 if let Ok(mut scene_data) = scene.try_borrow_mut() {
-                    *scene_data = Some(item_pair.clone())
+                    *scene_data = item_pair.get_id();
                 }
 
                 // Serialize the item pair data
@@ -825,49 +832,54 @@ impl EditNewScene {
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
-        // Get a copy of the scene data
-        if let Ok(scene_data) = self.scene.try_borrow() {
-            if let Some(scene) = scene_data.clone() {
+        match self.scene.try_borrow() {
+            // Get a copy of the scene data
+            Ok(scene) => {
                 // Pack the new scene id into an action
-                return EventAction::NewScene {
-                    new_scene: scene.get_id(),
-                }
-            } else {
-                // FIXME handle packing "default"?
-                return EventAction::NewScene {
-                    new_scene: ItemId::all_stop(),
-                }
+                EventAction::NewScene { new_scene: *scene }
             }
-        }
 
-        // unreachable
-        unreachable!();
+            _ => unreachable!(),
+        }
     }
 }
 
 // Create the modify status variant
 #[derive(Clone, Debug)]
 struct EditModifyStatus {
-    grid: gtk::Grid,              // the main grid for this element
-    status_spin: gtk::SpinButton, // the status spin button
-    state_spin: gtk::SpinButton,  // the state spin button
+    grid: gtk::Grid,                              // the main grid for this element
+    system_send: SystemSend,                      // a copy of the system send line
+    status_description: gtk::Button,              // the status description display
+    status_data: Rc<RefCell<ItemId>>,             // the wrapped status data
+    state_description: gtk::Button,               // the state description display
+    state_data: Rc<RefCell<ItemId>>,              // the wrapped state data
+    is_left: bool,                                // whether the element is on the left
 }
 
 impl EditModifyStatus {
     // A function to ceate a modify status variant
     //
-    fn new() -> EditModifyStatus {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditModifyStatus {
         // Create the grid for the modify status variant
         let grid = gtk::Grid::new();
 
-        // Add a labels and spins to the grid
-        let status_label = gtk::Label::new(Some("Status Id"));
-        let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let state_label = gtk::Label::new(Some("State Id"));
-        let state_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Set up the labels and data
+        let status_description = gtk::Button::new_with_label("Status: None");
+        let status_data = Rc::new(RefCell::new(ItemId::all_stop()));
+        let state_description = gtk::Button::new_with_label("State: None");
+        let state_data = Rc::new(RefCell::new(ItemId::all_stop()));
+
+        // Set up the status description to act as a drag source
+        status_description.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &vec![
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY,
+        );
 
         // Set up the status spin button to receive a dropped item pair
-        status_spin.drag_dest_set(
+        status_description.drag_dest_set(
             gtk::DestDefaults::ALL,
             &vec![
                 gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
@@ -876,7 +888,7 @@ impl EditModifyStatus {
         );
 
         // Set the callback function when data is received
-        status_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        status_description.connect_drag_data_received(clone!(status_data => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -885,13 +897,34 @@ impl EditModifyStatus {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Update the label description
+                widget.set_label(&format!("Status: {}", item_pair.description));
+
+                // Update the status data
+                if let Ok(mut status) = status_data.try_borrow_mut() {
+                    *status = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
-        });
+        }));
+
+        // Set up the state description to act as a drag source
+        state_description.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &vec![
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY,
+        );
 
         // Set up the state spin button to receive a dropped item pair
-        status_spin.drag_dest_set(
+        state_description.drag_dest_set(
             gtk::DestDefaults::ALL,
             &vec![
                 gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
@@ -900,7 +933,7 @@ impl EditModifyStatus {
         );
 
         // Set the callback function when data is received
-        state_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        state_description.connect_drag_data_received(clone!(state_data => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -910,15 +943,25 @@ impl EditModifyStatus {
                 };
 
                 // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                widget.set_label(&format!("State: {}", item_pair.description));
+
+                // Update the status data
+                if let Ok(mut state) = state_data.try_borrow_mut() {
+                    *state = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
-        });
+        }));
 
         // Place everything into the grid
-        grid.attach(&status_label, 0, 0, 1, 1);
-        grid.attach(&status_spin, 0, 1, 1, 1);
-        grid.attach(&state_label, 1, 0, 1, 1);
-        grid.attach(&state_spin, 1, 1, 1, 1);
+        grid.attach(&status_description, 0, 0, 1, 1);
+        grid.attach(&state_description, 1, 0, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -926,8 +969,12 @@ impl EditModifyStatus {
         grid.show_all();
         EditModifyStatus {
             grid,
-            status_spin,
-            state_spin,
+            system_send: system_send.clone(),
+            status_description,
+            status_data,
+            state_description,
+            state_data,
+            is_left,
         }
     }
 
@@ -940,16 +987,57 @@ impl EditModifyStatus {
     // A method to load the action
     //
     fn load_action(&self, status_id: &ItemId, new_state: &ItemId) {
-        self.status_spin.set_value(status_id.id() as f64);
-        self.state_spin.set_value(new_state.id() as f64);
+        // Request the description associated with the status
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionOverview {
+                is_left: self.is_left,
+                variant: EditActionOverview::EditModifyStatus { is_status: true }
+            },
+            request: RequestType::Description { item_id: status_id.clone() },
+        });
+
+        // Request the description associated with the state
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionOverview {
+                is_left: self.is_left,
+                variant: EditActionOverview::EditModifyStatus { is_status: false }
+            },
+            request: RequestType::Description { item_id: new_state.clone() },
+        });
+    }
+
+    // A method to update the description of the status or state
+    pub fn update_description(&self, is_status: bool, description: ItemDescription) {
+        match is_status {
+            // If the description is for the status, update the status label
+            true => self.status_description.set_label(&format!("Status: {}", description.description)),
+
+            // If the description is for the state, update the state label
+            false => self.state_description.set_label(&format!("State: {}", description.description)),
+        }
     }
 
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
-        EventAction::ModifyStatus {
-            status_id: ItemId::new_unchecked(self.status_spin.get_value() as u32),
-            new_state: ItemId::new_unchecked(self.state_spin.get_value() as u32),
+        // Get the status data
+        match self.status_data.try_borrow() {
+            Ok(status_data) => {
+                // Get the state data
+                match self.state_data.try_borrow() {
+                    Ok(state_data) => {
+                        // Return the associated ModifyStatus object
+                        EventAction::ModifyStatus {
+                            status_id: *status_data,
+                            new_state: *state_data,
+                        }
+                    },
+
+                    _ => unreachable!(),
+                }
+            }
+
+            _ => unreachable!(),
         }
     }
 }
