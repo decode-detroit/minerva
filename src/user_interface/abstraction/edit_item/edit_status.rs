@@ -46,7 +46,7 @@ use self::gtk::GridExt;
 #[derive(Clone, Debug)]
 pub struct ItemDisplay {
     item_id: ItemId,
-    label: gtk::Label
+    label: gtk::Button
 }
 
 
@@ -216,7 +216,7 @@ impl EditStatus {
 struct EditMultiState {
     grid: gtk::Grid,                       // the main grid for this element
     is_left: bool,                         // whether the element is on the left or right
-    current_label: gtk::Label,             // a label to display the current state
+    current_label: gtk::Button,             // a label to display the current state
     current_data: Rc<RefCell<ItemId>>,     // the data of the current state
     states_list: gtk::ListBox,             // a list box to display the allowed states
     states_data: Rc<RefCell<FnvHashMap<usize, ItemDisplay>>>,  // the database of the ids and display elements
@@ -232,7 +232,7 @@ impl EditMultiState {
         let grid = gtk::Grid::new();
 
         // Create a label to hold the current state description
-        let current_label = gtk::Label::new(Some("Current State: None"));
+        let current_label = gtk::Button::new_with_label("Current State: None");
 
         // Create an ItemId to hold the current state data
         let current_data = Rc::new(RefCell::new(ItemId::all_stop()));
@@ -271,7 +271,7 @@ impl EditMultiState {
                 }
 
                 // Update the description on the current label
-                widget.set_text(&item_pair.description());
+                widget.set_label(&item_pair.description);
 
                 // Set the callback function when data is dragged
                 widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
@@ -449,8 +449,8 @@ impl EditMultiState {
             _ => return,
         };
 
-        // Create a label to hold the event description
-        let state_description = gtk::Label::new(None);
+        // Create a button to hold the event description
+        let state_description = gtk::Button::new();
 
         // Make the label a drag source
         state_description.drag_source_set(
@@ -518,7 +518,7 @@ impl EditMultiState {
                 // Get the ItemDisplay associated with the position
                 if let Some(item_info) = states_db.get(&item_position) {
                     // Set the label description
-                    item_info.label.set_text(&description.description);
+                    item_info.label.set_label(&description.description);
 
                     // Create the item pair from the id and description
                     let item_pair = ItemPair::from_item(item_info.item_id, description);
@@ -534,7 +534,7 @@ impl EditMultiState {
             }
         } else {
             // Otherwise, update the current state description
-            self.current_label.set_text(&format!("Current State: {}", &description.description));
+            self.current_label.set_label(&format!("Current State: {}", &description.description));
 
             // Get the current item id
             if let Ok(current_id) = self.current_data.try_borrow() {
@@ -566,10 +566,10 @@ struct EditCountedState {
     system_send: SystemSend,            // a copy of the system send line
     is_left: bool,                      // whether this element is on the left or right
     status_data: Rc<RefCell<FnvHashMap<String, ItemId>>>,   // a database for the data associated with the status
-    current_label: gtk::Label,          // the label to display the current state
-    trigger_label: gtk::Label,          // the label to display the trigger state
-    antitrigger_label: gtk::Label,      // the label to display the antitrigger state
-    reset_label: gtk::Label,            // the label to display the reset state
+    current_label: gtk::Button,          // the button to display the current state
+    trigger_label: gtk::Button,          // the button to display the trigger state
+    antitrigger_label: gtk::Button,      // the button to display the antitrigger state
+    reset_label: gtk::Button,            // the button to display the reset state
     count_spin: gtk::SpinButton,        // the spin to hold the default count
 }
 
@@ -585,22 +585,22 @@ impl EditCountedState {
         let status_data = Rc::new(RefCell::new(FnvHashMap::default()));
 
         // Create the label for the current item id
-        let current_label = gtk::Label::new(Some("Current State: None"));
+        let current_label = gtk::Button::new_with_label("Current State: None");
 
         // Create the label for the trigger item id
-        let trigger_label = gtk::Label::new(Some("Trigger State: None"));
+        let trigger_label = gtk::Button::new_with_label("Trigger State: None");
 
         // Create the label for the anti-trigger item id
-        let antitrigger_label = gtk::Label::new(Some("Anti-Trigger State: None"));
+        let antitrigger_label = gtk::Button::new_with_label("Anti-Trigger State: None");
 
         // Create the label for the reset item id
-        let reset_label = gtk::Label::new(Some("Reset State: None"));
+        let reset_label = gtk::Button::new_with_label("Reset State: None");
 
         // Create the label and spin button for the default count
         let count_label = gtk::Label::new(Some("Default Count:"));
         let count_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
-        // Make the current label a drag source
+        // Make the current button a drag source
         current_label.drag_source_set(
             gdk::ModifierType::MODIFIER_MASK,
             &vec![
@@ -629,7 +629,7 @@ impl EditCountedState {
                 };
 
                 // Update the user interface
-                widget.set_text(&item_pair.id().to_string());
+                widget.set_label(&item_pair.description);
 
                 // Update the status database
                 if let Ok(mut database) = status_data.try_borrow_mut() {
@@ -674,7 +674,7 @@ impl EditCountedState {
                 };
 
                 // Update the user interface
-                widget.set_text(&item_pair.id().to_string());
+                widget.set_label(&item_pair.description);
 
                 // Update the status database
                 if let Ok(mut database) = status_data.try_borrow_mut() {
@@ -719,7 +719,7 @@ impl EditCountedState {
                 };
 
                 // Update the user interface
-                widget.set_text(&item_pair.id().to_string());
+                widget.set_label(&item_pair.description);
 
                 // Update the status database
                 if let Ok(mut database) = status_data.try_borrow_mut() {
@@ -764,7 +764,7 @@ impl EditCountedState {
                 };
 
                 // Update the user interface
-                widget.set_text(&item_pair.id().to_string());
+                widget.set_label(&item_pair.description);
 
                 // Update the status database
                 if let Ok(mut database) = status_data.try_borrow_mut() {
@@ -892,7 +892,7 @@ impl EditCountedState {
                 // The current state variant
                 "current" => {
                     // Set the text on the label
-                    self.current_label.set_text(&format!("Current State: {}", &description.description));
+                    self.current_label.set_label(&format!("Current State: {}", &description.description));
 
                     // Get the current item id
                     if let Some(item_id) = status_data.get("current") {
@@ -911,7 +911,7 @@ impl EditCountedState {
 
                 "trigger" => {
                     // Set the text on the label
-                    self.trigger_label.set_text(&format!("Trigger State: {}", &description.description));
+                    self.trigger_label.set_label(&format!("Trigger State: {}", &description.description));
 
                     // Get the trigger item id
                     if let Some(item_id) = status_data.get("trigger") {
@@ -930,7 +930,7 @@ impl EditCountedState {
 
                 "antitrigger" => {
                     // Set the text on the label
-                    self.antitrigger_label.set_text(&format!("Anti-Trigger State: {}", &description.description));
+                    self.antitrigger_label.set_label(&format!("Anti-Trigger State: {}", &description.description));
 
                     // Get the antitrigger item id
                     if let Some(item_id) = status_data.get("antitrigger") {
@@ -949,7 +949,7 @@ impl EditCountedState {
 
                 "reset" => {
                     // Set the text on the label
-                    self.reset_label.set_text(&format!("Reset State: {}", &description.description));
+                    self.reset_label.set_label(&format!("Reset State: {}", &description.description));
 
                     // Get the reset item id
                     if let Some(item_id) = status_data.get("current") {

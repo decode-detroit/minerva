@@ -21,8 +21,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, DisplayComponent, EventAction, Event, EventDelay, ItemId, ItemPair,
-    Request, RequestType, Status, SystemSend,
+    DataType, DisplayComponent, EditActionOverview, EventAction, Event, EventDelay, ItemDescription,
+    ItemId, ItemPair, Request, RequestType, Status, SystemSend,
 };
 
 // Import standard library features
@@ -54,13 +54,14 @@ pub struct EditEvent {
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
     next_position: Rc<RefCell<usize>>, // the next available position in the hash map
     action_list: gtk::ListBox,         // the visible list for event actions
+    is_left: bool,                     // whether the element is on the left
 }
 
 // Implement key features for Edit Event
 impl EditEvent {
     // A function to create a new Edit Detail
     //
-    pub fn new(system_send: &SystemSend) -> EditEvent {
+    pub fn new(system_send: &SystemSend, is_left: bool) -> EditEvent {
         // Create the grid
         let grid = gtk::Grid::new();
 
@@ -79,7 +80,7 @@ impl EditEvent {
         action_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a new edit action dialog
-        let tmp_edit_action = EditAction::new(system_send, &event_actions);
+        let tmp_edit_action = EditAction::new(system_send, &event_actions, is_left);
         grid.attach(tmp_edit_action.get_top_element(), 1, 1, 1, 2);
         let edit_action = Rc::new(RefCell::new(tmp_edit_action.clone()));
 
@@ -140,6 +141,7 @@ impl EditEvent {
             event_actions,
             next_position,
             action_list,
+            is_left
         }
     }
 
@@ -232,6 +234,14 @@ impl EditEvent {
         // Try to get access the edit action dialog
         if let Ok(dialog) = self.edit_action.try_borrow() {
             dialog.update_info(status);
+        }
+    }
+
+    // A method to update the description of an item
+    pub fn update_description(&self, action_type: EditActionOverview, description: ItemDescription) {
+        // Try to get access to the edit action window
+        if let Ok(edit_action) = self.edit_action.try_borrow() {
+            edit_action.update_description(action_type, description);
         }
     }
 
@@ -337,6 +347,7 @@ struct EditAction {
     edit_send_data: Rc<RefCell<EditSendData>>,                  // the wrapped EditSendData structure
     edit_grouped_event: Rc<RefCell<EditGroupedEvent>>,          // the wrapped EditGroupedEvent structure
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of event actions
+    is_left: bool,                                              // whether the element is on the left
 }
 
 // Implement key features of the EditAction
@@ -346,6 +357,7 @@ impl EditAction {
     fn new(
         system_send: &SystemSend,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
+        is_left: bool,
     ) -> EditAction {
         // Create a dropdown for the action selection
         let action_selection = gtk::ComboBoxText::new();
@@ -360,13 +372,13 @@ impl EditAction {
         action_selection.append(Some("groupedevent"), "Grouped Event");
 
         // Create the different edit windows for the action types
-        let edit_new_scene = EditNewScene::new();
+        let edit_new_scene = EditNewScene::new(system_send, is_left);
         let edit_modify_status = EditModifyStatus::new();
         let edit_queue_event = EditQueueEvent::new();
         let edit_cancel_event = EditCancelEvent::new();
         let edit_save_data = EditSaveData::new();
         let edit_send_data = EditSendData::new();
-        let edit_grouped_event = EditGroupedEvent::new(system_send);
+        let edit_grouped_event = EditGroupedEvent::new(system_send, is_left);
 
         // Create the action stack
         let action_stack = gtk::Stack::new();
@@ -419,6 +431,7 @@ impl EditAction {
             edit_send_data: Rc::new(RefCell::new(edit_send_data)),
             edit_grouped_event: Rc::new(RefCell::new(edit_grouped_event)),
             event_actions: event_actions.clone(),
+            is_left,
         }
     }
 
@@ -677,6 +690,21 @@ impl EditAction {
         &self.grid
     }
 
+    /// A method to update the description of an item
+    ///
+    pub fn update_description(&self, action_type: EditActionOverview, description: ItemDescription) {
+        match action_type {
+            EditActionOverview::EditNewScene { .. } => {
+                // Get a copy of the edit new scene element
+                if let Ok(edit_new_scene) = self.edit_new_scene.try_borrow() {
+                    edit_new_scene.update_description(description)
+                }
+            }
+
+            _ => unreachable!(),
+        }
+    }
+
     /// A method to pass the status to the EditGroupedEvent structure
     ///
     fn update_info(&self, status: Option<Status>) {
@@ -689,24 +717,38 @@ impl EditAction {
 // Create the new scene variant
 #[derive(Clone, Debug)]
 struct EditNewScene {
-    grid: gtk::Grid,       // the main grid for this element
-    spin: gtk::SpinButton, // the spin button for the new scene id
+    grid: gtk::Grid,                      // the main grid for this element
+    system_send: SystemSend,              // a copy of the system send line
+    description: gtk::Button,             // the description of the scene
+    scene: Rc<RefCell<Option<ItemPair>>>, // the wrapped data associated with the scene
+    is_left: bool,                        // whether the edit element is left or right
 }
 
 // Implement key features for Edit New Scene
 impl EditNewScene {
     // A function to create a new scene variant
     //
-    fn new() -> EditNewScene {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditNewScene {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
-        // Add a label and spin to the grid
-        let label = gtk::Label::new(Some("Scene Id"));
-        let spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Add a button with a label to the grid
+        let description = gtk::Button::new_with_label("Scene: None");
 
-        // Set up the spin button to receive a dropped item pair
-        spin.drag_dest_set(
+        // Create the data associated with the scene
+        let scene = Rc::new(RefCell::new(None));
+
+        // Set up the description to act as a drag source
+        description.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &vec![
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY,
+        );
+
+        // Set up the description to receive a dropped item pair
+        description.drag_dest_set(
             gtk::DestDefaults::ALL,
             &vec![
                 gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
@@ -715,7 +757,7 @@ impl EditNewScene {
         );
 
         // Set the callback function when data is received
-        spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        description.connect_drag_data_received(clone!(scene => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -724,20 +766,37 @@ impl EditNewScene {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Update the description
+                widget.set_label(&format!("Scene: {}", item_pair.description));
+
+                // Update the scene data
+                if let Ok(mut scene_data) = scene.try_borrow_mut() {
+                    *scene_data = Some(item_pair.clone())
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
-        });
+        }));
 
         // Attach the label and spin button
-        grid.attach(&label, 0, 0, 1, 1);
-        grid.attach(&spin, 1, 0, 1, 1);
+        grid.attach(&description, 0, 0, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
         // Create and return the EditNewScene
         grid.show_all();
-        EditNewScene { grid, spin }
+        EditNewScene {
+            grid,
+            system_send: system_send.clone(),
+            description,
+            scene,
+            is_left
+         }
     }
 
     // A method to return the top element
@@ -749,16 +808,40 @@ impl EditNewScene {
     // A method to load the action
     //
     fn load_action(&self, new_scene: &ItemId) {
-        self.spin.set_value(new_scene.id() as f64);
+        // Request the description associated with the id
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionOverview { is_left: self.is_left, variant: EditActionOverview::EditNewScene },
+            request: RequestType::Description { item_id: new_scene.clone() },
+        });
+    }
+
+    /// A method to update the description of the scene
+    ///
+    pub fn update_description(&self, description: ItemDescription) {
+        // FIXME: because the default is all_stop, the default description is "No Description."
+        self.description.set_label(&format!("Scene: {}", &description.description));
     }
 
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
-        // Pack the new scene id into a action
-        EventAction::NewScene {
-            new_scene: ItemId::new_unchecked(self.spin.get_value() as u32),
+        // Get a copy of the scene data
+        if let Ok(scene_data) = self.scene.try_borrow() {
+            if let Some(scene) = scene_data.clone() {
+                // Pack the new scene id into an action
+                return EventAction::NewScene {
+                    new_scene: scene.get_id(),
+                }
+            } else {
+                // FIXME handle packing "default"?
+                return EventAction::NewScene {
+                    new_scene: ItemId::all_stop(),
+                }
+            }
         }
+
+        // unreachable
+        unreachable!();
     }
 }
 
@@ -1619,12 +1702,13 @@ struct EditGroupedEvent {
     grouped_event_list: gtk::ListBox, // the list for events in this variant
     grouped_events: Rc<RefCell<FnvHashMap<ItemId, ItemId>>>, // a database for the grouped events
     status_spin: gtk::SpinButton,     // the status id for this variant
+    is_left: bool,                    // whether the element is to the left or right
 }
 
 impl EditGroupedEvent {
     // A function to create a grouped event variant
     //
-    fn new(system_send: &SystemSend) -> EditGroupedEvent {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditGroupedEvent {
         // Create the list for the trigger events variant
         let grouped_event_list = gtk::ListBox::new();
         grouped_event_list.set_selection_mode(gtk::SelectionMode::None);
@@ -1671,9 +1755,9 @@ impl EditGroupedEvent {
         group_window.set_size_request(-1, 120);
 
         // Connect the function to trigger when the status spin changes
-        status_spin.connect_changed(clone!(system_send => move |spin| {
+        status_spin.connect_changed(clone!(system_send, is_left => move |spin| {
             system_send.send(Request {
-                reply_to: DisplayComponent::EditAction,
+                reply_to: DisplayComponent::EditActionOverview { is_left, variant: EditActionOverview::Overview },
                 request: RequestType::Status { item_id: ItemId::new_unchecked(spin.get_value() as u32), },
             });
         }));
@@ -1693,6 +1777,7 @@ impl EditGroupedEvent {
             grouped_event_list,
             grouped_events: Rc::new(RefCell::new(FnvHashMap::default())),
             status_spin,
+            is_left
         }
     }
 

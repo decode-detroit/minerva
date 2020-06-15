@@ -338,15 +338,15 @@ impl SystemInterface {
                             } => {
                                 handler.edit_event(item_id, event);
                             }
-                            
+
                             // Add or modify the status
                             Modification::ModifyStatus {
                                 item_id,
                                 status,
                             } => {
                                 handler.edit_status(item_id, status);
-                            }   
-                            
+                            }
+
                             // Add or modify the scene
                             Modification::ModifyScene {
                                 item_id,
@@ -838,14 +838,14 @@ pub enum Modification {
         item_id: ItemId,
         event: Option<Event>,
     },
-    
+
     /// A modification to add a status, modify an existing one, or delete it
     /// (if None provided)
     ModifyStatus {
         item_id: ItemId,
         status: Option<Status>,
     },
-    
+
     /// A modification to add a scene, modify an existing one, or delete it
     /// (if None provided)
     ModifyScene {
@@ -866,12 +866,22 @@ pub enum RequestType {
 
     /// A variant for the status associated with an item
     Status { item_id: ItemId },
-    
+
     /// A variant for the list of all events in a scene
     Scene { item_id: ItemId },
 
     /// A variant for the list of all items
     Items,
+}
+
+/// An enum to specify which Edit Action subcomponent has requested the information
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EditActionOverview {
+    /// A variant for the top level window
+    Overview,
+
+    /// A variant for the edit new scene action
+    EditNewScene,
 }
 
 /// An enum to specify which display component has requested the information
@@ -881,7 +891,7 @@ pub enum DisplayComponent {
     EditItemOverview { is_left: bool },
 
     /// A variant for the edit action element
-    EditAction,
+    EditActionOverview { is_left: bool, variant: EditActionOverview},
 
     /// A variant for the edit multistate status element
     EditMultiStateStatus { is_left: bool, position: Option<usize> },
@@ -1048,10 +1058,10 @@ pub enum ReplyType {
 
     /// A variant for the event associated with an item
     Event { event: Option<Event> },
-    
+
     /// A variant for the status associated with an item
     Status { status: Option<Status> },
-    
+
     /// A variant for the list of events in a scene
     Scene { scene: Option<DescriptiveScene> },
 

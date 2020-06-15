@@ -200,6 +200,17 @@ impl EditWindow {
                 }
             }
 
+            // FIXME is there a way to condense all of these?
+            DisplayComponent::EditActionOverview { is_left, .. } => {
+                match is_left {
+                    // Send to the left side
+                    true => self.edit_item_left.update_info(reply_to, reply),
+
+                    // Send to the right side
+                    false => self.edit_item_right.update_info(reply_to, reply),
+                }
+            }
+
             DisplayComponent::EditMultiStateStatus { is_left, .. } => {
                 match is_left {
                     // Send to the left side
@@ -344,7 +355,7 @@ impl EditItemAbstraction {
         separator.set_hexpand(true);
 
         // Create the edit event
-        let edit_event = EditEvent::new(system_send);
+        let edit_event = EditEvent::new(system_send, is_left);
 
         // Create the edit status
         let edit_status = EditStatus::new(system_send, is_left);
@@ -570,14 +581,30 @@ impl EditItemAbstraction {
                 }
             }
 
-            DisplayComponent::EditAction => {
-                if let ReplyType::Status { status } = reply {
-                    // Try to borrow the edit status
-                    if let Ok(edit_event) = self.edit_event.try_borrow() {
-                        edit_event.update_info(status);
+            DisplayComponent::EditActionOverview { variant, .. } => {
+                match reply {
+                    // The status variant
+                    ReplyType::Status { status } => {
+                        // Try to borrow the edit event
+                        if let Ok(edit_event) = self.edit_event.try_borrow() {
+                            // Update the status info
+                            edit_event.update_info(status);
+                        }
                     }
+
+                    // The description variant
+                    ReplyType::Description { description } => {
+                        // Try to borrow the edit event
+                        if let Ok(edit_event) = self.edit_event.try_borrow() {
+                            // Update the description
+                            edit_event.update_description(variant, description);
+                        }
+                    }
+
+                    _ => unreachable!(),
                 }
             }
+
 
             DisplayComponent::EditMultiStateStatus { position, .. } => {
                 if let ReplyType::Description { description } = reply {
