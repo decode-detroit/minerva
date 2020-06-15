@@ -19,6 +19,11 @@
 //! items (including events, statuses, and scenes). This module links directly
 //! to the system interface to request and modify data in the configuration.
 
+
+// Use the macros from the macros submodule
+#[macro_use]
+pub mod macros;
+
 // Define private submodules
 mod edit_event;
 mod edit_scene;
@@ -294,13 +299,7 @@ impl EditItemAbstraction {
         edit_title.set_size_request(-1, 30);
 
         // Connect the drag destination to edit_title
-        edit_title.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest edit_title);
 
         // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
@@ -696,13 +695,7 @@ impl ItemList {
             item_button.add(&item_label);
 
             // Make the label a drag source
-            item_button.drag_source_set(
-                gdk::ModifierType::MODIFIER_MASK,
-                &vec![
-                    gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-                ],
-                gdk::DragAction::COPY,
-            );
+            drag!(source item_button);
 
             // Serialize the item pair data
             item_button.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
@@ -786,13 +779,7 @@ impl EditOverview {
         let group = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
         // Set up the spin button to receive a dropped event id
-        group.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest group);
 
         // Set the callback function when data is received
         group.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
@@ -897,13 +884,7 @@ impl EditOverview {
         }));
 
         // Set up the hightlight status spin button to receive a dropped event id
-        highstate_status.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest highstate_status);
 
         // Set the callback function when data is received
         highstate_status.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
@@ -921,13 +902,7 @@ impl EditOverview {
         });
 
         // Set up the hightlight state spin button to receive a dropped event id
-        highstate_state.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest highstate_state);
 
         // Set the callback function when data is received
         highstate_state.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {

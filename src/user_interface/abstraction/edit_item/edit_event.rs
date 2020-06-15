@@ -759,23 +759,9 @@ impl EditNewScene {
         // Create the data associated with the scene
         let scene = Rc::new(RefCell::new(ItemId::all_stop()));
 
-        // Set up the description to act as a drag source
-        description.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Set up the description to receive a dropped item pair
-        description.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Set up the description to act as a drag source and destination
+        drag!(source description);
+        drag!(dest description);
 
         // Set the callback function when data is received
         description.connect_drag_data_received(clone!(scene => move |widget, _, _, _, selection_data, _, _| {
@@ -883,23 +869,9 @@ impl EditModifyStatus {
         let state_description = gtk::Button::new_with_label("State: None");
         let state_data = Rc::new(RefCell::new(ItemId::all_stop()));
 
-        // Set up the status description to act as a drag source
-        status_description.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Set up the status spin button to receive a dropped item pair
-        status_description.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Set up the status description to act as a drag source and destination
+        drag!(source status_description);
+        drag!(dest status_description);
 
         // Set the callback function when data is received
         status_description.connect_drag_data_received(clone!(status_data => move |widget, _, _, _, selection_data, _, _| {
@@ -928,23 +900,9 @@ impl EditModifyStatus {
             }
         }));
 
-        // Set up the state description to act as a drag source
-        state_description.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Set up the state spin button to receive a dropped item pair
-        state_description.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Set up the state description to act as a drag source and destination
+        drag!(source state_description);
+        drag!(dest state_description);
 
         // Set the callback function when data is received
         state_description.connect_drag_data_received(clone!(state_data => move |widget, _, _, _, selection_data, _, _| {
@@ -1086,23 +1044,9 @@ impl EditQueueEvent {
         // Create the id to hold the event data
         let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
 
-        // Set up the event description to act as a drag source
-        event_description.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Set up the event spin button to receive a dropped item pair
-        event_description.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Set up the event description to act as a drag source and destination
+        drag!(source event_description);
+        drag!(dest event_description);
 
         // Set the callback function when data is received
         event_description.connect_drag_data_received(clone!(event_data => move |widget, _, _, _, selection_data, _, _| {
@@ -1249,23 +1193,9 @@ impl EditCancelEvent {
         // Create the variable to hold the event data
         let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
 
-        // Set up the event description to act as a drag source
-        event_description.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Set up the event description to receive a dropped item pair
-        event_description.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Set up the event description to act as a drag source and destination
+        drag!(source event_description);
+        drag!(dest event_description);
 
         // Set the callback function when data is received
         event_description.connect_drag_data_received(clone!(event_data => move |widget, _, _, _, selection_data, _, _| {
@@ -1393,13 +1323,7 @@ impl EditSaveData {
         string_entry.set_placeholder_text(Some("Enter Data Here"));
 
         // Set up the event spin button to receive a dropped item pair
-        event_spin.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest event_spin);
 
         // Set the callback function when data is received
         event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
@@ -1663,13 +1587,7 @@ impl EditSendData {
         string_entry.set_placeholder_text(Some("Enter Data Here"));
 
         // Set up the event spin button to receive a dropped item pair
-        event_spin.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest event_spin);
 
         // Set the callback function when data is received
         event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
@@ -1916,13 +1834,7 @@ impl EditGroupedEvent {
         let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
         // Set up the status spin button to receive a dropped item pair
-        status_spin.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest status_spin);
 
         // Set the callback function when data is received
         status_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
@@ -2075,13 +1987,7 @@ impl EditGroupedEvent {
         event_spin.set_hexpand(false);
 
         // Set up the event spin button to receive a dropped item pair
-        event_spin.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest event_spin);
 
         // Set the callback function when data is received
         event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {

@@ -237,23 +237,9 @@ impl EditMultiState {
         // Create an ItemId to hold the current state data
         let current_data = Rc::new(RefCell::new(ItemId::all_stop()));
 
-        // Make the current label a drag destination
-        current_label.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
-
-        // Make the current label a drag source
-        current_label.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
+        // Make the current label a drag destination and source
+        drag!(dest current_label);
+        drag!(source current_label);
 
         // Set the callback function when data is received
         current_label.connect_drag_data_received(clone!(current_data => move |widget, _, _, _, selection_data, _, _| {
@@ -292,13 +278,7 @@ impl EditMultiState {
         states_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Make the states list a drag destination
-        states_list.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest states_list);
 
         // Set the callback function when data is received
         states_list.connect_drag_data_received(clone!(states_data, next_state, system_send => move |widget, _, _, _, selection_data, _, _| {
@@ -453,13 +433,7 @@ impl EditMultiState {
         let state_description = gtk::Button::new();
 
         // Make the label a drag source
-        state_description.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
+        drag!(source state_description);
 
         // Add the state to the state database
         if let Ok(mut states_database) = states_data.try_borrow_mut() {
@@ -600,23 +574,9 @@ impl EditCountedState {
         let count_label = gtk::Label::new(Some("Default Count:"));
         let count_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
 
-        // Make the current button a drag source
-        current_label.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Connect the current label as a drag destination
-        current_label.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Make the current button a drag source and destination
+        drag!(source current_label);
+        drag!(dest current_label);
 
         // Set the callback function when data is received
         current_label.connect_drag_data_received(clone!(status_data => move |widget, _, _, _, selection_data, _, _| {
@@ -645,23 +605,9 @@ impl EditCountedState {
             }
         }));
 
-        // Make the trigger label a drag source
-        trigger_label.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Connect the trigger label as a drag destination
-        trigger_label.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Make the trigger label a drag source and destination
+        drag!(source trigger_label);
+        drag!(dest trigger_label);
 
         // Set the callback function when data is received
         trigger_label.connect_drag_data_received(clone!(status_data => move |widget, _, _, _, selection_data, _, _| {
@@ -690,23 +636,9 @@ impl EditCountedState {
             }
         }));
 
-        // Make the antitrigger label a drag source
-        antitrigger_label.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Connect the antitrigger label as a drag destination
-        antitrigger_label.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Make the antitrigger label a drag source and destination
+        drag!(source antitrigger_label);
+        drag!(dest antitrigger_label);
 
         // Set the callback function when data is received
         antitrigger_label.connect_drag_data_received(clone!(status_data => move |widget, _, _, _, selection_data, _, _| {
@@ -735,23 +667,9 @@ impl EditCountedState {
             }
         }));
 
-        // Make the reset label a drag source
-        reset_label.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
-
-        // Connect the reset label as a drag destination
-        reset_label.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        // Make the reset label a drag source and destination
+        drag!(source reset_label);
+        drag!(dest reset_label);
 
         // Set the callback function when data is received
         reset_label.connect_drag_data_received(clone!(status_data => move |widget, _, _, _, selection_data, _, _| {

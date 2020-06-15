@@ -124,13 +124,7 @@ impl EditScene {
         let events_label = gtk::Label::new(Some("Events in the scene"));
 
         // Make the list box a drag destination for events
-        events_list.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest events_list);
 
         // Set the callback function when data is received
         events_list.connect_drag_data_received(clone!(events_data, next_event =>
@@ -413,13 +407,7 @@ impl EditScene {
         event_button.add(&event_description);
 
         // Connect the button as a drag source
-        event_button.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY,
-        );
+        drag!(source event_button);
 
         // Serialize the item pair data
         event_button.connect_drag_data_get(clone!(event => move |_, _, selection_data, _, _| {
@@ -572,13 +560,7 @@ impl EditScene {
         //keybinding_info.set_row_spacing(10);
 
         // Set up the row to receive a dropped item pair
-        keybinding_info.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING",gtk::TargetFlags::SAME_APP, 0),
-            ],
-            gdk::DragAction::COPY
-        );
+        drag!(dest keybinding_info);
 
         // Attach a drag receiver to the listbox row
         keybinding_info.connect_drag_data_received(clone!(keys_data, event_label => move
