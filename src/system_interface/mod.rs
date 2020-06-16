@@ -877,9 +877,6 @@ pub enum RequestType {
 /// An enum to specify which Edit Action subcomponent has requested the information
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EditActionElement {
-    /// A variant for the top level window
-    Overview,
-
     /// A variant for the edit new scene action
     EditNewScene,
 
@@ -891,6 +888,18 @@ pub enum EditActionElement {
 
     /// A variant for the edit cancel event
     EditCancelEvent,
+
+    /// A variant for the edit save data
+    EditSaveData,
+
+    /// A variant for the edit send data
+    EditSendData,
+
+    /// A variant for the grouped event status description
+    GroupedEventDescription,
+
+    /// A variant for the grouped event states
+    GroupedEventStates,
 }
 
 /// An enum to specify which display component has requested the information

@@ -376,8 +376,8 @@ impl EditAction {
         let edit_modify_status = EditModifyStatus::new(system_send, is_left);
         let edit_queue_event = EditQueueEvent::new(system_send, is_left);
         let edit_cancel_event = EditCancelEvent::new(system_send, is_left);
-        let edit_save_data = EditSaveData::new();
-        let edit_send_data = EditSendData::new();
+        let edit_save_data = EditSaveData::new(system_send, is_left);
+        let edit_send_data = EditSendData::new(system_send, is_left);
         let edit_grouped_event = EditGroupedEvent::new(system_send, is_left);
 
         // Create the action stack
@@ -722,6 +722,27 @@ impl EditAction {
                 }
             }
 
+            EditActionElement::EditSaveData => {
+                // Get a copy of the edit save data element
+                if let Ok(edit_save_data) = self.edit_save_data.try_borrow() {
+                    edit_save_data.update_description(description)
+                }
+            }
+
+            EditActionElement::EditSendData => {
+                // Get a copy of the edit save data element
+                if let Ok(edit_send_data) = self.edit_send_data.try_borrow() {
+                    edit_send_data.update_description(description)
+                }
+            }
+
+            EditActionElement::GroupedEventDescription => {
+                // Get a copy of the edit grouped event element
+                if let Ok(edit_grouped_event) = self.edit_grouped_event.try_borrow() {
+                    edit_grouped_event.update_description(description)
+                }
+            }
+
             _ => unreachable!(),
         }
     }
@@ -815,6 +836,11 @@ impl EditNewScene {
     // A method to load the action
     //
     fn load_action(&self, new_scene: &ItemId) {
+        // Load the scene data
+        if let Ok(mut scene_data) = self.scene.try_borrow_mut() {
+            *scene_data = new_scene.clone();
+        }
+
         // Request the description associated with the id
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement { is_left: self.is_left, variant: EditActionElement::EditNewScene },
@@ -825,7 +851,6 @@ impl EditNewScene {
     /// A method to update the description of the scene
     ///
     pub fn update_description(&self, description: ItemDescription) {
-        // FIXME: because the default is all_stop, the default description is "No Description."
         self.description.set_label(&format!("Scene: {}", &description.description));
     }
 
@@ -959,6 +984,16 @@ impl EditModifyStatus {
     // A method to load the action
     //
     fn load_action(&self, status_id: &ItemId, new_state: &ItemId) {
+        // Load the status data
+        if let Ok(mut status_data) = self.status_data.try_borrow_mut() {
+            *status_data = status_id.clone();
+        }
+
+        // Load the state data
+        if let Ok(mut state_data) = self.state_data.try_borrow_mut() {
+            *state_data = new_state.clone();
+        }
+
         // Request the description associated with the status
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
@@ -1107,6 +1142,11 @@ impl EditQueueEvent {
     // A method to load the action
     //
     fn load_action(&self, event_delay: &EventDelay) {
+        // Load the event data
+        if let Ok(mut event_data) = self.event_data.try_borrow_mut() {
+            *event_data = event_delay.id();
+        }
+
         // Request the description associated with the event id
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
@@ -1250,6 +1290,11 @@ impl EditCancelEvent {
     // A method to load the action
     //
     fn load_action(&self, event: &ItemId) {
+        // Load the event data
+        if let Ok(mut event_data) = self.event_data.try_borrow_mut() {
+            *event_data = event.clone();
+        }
+
         // Request the description associated with the id
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
@@ -1287,18 +1332,21 @@ impl EditCancelEvent {
 //
 #[derive(Clone, Debug)]
 struct EditSaveData {
-    grid: gtk::Grid,               // the main grid for this element
-    data_type: gtk::ComboBoxText,  // the data type dropdown
-    event_spin: gtk::SpinButton,   // the event spin button
-    minutes_spin: gtk::SpinButton, // the minutes spin button
-    millis_spin: gtk::SpinButton,  // the milliseconds spin button
-    string_entry: gtk::Entry,      // the entry for the hardcoded string
+    grid: gtk::Grid,                 // the main grid for this element
+    system_send: SystemSend,         // a copy of the system send line
+    data_type: gtk::ComboBoxText,    // the data type dropdown
+    event_description: gtk::Button,  // the event description
+    event_data: Rc<RefCell<ItemId>>, // the data associated with the event
+    minutes_spin: gtk::SpinButton,   // the minutes spin button
+    millis_spin: gtk::SpinButton,    // the milliseconds spin button
+    string_entry: gtk::Entry,        // the entry for the hardcoded string
+    is_left: bool,                   // whether the element is on the left or right
 }
 
 impl EditSaveData {
     // A function to ceate a save data variant
     //
-    fn new() -> EditSaveData {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditSaveData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
 
@@ -1311,9 +1359,9 @@ impl EditSaveData {
         data_type.append(Some("staticstring"), "A hardcoded string of data");
         data_type.append(Some("userstring"), "A user-provided string");
 
-        // Add the entry boxes for the different data types
-        let event_label = gtk::Label::new(Some("Event to track"));
-        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Add the entry boxes and data for the different data types
+        let event_description = gtk::Button::new_with_label("Event: None");
+        let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
         let minutes_label = gtk::Label::new(Some("Time: Minutes"));
         let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
         let millis_label = gtk::Label::new(Some("Milliseconds"));
@@ -1322,11 +1370,12 @@ impl EditSaveData {
         let string_entry = gtk::Entry::new();
         string_entry.set_placeholder_text(Some("Enter Data Here"));
 
-        // Set up the event spin button to receive a dropped item pair
-        drag!(dest event_spin);
+        // Set up the event description to as a drag source and destination
+        drag!(source event_description);
+        drag!(dest event_description);
 
         // Set the callback function when data is received
-        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        event_description.connect_drag_data_received(clone!(event_data => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -1335,16 +1384,27 @@ impl EditSaveData {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Update the current description
+                widget.set_label(&format!("Event: {}", item_pair.description));
+
+                // Update the event data
+                if let Ok(mut event) = event_data.try_borrow_mut() {
+                    *event = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
-        });
+        }));
 
 
         // Connect the function to trigger when the data type changes
         data_type.connect_changed(clone!(
-            event_label,
-            event_spin,
+            event_description,
             minutes_label,
             minutes_spin,
             millis_label,
@@ -1358,8 +1418,7 @@ impl EditSaveData {
                 match data_type.as_str() {
                     // The time until variant
                     "timeuntil" => {
-                        event_label.show();
-                        event_spin.show();
+                        event_description.show();
                         minutes_label.hide();
                         minutes_spin.hide();
                         millis_label.hide();
@@ -1370,8 +1429,7 @@ impl EditSaveData {
 
                     // The time passed until variant
                     "timepasseduntil" => {
-                        event_label.show();
-                        event_spin.show();
+                        event_description.show();
                         minutes_label.show();
                         minutes_spin.show();
                         millis_label.show();
@@ -1382,8 +1440,7 @@ impl EditSaveData {
 
                     // The static string variant
                     "staticstring" => {
-                        event_label.hide();
-                        event_spin.hide();
+                        event_description.hide();
                         minutes_label.hide();
                         minutes_spin.hide();
                         millis_label.hide();
@@ -1394,8 +1451,7 @@ impl EditSaveData {
 
                     // The user string variant
                     _ => {
-                        event_label.hide();
-                        event_spin.hide();
+                        event_description.hide();
                         minutes_label.hide();
                         minutes_spin.hide();
                         millis_label.hide();
@@ -1410,14 +1466,13 @@ impl EditSaveData {
         // Add the buttons below the data list
         let grid = gtk::Grid::new();
         grid.attach(&data_type, 0, 0, 2, 1);
-        grid.attach(&event_label, 0, 1, 1, 1);
-        grid.attach(&event_spin, 0, 2, 1, 1);
-        grid.attach(&minutes_label, 1, 1, 1, 1);
-        grid.attach(&minutes_spin, 1, 2, 1, 1);
-        grid.attach(&millis_label, 2, 1, 1, 1);
-        grid.attach(&millis_spin, 2, 2, 1, 1);
-        grid.attach(&string_label, 0, 3, 1, 1);
-        grid.attach(&string_entry, 1, 3, 2, 1);
+        grid.attach(&event_description, 0, 1, 2, 1);
+        grid.attach(&minutes_label, 0, 2, 1, 1);
+        grid.attach(&minutes_spin, 0, 3, 1, 1);
+        grid.attach(&millis_label, 1, 2, 1, 1);
+        grid.attach(&millis_spin, 1, 3, 1, 1);
+        grid.attach(&string_label, 0, 4, 1, 1);
+        grid.attach(&string_entry, 1, 4, 2, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -1425,11 +1480,14 @@ impl EditSaveData {
         grid.show_all();
         EditSaveData {
             grid,
+            system_send: system_send.clone(),
             data_type,
-            event_spin,
+            event_description,
+            event_data,
             minutes_spin,
             millis_spin,
             string_entry,
+            is_left,
         }
     }
 
@@ -1449,8 +1507,19 @@ impl EditSaveData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timeuntil"));
 
-                // Update the fields
-                self.event_spin.set_value(event_id.id() as f64);
+                // Set the event data
+                if let Ok(mut event_data) = self.event_data.try_borrow_mut() {
+                    *event_data = event_id.clone();
+                }
+
+                // Request the description associated with the id
+                self.system_send.send(Request {
+                    reply_to: DisplayComponent::EditActionElement {
+                        is_left: self.is_left,
+                        variant: EditActionElement::EditSaveData
+                    },
+                    request: RequestType::Description { item_id: event_id.clone() },
+                });
             }
 
             // The TimePassedUntil variant
@@ -1461,8 +1530,19 @@ impl EditSaveData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timepasseduntil"));
 
-                // Update the event spin button
-                self.event_spin.set_value(event_id.id() as f64);
+                // Set the event data
+                if let Ok(mut event_data) = self.event_data.try_borrow_mut() {
+                    *event_data = event_id.clone();
+                }
+
+                // Request the description associated with the id
+                self.system_send.send(Request {
+                    reply_to: DisplayComponent::EditActionElement {
+                        is_left: self.is_left,
+                        variant: EditActionElement::EditSaveData
+                    },
+                    request: RequestType::Description { item_id: event_id.clone() },
+                });
 
                 // Calculate the minutes and seconds of the total time
                 let time = total_time.as_secs();
@@ -1490,6 +1570,12 @@ impl EditSaveData {
         }
     }
 
+    // A method to update the description of the event
+    pub fn update_description(&self, description: ItemDescription) {
+        // Update the event label
+        self.event_description.set_label(&format!("Event: {}", description.description));
+    }
+
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
@@ -1498,9 +1584,16 @@ impl EditSaveData {
             let data = match data_type.as_str() {
                 // The TimeUntil variant
                 "timeuntil" => {
-                    DataType::TimeUntil {
-                        // Get the event id
-                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
+                    // Get the event id
+                    match self.event_data.try_borrow() {
+                        Ok(event_data) => {
+                            // Return the EventAction
+                            DataType::TimeUntil {
+                                event_id: event_data.clone(),
+                            }
+                        }
+
+                        _ => unreachable!(),
                     }
                 }
 
@@ -1515,10 +1608,20 @@ impl EditSaveData {
                     // Compose the total time
                     let time = Duration::from_millis((millis + (minutes * 60000)) as u64);
 
-                    DataType::TimePassedUntil {
-                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
-                        total_time: time,
+                    // Get the event id
+                    match self.event_data.try_borrow() {
+                        Ok(event_data) => {
+                            // Return the EventAction
+                            DataType::TimePassedUntil {
+                                event_id: event_data.clone(),
+                                total_time: time,
+                            }
+                        }
+
+                        _ => unreachable!(),
                     }
+
+
                 }
 
                 // The StaticString variant
@@ -1552,17 +1655,20 @@ impl EditSaveData {
 #[derive(Clone, Debug)]
 struct EditSendData {
     grid: gtk::Grid,               // the main grid for this element
+    system_send: SystemSend,       // a copy of the system send line
     data_type: gtk::ComboBoxText,  // the data type dropdown
-    event_spin: gtk::SpinButton,   // the event spin button
+    event_description: gtk::Button,// the event description display
+    event_data: Rc<RefCell<ItemId>>, // the wrapped event data
     minutes_spin: gtk::SpinButton, // the minutes spin button
     millis_spin: gtk::SpinButton,  // the milliseconds spin button
     string_entry: gtk::Entry,      // the entry for the hardcoded string
+    is_left: bool,
 }
 
 impl EditSendData {
     // A function to ceate a send data variant
     //
-    fn new() -> EditSendData {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditSendData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
 
@@ -1576,8 +1682,7 @@ impl EditSendData {
         data_type.append(Some("userstring"), "A user-provided string");
 
         // Add the entry boxes for the different data types
-        let event_label = gtk::Label::new(Some("Event to track"));
-        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let event_description = gtk::Button::new_with_label("Event to track");
         let minutes_label = gtk::Label::new(Some("Time: Minutes"));
         let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
         let millis_label = gtk::Label::new(Some("Milliseconds"));
@@ -1586,11 +1691,15 @@ impl EditSendData {
         let string_entry = gtk::Entry::new();
         string_entry.set_placeholder_text(Some("Enter Data Here"));
 
-        // Set up the event spin button to receive a dropped item pair
-        drag!(dest event_spin);
+        // Add the variable to hold the event data
+        let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
+
+        // Set up the event spin as a drag source and destination
+        drag!(source event_description);
+        drag!(dest event_description);
 
         // Set the callback function when data is received
-        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        event_description.connect_drag_data_received(clone!(event_data => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -1599,15 +1708,26 @@ impl EditSendData {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Update the current description
+                widget.set_label(&format!("Event: {}", item_pair.description));
+
+                // Update the event data
+                if let Ok(mut event) = event_data.try_borrow_mut() {
+                    *event = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
-        });
+        }));
 
         // Connect the function to trigger when the data type changes
         data_type.connect_changed(clone!(
-            event_label,
-            event_spin,
+            event_description,
             minutes_label,
             minutes_spin,
             millis_label,
@@ -1621,8 +1741,7 @@ impl EditSendData {
                 match data_type.as_str() {
                     // The time until variant
                     "timeuntil" => {
-                        event_label.show();
-                        event_spin.show();
+                        event_description.show();
                         minutes_label.hide();
                         minutes_spin.hide();
                         millis_label.hide();
@@ -1633,8 +1752,7 @@ impl EditSendData {
 
                     // The time passed until variant
                     "timepasseduntil" => {
-                        event_label.show();
-                        event_spin.show();
+                        event_description.show();
                         minutes_label.show();
                         minutes_spin.show();
                         millis_label.show();
@@ -1645,8 +1763,7 @@ impl EditSendData {
 
                     // The static string variant
                     "staticstring" => {
-                        event_label.hide();
-                        event_spin.hide();
+                        event_description.hide();
                         minutes_label.hide();
                         minutes_spin.hide();
                         millis_label.hide();
@@ -1657,8 +1774,7 @@ impl EditSendData {
 
                     // The user string variant
                     _ => {
-                        event_label.hide();
-                        event_spin.hide();
+                        event_description.hide();
                         minutes_label.hide();
                         minutes_spin.hide();
                         millis_label.hide();
@@ -1673,14 +1789,13 @@ impl EditSendData {
         // Add the buttons below the data list
         let grid = gtk::Grid::new();
         grid.attach(&data_type, 0, 0, 2, 1);
-        grid.attach(&event_label, 0, 1, 1, 1);
-        grid.attach(&event_spin, 0, 2, 1, 1);
-        grid.attach(&minutes_label, 1, 1, 1, 1);
-        grid.attach(&minutes_spin, 1, 2, 1, 1);
-        grid.attach(&millis_label, 2, 1, 1, 1);
-        grid.attach(&millis_spin, 2, 2, 1, 1);
-        grid.attach(&string_label, 0, 3, 1, 1);
-        grid.attach(&string_entry, 1, 3, 2, 1);
+        grid.attach(&event_description, 0, 1, 2, 1);
+        grid.attach(&minutes_label, 0, 2, 1, 1);
+        grid.attach(&minutes_spin, 0, 3, 1, 1);
+        grid.attach(&millis_label, 1, 2, 1, 1);
+        grid.attach(&millis_spin, 1, 3, 1, 1);
+        grid.attach(&string_label, 0, 4, 1, 1);
+        grid.attach(&string_entry, 1, 4, 2, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -1688,11 +1803,14 @@ impl EditSendData {
         grid.show_all();
         EditSendData {
             grid,
+            system_send: system_send.clone(),
             data_type,
-            event_spin,
+            event_description,
+            event_data,
             minutes_spin,
             millis_spin,
             string_entry,
+            is_left,
         }
     }
 
@@ -1713,8 +1831,19 @@ impl EditSendData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timeuntil"));
 
-                // Update the fields
-                self.event_spin.set_value(event_id.id() as f64);
+                // Set the event data
+                if let Ok(mut event_data) = self.event_data.try_borrow_mut() {
+                    *event_data = event_id.clone();
+                }
+
+                // Request the description associated with the id
+                self.system_send.send(Request {
+                    reply_to: DisplayComponent::EditActionElement {
+                        is_left: self.is_left,
+                        variant: EditActionElement::EditSendData
+                    },
+                    request: RequestType::Description { item_id: event_id.clone() },
+                });
             }
 
             // The TimePassedUntil variant
@@ -1725,8 +1854,19 @@ impl EditSendData {
                 // Change the dropdowm
                 self.data_type.set_active_id(Some("timepasseduntil"));
 
-                // Update the event spin button
-                self.event_spin.set_value(event_id.id() as f64);
+                // Set the event data
+                if let Ok(mut event_data) = self.event_data.try_borrow_mut() {
+                    *event_data = event_id.clone();
+                }
+
+                // Request the description associated with the id
+                self.system_send.send(Request {
+                    reply_to: DisplayComponent::EditActionElement {
+                        is_left: self.is_left,
+                        variant: EditActionElement::EditSendData
+                    },
+                    request: RequestType::Description { item_id: event_id.clone() },
+                });
 
                 // Calculate the minutes and seconds of the total time
                 let time = total_time.as_secs();
@@ -1754,6 +1894,12 @@ impl EditSendData {
         }
     }
 
+    // A method to update the description of the event
+    pub fn update_description(&self, description: ItemDescription) {
+        // Update the event label
+        self.event_description.set_label(&format!("Event: {}", description.description));
+    }
+
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
@@ -1762,9 +1908,16 @@ impl EditSendData {
             let data = match data_type.as_str() {
                 // The TimeUntil variant
                 "timeuntil" => {
-                    DataType::TimeUntil {
-                        // Get the event id
-                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
+                    // Get the event id
+                    match self.event_data.try_borrow() {
+                        Ok(event_data) => {
+                            // Return the EventAction
+                            DataType::TimeUntil {
+                                event_id: event_data.clone(),
+                            }
+                        }
+
+                        _ => unreachable!(),
                     }
                 }
 
@@ -1779,9 +1932,17 @@ impl EditSendData {
                     // Compose the total time
                     let time = Duration::from_millis((millis + (minutes * 60000)) as u64);
 
-                    DataType::TimePassedUntil {
-                        event_id: ItemId::new_unchecked(self.event_spin.get_value() as u32),
-                        total_time: time,
+                    // Get the event id
+                    match self.event_data.try_borrow() {
+                        Ok(event_data) => {
+                            // Return the EventAction
+                            DataType::TimePassedUntil {
+                                event_id: event_data.clone(),
+                                total_time: time,
+                            }
+                        }
+
+                        _ => unreachable!(),
                     }
                 }
 
@@ -1814,11 +1975,13 @@ impl EditSendData {
 //
 #[derive(Clone, Debug)]
 struct EditGroupedEvent {
-    grid: gtk::Grid,                  // the main grid for this element
-    grouped_event_list: gtk::ListBox, // the list for events in this variant
+    grid: gtk::Grid,                                         // the main grid for this element
+    system_send: SystemSend,                                 // a copy of the system send line
+    grouped_event_list: gtk::ListBox,                        // the list for events in this variant
     grouped_events: Rc<RefCell<FnvHashMap<ItemId, ItemId>>>, // a database for the grouped events
-    status_spin: gtk::SpinButton,     // the status id for this variant
-    is_left: bool,                    // whether the element is to the left or right
+    status_description: gtk::Button,                         // the status description display
+    status_data: Rc<RefCell<ItemId>>,                        // the wrapped status data
+    is_left: bool,                                           // whether the element is to the left or right
 }
 
 impl EditGroupedEvent {
@@ -1829,15 +1992,17 @@ impl EditGroupedEvent {
         let grouped_event_list = gtk::ListBox::new();
         grouped_event_list.set_selection_mode(gtk::SelectionMode::None);
 
-        // Create the status spin
-        let status_label = gtk::Label::new(Some("Status"));
-        let status_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Create the status description and data
+        let status_description = gtk::Button::new_with_label("Status: None");
+        let status_data = Rc::new(RefCell::new(ItemId::all_stop()));
 
-        // Set up the status spin button to receive a dropped item pair
-        drag!(dest status_spin);
+        // Set up the status description as a drag source and destination
+        drag!(source status_description);
+        drag!(dest status_description);
 
         // Set the callback function when data is received
-        status_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        status_description.connect_drag_data_received(clone!(system_send, is_left, status_data
+        => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -1846,10 +2011,28 @@ impl EditGroupedEvent {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Update the current description
+                widget.set_label(&format!("Status: {}", item_pair.description));
+
+                // Update the status data
+                if let Ok(mut status) = status_data.try_borrow_mut() {
+                    *status = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
+
+                // Send a request to get the data associated with the status
+                system_send.send(Request {
+                    reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::GroupedEventStates },
+                    request: RequestType::Status { item_id: item_pair.get_id(), },
+                });
             }
-        });
+        }));
 
 
         // Create the scrollable window for the list
@@ -1864,19 +2047,11 @@ impl EditGroupedEvent {
         group_window.set_hexpand(true);
         group_window.set_size_request(-1, 120);
 
-        // Connect the function to trigger when the status spin changes
-        status_spin.connect_changed(clone!(system_send, is_left => move |spin| {
-            system_send.send(Request {
-                reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::Overview },
-                request: RequestType::Status { item_id: ItemId::new_unchecked(spin.get_value() as u32), },
-            });
-        }));
 
         // Add the status above and button below the event list
         let grid = gtk::Grid::new();
-        grid.attach(&status_label, 0, 0, 1, 1);
-        grid.attach(&status_spin, 1, 0, 1, 1);
-        grid.attach(&group_window, 0, 1, 2, 1);
+        grid.attach(&status_description, 0, 0, 1, 1);
+        grid.attach(&group_window, 0, 1, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -1884,9 +2059,11 @@ impl EditGroupedEvent {
         grid.show_all();
         EditGroupedEvent {
             grid,
+            system_send: system_send.clone(),
             grouped_event_list,
             grouped_events: Rc::new(RefCell::new(FnvHashMap::default())),
-            status_spin,
+            status_description,
+            status_data,
             is_left
         }
     }
@@ -1902,8 +2079,13 @@ impl EditGroupedEvent {
         // Clear the database and the rows
         self.clear();
 
-        // Change the status id
-        self.status_spin.set_value(status_id.id() as f64);
+        // Send the request to update the status description
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionElement {
+                is_left: self.is_left,
+                variant: EditActionElement::GroupedEventDescription },
+            request: RequestType::Description { item_id: status_id.clone() },
+        });
 
         // Add each event in the map to the list
         for (ref state_id, ref event_id) in event_map.iter() {
@@ -2026,6 +2208,12 @@ impl EditGroupedEvent {
         grouped_event_list.add(&group_grid);
     }
 
+    // A method to update the description of the status
+    pub fn update_description(&self, description: ItemDescription) {
+        // Update the event label
+        self.status_description.set_label(&format!("Status: {}", description.description));
+    }
+
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
@@ -2036,12 +2224,16 @@ impl EditGroupedEvent {
         };
 
         // Extract the status id
-        let status_id = ItemId::new_unchecked(self.status_spin.get_value() as u32);
+        match self.status_data.try_borrow() {
+            Ok(status_data) => {
+                // Return the completed Event Action
+                EventAction::GroupedEvent {
+                    status_id: *status_data,
+                    event_map,
+                }
+            },
 
-        // Return the completed Event Action
-        EventAction::GroupedEvent {
-            status_id,
-            event_map,
+            _ => unreachable!(),
         }
     }
 }
