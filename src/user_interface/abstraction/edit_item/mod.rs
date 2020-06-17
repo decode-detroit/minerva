@@ -588,7 +588,6 @@ impl EditItemAbstraction {
 
                             _ => unreachable!(),
                         }
-
                     }
 
                     _ => {

@@ -899,7 +899,7 @@ pub enum EditActionElement {
     EditSendData,
 
     /// A variant for the grouped event status description
-    GroupedEventDescription,
+    GroupedEventDescription { position: Option<usize>, is_event: bool },
 
     /// A variant for the grouped event states
     GroupedEventStates,

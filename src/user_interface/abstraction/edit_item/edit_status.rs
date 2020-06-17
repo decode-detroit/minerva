@@ -216,11 +216,11 @@ impl EditStatus {
 struct EditMultiState {
     grid: gtk::Grid,                       // the main grid for this element
     is_left: bool,                         // whether the element is on the left or right
-    current_label: gtk::Button,             // a label to display the current state
+    current_label: gtk::Button,            // a label to display the current state
     current_data: Rc<RefCell<ItemId>>,     // the data of the current state
     states_list: gtk::ListBox,             // a list box to display the allowed states
     states_data: Rc<RefCell<FnvHashMap<usize, ItemDisplay>>>,  // the database of the ids and display elements
-    next_state: Rc<RefCell<usize>>,   // the next available state location
+    next_state: Rc<RefCell<usize>>,        // the next available state location
 }
 
 // Implement key features for Edit MultiState

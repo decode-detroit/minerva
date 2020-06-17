@@ -45,6 +45,18 @@ use self::gtk::GridExt;
 const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (one week)
 
 
+/// A compound structure to store the state and event ids, as well as
+/// the elements where they are displayed, for a grouped event
+///
+#[derive(Clone, Debug)]
+pub struct EventGrouping {
+    state_id: ItemId,
+    event_id: ItemId,
+    state_label: gtk::Label,
+    event_label: gtk:: Button,
+}
+
+
 // Create a structure for editing the event
 #[derive(Clone, Debug)]
 pub struct EditEvent {
@@ -312,7 +324,7 @@ impl EditEvent {
         edit_button.connect_clicked(
             clone!(edit_action, position, overview, row => move |_| {
                 // Try to get access to the edit action element
-                if let Ok(edit_action) = edit_action.try_borrow() {
+                if let Ok(mut edit_action) = edit_action.try_borrow_mut() {
                     // Load the edit action element
                     edit_action.load_action(position, &overview, &row);
                 }
@@ -437,7 +449,7 @@ impl EditAction {
 
     /// A method to load a new action
     ///
-    fn load_action(&self, position: usize, overview: &gtk::Label, row: &gtk::ListBoxRow) {
+    fn load_action(&mut self, position: usize, overview: &gtk::Label, row: &gtk::ListBoxRow) {
         // Show the grid to allow for editing
         self.grid.show();
 
@@ -490,7 +502,7 @@ impl EditAction {
         };
 
         // Try to get a copy of the edit grouped event
-        let edit_grouped_event = match self.edit_grouped_event.try_borrow() {
+        let mut edit_grouped_event = match self.edit_grouped_event.try_borrow_mut() {
             Ok(edit_grouped) => edit_grouped,
             _ => return,
         };
@@ -736,10 +748,10 @@ impl EditAction {
                 }
             }
 
-            EditActionElement::GroupedEventDescription => {
+            EditActionElement::GroupedEventDescription { position, is_event } => {
                 // Get a copy of the edit grouped event element
                 if let Ok(edit_grouped_event) = self.edit_grouped_event.try_borrow() {
-                    edit_grouped_event.update_description(description)
+                    edit_grouped_event.update_description(position, is_event, description)
                 }
             }
 
@@ -2023,7 +2035,8 @@ struct EditGroupedEvent {
     grid: gtk::Grid,                                         // the main grid for this element
     system_send: SystemSend,                                 // a copy of the system send line
     grouped_event_list: gtk::ListBox,                        // the list for events in this variant
-    grouped_events: Rc<RefCell<FnvHashMap<ItemId, ItemId>>>, // a database for the grouped events
+    grouped_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the grouped events
+    next_event: Rc<RefCell<usize>>,                          // the next available event location
     status_description: gtk::Button,                         // the status description display
     status_data: Rc<RefCell<ItemId>>,                        // the wrapped status data
     is_left: bool,                                           // whether the element is to the left or right
@@ -2107,6 +2120,7 @@ impl EditGroupedEvent {
             system_send: system_send.clone(),
             grouped_event_list,
             grouped_events: Rc::new(RefCell::new(FnvHashMap::default())),
+            next_event: Rc::new(RefCell::new(0)),
             status_description,
             status_data,
             is_left
@@ -2120,7 +2134,7 @@ impl EditGroupedEvent {
     }
 
     // A method to load an action
-    fn load_action(&self, status_id: &ItemId, event_map: &FnvHashMap<ItemId, ItemId>) {
+    fn load_action(&mut self, status_id: &ItemId, event_map: &FnvHashMap<ItemId, ItemId>) {
         // Clear the database and the rows
         self.clear();
 
@@ -2128,18 +2142,13 @@ impl EditGroupedEvent {
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
-                variant: EditActionElement::GroupedEventDescription },
+                variant: EditActionElement::GroupedEventDescription { position: None, is_event: false } },
             request: RequestType::Description { item_id: status_id.clone() },
         });
 
         // Add each event in the map to the list
         for (ref state_id, ref event_id) in event_map.iter() {
-            EditGroupedEvent::add_event(
-                &self.grouped_events,
-                &self.grouped_event_list,
-                state_id,
-                Some(event_id),
-            );
+            self.add_event(state_id, Some(event_id));
         }
     }
 
@@ -2152,12 +2161,7 @@ impl EditGroupedEvent {
         if let Some(status) = possible_status {
             // Show the states associated with the valid status
             for state_id in status.allowed() {
-                EditGroupedEvent::add_event(
-                    &self.grouped_events,
-                    &self.grouped_event_list,
-                    &state_id,
-                    None,
-                );
+                self.add_event(&state_id, None);
             }
         } else {
             // Create the label that will replace the list if the spin value is not valid
@@ -2182,42 +2186,84 @@ impl EditGroupedEvent {
         }
     }
 
-    // A helper function to add a grouped event to the list
-    fn add_event(
-        grouped_events: &Rc<RefCell<FnvHashMap<ItemId, ItemId>>>,
-        grouped_event_list: &gtk::ListBox,
+    // A method to add a grouped event to the list
+    pub fn add_event(
+        &mut self,
         state_id: &ItemId,
         event_id: Option<&ItemId>
     ){
-        // Check to see if an event id is given
-        if let Some(event_id) = event_id {
-            // Add the state id and event id to the database
-            if let Ok(mut events) = grouped_events.try_borrow_mut() {
-                events.insert(state_id.clone(), event_id.clone());
-            }
-        }
 
-        // Create a state spin box for the list
+        // Try to get a mutable copy of the next_event
+        let position = match self.next_event.try_borrow_mut() {
+            Ok(mut position) => {
+                let tmp = position.clone();
+                *position = *position + 1;
+                tmp
+            }
+
+            // If unable, exit immediately
+            _ => return,
+        };
+
+        // Create the grid to hold the state and event labels
         let group_grid = gtk::Grid::new();
-        let state_label = gtk::Label::new(Some(&format!("State Id: {}", state_id.id())));
+
+        // Create a state description for the list
+        let state_label = gtk::Label::new(None);
         state_label.set_size_request(80, 30);
         state_label.set_hexpand(false);
         state_label.set_vexpand(false);
 
-        // Create a event spin box for the list
-        let event_label = gtk::Label::new(Some("Event"));
+        // Create a event button to hold the even description
+        let event_label = gtk::Button::new_with_label("Event: None");
         event_label.set_size_request(80, 30);
         event_label.set_hexpand(false);
         event_label.set_vexpand(false);
-        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        event_spin.set_size_request(100, 30);
-        event_spin.set_hexpand(false);
 
-        // Set up the event spin button to receive a dropped item pair
-        drag!(dest event_spin);
+        // Check to see if an event id is given
+        if let Some(event_id) = event_id {
+            // Add the state id and event id to the database
+            if let Ok(mut events) = self.grouped_events.try_borrow_mut() {
+                events.insert(position, EventGrouping {
+                    state_id: state_id.clone(),
+                    event_id: event_id.clone(),
+                    state_label: state_label.clone(),
+                    event_label: event_label.clone(),
+                });
+            }
+
+            // Request the event description
+            self.system_send.send(Request {
+                reply_to: DisplayComponent::EditActionElement {
+                    is_left: self.is_left,
+                    variant: EditActionElement::GroupedEventDescription{
+                        position: Some(position),
+                        is_event: true,
+                    },
+                },
+                request: RequestType::Description { item_id: event_id.clone() },
+            });
+        }
+
+        // Request the state description
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionElement {
+                is_left: self.is_left,
+                variant: EditActionElement::GroupedEventDescription{
+                    position: Some(position),
+                    is_event: true,
+                },
+            },
+            request: RequestType::Description { item_id: state_id.clone() },
+        });
+
+        // Set up the event label to act as a drag source and destination
+        drag!(dest event_label);
+        drag!(dest event_label);
 
         // Set the callback function when data is received
-        event_spin.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        let grouped_events = self.grouped_events.clone();
+        event_label.connect_drag_data_received(clone!(position => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -2226,45 +2272,90 @@ impl EditGroupedEvent {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
-            }
-        });
+                // Update the event description
+                widget.set_label(&format!("Event: {}", item_pair.description));
 
-        // Update the database whenever the event is changed
-        event_spin.connect_changed(clone!(grouped_events, state_id => move |spin| {
-            if let Ok(mut events) = grouped_events.try_borrow_mut() {
-                events.insert(state_id.clone(), ItemId::new_unchecked(spin.get_value() as u32));
+                // Update the database
+                if let Ok(events) = grouped_events.try_borrow() {
+                    // Get the current database entry
+                    if let Some(current_event_grouping) = events.get(&position) {
+                        // Re-borrow a mutable copy
+                        if let Ok(mut events_mut) = grouped_events.try_borrow_mut() {
+                            // Update the event id in the current entry
+                            events_mut.insert(
+                                position,
+                                EventGrouping {
+                                    state_id: current_event_grouping.clone().state_id,
+                                    event_id: item_pair.get_id(),
+                                    state_label: current_event_grouping.clone().state_label,
+                                    event_label: current_event_grouping.clone().event_label,
+                                }
+                            );
+                        }
+                    }
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
         }));
+
 
         // Add all the items to the group grid
         group_grid.attach(&state_label, 0, 0, 1, 1);
         group_grid.attach(&event_label, 1, 0, 1, 1);
-        group_grid.attach(&event_spin, 2, 0, 1, 1);
-
-        // Set the value of the grouped event if it was provided
-        if let Some(event) = event_id {
-            event_spin.set_value(event.id() as f64);
-        }
 
         // Add the new grid to the list
         group_grid.show_all();
-        grouped_event_list.add(&group_grid);
+        self.grouped_event_list.add(&group_grid);
     }
 
     // A method to update the description of the status
-    pub fn update_description(&self, description: ItemPair) {
-        // Update the event label
-        self.status_description.set_label(&format!("Status: {}", description.description));
+    pub fn update_description(&self, position: Option<usize>, is_event: bool, description: ItemPair) {
+        match position {
+            // If no position is given, update the status label
+            None => self.status_description.set_label(&format!("Status: {}", description.description)),
+
+            // If a position is given, extract the data associated with the position
+            Some(position) => {
+                // Unwrap the database
+                if let Ok(grouped_events) = self.grouped_events.try_borrow() {
+                    if let Some(event_grouping) = grouped_events.get(&position) {
+                        // Check if the description to update is for the event or state
+                        match is_event {
+                            // Update the event description
+                            true => event_grouping.event_label.set_label(&format!("Event: {}", description.description)),
+
+                            // Update the state description
+                            false => event_grouping.state_label.set_text(&format!("State: {}", description.description)),
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // A method to pack and return the action
     //
     fn pack_action(&self) -> EventAction {
         // Create the event vector
-        let event_map = match self.grouped_events.try_borrow() {
-            Ok(events) => events.clone(),
+        let event_groupings = match self.grouped_events.try_borrow() {
+            Ok(events) => {
+                // Create a hash map to store the data
+                let mut event_map = FnvHashMap::default();
+
+                // Copy all the elements into hash map
+                for grouping in events.values() {
+                    event_map.insert(grouping.state_id, grouping.event_id);
+                }
+
+                event_map
+            },
+
             _ => FnvHashMap::default(),
         };
 
@@ -2274,7 +2365,7 @@ impl EditGroupedEvent {
                 // Return the completed Event Action
                 EventAction::GroupedEvent {
                     status_id: *status_data,
-                    event_map,
+                    event_map: event_groupings,
                 }
             },
 
