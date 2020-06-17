@@ -454,11 +454,14 @@ impl SystemInterface {
                             // Collect the description of the item
                             let description = handler.get_description(&item_id);
 
+                            // Create the item pair
+                            let item_pair = ItemPair::from_item(item_id, description);
+
                             // Send it back to the user interface
                             self.interface_send
                                 .send(Reply {
                                     reply_to, // echo to display component
-                                    reply: ReplyType::Description { description },
+                                    reply: ReplyType::Description { description: item_pair },
                                 })
                                 .unwrap_or(());
                         }
@@ -902,11 +905,30 @@ pub enum EditActionElement {
     GroupedEventStates,
 }
 
+/// An enum to specify which Edit Item subcomponent has requested the information
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum EditItemElement {
+    /// A variant for the item description
+    ItemDescription,
+
+    /// A variant for the group field
+    Group,
+
+    /// A variant for the status field
+    Status { state: Option<ItemId> },
+
+    /// A variant for the state dropdown
+    State,
+
+    /// A variant for the different edit item details
+    Details,
+}
+
 /// An enum to specify which display component has requested the information
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DisplayComponent {
     /// A variant for the edit item window
-    EditItemOverview { is_left: bool },
+    EditItemOverview { is_left: bool, variant: EditItemElement },
 
     /// A variant for the edit action element
     EditActionElement { is_left: bool, variant: EditActionElement},
@@ -1072,7 +1094,9 @@ pub enum DisplaySetting {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReplyType {
     /// A variant for the description of an item
-    Description { description: ItemDescription },
+    // FIXME: probably want to do some renaming. While this is primarily used to update descriptions
+    // keeping track of the associated item id is useful in some situations as well
+    Description { description: ItemPair },
 
     /// A variant for the event associated with an item
     Event { event: Option<Event> },

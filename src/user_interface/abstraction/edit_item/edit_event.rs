@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DataType, DisplayComponent, EditActionElement, EventAction, Event, EventDelay, ItemDescription,
+    DataType, DisplayComponent, EditActionElement, EventAction, Event, EventDelay,
     ItemId, ItemPair, Request, RequestType, Status, SystemSend,
 };
 
@@ -230,15 +230,15 @@ impl EditEvent {
 
     // A method to load new information into the edit action dialog
     //
-    pub fn update_info(&self, status: Option<Status>) {
+    pub fn update_info(&self, variant: EditActionElement, status: Option<Status>) {
         // Try to get access the edit action dialog
         if let Ok(dialog) = self.edit_action.try_borrow() {
-            dialog.update_info(status);
+            dialog.update_info(variant, status);
         }
     }
 
     // A method to update the description of an item
-    pub fn update_description(&self, action_type: EditActionElement, description: ItemDescription) {
+    pub fn update_description(&self, action_type: EditActionElement, description: ItemPair) {
         // Try to get access to the edit action window
         if let Ok(edit_action) = self.edit_action.try_borrow() {
             edit_action.update_description(action_type, description);
@@ -692,7 +692,7 @@ impl EditAction {
 
     /// A method to update the description of an item
     ///
-    pub fn update_description(&self, action_type: EditActionElement, description: ItemDescription) {
+    pub fn update_description(&self, action_type: EditActionElement, description: ItemPair) {
         match action_type {
             EditActionElement::EditNewScene => {
                 // Get a copy of the edit new scene element
@@ -747,11 +747,28 @@ impl EditAction {
         }
     }
 
-    /// A method to pass the status to the EditGroupedEvent structure
+
+    /// A method to pass the status to the structure that requested it
     ///
-    fn update_info(&self, status: Option<Status>) {
-        if let Ok(mut edit_grouped_event) = self.edit_grouped_event.try_borrow_mut() {
-            edit_grouped_event.update_info(status);
+    fn update_info(&self, variant: EditActionElement, status: Option<Status>) {
+        // Check who requested the status
+        match variant {
+            // The edit grouped event variant
+            EditActionElement::GroupedEventStates => {
+                // Update the info in the edit grouped event
+                if let Ok(mut edit_grouped_event) = self.edit_grouped_event.try_borrow_mut() {
+                    edit_grouped_event.update_info(status);
+                }
+            }
+
+            EditActionElement::EditModifyStatus { .. } => {
+                // Update the states in the edit modify status
+                if let Ok(edit_modify_status) = self.edit_modify_status.try_borrow() {
+                    edit_modify_status.update_states(status);
+                }
+            }
+
+            _ => unreachable!(),
         }
     }
 }
@@ -850,7 +867,7 @@ impl EditNewScene {
 
     /// A method to update the description of the scene
     ///
-    pub fn update_description(&self, description: ItemDescription) {
+    pub fn update_description(&self, description: ItemPair) {
         self.description.set_label(&format!("Scene: {}", &description.description));
     }
 
@@ -876,8 +893,9 @@ struct EditModifyStatus {
     system_send: SystemSend,                      // a copy of the system send line
     status_description: gtk::Button,              // the status description display
     status_data: Rc<RefCell<ItemId>>,             // the wrapped status data
-    state_description: gtk::Button,               // the state description display
+    state_dropdown: gtk::ComboBoxText,            // the state description dropdown
     state_data: Rc<RefCell<ItemId>>,              // the wrapped state data
+    state_database: Rc<RefCell<FnvHashMap<String, ItemId>>>, // the wrapped state description/id database
     is_left: bool,                                // whether the element is on the left
 }
 
@@ -891,15 +909,19 @@ impl EditModifyStatus {
         // Set up the labels and data
         let status_description = gtk::Button::new_with_label("Status: None");
         let status_data = Rc::new(RefCell::new(ItemId::all_stop()));
-        let state_description = gtk::Button::new_with_label("State: None");
+        let state_label = gtk::Label::new(Some("State:"));
+        let state_dropdown = gtk::ComboBoxText::new();
         let state_data = Rc::new(RefCell::new(ItemId::all_stop()));
+
+        // Create the database to store the valid states
+        let state_database: Rc<RefCell<FnvHashMap<String, ItemId>>> = Rc::new(RefCell::new(FnvHashMap::default()));
 
         // Set up the status description to act as a drag source and destination
         drag!(source status_description);
         drag!(dest status_description);
 
         // Set the callback function when data is received
-        status_description.connect_drag_data_received(clone!(status_data => move |widget, _, _, _, selection_data, _, _| {
+        status_description.connect_drag_data_received(clone!(status_data, system_send, is_left => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -916,6 +938,15 @@ impl EditModifyStatus {
                     *status = item_pair.get_id();
                 }
 
+                // Request the state data associated with the status
+                system_send.send(Request {
+                    reply_to: DisplayComponent::EditActionElement {
+                        is_left,
+                        variant: EditActionElement::EditModifyStatus { is_status: false }
+                    },
+                    request: RequestType::Status { item_id: item_pair.get_id() },
+                });
+
                 // Serialize the item pair data
                 widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
                     if let Ok(data) = serde_yaml::to_string(&item_pair) {
@@ -925,40 +956,27 @@ impl EditModifyStatus {
             }
         }));
 
-        // Set up the state description to act as a drag source and destination
-        drag!(source state_description);
-        drag!(dest state_description);
 
-        // Set the callback function when data is received
-        state_description.connect_drag_data_received(clone!(state_data => move |widget, _, _, _, selection_data, _, _| {
-            // Try to extract the selection data
-            if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to an ItemPair
-                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_pair) => item_pair,
-                    _ => return,
-                };
-
-                // Update the current spin button value
-                widget.set_label(&format!("State: {}", item_pair.description));
-
-                // Update the status data
-                if let Ok(mut state) = state_data.try_borrow_mut() {
-                    *state = item_pair.get_id();
-                }
-
-                // Serialize the item pair data
-                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
-                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                        selection_data.set_text(data.as_str());
+        // Set the callback function when the state dropdown is changed
+        state_dropdown.connect_changed(clone!(state_database, state_data => move |dropdown| {
+            // Identify the selected state
+            if let Some(current_state) = dropdown.get_active_id() {
+                // Look up the state in the database
+                if let Ok(state_db) = state_database.try_borrow() {
+                    if let Some(state_id) = state_db.get(&current_state.to_string()) {
+                        // Store the current state in the state data
+                        if let Ok(mut state_data) = state_data.try_borrow_mut() {
+                            *state_data = state_id.clone();
+                        }
                     }
-                }));
+                }
             }
         }));
 
         // Place everything into the grid
-        grid.attach(&status_description, 0, 0, 1, 1);
-        grid.attach(&state_description, 1, 0, 1, 1);
+        grid.attach(&status_description, 0, 0, 2, 1);
+        grid.attach(&state_label, 0, 1, 1, 1);
+        grid.attach(&state_dropdown, 1, 1, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -969,8 +987,9 @@ impl EditModifyStatus {
             system_send: system_send.clone(),
             status_description,
             status_data,
-            state_description,
+            state_dropdown,
             state_data,
+            state_database,
             is_left,
         }
     }
@@ -1003,24 +1022,50 @@ impl EditModifyStatus {
             request: RequestType::Description { item_id: status_id.clone() },
         });
 
-        // Request the description associated with the state
+        // Request the state data associated with the status
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditModifyStatus { is_status: false }
             },
-            request: RequestType::Description { item_id: new_state.clone() },
+            request: RequestType::Status { item_id: status_id.clone() },
         });
     }
 
+    // A method to update the descriptions of states associated with a status
+    //
+    pub fn update_states(&self, status: Option<Status>) {
+        // Unpack the status
+        if let Some(status) = status {
+            // Go through each allowed state and request its description
+            for state_id in status.allowed().drain(..) {
+                self.system_send.send(Request {
+                    reply_to: DisplayComponent::EditActionElement {
+                        is_left: self.is_left,
+                        variant: EditActionElement::EditModifyStatus { is_status: false }
+                    },
+                    request: RequestType::Description { item_id: state_id.clone() },
+                });
+            }
+        }
+    }
+
     // A method to update the description of the status or state
-    pub fn update_description(&self, is_status: bool, description: ItemDescription) {
+    pub fn update_description(&self, is_status: bool, item_pair: ItemPair) {
         match is_status {
             // If the description is for the status, update the status label
-            true => self.status_description.set_label(&format!("Status: {}", description.description)),
+            true => self.status_description.set_label(&format!("Status: {}", item_pair.description)),
 
-            // If the description is for the state, update the state label
-            false => self.state_description.set_label(&format!("State: {}", description.description)),
+            // If the description is for the state, add it to the dropdown and the state database
+            false => {
+                // Update the user interface
+                self.state_dropdown.append(Some(&item_pair.description), &item_pair.description);
+
+                // Update the associated data
+                if let Ok(mut state_database) = self.state_database.try_borrow_mut() {
+                    state_database.insert(item_pair.clone().description, item_pair.clone().get_id());
+                }
+            }
         }
     }
 
@@ -1175,7 +1220,7 @@ impl EditQueueEvent {
 
     // A method to update the description of the event
     //
-    pub fn update_description(&self, description: ItemDescription) {
+    pub fn update_description(&self, description: ItemPair) {
         // Update the event label
         self.event_description.set_label(&format!("Event: {}", description.description));
     }
@@ -1306,7 +1351,7 @@ impl EditCancelEvent {
     }
 
     // A method to update the description of the event
-    pub fn update_description(&self, description: ItemDescription) {
+    pub fn update_description(&self, description: ItemPair) {
         // Update the event label
         self.event_description.set_label(&format!("Event: {}", description.description));
     }
@@ -1571,7 +1616,7 @@ impl EditSaveData {
     }
 
     // A method to update the description of the event
-    pub fn update_description(&self, description: ItemDescription) {
+    pub fn update_description(&self, description: ItemPair) {
         // Update the event label
         self.event_description.set_label(&format!("Event: {}", description.description));
     }
@@ -1895,7 +1940,7 @@ impl EditSendData {
     }
 
     // A method to update the description of the event
-    pub fn update_description(&self, description: ItemDescription) {
+    pub fn update_description(&self, description: ItemPair) {
         // Update the event label
         self.event_description.set_label(&format!("Event: {}", description.description));
     }
@@ -2209,7 +2254,7 @@ impl EditGroupedEvent {
     }
 
     // A method to update the description of the status
-    pub fn update_description(&self, description: ItemDescription) {
+    pub fn update_description(&self, description: ItemPair) {
         // Update the event label
         self.status_description.set_label(&format!("Status: {}", description.description));
     }

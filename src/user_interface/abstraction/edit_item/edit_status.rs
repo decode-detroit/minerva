@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DisplayComponent, ItemDescription, ItemId, ItemPair, Request, RequestType, Status, SystemSend,
+    DisplayComponent, ItemId, ItemPair, Request, RequestType, Status, SystemSend,
 };
 
 // Import standard library features
@@ -165,12 +165,12 @@ impl EditStatus {
     }
 
     // A method to pass a requested item description to the multistate status
-    pub fn update_multistate_description(&self, description: ItemDescription, position: Option<usize>) {
+    pub fn update_multistate_description(&self, description: ItemPair, position: Option<usize>) {
         self.edit_multistate.update_description(description, position)
     }
 
     // A method to pass a requested item description to the counted state status
-    pub fn update_countedstate_description(&self, description: ItemDescription, state_type: String) {
+    pub fn update_countedstate_description(&self, description: ItemPair, state_type: String) {
         self.edit_countedstate.update_description(description, state_type)
     }
 
@@ -484,7 +484,7 @@ impl EditMultiState {
 
     /// A method to update the description of a state label
     ///
-    pub fn update_description(&self, description: ItemDescription, position: Option<usize>) {
+    pub fn update_description(&self, item_pair: ItemPair, position: Option<usize>) {
         // Check to see if a position was given
         if let Some(item_position) = position {
             // Unpack the database
@@ -492,10 +492,7 @@ impl EditMultiState {
                 // Get the ItemDisplay associated with the position
                 if let Some(item_info) = states_db.get(&item_position) {
                     // Set the label description
-                    item_info.label.set_label(&description.description);
-
-                    // Create the item pair from the id and description
-                    let item_pair = ItemPair::from_item(item_info.item_id, description);
+                    item_info.label.set_label(&item_pair.description);
 
                     // Set the callback function when data is dragged
                     item_info.label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
@@ -508,21 +505,15 @@ impl EditMultiState {
             }
         } else {
             // Otherwise, update the current state description
-            self.current_label.set_label(&format!("Current State: {}", &description.description));
+            self.current_label.set_label(&format!("Current State: {}", &item_pair.description));
 
-            // Get the current item id
-            if let Ok(current_id) = self.current_data.try_borrow() {
-                // Create the item pair from the id and description
-                let item_pair = ItemPair::from_item(*current_id, description);
-
-                // Set the callback function when data is dragged
-                self.current_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                    // Serialize the data
-                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                        selection_data.set_text(data.as_str());
-                    }
-                }));
-            }
+            // Set the callback function when data is dragged
+            self.current_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
+                // Serialize the data
+                if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                    selection_data.set_text(data.as_str());
+                }
+            }));
         }
     }
 
@@ -802,91 +793,64 @@ impl EditCountedState {
 
     /// A method to update the description of a state label
     ///
-    pub fn update_description(&self, description: ItemDescription, state_type: String) {
-        // Unpack the state database
-        if let Ok(status_data) = self.status_data.try_borrow() {
-            // Determine which label to update
-            match state_type.as_str() {
-                // The current state variant
-                "current" => {
-                    // Set the text on the label
-                    self.current_label.set_label(&format!("Current State: {}", &description.description));
+    pub fn update_description(&self, item_pair: ItemPair, state_type: String) {
+        // Determine which label to update
+        match state_type.as_str() {
+            // The current state variant
+            "current" => {
+                // Set the text on the label
+                self.current_label.set_label(&format!("Current State: {}", &item_pair.description));
 
-                    // Get the current item id
-                    if let Some(item_id) = status_data.get("current") {
-                        // Create the item pair from the id and description
-                        let item_pair = ItemPair::from_item(*item_id, description);
-
-                        // Set the callback function when data is dragged
-                        self.current_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                            // Serialize the data
-                            if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                                selection_data.set_text(data.as_str());
-                            }
-                        }));
+                // Set the callback function when data is dragged
+                self.current_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
+                    // Serialize the data
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
                     }
-                },
+                }));
+            },
 
-                "trigger" => {
-                    // Set the text on the label
-                    self.trigger_label.set_label(&format!("Trigger State: {}", &description.description));
+            "trigger" => {
+                // Set the text on the label
+                self.trigger_label.set_label(&format!("Trigger State: {}", &item_pair.description));
 
-                    // Get the trigger item id
-                    if let Some(item_id) = status_data.get("trigger") {
-                        // Create the item pair from the id and description
-                        let item_pair = ItemPair::from_item(*item_id, description);
-
-                        // Set the callback function when data is dragged
-                        self.trigger_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                            // Serialize the data
-                            if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                                selection_data.set_text(data.as_str());
-                            }
-                        }));
+                // Set the callback function when data is dragged
+                self.trigger_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
+                    // Serialize the data
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
                     }
-                },
+                }));
+            },
 
-                "antitrigger" => {
-                    // Set the text on the label
-                    self.antitrigger_label.set_label(&format!("Anti-Trigger State: {}", &description.description));
+            "antitrigger" => {
+                // Set the text on the label
+                self.antitrigger_label.set_label(&format!("Anti-Trigger State: {}", &item_pair.description));
 
-                    // Get the antitrigger item id
-                    if let Some(item_id) = status_data.get("antitrigger") {
-                        // Create the item pair from the id and description
-                        let item_pair = ItemPair::from_item(*item_id, description);
-
-                        // Set the callback function when data is dragged
-                        self.antitrigger_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                            // Serialize the data
-                            if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                                selection_data.set_text(data.as_str());
-                            }
-                        }));
+                // Set the callback function when data is dragged
+                self.antitrigger_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
+                    // Serialize the data
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
                     }
-                },
+                }));
+            },
 
-                "reset" => {
-                    // Set the text on the label
-                    self.reset_label.set_label(&format!("Reset State: {}", &description.description));
+            "reset" => {
+                // Set the text on the label
+                self.reset_label.set_label(&format!("Reset State: {}", &item_pair.description));
 
-                    // Get the reset item id
-                    if let Some(item_id) = status_data.get("current") {
-                        // Create the item pair from the id and description
-                        let item_pair = ItemPair::from_item(*item_id, description);
-
-                        // Set the callback function when data is dragged
-                        self.reset_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                            // Serialize the data
-                            if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                                selection_data.set_text(data.as_str());
-                            }
-                        }));
+                // Set the callback function when data is dragged
+                self.reset_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
+                    // Serialize the data
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
                     }
-                },
+                }));
+            },
 
-                // Unreachable
-                _ => unreachable!()
-            }
+            // Unreachable
+            _ => unreachable!()
         }
     }
 

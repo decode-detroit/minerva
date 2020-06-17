@@ -34,9 +34,9 @@ use self::edit_event::EditEvent;
 use self::edit_scene::EditScene;
 use self::edit_status::EditStatus;
 use super::super::super::system_interface::{
-    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit,
+    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EditItemElement,
     Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
-    LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType,
+    LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType, Status,
     SystemSend,
 };
 use super::super::utils::{clean_text, color_label};
@@ -195,7 +195,7 @@ impl EditWindow {
                 }
             }
 
-            DisplayComponent::EditItemOverview { is_left } => {
+            DisplayComponent::EditItemOverview { is_left, .. } => {
                 match is_left {
                     // Send to the left side
                     true => self.edit_item_left.update_info(reply_to, reply),
@@ -346,7 +346,7 @@ impl EditItemAbstraction {
         edit_window.set_valign(gtk::Align::Fill);
 
         // Create the edit overview
-        let edit_overview = EditOverview::new();
+        let edit_overview = EditOverview::new(system_send, is_left);
 
         // Add the event separator
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
@@ -514,19 +514,19 @@ impl EditItemAbstraction {
     fn refresh_item(item_id: ItemId, is_left: bool, system_send: &SystemSend) {
         // Request new data for each component
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left },
+            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::ItemDescription },
             request: RequestType::Description { item_id },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left },
+            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Event { item_id },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left },
+            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Scene { item_id, },
         });
         system_send.send(Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left },
+            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Status { item_id, },
         });
     }
@@ -537,7 +537,7 @@ impl EditItemAbstraction {
         // Unpack reply_to
         match reply_to {
             // Unpack the reply
-            DisplayComponent::EditItemOverview { .. } => {
+            DisplayComponent::EditItemOverview { variant, .. } => {
                 match reply {
                     // The description variant
                     ReplyType::Description { description } => {
@@ -546,7 +546,7 @@ impl EditItemAbstraction {
 
                         // Try to borrow the edit overview
                         if let Ok(edit_overview) = self.edit_overview.try_borrow() {
-                            edit_overview.load_description(description);
+                            edit_overview.load_description(variant, description);
                         }
                     }
 
@@ -568,10 +568,27 @@ impl EditItemAbstraction {
 
                     // The status variant
                     ReplyType::Status { status } => {
-                        // Try to borrow the edit status
-                        if let Ok(mut edit_status) = self.edit_status.try_borrow_mut() {
-                            edit_status.load_status(status);
+                        // Match the variant
+                        match variant {
+                            // The details variant
+                            EditItemElement::Details => {
+                                // Try to borrow the edit status
+                                if let Ok(mut edit_status) = self.edit_status.try_borrow_mut() {
+                                    edit_status.load_status(status);
+                                }
+                            },
+
+                            // The status variant
+                            EditItemElement::Status { state } => {
+                                // Try to borrow the edit overview
+                                if let Ok(edit_overview) = self.edit_overview.try_borrow() {
+                                    edit_overview.load_status(status, state);
+                                }
+                            }
+
+                            _ => unreachable!(),
                         }
+
                     }
 
                     _ => {
@@ -587,7 +604,7 @@ impl EditItemAbstraction {
                         // Try to borrow the edit event
                         if let Ok(edit_event) = self.edit_event.try_borrow() {
                             // Update the status info
-                            edit_event.update_info(status);
+                            edit_event.update_info(variant, status);
                         }
                     }
 
@@ -723,9 +740,11 @@ impl ItemList {
 #[derive(Clone, Debug)]
 struct EditOverview {
     grid: gtk::Grid,                      // the main grid for this element
+    system_send: SystemSend,              // a copy of the system send line
     display_type: gtk::ComboBoxText,      // the display type selection for the event
     group_checkbox: gtk::CheckButton,     // the checkbox for group id
-    group: gtk::SpinButton,               // the spin selection for the group id
+    group_description: gtk::Label,        // the description of the group
+    group_data: Rc<RefCell<ItemId>>,      // the data associated with the group
     position_checkbox: gtk::CheckButton,  // the position checkbox
     position: gtk::SpinButton,            // the spin selection for position
     color_checkbox: gtk::CheckButton,     // the color checkbox
@@ -735,15 +754,17 @@ struct EditOverview {
     spotlight_checkbox: gtk::CheckButton, // the spotlight checkbox
     spotlight: gtk::SpinButton,           // the spin selection for spotlight number
     highstate_checkbox: gtk::CheckButton, // the highlight state checkbox
-    highstate_status: gtk::SpinButton,    // the highlight state status spin
-    highstate_state: gtk::SpinButton,     // the highlight state state spin
+    highstate_status_description: gtk::Label,       // the description of the status
+    highstate_status_data: Rc<RefCell<ItemId>>,     // the data associated with the status
+    highstate_state_dropdown: gtk::ComboBoxText,    // a dropdown of the valid states
+    is_left: bool,                        // whether the element is on the left or right
 }
 
 // Implement key features of the Edit Overview
 impl EditOverview {
     /// A function to create a new edit overview
     ///
-    fn new() -> EditOverview {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditOverview {
         // Add the display type dropdown
         let display_type_label = gtk::Label::new(Some("Where to Display Item:"));
         let display_type = gtk::ComboBoxText::new();
@@ -772,17 +793,25 @@ impl EditOverview {
             "Hide Item: Event not visible, status hidden when possible",
         );
 
-        // Create the group spin options
+        // Create the group options
         let group_checkbox = gtk::CheckButton::new_with_label("Show In Control Area");
-        let group_label = gtk::Label::new(None);
-        group_label.set_markup("Group Number:");
-        let group = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // The button to hold the label
+        let group_button = gtk::Button::new();
+        let group_description = gtk::Label::new(None);
+        group_description.set_markup("Group: None");
 
-        // Set up the spin button to receive a dropped event id
-        drag!(dest group);
+        // Add the label to the button
+        group_button.add(&group_description);
+
+        // Create the variable to hold the group data
+        let group_data = Rc::new(RefCell::new(ItemId::all_stop()));
+
+        // Set up the group description button to act as a drag source and destination
+        drag!(source group_button);
+        drag!(dest group_button);
 
         // Set the callback function when data is received
-        group.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
+        group_button.connect_drag_data_received(clone!(group_data, group_description => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -791,18 +820,40 @@ impl EditOverview {
                     _ => return,
                 };
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Update the current description
+                group_description.set_markup(&format!("Group: {}", item_pair.description));
+
+                // Update the group data
+                if let Ok(mut group) = group_data.try_borrow_mut() {
+                    *group = item_pair.get_id();
+                }
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
-        });
+        }));
 
         // Connect the checkbox callback function to change label text
-        group_checkbox.connect_toggled(clone!(group_label => move | checkbox | {
+        group_checkbox.connect_toggled(clone!(group_description => move | checkbox | {
             // Strikethrough the text when checkbox is selected
             if checkbox.get_active() {
-                group_label.set_markup("<s>Group Number:</s>");
+                if let Some(group_label) = group_description.get_text() {
+                    // Remove the markup
+                    let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
+                    // Display the label text with strikethrough
+                    group_description.set_markup(&format!("<s>{}</s>", label_markup));
+                }
             } else {
-                group_label.set_markup("Group Number:");
+                if let Some(group_label) = group_description.get_text() {
+                    // Remove the markup
+                    let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
+                    // Display the label text without strikethrough
+                    group_description.set_markup(&label_markup);
+                }
             }
         }));
 
@@ -866,64 +917,99 @@ impl EditOverview {
 
         // Create the highlight state options
         let highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
-        let highstate_status = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
-        let status_label = gtk::Label::new(None);
-        status_label.set_markup("<s>Status Number:</s>");
-        let highstate_state = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        // Create the button to hold the label for the status
+        let highstate_status_button = gtk::Button::new();
+        let highstate_status_description = gtk::Label::new(None);
+        highstate_status_description.set_markup("<s>Status: None</s>");
+
+        // Add the label to the button
+        highstate_status_button.add(&highstate_status_description);
+
+        // Create the variable to hold the status data
+        let highstate_status_data = Rc::new(RefCell::new(ItemId::all_stop()));
+
+        // Create the elements associated with the state
+        let highstate_state_dropdown = gtk::ComboBoxText::new();
         let state_label = gtk::Label::new(None);
-        state_label.set_markup("<s>State Number:</s>");
-        highstate_checkbox.connect_toggled(clone!(status_label, state_label => move | checkbox | {
-            // Strikethrough the text when checkbox not selected
-            if checkbox.get_active() {
-                status_label.set_markup("Status Number:");
-                state_label.set_markup("State Number:");
-            } else {
-                status_label.set_markup("<s>Status Number:</s>");
-                state_label.set_markup("<s>State Number:</s>");
+        state_label.set_markup("<s>State:</s>");
+
+        // Set up the status button to act as a drag source and destination
+        drag!(source highstate_status_button);
+        drag!(dest highstate_status_button);
+
+        // Set the callback function when data is received
+        highstate_status_button.connect_drag_data_received(clone!(
+            highstate_status_data,
+            highstate_status_description,
+            system_send,
+            is_left
+        => move |widget, _, _, _, selection_data, _, _| {
+            // Try to extract the selection data
+            if let Some(string) = selection_data.get_text() {
+                // Convert the selection data to an ItemPair
+                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                    Ok(item_pair) => item_pair,
+                    _ => return,
+                };
+
+                // Update the current description
+                highstate_status_description.set_markup(&format!("Status: {}", item_pair.description));
+
+                // Update the status data
+                if let Ok(mut status) = highstate_status_data.try_borrow_mut() {
+                    *status = item_pair.get_id();
+                }
+
+                // Request the allowed states
+                system_send.send(Request {
+                    reply_to: DisplayComponent::EditItemOverview {
+                        is_left,
+                        variant: EditItemElement::Status { state: None },
+                    },
+                    request: RequestType::Status { item_id: item_pair.get_id() }
+                });
+
+                // Serialize the item pair data
+                widget.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }));
             }
         }));
 
-        // Set up the hightlight status spin button to receive a dropped event id
-        drag!(dest highstate_status);
+        // Connect the checkbox callback function to change label text
+        highstate_checkbox.connect_toggled(clone!(highstate_status_description, state_label => move | checkbox | {
+            // Strikethrough the text when checkbox is selected
+            if checkbox.get_active() {
+                // Display the state label without strikethrough
+                state_label.set_markup("State:");
 
-        // Set the callback function when data is received
-        highstate_status.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
-            // Try to extract the selection data
-            if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to an ItemPair
-                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_pair) => item_pair,
-                    _ => return,
-                };
+                // Change the markup on the status label
+                if let Some(status_label) = highstate_status_description.get_text() {
+                    // Remove the markup
+                    let label_markup = clean_text(&status_label, LABEL_LIMIT, true, false, true);
+                    // Display the label text without strikethrough
+                    highstate_status_description.set_markup(&label_markup);
+                }
+            } else {
+                // Display the state label with strikethrough
+                state_label.set_markup("<s>State:</s>");
 
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
+                // Change the markup on the status label
+                if let Some(status_label) = highstate_status_description.get_text() {
+                    // Remove the markup
+                    let label_markup = clean_text(&status_label, LABEL_LIMIT, true, false, true);
+                    // Display the label text with strikethrough
+                    highstate_status_description.set_markup(&format!("<s>{}</s>", label_markup));
+                }
             }
-        });
-
-        // Set up the hightlight state spin button to receive a dropped event id
-        drag!(dest highstate_state);
-
-        // Set the callback function when data is received
-        highstate_state.connect_drag_data_received(|widget, _, _, _, selection_data, _, _| {
-            // Try to extract the selection data
-            if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to an ItemPair
-                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_pair) => item_pair,
-                    _ => return,
-                };
-
-                // Update the current spin button value
-                widget.set_value(item_pair.id() as f64);
-            }
-        });
+        }));
 
         // Compose the display grid
         let display_grid = gtk::Grid::new();
         display_grid.attach(&group_checkbox, 0, 0, 1, 1);
-        display_grid.attach(&group_label, 1, 0, 1, 1);
-        display_grid.attach(&group, 2, 0, 1, 1);
+        display_grid.attach(&group_button, 1, 0, 2, 1);
         display_grid.attach(&position_checkbox, 0, 1, 1, 1);
         display_grid.attach(&position_label, 1, 1, 1, 1);
         display_grid.attach(&position, 2, 1, 1, 1);
@@ -937,10 +1023,9 @@ impl EditOverview {
         display_grid.attach(&spotlight_label, 1, 4, 1, 1);
         display_grid.attach(&spotlight, 2, 4, 1, 1);
         display_grid.attach(&highstate_checkbox, 0, 5, 1, 1);
-        display_grid.attach(&status_label, 1, 5, 1, 1);
-        display_grid.attach(&highstate_status, 2, 5, 1, 1);
+        display_grid.attach(&highstate_status_button, 1, 5, 2, 1);
         display_grid.attach(&state_label, 1, 6, 1, 1);
-        display_grid.attach(&highstate_state, 2, 6, 1, 1);
+        display_grid.attach(&highstate_state_dropdown, 2, 6, 1, 1);
         display_grid.set_column_spacing(10); // Add some space
         display_grid.set_row_spacing(10);
         display_grid.set_halign(gtk::Align::End);
@@ -948,8 +1033,8 @@ impl EditOverview {
         // Connect the function to trigger display type changes
         display_type.connect_changed(clone!(
             group_checkbox,
-            group_label,
-            group,
+            group_button,
+            group_description,
             position_checkbox,
             position_label,
             position,
@@ -963,9 +1048,8 @@ impl EditOverview {
             spotlight_label,
             spotlight,
             highstate_checkbox,
-            highstate_status,
-            status_label,
-            highstate_state,
+            highstate_status_button,
+            highstate_state_dropdown,
             state_label
         => move |dropdown| {
             // Identify the selected display type
@@ -975,8 +1059,7 @@ impl EditOverview {
                     // the DisplayControl variant
                     "displaycontrol" => {
                         group_checkbox.hide();
-                        group_label.hide();
-                        group.hide();
+                        group_button.hide();
                         position_checkbox.show();
                         position_label.show();
                         position.show();
@@ -990,18 +1073,21 @@ impl EditOverview {
                         spotlight_label.show();
                         spotlight.show();
                         highstate_checkbox.show();
-                        highstate_status.show();
-                        status_label.show();
-                        highstate_state.show();
+                        highstate_status_button.show();
+                        highstate_state_dropdown.show();
                         state_label.show();
                     }
 
                     // the DisplayWith variant
                     "displaywith" => {
                         group_checkbox.hide();
-                        group_label.show();
-                        group_label.set_markup("Group Number:");
-                        group.show();
+                        group_button.show();
+                        if let Some(group_label) = group_description.get_text() {
+                            // Remove the markup
+                            let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
+                            // Display the label text without strikethrough
+                            group_description.set_markup(&label_markup);
+                        };
                         position_checkbox.show();
                         position_label.show();
                         position.show();
@@ -1015,20 +1101,21 @@ impl EditOverview {
                         spotlight_label.show();
                         spotlight.show();
                         highstate_checkbox.show();
-                        highstate_status.show();
-                        status_label.show();
-                        highstate_state.show();
+                        highstate_status_button.show();
+                        highstate_state_dropdown.show();
                         state_label.show();
                     }
 
                     // the DisplayDebug variant
                     "displaydebug" => {
                         group_checkbox.show();
-                        group_label.show();
-                        if group_checkbox.get_active() {
-                            group_label.set_markup("<s>Group Number:</s>");
+                        group_button.show();
+                        if let Some(group_label) = group_description.get_text() {
+                            // Remove the markup
+                            let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
+                            // Display the label text with strikethrough
+                            group_description.set_markup(&format!("<s>{}</s>", label_markup));
                         }
-                        group.show();
                         position_checkbox.show();
                         position_label.show();
                         position.show();
@@ -1042,17 +1129,15 @@ impl EditOverview {
                         spotlight_label.show();
                         spotlight.show();
                         highstate_checkbox.show();
-                        highstate_status.show();
-                        status_label.show();
-                        highstate_state.show();
+                        highstate_status_button.show();
+                        highstate_state_dropdown.show();
                         state_label.show();
                     }
 
                     // the LabelControl variant
                     "labelcontrol" => {
                         group_checkbox.hide();
-                        group_label.hide();
-                        group.hide();
+                        group_button.hide();
                         position_checkbox.show();
                         position_label.show();
                         position.show();
@@ -1066,17 +1151,15 @@ impl EditOverview {
                         spotlight_label.show();
                         spotlight.show();
                         highstate_checkbox.show();
-                        highstate_status.show();
-                        status_label.show();
-                        highstate_state.show();
+                        highstate_status_button.show();
+                        highstate_state_dropdown.show();
                         state_label.show();
                     }
 
                     // the LabelHidden variant
                     "labelhidden" => {
                         group_checkbox.hide();
-                        group_label.hide();
-                        group.hide();
+                        group_button.hide();
                         position_checkbox.show();
                         position_label.show();
                         position.show();
@@ -1090,17 +1173,15 @@ impl EditOverview {
                         spotlight_label.show();
                         spotlight.show();
                         highstate_checkbox.show();
-                        highstate_status.show();
-                        status_label.show();
-                        highstate_state.show();
+                        highstate_status_button.show();
+                        highstate_state_dropdown.show();
                         state_label.show();
                     }
 
                     // the Hidden variant
                     _ => {
                         group_checkbox.hide();
-                        group_label.hide();
-                        group.hide();
+                        group_button.hide();
                         position_checkbox.hide();
                         position_label.hide();
                         position.hide();
@@ -1114,9 +1195,8 @@ impl EditOverview {
                         spotlight_label.hide();
                         spotlight.hide();
                         highstate_checkbox.hide();
-                        highstate_status.hide();
-                        status_label.hide();
-                        highstate_state.hide();
+                        highstate_status_button.hide();
+                        highstate_state_dropdown.hide();
                         state_label.hide();
                     }
                 }
@@ -1134,9 +1214,11 @@ impl EditOverview {
         // Create and return the edit overview
         EditOverview {
             grid,
+            system_send: system_send.clone(),
             display_type,
             group_checkbox,
-            group,
+            group_description,
+            group_data,
             position_checkbox,
             position,
             color_checkbox,
@@ -1146,8 +1228,10 @@ impl EditOverview {
             spotlight_checkbox,
             spotlight,
             highstate_checkbox,
-            highstate_status,
-            highstate_state,
+            highstate_status_description,
+            highstate_status_data,
+            highstate_state_dropdown,
+            is_left,
         }
     }
 
@@ -1159,196 +1243,268 @@ impl EditOverview {
 
     // A method to load an item description into the edit overview
     //
-    fn load_description(&self, description: ItemDescription) {
-        // Create default placeholders for the display settings
-        let mut new_group = None;
-        let mut new_position = None;
-        let mut new_color = None;
-        let mut new_highlight = None;
-        let mut new_highlight_state = None;
-        let mut new_spotlight = None;
+    fn load_description(&self, variant: EditItemElement, description: ItemPair) {
+        match variant {
+            EditItemElement::ItemDescription => {
+                // Create default placeholders for the display settings
+                let mut new_group = None;
+                let mut new_position = None;
+                let mut new_color = None;
+                let mut new_highlight = None;
+                let mut new_highlight_state = None;
+                let mut new_spotlight = None;
 
-        // Update the display type for the event
-        match description.display {
-            // the DisplayControl variant
-            DisplayControl {
-                position,
-                color,
-                highlight,
-                highlight_state,
-                spotlight,
-            } => {
-                // Change the visible options
-                self.display_type.set_active_id(Some("displaycontrol"));
+                // Update the display type for the event
+                match description.display {
+                    // the DisplayControl variant
+                    DisplayControl {
+                        position,
+                        color,
+                        highlight,
+                        highlight_state,
+                        spotlight,
+                    } => {
+                        // Change the visible options
+                        self.display_type.set_active_id(Some("displaycontrol"));
 
-                // Save the available elements
-                new_position = position;
-                new_color = color;
-                new_highlight = highlight;
-                new_highlight_state = highlight_state;
-                new_spotlight = spotlight;
-            }
+                        // Save the available elements
+                        new_position = position;
+                        new_color = color;
+                        new_highlight = highlight;
+                        new_highlight_state = highlight_state;
+                        new_spotlight = spotlight;
+                    }
 
-            // the DisplayWith variant
-            DisplayWith {
-                group_id,
-                position,
-                color,
-                highlight,
-                highlight_state,
-                spotlight,
-            } => {
-                // Change the visible options
-                self.display_type.set_active_id(Some("displaywith"));
+                    // the DisplayWith variant
+                    DisplayWith {
+                        group_id,
+                        position,
+                        color,
+                        highlight,
+                        highlight_state,
+                        spotlight,
+                    } => {
+                        // Change the visible options
+                        self.display_type.set_active_id(Some("displaywith"));
 
-                // Save the available elements
-                new_group = Some(group_id);
-                new_position = position;
-                new_color = color;
-                new_highlight = highlight;
-                new_highlight_state = highlight_state;
-                new_spotlight = spotlight;
-            }
+                        // Save the available elements
+                        new_group = Some(group_id);
+                        new_position = position;
+                        new_color = color;
+                        new_highlight = highlight;
+                        new_highlight_state = highlight_state;
+                        new_spotlight = spotlight;
+                    }
 
-            // The DisplayDebug variant
-            DisplayDebug {
-                group,
-                position,
-                color,
-                highlight,
-                highlight_state,
-                spotlight,
-            } => {
-                // Change the visible options
-                self.display_type.set_active_id(Some("displaydebug"));
+                    // The DisplayDebug variant
+                    DisplayDebug {
+                        group,
+                        position,
+                        color,
+                        highlight,
+                        highlight_state,
+                        spotlight,
+                    } => {
+                        // Change the visible options
+                        self.display_type.set_active_id(Some("displaydebug"));
 
-                // Save the available elements
-                new_group = group;
-                new_position = position;
-                new_color = color;
-                new_highlight = highlight;
-                new_highlight_state = highlight_state;
-                new_spotlight = spotlight;
-            }
+                        // Save the available elements
+                        new_group = group;
+                        new_position = position;
+                        new_color = color;
+                        new_highlight = highlight;
+                        new_highlight_state = highlight_state;
+                        new_spotlight = spotlight;
+                    }
 
-            // the LabelControl variant
-            LabelControl {
-                position,
-                color,
-                highlight,
-                highlight_state,
-                spotlight,
-            } => {
-                // Change the visible options
-                self.display_type.set_active_id(Some("labelcontrol"));
+                    // the LabelControl variant
+                    LabelControl {
+                        position,
+                        color,
+                        highlight,
+                        highlight_state,
+                        spotlight,
+                    } => {
+                        // Change the visible options
+                        self.display_type.set_active_id(Some("labelcontrol"));
 
-                // Save the available elements
-                new_position = position;
-                new_color = color;
-                new_highlight = highlight;
-                new_highlight_state = highlight_state;
-                new_spotlight = spotlight;
-            }
+                        // Save the available elements
+                        new_position = position;
+                        new_color = color;
+                        new_highlight = highlight;
+                        new_highlight_state = highlight_state;
+                        new_spotlight = spotlight;
+                    }
 
-            // the LabelHidden variant
-            LabelHidden {
-                position,
-                color,
-                highlight,
-                highlight_state,
-                spotlight,
-            } => {
-                // Change the visible options
-                self.display_type.set_active_id(Some("labelhidden"));
+                    // the LabelHidden variant
+                    LabelHidden {
+                        position,
+                        color,
+                        highlight,
+                        highlight_state,
+                        spotlight,
+                    } => {
+                        // Change the visible options
+                        self.display_type.set_active_id(Some("labelhidden"));
 
-                // Save the available elements
-                new_position = position;
-                new_color = color;
-                new_highlight = highlight;
-                new_highlight_state = highlight_state;
-                new_spotlight = spotlight;
-            }
+                        // Save the available elements
+                        new_position = position;
+                        new_color = color;
+                        new_highlight = highlight;
+                        new_highlight_state = highlight_state;
+                        new_spotlight = spotlight;
+                    }
 
-            // the Hidden variant
-            Hidden => {
-                self.display_type.set_active_id(Some("hidden"));
-            }
+                    // the Hidden variant
+                    Hidden => {
+                        self.display_type.set_active_id(Some("hidden"));
+                    }
+                }
+
+                // If there is a new group id, set it
+                match new_group {
+                    None => self.group_checkbox.set_active(true),
+                    Some(id) => {
+                        self.group_checkbox.set_active(false);
+                        // Set the group data
+                        if let Ok(mut group_data) = self.group_data.try_borrow_mut() {
+                            *group_data = id.clone();
+                        }
+                        // Send a request to update the group description
+                        self.system_send.send(Request {
+                            reply_to: DisplayComponent::EditItemOverview {
+                                is_left: self.is_left,
+                                variant: EditItemElement::Group,
+                            },
+                            request: RequestType::Description { item_id: id.clone() }
+                        });
+                    }
+                }
+
+                // If there is a new position, set it
+                match new_position {
+                    None => self.position_checkbox.set_active(false),
+                    Some(number) => {
+                        self.position_checkbox.set_active(true);
+                        self.position.set_value(number as f64);
+                    }
+                }
+
+                // If there is a new color, set it
+                match new_color {
+                    None => self.color_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.color_checkbox.set_active(true);
+                        let tmp_color = gdk::RGBA {
+                            red: new_red as f64 / 255.0,
+                            green: new_green as f64 / 255.0,
+                            blue: new_blue as f64 / 255.0,
+                            alpha: 1.0,
+                        };
+                        self.color.set_rgba(&tmp_color);
+                    }
+                }
+
+                // If there is a new highlight, set it
+                match new_highlight {
+                    None => self.highlight_checkbox.set_active(false),
+                    Some((new_red, new_green, new_blue)) => {
+                        self.highlight_checkbox.set_active(true);
+                        let tmp_color = gdk::RGBA {
+                            red: new_red as f64 / 255.0,
+                            green: new_green as f64 / 255.0,
+                            blue: new_blue as f64 / 255.0,
+                            alpha: 1.0,
+                        };
+                        self.highlight.set_rgba(&tmp_color);
+                    }
+                }
+
+                // If there is a new highlight state, set it
+                match new_highlight_state {
+                    None => self.highstate_checkbox.set_active(false),
+                    Some((new_status, new_state)) => {
+                        self.highstate_checkbox.set_active(true);
+                        // Set the status data
+                        if let Ok(mut status_data) = self.highstate_status_data.try_borrow_mut() {
+                            *status_data = new_status.clone();
+                        }
+                        // Send a request to update the status description
+                        self.system_send.send(Request {
+                            reply_to: DisplayComponent::EditItemOverview {
+                                is_left: self.is_left,
+                                variant: EditItemElement::Status { state: None },
+                            },
+                            request: RequestType::Description { item_id: new_status.clone() }
+                        });
+
+                        // Send a request to get the states associated with the status
+                        self.system_send.send(Request {
+                            reply_to: DisplayComponent::EditItemOverview {
+                                is_left: self.is_left,
+                                variant: EditItemElement::Status { state: Some(new_state.clone()) },
+                            },
+                            request: RequestType::Status { item_id: new_status.clone() }
+                        });
+                    }
+                }
+
+                // If there is a new spotlight, set it
+                match new_spotlight {
+                    None => self.spotlight_checkbox.set_active(false),
+                    Some(number) => {
+                        self.spotlight_checkbox.set_active(true);
+                        self.spotlight.set_value(number as f64);
+                    }
+                }
+            },
+
+            // Update the group description
+            EditItemElement::Group => self.group_description.set_text(&description.description),
+
+            // Update the status description
+            EditItemElement::Status { .. } => self.highstate_status_description.set_text(&description.description),
+
+            // Update the state description in the dropdown
+            EditItemElement::State => {
+                // Add the decription to the dropdown with the item id as the id
+                self.highstate_state_dropdown.append(Some(&description.id().to_string()), &description.description)
+            },
+
+            _ => unreachable!(),
         }
+    }
 
-        // If there is a new group id, set it
-        match new_group {
-            None => self.group_checkbox.set_active(true),
-            Some(id) => {
-                self.group_checkbox.set_active(false);
-                self.group.set_value(id.id() as f64);
+    // A method to update the descriptions of states associated with a status
+    //
+    pub fn load_status(&self, status: Option<Status>, default_state: Option<ItemId>) {
+        // Unpack the status
+        if let Some(status) = status {
+            // Go through each allowed state and request its description
+            for state_id in status.allowed().drain(..) {
+                self.system_send.send(Request {
+                    reply_to: DisplayComponent::EditItemOverview {
+                        is_left: self.is_left,
+                        variant: EditItemElement::State,
+                    },
+                    request: RequestType::Description { item_id: state_id.clone() },
+                });
             }
-        }
 
-        // If there is a new position, set it
-        match new_position {
-            None => self.position_checkbox.set_active(false),
-            Some(number) => {
-                self.position_checkbox.set_active(true);
-                self.position.set_value(number as f64);
-            }
-        }
-
-        // If there is a new color, set it
-        match new_color {
-            None => self.color_checkbox.set_active(false),
-            Some((new_red, new_green, new_blue)) => {
-                self.color_checkbox.set_active(true);
-                let tmp_color = gdk::RGBA {
-                    red: new_red as f64 / 255.0,
-                    green: new_green as f64 / 255.0,
-                    blue: new_blue as f64 / 255.0,
-                    alpha: 1.0,
-                };
-                self.color.set_rgba(&tmp_color);
-            }
-        }
-
-        // If there is a new highlight, set it
-        match new_highlight {
-            None => self.highlight_checkbox.set_active(false),
-            Some((new_red, new_green, new_blue)) => {
-                self.highlight_checkbox.set_active(true);
-                let tmp_color = gdk::RGBA {
-                    red: new_red as f64 / 255.0,
-                    green: new_green as f64 / 255.0,
-                    blue: new_blue as f64 / 255.0,
-                    alpha: 1.0,
-                };
-                self.highlight.set_rgba(&tmp_color);
-            }
-        }
-
-        // If there is a new highlight state, set it
-        match new_highlight_state {
-            None => self.highstate_checkbox.set_active(false),
-            Some((new_status, new_state)) => {
-                self.highstate_checkbox.set_active(true);
-                self.highstate_status.set_value(new_status.id() as f64);
-                self.highstate_state.set_value(new_state.id() as f64);
-            }
-        }
-
-        // If there is a new spotlight, set it
-        match new_spotlight {
-            None => self.spotlight_checkbox.set_active(false),
-            Some(number) => {
-                self.spotlight_checkbox.set_active(true);
-                self.spotlight.set_value(number as f64);
+            // Set the dropdown menu to the default state, if one was given
+            if let Some(state) = default_state {
+                self.highstate_state_dropdown.set_active_id(Some(&state.id().to_string()));
             }
         }
     }
+
 
     // A method to pack the item description
     //
     fn pack_description(&self, tmp_description: String) -> ItemDescription {
         // Create default placeholders for the display settings
         let mut group = None;
-        let group_id = ItemId::new_unchecked(self.group.get_value() as u32);
+        let group_id = ItemId::all_stop();
         let mut position = None;
         let mut color = None;
         let mut highlight = None;
@@ -1357,7 +1513,9 @@ impl EditOverview {
 
         // Extract the group id, if selected
         if !self.group_checkbox.get_active() {
-            group = Some(group_id);
+            if let Ok(group_data) = self.group_data.try_borrow() {
+                group = Some(*group_data);
+            }
         }
 
         // Extract the position, if selected
@@ -1391,10 +1549,17 @@ impl EditOverview {
 
         // Extract the highlight state, if selected
         if self.highstate_checkbox.get_active() {
-            highlight_state = Some((
-                ItemId::new_unchecked(self.highstate_status.get_value() as u32),
-                ItemId::new_unchecked(self.highstate_state.get_value() as u32),
-            ));
+            // Extract the status data
+            if let Ok(status_data) = self.highstate_status_data.try_borrow() {
+                // Get the id associated with the selected state
+                if let Some(state_data) = self.highstate_state_dropdown.get_active_id() {
+                    // Set the highlight state
+                    highlight_state = Some((
+                        *status_data,
+                        ItemId::new_unchecked(state_data.parse::<u32>().unwrap()),
+                    ));
+                }
+            }
         }
 
         // Extract the spotlight, if selected
