@@ -1485,6 +1485,9 @@ impl EditOverview {
     // A method to update the descriptions of states associated with a status
     //
     pub fn load_status(&self, status: Option<Status>, default_state: Option<ItemId>) {
+        // Clear the state dropdown of the previous states
+        self.clear();
+
         // Unpack the status
         if let Some(status) = status {
             // Go through each allowed state and request its description
@@ -1503,6 +1506,12 @@ impl EditOverview {
                 self.highstate_state_dropdown.set_active_id(Some(&state.id().to_string()));
             }
         }
+    }
+
+    // A method to clear all the listed states in the state dropdown
+    pub fn clear(&self) {
+        // Remove all the dropdown elements
+        self.highstate_state_dropdown.remove_all();
     }
 
 
