@@ -205,7 +205,6 @@ impl EditWindow {
                 }
             }
 
-            // FIXME is there a way to condense all of these?
             DisplayComponent::EditActionElement { is_left, .. } => {
                 match is_left {
                     // Send to the left side
@@ -541,12 +540,21 @@ impl EditItemAbstraction {
                 match reply {
                     // The description variant
                     ReplyType::Description { description } => {
-                        // Load the description into the text entry
-                        self.item_description.set_text(&description.description);
-
-                        // Try to borrow the edit overview
-                        if let Ok(edit_overview) = self.edit_overview.try_borrow() {
-                            edit_overview.load_description(variant, description);
+                        // Match the variant
+                        match variant {
+                            // Item Description (in the overview)
+                            EditItemElement::ItemDescription => {
+                                // Load the description into the text entry
+                                self.item_description.set_text(&description.description);
+                            }
+                            
+                            // Otherwise, pass it to the edit overview
+                            _ => {
+                                // Try to borrow the edit overview
+                                if let Ok(edit_overview) = self.edit_overview.try_borrow() {
+                                    edit_overview.load_description(variant, description);
+                                }
+                            }
                         }
                     }
 
