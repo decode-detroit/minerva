@@ -1015,6 +1015,9 @@ impl EditModifyStatus {
     // A method to load the action
     //
     fn load_action(&self, status_id: &ItemId, new_state: &ItemId) {
+        // Clear the state dropdown and database
+        self.clear();
+
         // Load the status data
         if let Ok(mut status_data) = self.status_data.try_borrow_mut() {
             *status_data = status_id.clone();
@@ -1078,6 +1081,17 @@ impl EditModifyStatus {
                     state_database.insert(item_pair.clone().description, item_pair.clone().get_id());
                 }
             }
+        }
+    }
+
+    // A method to clear all the listed states in the state dropdown and database
+    pub fn clear(&self) {
+        // Remove all the dropdown elements
+        self.state_dropdown.remove_all();
+
+        // Clear the database
+        if let Ok(mut state_db) = self.state_database.try_borrow_mut() {
+            state_db.clear();
         }
     }
 
@@ -2251,7 +2265,7 @@ impl EditGroupedEvent {
                 is_left: self.is_left,
                 variant: EditActionElement::GroupedEventDescription{
                     position: Some(position),
-                    is_event: true,
+                    is_event: false,
                 },
             },
             request: RequestType::Description { item_id: state_id.clone() },
@@ -2259,7 +2273,7 @@ impl EditGroupedEvent {
 
         // Set up the event label to act as a drag source and destination
         drag!(dest event_label);
-        drag!(dest event_label);
+        drag!(source event_label);
 
         // Set the callback function when data is received
         let grouped_events = self.grouped_events.clone();
