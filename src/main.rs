@@ -103,8 +103,8 @@ impl Minerva {
             interface_receive,
         );
 
-        // Show all the available windows
-        window.show_all();
+        // Show the window
+        window.show();
     }
 }
 

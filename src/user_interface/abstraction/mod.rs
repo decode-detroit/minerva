@@ -166,26 +166,15 @@ impl InterfaceAbstraction {
         title.set_halign(gtk::Align::Center);
         operations_grid.attach(&title, 0, 1, 1, 1);
         operations_grid.attach(&side_scroll, 0, 2, 1, 1);
+        
+        // Show the stack and all elements of the operations grid
+        top_element.show_all();
 
         // Populate the edit view
         //
-        // Create the edit grid to hold all the edit elements
-        let edit_grid = gtk::Grid::new();
-        top_element.add_named(&edit_grid, "edit");
-
-        // Set the features of the edit grid
-        edit_grid.set_column_homogeneous(false); // Allow everything to adjust
-        edit_grid.set_row_homogeneous(false);
-        edit_grid.set_column_spacing(10); // add some internal space
-        edit_grid.set_row_spacing(10);
-        edit_grid.set_margin_top(10); // add some space on all sides
-        edit_grid.set_margin_bottom(10);
-        edit_grid.set_margin_start(10);
-        edit_grid.set_margin_end(10);
-
-        // Create the edit item abstraction and add it to the user interface
+        // Create the edit item window and add it to the stack
         let edit_item = EditWindow::new(window, system_send, interface_send);
-        edit_grid.attach(edit_item.get_top_element(), 0, 0, 1, 1);
+        top_element.add_named(edit_item.get_top_element(), "edit");
 
         // Create internal storage for the full status of the system
         let full_status = Rc::new(RefCell::new(FullStatus::default()));

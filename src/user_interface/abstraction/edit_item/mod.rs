@@ -112,7 +112,6 @@ impl EditWindow {
         // Add the grid to the scroll window
         scroll_window.add(&grid);
 
-
         // Create the item list that holds the buttons with all item data
         let item_list = ItemList::new();
 
@@ -136,7 +135,8 @@ impl EditWindow {
         grid.attach(item_list.get_top_element(), 0, 0, 1, 2);
         grid.attach(edit_item_left.get_top_element(), 1, 0, 1, 1);
         grid.attach(edit_item_right.get_top_element(), 2, 0, 1, 1);
-        scroll_window.show_all();
+        grid.show();
+        scroll_window.show();
 
         // Return a copy of the Edit window
         EditWindow {
@@ -294,7 +294,7 @@ impl EditItemAbstraction {
         let edit_scene = EditScene::new(window);
 
         // Create the edit title
-        let edit_title = gtk::Label::new(Some("  Edit Selected Item  "));
+        let edit_title = gtk::Label::new(Some("Drop Item Here"));
         edit_title.set_size_request(-1, 30);
 
         // Connect the drag destination to edit_title
@@ -321,11 +321,6 @@ impl EditItemAbstraction {
             }
         }));
 
-        // Add the top separator
-        let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        separator.set_halign(gtk::Align::Fill);
-        separator.set_hexpand(true);
-
         // Create the scrollable window for the edit item fields
         let edit_window = gtk::ScrolledWindow::new(
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
@@ -347,11 +342,6 @@ impl EditItemAbstraction {
         // Create the edit overview
         let edit_overview = EditOverview::new(system_send, is_left);
 
-        // Add the event separator
-        let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        separator.set_halign(gtk::Align::Fill);
-        separator.set_hexpand(true);
-
         // Create the edit event
         let edit_event = EditEvent::new(system_send, is_left);
 
@@ -368,7 +358,6 @@ impl EditItemAbstraction {
 
         // Attach all elements to the edit grid
         edit_grid.attach(edit_overview.get_top_element(), 0, 0, 2, 1);
-        //edit_grid.attach(&separator, 0, 1, 2, 1);
         edit_grid.attach(edit_event.get_top_element(), 0, 2, 2, 1);
         edit_grid.attach(edit_scene.get_top_element(), 0, 3, 2, 1);
         edit_grid.attach(edit_status.get_top_element(), 0, 4, 2, 1);
@@ -376,10 +365,15 @@ impl EditItemAbstraction {
         // Attach the edit window and other elements to the top-level grid
         grid.attach(&edit_title, 0, 0, 2, 1);
         grid.attach(&save, 2, 0, 2, 1);
-        grid.attach(&separator, 0, 1, 4, 1);
-        grid.attach(&overview_label, 0, 2, 1, 1);
-        grid.attach(&item_description, 1, 2, 3, 1);
-        grid.attach(&edit_window, 0, 3, 4, 1);
+        grid.attach(&overview_label, 0, 1, 1, 1);
+        grid.attach(&item_description, 1, 1, 3, 1);
+        grid.attach(&edit_window, 0, 2, 4, 1);
+        edit_title.show();
+        save.show();
+        overview_label.show();
+        item_description.show();
+        edit_window.show();
+        edit_grid.show();
 
         // Connect the save button click callback
         let edit_overview = Rc::new(RefCell::new(edit_overview));
@@ -470,6 +464,7 @@ impl EditItemAbstraction {
         grid.set_margin_bottom(10);
         grid.set_margin_start(10);
         grid.set_margin_end(10);
+        grid.show();
 
         // Return the new Control Abstraction
         EditItemAbstraction {
@@ -656,6 +651,7 @@ impl EditItemAbstraction {
 #[derive(Clone, Debug)]
 struct ItemList {
     grid: gtk::Grid,              // the main grid for this element
+    items_list: gtk::ListBox,     // the list of item buttons
 }
 
 // Implement key features of the ItemList
@@ -665,6 +661,7 @@ impl ItemList {
     fn new() -> ItemList {
         // Add the top-level grid
         let grid = gtk::Grid::new();
+        grid.set_row_spacing(10); // add some internal space
 
         // Create the item list title and attach it to the grid
         let grid_title = gtk::Label::new(Some("All Items"));
@@ -672,17 +669,10 @@ impl ItemList {
 
         // Add the top separator for the item list
         let items_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        items_separator.set_halign(gtk::Align::Fill);
         items_separator.set_hexpand(true);
+        items_separator.set_halign(gtk::Align::Fill);
         grid.attach(&items_separator, 0, 1, 1, 1);
-
-        // Return the completed structure
-        ItemList { grid }
-    }
-
-    /// A method to make a button for each item in the configuration file
-    ///
-    fn update_info(&self, items: Vec<ItemPair>) {
+        
         // Create the scrolling window that contains the list box
         let items_scroll = gtk::ScrolledWindow::new(
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
@@ -691,17 +681,44 @@ impl ItemList {
         items_scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
         // Format the scrolling window and attach it to the grid
-        items_scroll.set_hexpand(true);
         items_scroll.set_vexpand(true);
-        items_scroll.set_halign(gtk::Align::Fill);
         items_scroll.set_valign(gtk::Align::Fill);
-        self.grid.attach(&items_scroll, 0, 2, 1, 1);
+        grid.attach(&items_scroll, 0, 2, 1, 1);
 
-        // Create the list box to hold the buttons with the item data and add it to the scrolling window
-        let items_list_box = gtk::ListBox::new();
-        items_list_box.set_selection_mode(gtk::SelectionMode::None);
-        items_scroll.add(&items_list_box);
+        // Create the list box to hold the item buttons
+        let items_list = gtk::ListBox::new();
+        items_list.set_selection_mode(gtk::SelectionMode::None);
+        items_scroll.add(&items_list);
+        
+        // Show all the elements of the grid
+        grid.show_all();
 
+        // Return the completed structure
+        ItemList { grid, items_list }
+    }
+    
+    /// A method to return the top element
+    ///
+    fn get_top_element(&self) -> &gtk::Grid {
+        &self.grid
+    }
+    
+    /// A method to clear the current item list
+    ///
+    fn clear(&self) {
+        // Remove all the item list buttons
+        let to_remove = self.items_list.get_children();
+        for item in to_remove {
+            item.destroy();
+        }
+    }
+
+    /// A method to make a button for each item in the configuration file
+    ///
+    fn update_info(&self, items: Vec<ItemPair>) {
+        // Clear the item list
+        self.clear();
+        
         // Iterate through the item pairs in the items vector
         for item_pair in items {
             // Create the label to hold the data
@@ -728,17 +745,11 @@ impl ItemList {
                 }
             }));
 
-            // Add the button to the list box
-            items_list_box.add(&item_button);
+            // Show the label, button and add the button to the list box
+            item_label.show();
+            item_button.show();
+            self.items_list.add(&item_button);
         }
-        // Show all the buttons in the grid
-        self.grid.show_all();
-    }
-
-    // A method to return the top element
-    //
-    fn get_top_element(&self) -> &gtk::Grid {
-        &self.grid
     }
 }
 
@@ -1217,6 +1228,7 @@ impl EditOverview {
         grid.attach(&display_grid, 0, 1, 3, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
+        grid.show_all();
 
         // Create and return the edit overview
         EditOverview {

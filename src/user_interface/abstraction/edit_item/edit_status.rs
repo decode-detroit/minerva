@@ -75,13 +75,12 @@ impl EditStatus {
 
         // Construct the checkbox for the status
         let status_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Status");
-        status_checkbox.set_active(false);
 
         // Connect the checkbox to the visibility of the grid
         status_checkbox.connect_toggled(clone!(status_grid => move | checkbox | {
             // Make the elements invisible if the box isn't checked
             if checkbox.get_active() {
-                status_grid.show_all();
+                status_grid.show();
             } else {
                 status_grid.hide();
             }
@@ -121,6 +120,11 @@ impl EditStatus {
         grid.attach(&status_grid, 0, 1, 1, 1);
         grid.set_column_spacing(10); // add some space
         grid.set_row_spacing(10);
+        grid.show_all();
+        
+        // Default to unchecked
+        status_checkbox.set_active(false);
+        status_grid.hide();
 
         // Return the EditStatus struct
         EditStatus {

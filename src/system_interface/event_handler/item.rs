@@ -509,18 +509,6 @@ impl ItemPair {
         }
     }
 
-    /// A method to verify full equality of the Item Pairs, including the
-    /// description and the display type.
-    ///
-    /// This method compares the description as well as the id of the item pairs
-    /// (as contrasted with the == operator which will just compare the ids).
-    ///
-    pub fn truly_equal(&self, other_id: &ItemPair) -> bool {
-        self == other_id
-            && self.description == other_id.description
-            && self.display == other_id.display
-    }
-
     /// A function to return a new all stop item pair. This is a reserved id for
     /// halting all active processes on the system and returning it to normal.
     ///
@@ -542,7 +530,6 @@ impl hash::Hash for ItemPair {
 
 // Implement partialEq which ignores the description
 /// The default equality operation will only compare the ids of the ItemPair.
-/// Use ItemPair::truely_equal() to compare the item descriptions as well.
 ///
 impl PartialEq for ItemPair {
     fn eq(&self, rhs: &ItemPair) -> bool {

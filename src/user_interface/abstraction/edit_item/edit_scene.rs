@@ -186,7 +186,6 @@ impl EditScene {
 
         // Construct the checkbox for the scene
         let scene_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Scene");
-        scene_checkbox.set_active(false);
 
         // Connect the checkbox to the visibility of the other elements
         scene_checkbox.connect_toggled(clone!(
@@ -226,10 +225,15 @@ impl EditScene {
         grid.attach(&keys_label, 1, 1, 1, 1);
         grid.attach(&keys_scroll, 1, 2, 1, 1);
         grid.attach(&add_key, 1, 3, 1, 1);
-
-        // Make the checkbox visible but hide the other elements by default
         grid.show_all();
+
+        // Default to unchecked
         scene_checkbox.set_active(false);
+        events_label.hide();
+        events_scroll.hide();
+        keys_label.hide();
+        keys_scroll.hide();
+        add_key.hide();
 
         EditScene{
             grid,

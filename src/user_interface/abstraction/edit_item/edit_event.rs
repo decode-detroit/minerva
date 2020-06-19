@@ -79,7 +79,6 @@ impl EditEvent {
 
         // Construct the checkbox for the event
         let event_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
-        event_checkbox.set_active(true);
 
         // Create the empty event actions
         let event_actions = Rc::new(RefCell::new(FnvHashMap::default()));
@@ -93,8 +92,8 @@ impl EditEvent {
 
         // Create a new edit action dialog
         let tmp_edit_action = EditAction::new(system_send, &event_actions, is_left);
-        grid.attach(tmp_edit_action.get_top_element(), 1, 1, 1, 2);
-        let edit_action = Rc::new(RefCell::new(tmp_edit_action.clone()));
+        let edit_action_window = tmp_edit_action.get_top_element().clone();
+        let edit_action = Rc::new(RefCell::new(tmp_edit_action));
 
         // Create a button to add actions to the list
         let add_button = gtk::Button::new_from_icon_name(
@@ -124,17 +123,17 @@ impl EditEvent {
         event_checkbox.connect_toggled(clone!(
             action_window,
             add_button,
-            tmp_edit_action
+            edit_action_window
         => move | checkbox | {
             // Make the elements invisible if the box isn't checked
             if checkbox.get_active() {
                 action_window.show();
                 add_button.show();
-                tmp_edit_action.get_top_element().show();
+                edit_action_window.show();
             } else {
                 action_window.hide();
                 add_button.hide();
-                tmp_edit_action.get_top_element().hide();
+                edit_action_window.hide();
             }
         }));
 
@@ -142,8 +141,16 @@ impl EditEvent {
         grid.attach(&event_checkbox, 0, 0, 1, 1);
         grid.attach(&action_window, 0, 1, 1, 1);
         grid.attach(&add_button, 0, 2, 1, 1);
+        grid.attach(&edit_action_window, 1, 1, 1, 2);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
+        grid.show_all();
+                
+        // Default to unchecked
+        event_checkbox.set_active(false);
+        action_window.hide();
+        add_button.hide();
+        edit_action_window.hide();
 
         // Create and return the trigger events variant
         EditEvent {
@@ -429,7 +436,8 @@ impl EditAction {
         grid.set_margin_end(10);
 
         // Make the correct things visible
-        grid.show_all();
+        action_selection.show();
+        action_stack.show();
         grid.hide();
 
         EditAction {
@@ -692,8 +700,8 @@ impl EditAction {
         // Add the save and delete buttons to the grid
         self.grid.attach(&save_button, 0, 2, 1, 1);
         self.grid.attach(&delete_button, 1, 2, 1, 1);
-        delete_button.show();
         save_button.show();
+        delete_button.show();
     }
 
     /// A method to return the top element
