@@ -19,8 +19,9 @@ You'll need Rust and GTK+ to compile and run Minerva. Binaries will be available
 * Installation of Rust: https://www.rust-lang.org/
 * Installation of GTK+: https://www.gtk.org/ (This is usually installed already on GNU/Linux systems. Search for package libgtk-3-0.)
 
-To take advantage of all Minerva's features, you'll need ZMQ bindings and a Redis server.
+To take advantage of all Minerva's features, you'll need ZMQ bindings, an audio library (platform specific) and a Redis server.
 * ZMQ bindings provide an easy and reliable way to network your devices. On GNU/Linux systems, you can install the package libzmq3-dev.
+* Audio support allows you to trigger and control audio playback directly within Minerva.
 * Redis provides real-time crash recovery to make sure your systems run reliably.
 
 Installation instructions for these are below in "Installing Extras". If you're just looking to experiment, you can safely get by without these features. :)
@@ -71,6 +72,14 @@ apt install libzmq3-dev
 ```
 
 Currently, rust-zmq requires ZeroMQ 4.1. If your OS of choice does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
+
+Enable audio support by compiling with the "audio" feature.
+
+```
+cargo build --features audio
+```
+
+To meet the audio dependencies, you will need to follow the platform-specific instructions for Rust CPAL: https://github.com/RustAudio/cpal.
 
 The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
 

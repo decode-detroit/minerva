@@ -23,14 +23,16 @@
 //! handler system via the event_send line.
 
 // Define private submodules
+mod audio_out;
 mod comedy_comm;
-mod dmx_comm;
+mod dmx_out;
 mod zmq_comm;
 
 // Import the relevant structures into the correct namespace
 use self::comedy_comm::ComedyComm;
-use self::dmx_comm::{DmxComm, DmxFade, DmxMap};
+use self::dmx_out::{DmxOut, DmxFade, DmxMap};
 use self::zmq_comm::{EventToString, StringToEvent, ZmqBind, ZmqConnect, ZmqLookup};
+use self::audio_out::{AudioOut, AudioCue, AudioMap};
 use super::event_handler::event::EventUpdate;
 use super::event_handler::item::{ItemId, COMM_ERROR, READ_ERROR};
 use super::GeneralUpdate;
@@ -49,7 +51,7 @@ use super::POLLING_RATE; // the polling rate for the system
 
 /// An enum to specify the type of system connection.
 ///
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum ConnectionType {
     /// A variant to connect with a ComedyComm serial port. This implementation
     /// assumes the serial connection uses the ComedyComm protocol.
@@ -85,13 +87,20 @@ pub enum ConnectionType {
         string_event: StringToEvent, // a map of string:event pairs (not every event:string pair will appear in string:event and vice versa)
     },
 
-    /// A variant to connect with a DMX serial port. This connection type allows
-    /// messages to be the sent only.
+    /// A variant to connect with a DMX serial port. This connection type only allows
+    /// messages to be the sent.
     DmxSerial {
         path: PathBuf,              // the location of the serial port
         all_stop_dmx: Vec<DmxFade>, // a vector of dmx fades for all stop
         dmx_map: DmxMap,            // the map of event ids to dmx fades
     },
+    
+    /// A variant to play audio from a local audio device. This connection type
+    /// only allows messages to be sent
+    Audio {
+        all_stop_audio: Vec<AudioCue>,  // a vector of audio cues for all stop
+        audio_map: AudioMap,            // the map of event ids to audio cues
+    }
 }
 
 // Implement key connection type features
@@ -154,8 +163,18 @@ impl ConnectionType {
                 ref dmx_map,
             } => {
                 // Create the new dmx connection
-                let connection = DmxComm::new(path, all_stop_dmx.clone(), dmx_map.clone())?;
+                let connection = DmxOut::new(path, all_stop_dmx.clone(), dmx_map.clone())?;
                 Ok(LiveConnection::DmxSerial { connection })
+            }
+            
+            // Connect to a live version of the Audio output
+            &ConnectionType::Audio {
+                ref all_stop_audio,
+                ref audio_map,
+            } => {
+                // Create the new audio connection
+                let connection = AudioOut::new(all_stop_audio.clone(), audio_map.clone())?;
+                Ok(LiveConnection::Audio { connection })
             }
         }
     }
@@ -176,7 +195,7 @@ enum LiveConnection {
         connection: ComedyComm, // the comedy connection
     },
 
-    /// A variant to create a ZeroMQ connection. The connection type allows
+    /// A variant to create a ZeroMQ connection. This connection type allows
     /// messages to be the sent and received. Received messages are echoed back
     /// to the send line so that all recipients will see the message
     ZmqPrimary {
@@ -198,10 +217,16 @@ enum LiveConnection {
         connection: ZmqLookup, // the zmq connection
     },
 
-    /// A variant to connect with a DMX serial port. The connection type allows
-    /// messages to be the sent only.
+    /// A variant to connect with a DMX serial port. This connection type only 
+    /// allows messages to be the sent.
     DmxSerial {
-        connection: DmxComm, // the DMX serial connection
+        connection: DmxOut, // the DMX serial connection
+    },
+    
+    /// A varient to connect with system audio. This connection type only allows
+    /// messaged to be sent.
+    Audio {
+        connection: AudioOut, // the system audio connection
     },
 }
 
@@ -216,6 +241,7 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqTranslate { ref mut connection } => connection.read_events(),
             &mut LiveConnection::DmxSerial { ref mut connection } => connection.read_events(),
+            &mut LiveConnection::Audio { ref mut connection } => connection.read_events(),
         }
     }
 
@@ -238,6 +264,9 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::DmxSerial { ref mut connection } => {
                 connection.write_event(id, data1, data2)
             }
+            &mut LiveConnection::Audio { ref mut connection } => {
+                connection.write_event(id, data1, data2)
+            }
         }
     }
 
@@ -258,6 +287,9 @@ impl EventConnection for LiveConnection {
                 connection.echo_event(id, data1, data2)
             }
             &mut LiveConnection::DmxSerial { ref mut connection } => {
+                connection.echo_event(id, data1, data2)
+            }
+            &mut LiveConnection::Audio { ref mut connection } => {
                 connection.echo_event(id, data1, data2)
             }
         }
@@ -339,9 +371,9 @@ impl SystemConnection {
                 match connection.initialize() {
                     Ok(conn) => live_connections.push(conn),
 
-                    // If it fails, warn the user FIXME pass the error upstream
-                    Err(_) => {
-                        update!(err self.general_update => "Unable To Initialize One Of The Underlying System Connections.");
+                    // If it fails, warn the user
+                    Err(e) => {
+                        update!(err self.general_update => "System Connection Error: {}", e);
                         return false;
                     }
                 };
@@ -370,8 +402,8 @@ impl SystemConnection {
         // Extract the connection, if it exists
         if let Some(ref mut conn) = self.connection_send {
             // Send the new event
-            if let Err(_) = conn.send(ConnectionUpdate::Broadcast(new_event, data)) {
-                update!(err &self.general_update => "Unable To Contact The Underlying System.");
+            if let Err(e) = conn.send(ConnectionUpdate::Broadcast(new_event, data)) {
+                update!(err &self.general_update => "Unable To Connect: {}", e);
             }
         }
     }
@@ -398,7 +430,7 @@ impl SystemConnection {
             // Read all the events from the list
             for (id, game_id, data2) in events.drain(..) {
                 // If there was a read error, notify the system
-                if id == ItemId::new_unchecked(READ_ERROR) {
+                if id == ItemId::new_unchecked(READ_ERROR) { // FIXME Add an out-of-channel option for logging these errors
                     update!(err &gen_update => "There Was A Read Error.");
 
                 // If there was a communication error on the network, notify the system
@@ -442,9 +474,9 @@ impl SystemConnection {
                         if let Err(_) = connection.write_event(id, identifier.id(), data2) {
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
-                            if let Err(_) = connection.write_event(id, identifier.id(), data2) {
+                            if let Err(e) = connection.write_event(id, identifier.id(), data2) {
                                 // If failed twice in a row, notify the system
-                                update!(err &gen_update => "Unable To Contact The Underlying System.");
+                                update!(err &gen_update => "Communication Error: {}", e);
                             }
                         }
                     }

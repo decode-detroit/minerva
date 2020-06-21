@@ -13,7 +13,7 @@ lto = true
 failure = "0.1.5"
 time = "0.1"
 fnv = "1.0.6"
-serde = {version = "1.0", features = ["derive"]}
+serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.7"
 gdk = "^0"
 gdk-pixbuf = "^0"
@@ -23,6 +23,7 @@ redis = "0.10.0"
 serial = "0.4.0"
 byteorder = "1"
 zmq = "0.8"
+rodio = { version = "^0.11", optional = true }
 
 [dependencies.gtk]
 version = "0.8.1"
@@ -35,4 +36,5 @@ features = ["v2_44"]
 [features]
 no_can_limit = []
 example_configs = []
+audio = ["rodio"]
 
