@@ -317,6 +317,11 @@ impl EventConnection for VideoOut {
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {   
         // Check to see if the event is all stop
         if id == ItemId::all_stop() {
+            // Stop all the currently playing videos
+            for (_, channel) in self.channels.iter() {
+                channel.set_state(gst::State::Null).unwrap_or(gst::StateChangeSuccess::Success);
+            }
+            
             // Run all of the all stop video, ignoring errors
             for video_cue in self.all_stop_video.iter() {
                 // Add the audio cue

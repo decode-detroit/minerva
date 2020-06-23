@@ -128,12 +128,13 @@ impl AudioOut {
             // Unpack the specified device name
             if let Some(device_name) = audio_cue.device_name {
                 // Check to see if the device name is valid
-                match rodio::devices() {
-                    Ok(devices) => {
-                        // Check to see if the name matches
-                        for device in devices {
-                            if let Ok(name) = device.name() {
-                                if name == device_name {
+                if let Ok(devices) = rodio::devices() {
+                    // Check to see if the name matches
+                    for device in devices {
+                        if let Ok(name) = device.name() {
+                            if name == device_name {
+                                // Verify that the device is valid for output
+                                if let Ok(_) = device.supported_output_formats() {
                                     // Try to play the file as a new source
                                     if let Ok(sink) = rodio::play_once(&device, BufReader::new(file)) {
                                         // Set the sink volume and save it
@@ -152,11 +153,11 @@ impl AudioOut {
                                     }
                                 }
                             }
-                        } // If this search does not succeed, continue to the default device below
-                    }
-                    
-                    // Return an error
-                    Err(e) => return Err(format_err!("Error opening audio devices: {}", e)),
+                        }
+                    } // If this search does not succeed, continue to the default device below
+                // Return on error
+                } else {
+                    return Err(format_err!("Error opening audio devices list."));
                 }
             }
             

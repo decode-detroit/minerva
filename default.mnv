@@ -30,6 +30,16 @@ system_connection:
           left: 0
           height: 1080
           width: 1920
+  - Audio:
+      all_stop_audio:
+        - path: "b1.flac"
+          device_name: "front:CARD=Device,DEV=0"
+          volume: 1.0
+      audio_map:
+        ? id: 8
+        : path: "b1.flac"
+          device_name: "front:CARD=Device,DEV=0"
+          volume: 1.0
         
 default_scene:
   id: 100
