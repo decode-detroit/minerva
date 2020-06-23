@@ -20,9 +20,9 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId, ItemPair, KeyMap,
-    ProcessEvent, QueueEvent, ReplyType, Request, RequestType, SceneChange, StatusChange,
-    StatusDescription, SystemSend,
+    BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
+    ItemPair, KeyMap, ProcessEvent, QueueEvent, ReplyType, Request, RequestType,
+    SceneChange, StatusChange, StatusDescription, SystemSend, VideoStream,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -32,6 +32,8 @@ use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
 use std::time::Duration;
+#[cfg(feature = "video")]
+use std::ffi::c_void;
 
 // Import FNV HashMap
 extern crate fnv;
@@ -42,7 +44,14 @@ extern crate gdk;
 extern crate gio;
 extern crate gtk;
 use self::gtk::prelude::*;
-use self::gtk::GridExt;
+#[cfg(feature = "video")]
+use self::gdk::WindowExt;
+
+// Import Gstreamer Library
+#[cfg(feature = "video")]
+extern crate gstreamer_video as gst_video;
+#[cfg(feature = "video")]
+use self::gst_video::prelude::*;
 
 // Define and import constants
 const STATE_LIMIT: usize = 20; // maximum character width of states
@@ -858,5 +867,164 @@ impl PromptStringDialog {
 
         // Show the dialog and return
         dialog.show_all();
+    }
+}
+
+/// A structure to contain the window for displaying video streams.
+///
+#[cfg(feature = "video")]
+pub struct VideoWindow {
+    window: gtk::Window,          // the video window
+    overlay: gtk::Overlay,        // the overlay widget
+    channel_map: Rc<RefCell<FnvHashMap<std::string::String, gtk::Rectangle>>>, // the mapping of channel numbers to allocations
+}
+
+// Implement key features for the video window
+#[cfg(feature = "video")]
+impl VideoWindow {
+    /// A function to create a new prompt string dialog structure.
+    ///
+    pub fn new() -> VideoWindow {
+        // Create the new window
+        let window = gtk::Window::new(gtk::WindowType::Toplevel);
+        
+        // Set window parameters
+        window.set_decorated(false);
+        window.fullscreen();
+        
+        // Create black background
+        let background = gtk::DrawingArea::new();
+        background.connect_draw(|_, cr| {
+            // Draw the background black
+            cr.set_source_rgb(0.0, 0.0, 0.0);
+            cr.paint();
+            Inhibit(true)
+        });
+        
+        // Create the channel map
+        let channel_map: Rc<RefCell<FnvHashMap<std::string::String, gtk::Rectangle>>> =
+            Rc::new(RefCell::new(FnvHashMap::default()));
+        
+        // Create the overlay and add the background
+        let overlay = gtk::Overlay::new();
+        overlay.add(&background);
+        
+        // Connect the get_child_position signal
+        overlay.connect_get_child_position(clone!(channel_map => move |_, widget| {
+            // Try to get the channel map
+            if let Ok(map) = channel_map.try_borrow() {
+                // Try to get the widget name
+                if let Some(name) = widget.get_widget_name() {
+                    // Look up the name in the channel map
+                    if let Some(allocation) = map.get(name.as_str()) {
+                        // Return the completed allocation
+                        return Some(allocation.clone());
+                    }
+                }
+            }
+            
+            // Return None on failure
+            None
+        }));
+        
+        // Add the overlay to the main window
+        window.add(&overlay);
+        
+        // Return the completed Video Window
+        VideoWindow {
+            window,
+            overlay,
+            channel_map,
+        }
+    }
+
+    /// A method to add a new video to the video window
+    ///
+    pub fn add_new_video(&self, video_stream: VideoStream) {
+        // Create a new video area
+        let video_area = gtk::DrawingArea::new();
+        
+        // Try to add the video area to the channel map
+        match self.channel_map.try_borrow_mut() {
+            // Insert the new channel
+            Ok(mut map) => {
+                map.insert(video_stream.channel.to_string(), video_stream.allocation);
+            }
+            
+            // Fail silently
+            _ => return,
+        }
+        video_area.set_widget_name(&video_stream.channel.to_string());
+        
+        // Connect the realize signal for the video area
+        video_area.connect_realize(move |video_area| {
+            // Extract a reference for the video overlay
+            let video_overlay = &video_stream.video_overlay;
+            
+            // Try to get a copy of the GDk window
+            let gdk_window = match video_area.get_window() {
+                Some(window) => window,
+                None => return,
+            };
+            
+            // Check to make sure the window is native
+            if !gdk_window.ensure_native() {
+                println!("Widget is not located inside a native window.");
+                return;
+            }
+
+            // Extract the display type of the window
+            let display_type = gdk_window.get_display().get_type().name();
+            
+            // Switch based on the platform
+            #[cfg(target_os = "linux")]
+            {
+                // Check if we're using X11
+                if display_type == "GdkX11Display" {
+                    // Connect to the get_xid function
+                    extern "C" {
+                        pub fn gdk_x11_window_get_xid(
+                            window: *mut glib::object::GObject,
+                        ) -> *mut c_void;
+                    }
+
+                    // Connect the video overlay to the correct window handle
+                    #[allow(clippy::cast_ptr_alignment)]
+                    unsafe {
+                        let xid = gdk_x11_window_get_xid(gdk_window.as_ptr() as *mut _);
+                        video_overlay.set_window_handle(xid as usize);
+                    }
+                } else {
+                    println!("Unsupported display type: {}", display_type);
+                }
+            }
+            
+            // If on Mac OS
+            #[cfg(target_os = "macos")]
+            {
+                // Check if we're using Quartz
+                if display_type_name == "GdkQuartzDisplay" {
+                    extern "C" {
+                        pub fn gdk_quartz_window_get_nsview(
+                            window: *mut glib::object::GObject,
+                        ) -> *mut c_void;
+                    }
+
+                    #[allow(clippy::cast_ptr_alignment)]
+                    unsafe {
+                        let window = gdk_quartz_window_get_nsview(gdk_window.as_ptr() as *mut _);
+                        video_overlay.set_window_handle(window as usize);
+                    }
+                } else {
+                    println!("Unsupported display type {}", display_type);
+                }
+            }
+        });
+        
+        // Add the video area to the overlay
+        self.overlay.add_overlay(&video_area);
+        
+        // Make sure all the elements of the window are shown
+        self.window.show_all();
     }
 }

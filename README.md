@@ -73,6 +73,8 @@ apt install libzmq3-dev
 
 Currently, rust-zmq requires ZeroMQ 4.1. If your OS of choice does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
 
+The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
+
 Enable audio support by compiling with the "audio" feature.
 
 ```
@@ -81,7 +83,13 @@ cargo build --features audio
 
 To meet the audio dependencies, you will need to follow the platform-specific instructions for Rust CPAL: https://github.com/RustAudio/cpal.
 
-The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
+Enable video support by compiling with the "video" feature.
+
+```
+cargo build --features video
+```
+
+To meet the video dependancies, you will need to follow the playform-specific instructions for GStreamer-rs: https://gitlab.freedesktop.org/gstreamer/gstreamer-rs
 
 ### Make It Pretty!
 

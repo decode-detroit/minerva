@@ -24,13 +24,15 @@ pub use self::event_handler::event::{
     DataType, EventAction, EventDelay, Event, EventUpdate, UpcomingEvent,
 };
 pub use self::event_handler::item::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription, ItemId,
-    ItemPair, LabelControl, LabelHidden,
+    DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription,
+    ItemId, ItemPair, LabelControl, LabelHidden,
 };
 pub use self::event_handler::{
     DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
 };
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
+#[cfg(feature = "video")]
+pub use self::system_connection::VideoStream;
 
 // Define private submodules
 #[macro_use]
@@ -178,6 +180,17 @@ impl SystemInterface {
                 self.interface_send
                     .send(LaunchWindow {
                         window_type: WindowType::PromptString(event),
+                    })
+                    .unwrap_or(());
+            }
+            
+            // Pass a video stream to the user interface
+            #[cfg(feature = "video")]
+            Ok(GeneralUpdateType::NewVideo(video_stream)) => {
+                // Pass the stream to the user interface
+                self.interface_send
+                    .send(LaunchWindow {
+                        window_type: WindowType::Video(video_stream),
                     })
                     .unwrap_or(());
             }
@@ -702,11 +715,15 @@ enum GeneralUpdateType {
 
     /// A variant that notifies the system of a change in the coming events
     ComingEvents(Vec<ComingEvent>),
-
+    
     /// A variant that solicies a string of data from the user to send to the
     /// system. The string will be sent as a series of events with the same
-    /// item id. FIXME Make this more generic for other user input
+    /// item id. TODO Make this more generic for other user input
     GetUserString(ItemPair),
+    
+    /// A variant to pass a new video stream to the user interface
+    #[cfg(feature = "video")]
+    NewVideo(VideoStream),
 
     /// A variant to notify the system of an update from the user interface
     System(SystemUpdate),
@@ -772,6 +789,15 @@ impl GeneralUpdate {
     fn send_get_user_string(&self, event: ItemPair) {
         self.general_send
             .send(GeneralUpdateType::GetUserString(event))
+            .unwrap_or(());
+    }
+     
+    /// A method to pass a new video stream to the user interface
+    ///
+    #[cfg(feature = "video")]
+    fn send_new_video(&self, video_stream: VideoStream) {
+        self.general_send
+            .send(GeneralUpdateType::NewVideo(video_stream))
             .unwrap_or(());
     }
 
@@ -1056,21 +1082,25 @@ pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong 
 ///
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum WindowType {
-    /// A variant to launch the status dialog with an optional relevant status of interest
-    Status(Option<ItemPair>),
-
     /// A variant to launch the jump dialog with an optional scene of interest
     Jump(Option<ItemPair>),
-
-    /// A variant to launch the trigger dialog with an optional event of interest
-    Trigger(Option<ItemPair>),
-
-    /// A variant to show the shortcuts window
-    Shortcuts,
-
+    
     /// A variant to solicit a string from the user. The string will be sent as
     /// a series of events to the system
     PromptString(ItemPair),
+    
+    /// A variant to show the shortcuts window
+    Shortcuts,
+    
+    /// A variant to launch the status dialog with an optional relevant status of interest
+    Status(Option<ItemPair>),
+    
+    /// A variant to launch the trigger dialog with an optional event of interest
+    Trigger(Option<ItemPair>),
+    
+    /// A variant to launch a video window with a source from the video system connection
+    #[cfg(feature = "video")]
+    Video(VideoStream),
 }
 
 /// An enum to change one of the display settings of the user interface
@@ -1094,8 +1124,6 @@ pub enum DisplaySetting {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ReplyType {
     /// A variant for the description of an item
-    // FIXME: probably want to do some renaming. While this is primarily used to update descriptions
-    // keeping track of the associated item id is useful in some situations as well
     Description { description: ItemPair },
 
     /// A variant for the event associated with an item

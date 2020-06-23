@@ -6,16 +6,27 @@ identifier:
 server_location: ~
 background_process: ~
 system_connection:
-  - Audio:
-      all_stop_audio:
-        - path: "b3.flac"
-          device_name: "badname"
-          volume: 1.0
-      audio_map:
+  - Video:
+      all_stop_video: []
+      video_map:
         ? id: 8
-        : path: "b1.flac"
-          device_name: "front:CARD=Device,DEV=0"
-          volume: 1.0
+        : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24642.mp4"
+          channel: 1
+        ? id: 10
+        : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
+          channel: 1
+      channel_map:
+        ? 1
+        : top: 100
+          left: 200
+          height: 300
+          width: 800
+        ? 2
+        : top: 500
+          left: 600
+          height: 300
+          width: 800
+        
 default_scene:
   id: 100
 
@@ -38,6 +49,7 @@ all_scenes:
       - id: 7
       - id: 8
       - id: 9
+      - id: 10
     key_map:
       ? 32
       : id: 7
@@ -177,7 +189,7 @@ event_set:
           event_id:
             id: 8
   ? id: 8
-    description: Make some noise!
+    description: Make Some Video!
     display:
       DisplayWith:
         group_id:
@@ -192,6 +204,13 @@ event_set:
   : - CancelEvent:
         event:
           id: 8
+  ? id: 10
+    description: Make Other Video!
+    display:
+      DisplayWith:
+        group_id:
+          id: 31
+  : []
   ? id: 20
     description: Event Status
     display:

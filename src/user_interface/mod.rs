@@ -221,17 +221,21 @@ impl UserInterface {
                         // Launch the jump dialog
                         WindowType::Jump(scene) => interface.launch_jump(scene),
 
-                        // Launch the status dialog
-                        WindowType::Status(status) => interface.launch_status(status),
+                        // Launch the prompt string dialog
+                        WindowType::PromptString(event) => interface.launch_prompt_string(event),
 
                         // Launch the jump dialog
                         WindowType::Shortcuts => interface.launch_shortcuts(),
 
+                        // Launch the status dialog
+                        WindowType::Status(status) => interface.launch_status(status),
+
                         // Launch the trigger dialog
                         WindowType::Trigger(event) => interface.launch_trigger(event),
 
-                        // Launch the prompt string dialog
-                        WindowType::PromptString(event) => interface.launch_prompt_string(event),
+                        // Launch the video window
+                        #[cfg(feature = "video")]
+                        WindowType::Video(video_stream) => interface.add_new_video(video_stream),
                     }
                 }
 

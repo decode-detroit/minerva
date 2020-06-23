@@ -22,10 +22,15 @@
 //! rest of the system. Updates from the system are passed back to the event
 //! handler system via the event_send line.
 
+// Reexport the key structures and types
+#[cfg(feature = "video")]
+pub use self::video_out::VideoStream;
+
 // Define private submodules
 mod audio_out;
 mod comedy_comm;
 mod dmx_out;
+mod video_out;
 mod zmq_comm;
 
 // Import the relevant structures into the correct namespace
@@ -33,6 +38,7 @@ use self::comedy_comm::ComedyComm;
 use self::dmx_out::{DmxOut, DmxFade, DmxMap};
 use self::zmq_comm::{EventToString, StringToEvent, ZmqBind, ZmqConnect, ZmqLookup};
 use self::audio_out::{AudioOut, AudioCue, AudioMap};
+use self::video_out::{VideoOut, VideoCue, VideoMap, ChannelMap};
 use super::event_handler::event::EventUpdate;
 use super::event_handler::item::{ItemId, COMM_ERROR, READ_ERROR};
 use super::GeneralUpdate;
@@ -100,7 +106,15 @@ pub enum ConnectionType {
     Audio {
         all_stop_audio: Vec<AudioCue>,  // a vector of audio cues for all stop
         audio_map: AudioMap,            // the map of event ids to audio cues
-    }
+    },
+    
+    /// A variant to play video on the local screen. This connection type only allows
+    /// messages to be sent
+    Video {
+        all_stop_video: Vec<VideoCue>,  // a vector of video cues for all stop
+        video_map: VideoMap,            // the map of event ids to video cues
+        channel_map: ChannelMap,        // the map of channel numbers to channel dimensions
+    },
 }
 
 // Implement key connection type features
@@ -109,7 +123,7 @@ impl ConnectionType {
     /// Type. This method estahblishes the connection to the underlying system.
     /// If the connection fails, it will return the Error.
     ///
-    fn initialize(&self) -> Result<LiveConnection, Error> {
+    fn initialize(&self, general_update: &GeneralUpdate) -> Result<LiveConnection, Error> {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the comedy serial port
@@ -176,6 +190,22 @@ impl ConnectionType {
                 let connection = AudioOut::new(all_stop_audio.clone(), audio_map.clone())?;
                 Ok(LiveConnection::Audio { connection })
             }
+            
+            // Connect to a live version of the Video output
+            &ConnectionType::Video {
+                ref all_stop_video,
+                ref video_map,
+                ref channel_map,
+            } => {
+                // Create the new video connection
+                let connection = VideoOut::new(
+                    general_update,
+                    all_stop_video.clone(),
+                    video_map.clone(),
+                    channel_map.clone()
+                )?;
+                Ok(LiveConnection::Video { connection })
+            }
         }
     }
 }
@@ -223,10 +253,16 @@ enum LiveConnection {
         connection: DmxOut, // the DMX serial connection
     },
     
-    /// A varient to connect with system audio. This connection type only allows
-    /// messaged to be sent.
+    /// A variant to connect with system audio. This connection type only allows
+    /// messages to be sent.
     Audio {
         connection: AudioOut, // the system audio connection
+    },
+    
+    /// A variant to connect with system video. This connection type only allows
+    /// messages to be sent.
+    Video {
+        connection: VideoOut, // the system video connection
     },
 }
 
@@ -242,6 +278,7 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::ZmqTranslate { ref mut connection } => connection.read_events(),
             &mut LiveConnection::DmxSerial { ref mut connection } => connection.read_events(),
             &mut LiveConnection::Audio { ref mut connection } => connection.read_events(),
+            &mut LiveConnection::Video { ref mut connection } => connection.read_events(),
         }
     }
 
@@ -267,6 +304,9 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::Audio { ref mut connection } => {
                 connection.write_event(id, data1, data2)
             }
+            &mut LiveConnection::Video { ref mut connection } => {
+                connection.write_event(id, data1, data2)
+            }
         }
     }
 
@@ -290,6 +330,9 @@ impl EventConnection for LiveConnection {
                 connection.echo_event(id, data1, data2)
             }
             &mut LiveConnection::Audio { ref mut connection } => {
+                connection.echo_event(id, data1, data2)
+            }
+            &mut LiveConnection::Video { ref mut connection } => {
                 connection.echo_event(id, data1, data2)
             }
         }
@@ -319,7 +362,7 @@ pub struct SystemConnection {
 impl SystemConnection {
     /// A function to create a new system connection instance.
     ///
-    /// This function requires a general_send line for passing events from the
+    /// This function requires a general update line for passing events from the
     /// system back to the event handler.
     ///
     /// # Errors
@@ -368,7 +411,7 @@ impl SystemConnection {
             let mut live_connections = Vec::new();
             for connection in conn_set {
                 // Attempt to initialize each connection
-                match connection.initialize() {
+                match connection.initialize(&self.general_update) {
                     Ok(conn) => live_connections.push(conn),
 
                     // If it fails, warn the user

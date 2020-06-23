@@ -88,10 +88,10 @@ impl AudioOut {
         })
     }
 
-   /// A function to create a new instance of the AudioOut, inactive version
-   ///
-   #[cfg(not(feature = "audio"))]
-   pub fn new(_all_stop_audio: Vec<AudioCue>, audio_map: AudioMap) -> Result<AudioOut, Error> {
+    /// A function to create a new instance of the AudioOut, inactive version
+    ///
+    #[cfg(not(feature = "audio"))]
+    pub fn new(_all_stop_audio: Vec<AudioCue>, audio_map: AudioMap) -> Result<AudioOut, Error> {
         // Return a partial module
         Ok(AudioOut {
             audio_map,
@@ -247,7 +247,7 @@ impl EventConnection for AudioOut {
             // Run all of the all stop audio, ignoring errors
             for audio_cue in self.all_stop_audio.iter() {
                 // Add the audio cue
-                AudioOut::add_cue(&mut self.devices, &mut self.sinks, audio_cue.clone())?;
+                AudioOut::add_cue(&mut self.devices, &mut self.sinks, audio_cue.clone()).unwrap_or(());
             }
 
         // Check to see if the event is in the audio map

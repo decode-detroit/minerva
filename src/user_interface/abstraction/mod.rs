@@ -33,11 +33,15 @@ use self::events::EventAbstraction;
 use self::operation_dialogs::{
     JumpDialog, PromptStringDialog, ShortcutsDialog, StatusDialog, TriggerDialog,
 };
+#[cfg(feature = "video")]
+use self::operation_dialogs::VideoWindow;
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
     DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair,
     KeyMap, Notification, ReplyType, StatusDescription, SystemSend, UpcomingEvent,
 };
+#[cfg(feature = "video")]
+use super::super::system_interface::VideoStream;
 use super::utils::clean_text;
 use edit_item::EditWindow;
 
@@ -85,6 +89,8 @@ pub struct InterfaceAbstraction {
     shortcuts_dialog: ShortcutsDialog, // the shortcuts dialog
     trigger_dialog: TriggerDialog, // the trigger dialog
     prompt_string_dialog: PromptStringDialog, // the prompt string dialog
+    #[cfg(feature = "video")]
+    video_window: VideoWindow,  // the video window
     is_debug: bool,          // a flag to indicate whether the program is in debug mode
 }
 
@@ -185,6 +191,8 @@ impl InterfaceAbstraction {
         let shortcuts_dialog = ShortcutsDialog::new(system_send, window);
         let trigger_dialog = TriggerDialog::new(window);
         let prompt_string_dialog = PromptStringDialog::new(window);
+        #[cfg(feature = "video")]
+        let video_window = VideoWindow::new();
 
         // Return a copy of the interface abstraction
         InterfaceAbstraction {
@@ -207,6 +215,8 @@ impl InterfaceAbstraction {
             shortcuts_dialog,
             trigger_dialog,
             prompt_string_dialog,
+            #[cfg(feature = "video")]
+            video_window,
             is_debug: false,
         }
     }
@@ -445,5 +455,11 @@ impl InterfaceAbstraction {
     /// A method to launch the prompt string dialog
     pub fn launch_prompt_string(&self, event: ItemPair) {
         self.prompt_string_dialog.launch(&self.system_send, event);
+    }
+    
+    /// A method to update the video window
+    #[cfg(feature = "video")]
+    pub fn add_new_video(&self, video_stream: VideoStream) {
+        self.video_window.add_new_video(video_stream);
     }
 }
