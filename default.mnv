@@ -12,20 +12,24 @@ system_connection:
         ? id: 8
         : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24642.mp4"
           channel: 1
+          loop_video: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24641.mp4"
         ? id: 10
         : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
           channel: 1
       channel_map:
         ? 1
-        : top: 100
+        : window_number: 1
+          top: 100
           left: 200
           height: 300
           width: 800
+          loop_video: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
         ? 2
-        : top: 500
-          left: 600
-          height: 300
-          width: 800
+        : window_number: 2
+          top: 0
+          left: 0
+          height: 1080
+          width: 1920
         
 default_scene:
   id: 100

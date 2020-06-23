@@ -18,12 +18,15 @@
 //! A module to create, hold, and handle special windows for the user interface.
 //! These additional dialog windows are typically launched from the system menu.
 
+
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
     ItemPair, KeyMap, ProcessEvent, QueueEvent, ReplyType, Request, RequestType,
-    SceneChange, StatusChange, StatusDescription, SystemSend, VideoStream,
+    SceneChange, StatusChange, StatusDescription, SystemSend,
 };
+#[cfg(feature = "video")]
+use super::super::super::system_interface::VideoStream;
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
 
@@ -874,8 +877,7 @@ impl PromptStringDialog {
 ///
 #[cfg(feature = "video")]
 pub struct VideoWindow {
-    window: gtk::Window,          // the video window
-    overlay: gtk::Overlay,        // the overlay widget
+    overlay_map: FnvHashMap<u32, gtk::Overlay>, // the overlay widget
     channel_map: Rc<RefCell<FnvHashMap<std::string::String, gtk::Rectangle>>>, // the mapping of channel numbers to allocations
 }
 
@@ -885,62 +887,23 @@ impl VideoWindow {
     /// A function to create a new prompt string dialog structure.
     ///
     pub fn new() -> VideoWindow {
-        // Create the new window
-        let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        
-        // Set window parameters
-        window.set_decorated(false);
-        window.fullscreen();
-        
-        // Create black background
-        let background = gtk::DrawingArea::new();
-        background.connect_draw(|_, cr| {
-            // Draw the background black
-            cr.set_source_rgb(0.0, 0.0, 0.0);
-            cr.paint();
-            Inhibit(true)
-        });
+        // Create the overlay map
+        let overlay_map = FnvHashMap::default();
         
         // Create the channel map
         let channel_map: Rc<RefCell<FnvHashMap<std::string::String, gtk::Rectangle>>> =
             Rc::new(RefCell::new(FnvHashMap::default()));
-        
-        // Create the overlay and add the background
-        let overlay = gtk::Overlay::new();
-        overlay.add(&background);
-        
-        // Connect the get_child_position signal
-        overlay.connect_get_child_position(clone!(channel_map => move |_, widget| {
-            // Try to get the channel map
-            if let Ok(map) = channel_map.try_borrow() {
-                // Try to get the widget name
-                if let Some(name) = widget.get_widget_name() {
-                    // Look up the name in the channel map
-                    if let Some(allocation) = map.get(name.as_str()) {
-                        // Return the completed allocation
-                        return Some(allocation.clone());
-                    }
-                }
-            }
-            
-            // Return None on failure
-            None
-        }));
-        
-        // Add the overlay to the main window
-        window.add(&overlay);
-        
+
         // Return the completed Video Window
         VideoWindow {
-            window,
-            overlay,
+            overlay_map,
             channel_map,
         }
     }
 
     /// A method to add a new video to the video window
     ///
-    pub fn add_new_video(&self, video_stream: VideoStream) {
+    pub fn add_new_video(&mut self, video_stream: VideoStream) {
         // Create a new video area
         let video_area = gtk::DrawingArea::new();
         
@@ -956,6 +919,9 @@ impl VideoWindow {
         }
         video_area.set_widget_name(&video_stream.channel.to_string());
         
+        // Extract the window number (for use below)
+        let window_number = video_stream.window_number;
+        
         // Connect the realize signal for the video area
         video_area.connect_realize(move |video_area| {
             // Extract a reference for the video overlay
@@ -964,7 +930,10 @@ impl VideoWindow {
             // Try to get a copy of the GDk window
             let gdk_window = match video_area.get_window() {
                 Some(window) => window,
-                None => return,
+                None => {
+                    println!("Unable to get current window for video overlay.");
+                    return;
+                }
             };
             
             // Check to make sure the window is native
@@ -1021,10 +990,76 @@ impl VideoWindow {
             }
         });
         
-        // Add the video area to the overlay
-        self.overlay.add_overlay(&video_area);
+        // Check to see if there is already a matching window
+        if let Some(overlay) = self.overlay_map.get(&window_number) {
+            // Add the video area to the overlay
+            overlay.add_overlay(&video_area);
+            
+            // Show the video area
+            video_area.show();
         
-        // Make sure all the elements of the window are shown
-        self.window.show_all();
+        // Otherwise, create a new window
+        } else {
+            // Create the new window
+            let (window, overlay) = self.new_window();
+            
+            // Add the video area to the overlay
+            overlay.add_overlay(&video_area);
+            
+            // Save the overlay in the overlay map
+            self.overlay_map.insert(window_number, overlay);
+            
+            // Show the window
+            window.show_all();
+        }
+    }
+    
+    // A helper function to create a new video window and return the window and overlay
+    //
+    fn new_window(&self) -> (gtk::Window, gtk::Overlay) {
+        // Create the new window
+        let window = gtk::Window::new(gtk::WindowType::Toplevel);
+        
+        // Set window parameters
+        window.set_decorated(false);
+        window.fullscreen();
+        
+        // Create black background
+        let background = gtk::DrawingArea::new();
+        background.connect_draw(|_, cr| {
+            // Draw the background black
+            cr.set_source_rgb(0.0, 0.0, 0.0);
+            cr.paint();
+            Inhibit(true)
+        });
+        
+        // Create the overlay and add the background
+        let overlay = gtk::Overlay::new();
+        overlay.add(&background);
+        
+        // Connect the get_child_position signal
+        let channel_map = self.channel_map.clone();
+        overlay.connect_get_child_position(move |_, widget| {
+            // Try to get the channel map
+            if let Ok(map) = channel_map.try_borrow() {
+                // Try to get the widget name
+                if let Some(name) = widget.get_widget_name() {
+                    // Look up the name in the channel map
+                    if let Some(allocation) = map.get(name.as_str()) {
+                        // Return the completed allocation
+                        return Some(allocation.clone());
+                    }
+                }
+            }
+            
+            // Return None on failure
+            None
+        });
+        
+        // Add the overlay to the window
+        window.add(&overlay);
+        
+        // Return the overlay
+        (window, overlay)
     }
 }

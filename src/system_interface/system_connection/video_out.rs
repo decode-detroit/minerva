@@ -53,10 +53,15 @@ use failure::Error;
 /// The uri format must follow the URI syntax rules. This means local files must
 /// by specified like "file:///absolute/path/to/file.mp4".
 ///
+/// If a video is specified in the loop video field, the channel will loop this
+/// video when this video completes. This takes priority over the channel loop
+/// video field.
+///
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct VideoCue {
     uri: String,            // the location of the video file to play
     channel: u32,           // the channel of the video. A new video sent to the same channel will replace the old video, starting instantly FIXME
+    loop_video: Option<String>, // the location of a video to loop after this video is complete
 }
 
 /// A type to store a hashmap of event ids and Video Cues
@@ -65,12 +70,21 @@ pub type VideoMap = FnvHashMap<ItemId, VideoCue>;
 
 /// A struct to define a single channel to display a video track
 ///
+/// # Note
+///
+/// If a video is specified in the loop video field, the channel will loop this
+/// video when the first video completes and anytime no other video has been
+/// directed to play on the channel. If no loop video is specified, the channel
+/// will hold on the last frame of the most recent video.
+///
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub struct VideoChannel {                        // 
-    top: i32,               // the distance (in pixels) from the top of the display
-    left: i32,              // the distance (in pixels) from the left of the display
-    height: i32,            // the height of the video
-    width: i32,             // the width of the video
+pub struct VideoChannel {
+    window_number: u32,         // the window number for the channel
+    top: i32,                   // the distance (in pixels) from the top of the display
+    left: i32,                  // the distance (in pixels) from the left of the display
+    height: i32,                // the height of the video
+    width: i32,                 // the width of the video
+    loop_video: Option<String>, // the location of a video to loop in the background of this stream
 }
 
 /// A type to stote a hashmap of channel ids and allocations
@@ -82,6 +96,7 @@ pub type ChannelMap = FnvHashMap<u32, VideoChannel>;
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct VideoStream {
     pub channel: u32,                       // the channel where the video should be played
+    pub window_number: u32,                 // the window where the video should be played
     pub allocation: gtk::Rectangle,         // the location of the video in the screen
     pub video_overlay: gst_video::VideoOverlay, // the video overlay which should be connected to the video id
 }
@@ -155,20 +170,37 @@ impl VideoOut {
             // Add the uri to this channel
             channel.set_property("uri", &video_cue.uri)?;
             
+            // If a loop was specified, replace the loop video
+            if let Some(loop_video) = video_cue.loop_video {
+                VideoOut::add_loop_video(&channel, loop_video)?;
+            
+            // Otherwise, try to use the channel loop video instead
+            } else {
+                // Try to get the channel information
+                if let Some(video_channel) = channel_map.get(&video_cue.channel) {
+                    // If a loop was specified, replace the loop video
+                    if let Some(loop_video) = video_channel.loop_video.clone() {
+                        VideoOut::add_loop_video(&channel, loop_video)?;
+                    }
+                }
+            }
+            
             // Make sure it is playing
             channel.set_state(gst::State::Playing)?;
         
         // Otherwise, create a new channel
         } else {
             // Try to get the channel information
-            let allocation = match channel_map.get(&video_cue.channel) {
+            let (window_number, allocation, possible_loop) = match channel_map.get(&video_cue.channel) {
                 Some(video_channel) => {
+                    (video_channel.window_number,
                     gtk::Rectangle {
                         x: video_channel.top,
                         y: video_channel.left,
                         width: video_channel.width,
                         height: video_channel.height,
-                    }
+                    },
+                    video_channel.loop_video.clone())
                 }
                 
                 // If the channel information isn't available, throw an error
@@ -190,18 +222,81 @@ impl VideoOut {
             // Send the new video stream to the user interface
             general_update.send_new_video(
                 VideoStream {
+                    window_number,
                     channel: video_cue.channel,
                     allocation,
                     video_overlay,
                 }
             );
             
+            // If a loop was specified, create the loop video
+            if let Some(loop_video) = video_cue.loop_video {
+                VideoOut::add_loop_video(&playbin, loop_video)?;
+            
+            // Otherwise, try to use the channel loop video instead
+            } else {
+                // If a loop was specified, create the loop video
+                if let Some(loop_video) = possible_loop {
+                    VideoOut::add_loop_video(&playbin, loop_video)?;
+                }
+            }
+                        
             // Start playing the video
             playbin.set_state(gst::State::Playing)?;
             
             // Add the playbin to the channels
             channels.insert(video_cue.channel, playbin);
         }
+        
+        // Indicate success
+        Ok(())
+    }
+    
+    // A helper function to add a singal watch to handle looping videos
+    #[cfg(feature = "video")]
+    fn add_loop_video(playbin: &gst::Element, loop_video: String) -> Result<(), Error> {
+        
+        // Try to create the playbin bus
+        let bus = match playbin.get_bus() {
+            Some(bus) => bus,
+            None => return Err(format_err!("Unable to initialize the loop video.")),
+        };
+        
+        // Try to remove the old watch, if it exists
+        bus.remove_watch().unwrap_or(());
+        
+        // Create a week referene to the playbin
+        let channel_weak = playbin.downgrade();
+        
+        // Connect the signal handler for the end of stream notification
+        bus.add_watch(move |_, msg| {
+            // Try to get a strong reference to the channel
+            let channel = match channel_weak.upgrade() {
+                Some(channel) => channel,
+                None => return glib::Continue(true), // Fail silently
+            };
+
+            // Match the message type
+            match msg.view() {
+                // If the end of stream message is received
+                gst::MessageView::Eos(..) => {
+                    // Stop the previous video
+                    channel.set_state(gst::State::Null).unwrap_or(gst::StateChangeSuccess::Success);
+                    
+                    // Add the loop uri to this channel
+                    channel.set_property("uri", &loop_video).unwrap_or(());
+                                
+                    // Try to start playing the video
+                    channel.set_state(gst::State::Playing).unwrap_or(gst::StateChangeSuccess::Success);
+                }
+                
+                // Ignore other messages
+                _ => (),
+            }
+            
+            // Continue with other signal handlers
+            glib::Continue(true)
+        })?;
         
         // Indicate success
         Ok(())
@@ -265,7 +360,13 @@ impl Drop for VideoOut {
     fn drop(&mut self) {
         // For every playbin in the active channels
         for (_, playbin) in self.channels.drain() {
+            // Set the playbin state to Null
             playbin.set_state(gst::State::Null).unwrap_or(gst::StateChangeSuccess::Success);
+            
+            // Try to remove the bus signal watch
+            if let Some(bus) = playbin.get_bus() {
+                bus.remove_watch().unwrap_or(());
+            }   
         }
     }
 }   

@@ -31,7 +31,11 @@ use std::u32::MAX as U32_MAX;
 
 // Import GTK library
 extern crate gtk;
+extern crate gdk;
 use self::gtk::prelude::*;
+
+// Import the serde_yaml library
+extern crate serde_yaml;
 
 // Define module constants
 const FLASH_RATE: u32 = 700;
@@ -424,4 +428,31 @@ fn spotlight_label(
 
     // Stop the closure on failure
     Continue(false)
+}
+
+/// A macro that allows the user to set a widget as a drag source,
+/// or a drag destination
+///
+macro_rules! drag {
+    // Set a widget as a drag source
+    (source $widget:expr) => ({
+        $widget.drag_source_set(
+            gdk::ModifierType::MODIFIER_MASK,
+            &vec![
+                gtk::TargetEntry::new("ITEMID", gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY,
+        );
+    });
+
+    // Set a widget as a drag destination
+    (dest $widget:expr) => ({
+        $widget.drag_dest_set(
+            gtk::DestDefaults::ALL,
+            &vec![
+                gtk::TargetEntry::new("ITEMID",gtk::TargetFlags::SAME_APP, 0),
+            ],
+            gdk::DragAction::COPY
+        );
+    })
 }

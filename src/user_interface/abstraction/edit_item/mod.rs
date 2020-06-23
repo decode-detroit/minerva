@@ -20,10 +20,6 @@
 //! to the system interface to request and modify data in the configuration.
 
 
-// Use the macros from the macros submodule
-#[macro_use]
-pub mod macros;
-
 // Define private submodules
 mod edit_event;
 mod edit_scene;
