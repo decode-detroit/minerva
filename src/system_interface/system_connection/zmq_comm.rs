@@ -18,7 +18,7 @@
 //! A module to communicate using a ZMQ connection
 
 // Import the relevant structures into the correct namespace
-use super::{EventConnection, ItemId, READ_ERROR};
+use super::{EventConnection, ItemId, ReadResult};
 
 // Import standard library features
 use std::path::PathBuf;
@@ -75,15 +75,15 @@ impl ZmqBind {
 impl EventConnection for ZmqBind {
     /// A method to receive new events from the zmq connection
     ///
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
+    fn read_events(&mut self) -> Vec<ReadResult> {
         // Read any events from the zmq connection
-        let mut events = Vec::new();
-        while let Some(event) = read_from_zmq(&self.zmq_recv) {
-            events.push(event);
+        let mut results = Vec::new();
+        while let Some(result) = read_from_zmq(&self.zmq_recv) {
+            results.push(result);
         }
 
-        // Return the list of events
-        events
+        // Return the list of results
+        results
     }
 
     /// A method to send a new event to the zmq connection
@@ -152,39 +152,46 @@ impl ZmqConnect {
 impl EventConnection for ZmqConnect {
     /// A method to receive a new event, empty for this connection type
     ///
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
-        // Read any events from the zmq connection
-        let mut events = Vec::new();
-        while let Some((id, data1, data2)) = read_from_zmq(&self.zmq_recv) {
-            // Filter each event before adding it to the list
-            let mut count = 0;
-            for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_out.iter() {
-                // If the event matches an event in the filter
-                if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
-                    break; // exit with the found event count
+    fn read_events(&mut self) -> Vec<ReadResult> {
+        // Read any results from the zmq connection
+        let mut results = Vec::new();
+        while let Some(result) = read_from_zmq(&self.zmq_recv) {
+            // Match based on the result
+            if let ReadResult::Normal(id, data1, data2) = result {
+                // Filter each event before adding it to the list
+                let mut count = 0;
+                for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_out.iter() {
+                    // If the event matches an event in the filter
+                    if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
+                        break; // exit with the found event count
+                    }
+
+                    // Increment the count
+                    count = count + 1;
                 }
 
-                // Increment the count
-                count = count + 1;
-            }
+                // Filter the event and remove it from the filter
+                if count < self.filter_out.len() {
+                    // Remove that event from the filter
+                    self.filter_out.remove(count);
 
-            // Filter the event and remove it from the filter
-            if count < self.filter_out.len() {
-                // Remove that event from the filter
-                self.filter_out.remove(count);
+                // Otherwise, add the event to the list
+                } else {
+                    // Add the new event to the list
+                    results.push(ReadResult::Normal(id.clone(), data1.clone(), data2.clone()));
 
-            // Otherwise, add the event to the list
+                    // Add the new event to the filter
+                    self.filter_in.push((id, data1, data2));
+                }
+            
+            // Otherwise, pass the error upstream
             } else {
-                // Add the new event to the list
-                events.push((id.clone(), data1.clone(), data2.clone()));
-
-                // Add the new event to the filter
-                self.filter_in.push((id, data1, data2));
+                results.push(result);
             }
         }
 
-        // Return the list of events
-        events
+        // Return the list of results
+        results
     }
 
     /// A method to send a new event to the zmq connection
@@ -232,7 +239,7 @@ impl EventConnection for ZmqConnect {
 }
 
 // A helper function to read a single event from the zmq connection
-fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<(ItemId, u32, u32)> {
+fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
     // Read the first component of the message
     let id;
     let data1;
@@ -241,7 +248,7 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<(ItemId, u32, u32)> {
         // Try to convert the message
         id = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
-            _ => return Some((ItemId::new_unchecked(READ_ERROR), 0, 0)),
+            _ => return Some(ReadResult::ReadError(format_err!("Invalid Event Id for ZMQ."))),
         };
 
     // If nothing was received, return nothing
@@ -254,12 +261,12 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<(ItemId, u32, u32)> {
         // Try to convert the message
         data1 = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
-            _ => return Some((ItemId::new_unchecked(READ_ERROR), 0, 0)),
+            _ => return Some(ReadResult::ReadError(format_err!("Invalid second field for ZMQ."))),
         };
 
     // Notify the system of a read error
     } else {
-        return Some((ItemId::new_unchecked(READ_ERROR), 0, 0));
+        return Some(ReadResult::ReadError(format_err!("Missing second field for ZMQ.")));
     }
 
     // Read the third component of the message
@@ -267,16 +274,16 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<(ItemId, u32, u32)> {
         // Try to convert the message
         data2 = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
-            _ => return Some((ItemId::new_unchecked(READ_ERROR), 0, 0)),
+            _ => return Some(ReadResult::ReadError(format_err!("Invalid third field for ZMQ."))),
         };
 
     // Notify the system of a read error
     } else {
-        return Some((ItemId::new_unchecked(READ_ERROR), 0, 0));
+        return Some(ReadResult::ReadError(format_err!("Missing third field for ZMQ.")));
     }
 
     // Return the received id
-    return Some((ItemId::new_unchecked(id), data1, data2));
+    return Some(ReadResult::Normal(ItemId::new_unchecked(id), data1, data2));
 }
 
 /// A type to store a hashmap of event ids and strings
@@ -338,9 +345,9 @@ impl ZmqLookup {
 impl EventConnection for ZmqLookup {
     /// A method to receive new events from the zmq connection
     ///
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
-        // Collect any valid events
-        let mut events = Vec::new();
+    fn read_events(&mut self) -> Vec<ReadResult> {
+        // Collect any results
+        let mut results = Vec::new();
 
         // Read any strings from the zmq connection
         loop {
@@ -351,20 +358,20 @@ impl EventConnection for ZmqLookup {
                     // Try to translate the string (must be an exact match)
                     if let Some(id) = self.string_event.get(&string) {
                         // Add the event to the list
-                        events.push((id.clone(), 0, 0));
+                        results.push(ReadResult::Normal(id.clone(), 0, 0));
                     }
                 }
 
                 // If a string is invalid, add a read error
-                Ok(_) => events.push((ItemId::new_unchecked(READ_ERROR), 0, 0)),
+                Ok(_) => results.push(ReadResult::ReadError(format_err!("Unable to ZMQ Lookup Input as String."))),
 
                 // Otherwise, exit the loop
                 _ => break,
             }
         }
 
-        // Return the list of events
-        events
+        // Return the list of results
+        results
     }
 
     /// A method to send a new event to the zmq connection

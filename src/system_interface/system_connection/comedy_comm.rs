@@ -25,7 +25,7 @@
 //! may become completely incompatible in the furture.
 
 // Import the relevant structures into the correct namespace
-use super::{EventConnection, ItemId, COMM_ERROR, READ_ERROR};
+use super::{EventConnection, ItemId, ReadResult};
 
 // Import standard library modules and traits
 use std::io::{Cursor, Read, Write};
@@ -178,9 +178,9 @@ impl ComedyComm {
 impl EventConnection for ComedyComm {
     /// A method to receive a new event from the serial connection
     ///
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
-        // Create a list of events to return
-        let mut events = Vec::new();
+    fn read_events(&mut self) -> Vec<ReadResult> {
+        // Create a list of results to return
+        let mut results = Vec::new();
 
         // If there are pending outgoing messages
         if self.outgoing.len() > 0 {
@@ -199,7 +199,7 @@ impl EventConnection for ComedyComm {
                     // And if time has expired
                     if (instant + Duration::from_millis(ACK_DELAY)) < Instant::now() {
                         // Notify the system of a communication error
-                        events.push((ItemId::new_unchecked(COMM_ERROR), 0, 0));
+                        results.push(ReadResult::WriteError(format_err!("No Acknowledgement from Comedy Comm. Retrying ...")));
 
                         // Copy and resend the current event
                         let (id, data1, data2) = self.outgoing[0];
@@ -277,7 +277,7 @@ impl EventConnection for ComedyComm {
                         Ok(id) => id,
                         _ => {
                             // Return an error and exit
-                            events.push((ItemId::new_unchecked(READ_ERROR), 0, 0));
+                            results.push(ReadResult::ReadError(format_err!("Invalid Event Id for Comedy Comm.")));
                             break; // end prematurely
                         }
                     };
@@ -285,7 +285,7 @@ impl EventConnection for ComedyComm {
                         Ok(data1) => data1,
                         _ => {
                             // Return an error and exit
-                            events.push((ItemId::new_unchecked(READ_ERROR), 0, 0));
+                            results.push(ReadResult::ReadError(format_err!("Invalid second field for Comedy Comm.")));
                             break; // end prematurely
                         }
                     };
@@ -293,13 +293,13 @@ impl EventConnection for ComedyComm {
                         Ok(data2) => data2,
                         _ => {
                             // Return an error and exit
-                            events.push((ItemId::new_unchecked(READ_ERROR), 0, 0));
+                            results.push(ReadResult::ReadError(format_err!("Invalid third field for Comedy Comm.")));
                             break; // end prematurely
                         }
                     };
 
-                    // Append the resulting event to the events vector
-                    events.push((ItemId::new_unchecked(id), data1, data2));
+                    // Append the resulting event to the results vector
+                    results.push(ReadResult::Normal(ItemId::new_unchecked(id), data1, data2));
 
                     // Send the acknowledgement
                     let bytes = vec![ACK_CHARACTER, COMMAND_SEPARATOR];
@@ -320,12 +320,15 @@ impl EventConnection for ComedyComm {
         self.buffer.drain(0..message_until);
 
         // Add the incoming events to the filter
-        for event in events.iter() {
-            self.filter_events.push(event.clone());
+        for result in results.iter() {
+            // Check to make sure it's a valid event
+            if let ReadResult::Normal(id, data1, data2) = result {
+                self.filter_events.push((id.clone(), data1.clone(), data2.clone()));
+            }
         }
 
         // Return the resulting events
-        events
+        results
     }
 
     /// A method to send a new event to the serial connection

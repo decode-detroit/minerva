@@ -18,7 +18,7 @@
 //! A module to load and play video files on this device
 
 // Import the relevant structures into the correct namespace
-use super::{EventConnection, ItemId};
+use super::{EventConnection, ItemId, ReadResult};
 use super::GeneralUpdate;
 
 // Import GTK Library
@@ -307,7 +307,7 @@ impl VideoOut {
 impl EventConnection for VideoOut {
     /// A method to receive a new event, empty for this connection type
     ///
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
+    fn read_events(&mut self) -> Vec<ReadResult> {
         Vec::new() // return an empty vector
     }
 

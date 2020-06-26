@@ -40,7 +40,7 @@ use self::zmq_comm::{EventToString, StringToEvent, ZmqBind, ZmqConnect, ZmqLooku
 use self::audio_out::{AudioOut, AudioCue, AudioMap};
 use self::video_out::{VideoOut, VideoCue, VideoMap, ChannelMap};
 use super::event_handler::event::EventUpdate;
-use super::event_handler::item::{ItemId, COMM_ERROR, READ_ERROR};
+use super::event_handler::item::ItemId;
 use super::GeneralUpdate;
 
 // Import standard library modules and traits
@@ -54,6 +54,18 @@ use failure::Error;
 
 // Import program constants
 use super::POLLING_RATE; // the polling rate for the system
+
+// Define communication constants
+enum ReadResult {
+    // A variant for a successful event read
+    Normal(ItemId, u32, u32),
+
+    // A variant for errors when writing data
+    WriteError(Error),
+    
+    // A variant for errors when reading data
+    ReadError(Error),
+}
 
 /// An enum to specify the type of system connection.
 ///
@@ -269,7 +281,7 @@ enum LiveConnection {
 // Implement event connection for LiveConnection
 impl EventConnection for LiveConnection {
     /// The read event method
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
+    fn read_events(&mut self) -> Vec<ReadResult> {
         // Read from the interior connection
         match self {
             &mut LiveConnection::ComedySerial { ref mut connection } => connection.read_events(),
@@ -464,39 +476,45 @@ impl SystemConnection {
             // Save the start time of the loop
             let loop_start = Instant::now();
 
-            // Read all events from the system connections
-            let mut events = Vec::new();
+            // Read all results from the system connections
+            let mut results = Vec::new();
             for connection in connections.iter_mut() {
-                events.append(&mut connection.read_events());
+                results.append(&mut connection.read_events());
             }
 
-            // Read all the events from the list
-            for (id, game_id, data2) in events.drain(..) {
-                // If there was a read error, notify the system
-                if id == ItemId::new_unchecked(READ_ERROR) { // FIXME Add an out-of-channel option for logging these errors
-                    update!(err &gen_update => "There Was A Read Error.");
+            // Read all the results from the list
+            for result in results.drain(..) {
+                // Sort by the type of result
+                match result {
+                    // For a normal result
+                    ReadResult::Normal(id, game_id, data2) => {
+                        // Echo the event to every connection
+                        for connection in connections.iter_mut() {
+                            connection
+                                .echo_event(id.clone(), game_id.clone(), data2.clone())
+                                .unwrap_or(());
+                        }
 
-                // If there was a communication error on the network, notify the system
-                } else if id == ItemId::new_unchecked(COMM_ERROR) {
-                    update!(err &gen_update => "There Was A Communication Error.");
+                        // Verify the game id is correct
+                        if identifier.id() == game_id {
+                            // Create a new id and send it to the program
+                            gen_update.send_event(id, true, false); // don't broadcast
+                            // FIXME Handle incoming data
 
-                // Echo all valid events back to the system
-                } else {
-                    // Echo the event to every connection
-                    for connection in connections.iter_mut() {
-                        connection
-                            .echo_event(id.clone(), game_id.clone(), data2.clone())
-                            .unwrap_or(());
+                        // Otherwise send a notification of an incorrect game number
+                        } else {
+                            update!(warn &gen_update => "Game Id Does Not Match. Event Ignored. ({})", id);
+                        }
                     }
-
-                    // Verify the game id is correct
-                    if identifier.id() == game_id {
-                        // Create a new id and send it to the program
-                        gen_update.send_event(id, true, true); // FIXME Handle incoming data
-
-                    // Otherwise send a notification of an incorrect game number
-                    } else {
-                        update!(warn &gen_update => "Game Id Does Not Match. Event Ignored. ({})", id);
+                    
+                    // For a write error, notify the system
+                    ReadResult::WriteError(error) => {
+                        update!(err &gen_update => "Communication Write Error: {}", error);
+                    }
+                    
+                    // For a read error, notify the system
+                    ReadResult::ReadError(error) => {
+                        update!(err &gen_update => "Communication Read Error: {}", error);
                     }
                 }
             }
@@ -546,9 +564,9 @@ impl SystemConnection {
 /// This is a convience trait to standardize reading from and writing to the
 /// event connection across all event connection types.
 ///
-pub trait EventConnection {
+trait EventConnection {
     /// The read event method
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)>;
+    fn read_events(&mut self) -> Vec<ReadResult>;
 
     /// The write event method (does not check duplicates)
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;

@@ -439,7 +439,7 @@ macro_rules! drag {
         $widget.drag_source_set(
             gdk::ModifierType::MODIFIER_MASK,
             &vec![
-                gtk::TargetEntry::new("ITEMID", gtk::TargetFlags::SAME_APP, 0),
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 10),
             ],
             gdk::DragAction::COPY,
         );
@@ -450,7 +450,7 @@ macro_rules! drag {
         $widget.drag_dest_set(
             gtk::DestDefaults::ALL,
             &vec![
-                gtk::TargetEntry::new("ITEMID",gtk::TargetFlags::SAME_APP, 0),
+                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 10),
             ],
             gdk::DragAction::COPY
         );

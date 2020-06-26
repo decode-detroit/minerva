@@ -22,7 +22,7 @@
 //! This module is currently limited to Enttec DMX USB Pro compatible hardware.
 
 // Import the relevant structures into the correct namespace
-use super::{EventConnection, ItemId};
+use super::{EventConnection, ItemId, ReadResult};
 
 // Import standard library features
 use std::io::Write;
@@ -129,7 +129,7 @@ impl DmxOut {
 impl EventConnection for DmxOut {
     /// A method to receive a new event, empty for this connection type
     ///
-    fn read_events(&mut self) -> Vec<(ItemId, u32, u32)> {
+    fn read_events(&mut self) -> Vec<ReadResult> {
         Vec::new() // return an empty vector
     }
 

@@ -27,10 +27,6 @@ use std::hash;
 /// Define the All Stop command (a.k.a. emergency stop)
 const ALL_STOP: u32 = 0;
 
-/// Define the Comm Error and Read Error ids (special ids reserved for system errors)
-pub const COMM_ERROR: u32 = 1; // a special id for communication errors
-pub const READ_ERROR: u32 = 0xFFFFFFFF; // a special id for read errors
-
 /// This structure is a generic identifier to identify different aspects of the
 /// configuration (e.g. events, scenes).
 ///
