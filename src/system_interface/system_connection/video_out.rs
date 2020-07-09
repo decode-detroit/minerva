@@ -170,6 +170,9 @@ impl VideoOut {
             // Add the uri to this channel
             channel.set_property("uri", &video_cue.uri)?;
             
+            // Make sure the new video is playing
+            channel.set_state(gst::State::Playing)?;
+            
             // If a loop was specified, replace the loop video
             if let Some(loop_video) = video_cue.loop_video {
                 VideoOut::add_loop_video(&channel, loop_video)?;
@@ -184,9 +187,6 @@ impl VideoOut {
                     }
                 }
             }
-            
-            // Make sure it is playing
-            channel.set_state(gst::State::Playing)?;
         
         // Otherwise, create a new channel
         } else {
@@ -259,7 +259,7 @@ impl VideoOut {
         // Try to create the playbin bus
         let bus = match playbin.get_bus() {
             Some(bus) => bus,
-            None => return Err(format_err!("Unable to initialize the loop video.")),
+            None => return Err(format_err!("Unable to set loop video: Invalid bus.")),
         };
         
         // Try to remove the old watch, if it exists
@@ -269,11 +269,11 @@ impl VideoOut {
         let channel_weak = playbin.downgrade();
         
         // Connect the signal handler for the end of stream notification
-        bus.add_watch(move |_, msg| {
+        if let Err(_) = bus.add_watch(move |_, msg| {
             // Try to get a strong reference to the channel
             let channel = match channel_weak.upgrade() {
                 Some(channel) => channel,
-                None => return glib::Continue(true), // Fail silently
+                None => return glib::Continue(true), // Fail silently, but try again
             };
 
             // Match the message type
@@ -296,7 +296,11 @@ impl VideoOut {
             
             // Continue with other signal handlers
             glib::Continue(true)
-        })?;
+            
+        // Warn the user of failur
+        }) {
+            return Err(format_err!("Unable to set loop video: Duplicate watch."));
+        }
         
         // Indicate success
         Ok(())
@@ -363,6 +367,9 @@ impl Drop for VideoOut {
     /// This method sets any active playbins to NULL
     ///
     fn drop(&mut self) {
+        // Destroy the video window
+        self.general_update.send_clear_videos();
+        
         // For every playbin in the active channels
         for (_, playbin) in self.channels.drain() {
             // Set the playbin state to Null

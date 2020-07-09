@@ -91,6 +91,8 @@ cargo build --features video
 
 To meet the video dependancies, you will need to follow the playform-specific instructions for GStreamer-rs: https://gitlab.freedesktop.org/gstreamer/gstreamer-rs
 
+The video playback is still in beta status, so please report any bugs/crashes you encounter!
+
 ### Make It Pretty!
 
 GTK can be easily re-themed. We recommend the Materia Dark theme for Minerva which will automatically load if you install the Materia theme package (See here: https://github.com/nana-4/materia-theme). On GNU/Linux system, simply install the materia-gtk-theme package.

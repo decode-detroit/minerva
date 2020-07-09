@@ -900,6 +900,22 @@ impl VideoWindow {
             channel_map,
         }
     }
+    
+    /// A method to clear all video windows
+    ///
+    pub fn clear_all(&mut self) {
+        // Destroy any open windows
+        for (_, overlay) in self.overlay_map.drain() {
+            if let Some(window) = overlay.get_parent() {
+                window.destroy();
+            }
+        }
+        
+        // Empty the channel map
+        if let Ok(mut map) = self.channel_map.try_borrow_mut() {
+            map.clear();
+        }
+    }
 
     /// A method to add a new video to the video window
     ///

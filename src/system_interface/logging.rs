@@ -27,7 +27,7 @@ use super::{GeneralUpdate, InterfaceUpdate, ItemPair, UpdateStatus};
 
 // Import standard library modules
 use std::fmt;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::mpsc;
@@ -197,7 +197,7 @@ impl Logger {
         // Attempt to open the error log file
         let error_log = match error_path {
             // If a file was specified, try to open it first
-            Some(filepath) => match File::open(filepath.to_str().unwrap_or("")) {
+            Some(filepath) => match OpenOptions::new().append(true).open(filepath.to_str().unwrap_or("")) {
                 Ok(file) => Some(file),
 
                 // If the file does not exist
@@ -297,8 +297,8 @@ impl Logger {
 
                 // Try to write it to the file
                 if let Some(ref mut file) = self.error_log {
-                    // Ignore errors writing to the file
-                    file.write_all(
+                    // Try to write to the file
+                    if let Err(_) = file.write_all(
                         format!(
                             "{:04}-{:02}-{:02} {:02}:{:02} — ERROR: {}\n",
                             now.tm_year + 1900,
@@ -309,8 +309,15 @@ impl Logger {
                             &error
                         )
                         .as_bytes(),
-                    )
-                    .unwrap_or(());
+                    
+                    // Post a message on error
+                    ) {
+                        return Error {
+                            message: "Unable To Write To Error Log.".to_string(),
+                            time: now,
+                            event: None,
+                        };
+                    }
 
                 // Warn that there is no file
                 } else {
@@ -388,8 +395,8 @@ impl Logger {
 
                 // Try to write the data to the game log
                 if let Some(ref mut file) = self.game_log {
-                    // Ignore errors writing to the file
-                    file.write_all(
+                    // Try to write to the file
+                    if let Err(_) = file.write_all(
                         format!(
                             "{:04}-{:02}-{:02} {:02}:{:02} — {}\n",
                             now.tm_year + 1900,
@@ -400,8 +407,15 @@ impl Logger {
                             &data
                         )
                         .as_bytes(),
-                    )
-                    .unwrap_or(());
+                    
+                    // Post a message on error
+                    ) {
+                        return Error {
+                            message: "Unable To Write To Game Log.".to_string(),
+                            time: now,
+                            event: None,
+                        };
+                    }
 
                 // Warn that there is no file
                 } else {

@@ -462,4 +462,9 @@ impl InterfaceAbstraction {
     pub fn add_new_video(&mut self, video_stream: VideoStream) {
         self.video_window.add_new_video(video_stream);
     }
+    
+    #[cfg(feature = "video")]
+    pub fn clear_video_windows(&mut self) {
+        self.video_window.clear_all();
+    }
 }

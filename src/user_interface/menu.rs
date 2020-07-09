@@ -38,6 +38,12 @@ extern crate gtk;
 use self::gtk::prelude::*;
 use self::gio::prelude::*;
 
+// Import the Rust audio module
+#[cfg(feature = "audio")]
+extern crate rodio;
+#[cfg(feature = "audio")]    
+use self::rodio::DeviceTrait;
+
 /// A structure to hold all the features of the default menu.
 ///
 /// This structure allows easier modification of the gtk menu to simplify
@@ -102,6 +108,8 @@ impl MenuAbstraction {
         modify_section.append(Some("New Scene"), Some("app.new_scene"));
         modify_section.append(Some("New Status"), Some("app.new_status"));
         modify_section.append(Some("New Event"), Some("app.new_event"));
+        #[cfg(feature = "audio")]
+        modify_section.append(Some("List Audio Devices"), Some("app.list_audio"));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &edit_section));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &modify_section));
 
@@ -381,40 +389,6 @@ impl MenuAbstraction {
             }
         }));
 
-        // Create the new event dialog action
-        let new_event = gio::SimpleAction::new("new_event", None);
-        new_event.connect_activate(clone!(interface_send, edit => move |_, _| {
-
-            // Check if we're in edit mode
-            if let Some(state) = edit.get_state() {
-
-                // Get the current state of the checkbox
-                let is_edit = state.get().unwrap_or(false);
-                if is_edit {
-
-                    // Launch the edit event dialog
-                    // FIXME user_interface.launch_new_event_dialog();
-                }
-            }
-        }));
-
-        // Create the new status dialog action
-        let new_status = gio::SimpleAction::new("new_status", None);
-        new_status.connect_activate(clone!(interface_send, edit => move |_, _| {
-
-            // Check if we're in edit mode
-            if let Some(state) = edit.get_state() {
-
-                // Get the current state of the checkbox
-                let is_edit = state.get().unwrap_or(false);
-                if is_edit {
-
-                    // Launch the status dialog
-                    // FIXME user_interface.launch_new_status_dialog(&window);
-                }
-            }
-        }));
-
         // Create the new scene dialog action
         let new_scene = gio::SimpleAction::new("new_scene", None);
         new_scene.connect_activate(clone!(interface_send, edit => move |_, _| {
@@ -431,6 +405,64 @@ impl MenuAbstraction {
                 }
             }
         }));
+
+        // Create the new status dialog action
+        let new_status = gio::SimpleAction::new("new_status", None);
+        new_status.connect_activate(clone!(interface_send, edit => move |_, _| {
+            // Check if we're in edit mode
+            if let Some(state) = edit.get_state() {
+                // Get the current state of the checkbox
+                let is_edit = state.get().unwrap_or(false);
+                if is_edit {
+
+                    // Launch the status dialog
+                    // FIXME user_interface.launch_new_status_dialog(&window);
+                }
+            }
+        }));
+
+        // Create the new event dialog action
+        let new_event = gio::SimpleAction::new("new_event", None);
+        new_event.connect_activate(clone!(interface_send, edit => move |_, _| {
+            // Check if we're in edit mode
+            if let Some(state) = edit.get_state() {
+                // Get the current state of the checkbox
+                let is_edit = state.get().unwrap_or(false);
+                if is_edit {
+
+                    // Launch the edit event dialog
+                    // FIXME user_interface.launch_new_event_dialog();
+                }
+            }
+        }));
+        
+        // Create the list audio devices action
+        #[cfg(feature = "audio")]
+        let list_audio = gio::SimpleAction::new("list_audio", None);
+        #[cfg(feature = "audio")]
+        list_audio.connect_activate(|_, _| {
+            // Extract the list of audio devices
+            let mut names = Vec::new();
+            if let Ok(devices) = rodio::devices() {
+                // Print the header
+                println!("Errors and warnings here are normal ...");
+                
+                // Examine each found device
+                for device in devices {
+                    if let Ok(_) = device.supported_output_formats() {
+                        if let Ok(name) = device.name() {
+                            names.push(name);
+                        }
+                    }
+                }
+            }
+            
+            // Print the found device names
+            println!("\n\n ================ Valid Devices ================ ");
+            for name in names {
+                println!("{}", name);
+            }
+        });
 
         // Connect the edit mode action
         edit.connect_activate(clone!(interface_send, application, save_config, new_event, new_status, new_scene => move |checkbox, _| {
@@ -511,6 +543,8 @@ impl MenuAbstraction {
         application.add_action(&font);
         application.add_action(&contrast);
         application.add_action(&edit);
+        #[cfg(feature = "audio")]
+        application.add_action(&list_audio);
         application.add_action(&shortcuts);
         application.add_action(&jump);
         application.add_action(&status);

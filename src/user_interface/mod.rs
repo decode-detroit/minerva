@@ -235,7 +235,16 @@ impl UserInterface {
 
                         // Launch the video window
                         #[cfg(feature = "video")]
-                        WindowType::Video(video_stream) => interface.add_new_video(video_stream),
+                        WindowType::Video(video_stream) => {
+                            // Switch based on if a video stream was provided
+                            if let Some(stream) = video_stream {
+                                interface.add_new_video(stream);
+                            
+                            // Otherwise, destroy the video window
+                            } else {
+                                interface.clear_video_windows();
+                            }
+                        }
                     }
                 }
 

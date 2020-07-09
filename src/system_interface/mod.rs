@@ -723,7 +723,7 @@ enum GeneralUpdateType {
     
     /// A variant to pass a new video stream to the user interface
     #[cfg(feature = "video")]
-    NewVideo(VideoStream),
+    NewVideo(Option<VideoStream>),
 
     /// A variant to notify the system of an update from the user interface
     System(SystemUpdate),
@@ -797,7 +797,16 @@ impl GeneralUpdate {
     #[cfg(feature = "video")]
     fn send_new_video(&self, video_stream: VideoStream) {
         self.general_send
-            .send(GeneralUpdateType::NewVideo(video_stream))
+            .send(GeneralUpdateType::NewVideo(Some(video_stream)))
+            .unwrap_or(());
+    }
+
+    /// A method to clear all video streams from the user interface
+    ///
+    #[cfg(feature = "video")]
+    fn send_clear_videos(&self) {
+        self.general_send
+            .send(GeneralUpdateType::NewVideo(None))
             .unwrap_or(());
     }
 
@@ -1100,7 +1109,7 @@ pub enum WindowType {
     
     /// A variant to launch a video window with a source from the video system connection
     #[cfg(feature = "video")]
-    Video(VideoStream),
+    Video(Option<VideoStream>),
 }
 
 /// An enum to change one of the display settings of the user interface

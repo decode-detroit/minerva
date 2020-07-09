@@ -51,7 +51,8 @@ use failure::Error;
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct AudioCue {
     path: PathBuf,                  // the location of the audio file to play
-    device_name: Option<String>,    // the device name, where None indicated the defualt device
+    device_name: String,            // the device name, where "default" indicates the default device
+    stop_sounds: bool,              // a flag to stop other sounds playing on the same device
     volume: f32,                    // the volume of the source, where 1 is default
     // TODO Add additional features in the future
     // E.G. the ability to append sound, the ability to pause or resume sound
@@ -61,6 +62,13 @@ pub struct AudioCue {
 ///
 pub type AudioMap = FnvHashMap<ItemId, AudioCue>;
 
+/// A structure to hold a device and all corresponding sinks
+///
+struct AudioDevice {
+    device: Device,                 // the audio device
+    sinks: Vec<Sink>,               // all the sinks that are playing on this device
+}
+
 /// A structure to hold and manipulate the connection to the audio backend
 ///
 pub struct AudioOut {
@@ -68,9 +76,7 @@ pub struct AudioOut {
     all_stop_audio: Vec<AudioCue>,        // a vector of audio cues for all stop
     audio_map: AudioMap,                  // the map of event ids to audio cues
     #[cfg(feature = "audio")]
-    devices: FnvHashMap<Option<String>, Device>,   // a map of active audio devices
-    #[cfg(feature = "audio")]
-    sinks: Vec<Sink>,                      // a vector of active audio sinks
+    devices: FnvHashMap<String, AudioDevice>,   // a map of active audio devices and corresponding sinks
 }
 
 // Implement key functionality for the Audio Out structure
@@ -84,7 +90,6 @@ impl AudioOut {
             all_stop_audio,
             audio_map,
             devices: FnvHashMap::default(),
-            sinks: Vec::new(),
         })
     }
 
@@ -100,7 +105,7 @@ impl AudioOut {
     
     // A helper function to correctly add a new audio cue
     #[cfg(feature = "audio")]
-    fn add_cue(active_devices: &mut FnvHashMap<Option<String>, Device>, sinks: &mut Vec<Sink>, audio_cue: AudioCue) -> Result<(), Error> {
+    fn add_cue(active_devices: &mut FnvHashMap<String, AudioDevice>, audio_cue: AudioCue) -> Result<(), Error> {
         // Try to open the specified audio file
         let file = match File::open(audio_cue.path) {
             Ok(file) => file,
@@ -108,12 +113,17 @@ impl AudioOut {
         };
         
         // If the device is already active
-        if let Some(device) = active_devices.get(&audio_cue.device_name) {
+        if let Some(audio_device) = active_devices.get_mut(&audio_cue.device_name) {
+            // Stop any playing sounds, as directed
+            if audio_cue.stop_sounds {
+                AudioOut::stop_sinks(audio_device);
+            }
+            
             // Try to play the file as a new source
-            if let Ok(sink) = rodio::play_once(device, BufReader::new(file)) {
+            if let Ok(sink) = rodio::play_once(&audio_device.device, BufReader::new(file)) {
                 // Set the sink volume and save it
                 sink.set_volume(audio_cue.volume);
-                sinks.push(sink);
+                audio_device.sinks.push(sink);
                 
                 // Return success
                 return Ok(());
@@ -126,23 +136,28 @@ impl AudioOut {
         // If the device was not found
         } else {
             // Unpack the specified device name
-            if let Some(device_name) = audio_cue.device_name {
+            if "default" != audio_cue.device_name {
                 // Check to see if the device name is valid
                 if let Ok(devices) = rodio::devices() {
                     // Check to see if the name matches
                     for device in devices {
                         if let Ok(name) = device.name() {
-                            if name == device_name {
+                            if name == audio_cue.device_name {
                                 // Verify that the device is valid for output
                                 if let Ok(_) = device.supported_output_formats() {
                                     // Try to play the file as a new source
                                     if let Ok(sink) = rodio::play_once(&device, BufReader::new(file)) {
-                                        // Set the sink volume and save it
+                                        // Set the sink volume
                                         sink.set_volume(audio_cue.volume);
-                                        sinks.push(sink);
+                                    
+                                        // Create the new audio device
+                                        let audio_device = AudioDevice {
+                                            device,
+                                            sinks: vec!(sink),
+                                        };
                                         
-                                        // Add the device to the device list
-                                        active_devices.insert(Some(device_name), device);
+                                        // Add the audio device to the device list
+                                        active_devices.insert(audio_cue.device_name, audio_device);
                                         
                                         // Return success
                                         return Ok(());
@@ -162,12 +177,17 @@ impl AudioOut {
             }
             
             // Otherwise, use the default device
-            if let Some(device) = active_devices.get(&None) {
+            if let Some(audio_device) = active_devices.get_mut("default") {
+                // Stop any playing sounds, as directed
+                if audio_cue.stop_sounds {
+                    AudioOut::stop_sinks(audio_device);
+                }
+                
                 // Try to play the file as a new source
-                if let Ok(sink) = rodio::play_once(device, BufReader::new(file)) {
+                if let Ok(sink) = rodio::play_once(&audio_device.device, BufReader::new(file)) {                  
                     // Set the sink volume and save it
                     sink.set_volume(audio_cue.volume);
-                    sinks.push(sink);
+                    audio_device.sinks.push(sink);
                     
                     // Return success
                     return Ok(());
@@ -183,12 +203,17 @@ impl AudioOut {
                 if let Some(device) = rodio::default_output_device() {
                     // Try to play the file as a new source
                     if let Ok(sink) = rodio::play_once(&device, BufReader::new(file)) {
-                        // Set the sink volume and save it
+                        // Set the sink volume
                         sink.set_volume(audio_cue.volume);
-                        sinks.push(sink);
+                        
+                        // Create the new audio device
+                        let audio_device = AudioDevice {
+                            device,
+                            sinks: vec!(sink),
+                        };
                                             
                         // Add the device to the device list
-                        active_devices.insert(None, device);
+                        active_devices.insert("default".to_string(), audio_device);
                         
                         // Return success
                         return Ok(());
@@ -206,20 +231,33 @@ impl AudioOut {
         }
     }
     
+    // A helper function to stop and remove any sinks associated with this device
+    #[cfg(feature = "audio")]
+    fn stop_sinks(audio_device: &mut AudioDevice) {
+        // Remove each sink from the device
+        for sink in audio_device.sinks.drain(..) {
+            // Stop playing audio on the sink
+            sink.stop();
+        }
+    }
+    
     // A helper function to clear any empty sinks
     #[cfg(feature = "audio")]
-    fn clean(sinks: &mut Vec<Sink>) {
+    fn clean_sinks(devices: &mut FnvHashMap<String, AudioDevice>) {
         // TODO: Consider replacing with experimental function drain_filter
-        // Remove any sinks that are empty
-        let mut index = 0;
-        while index != sinks.len() {
-            // Check to see if the sink is empty
-            match sinks[index].empty() {
-                // Remove empty sinks
-                true => { sinks.remove(index); }
+        // Look through each device
+        for (_, audio_device) in devices.iter_mut() {
+            // Remove any sinks that are empty
+            let mut index = 0;
+            while index != audio_device.sinks.len() {
+                // Check to see if the sink is empty
+                match audio_device.sinks[index].empty() {
+                    // Remove empty sinks
+                    true => { audio_device.sinks.remove(index); }
 
-                // Just increment otherwise
-                _ => { index += 1 }
+                    // Just increment otherwise
+                    _ => { index += 1 }
+                }
             }
         }
     }
@@ -238,23 +276,21 @@ impl EventConnection for AudioOut {
     #[cfg(feature = "audio")]
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
         // Clean any empty sinks
-        AudioOut::clean(&mut self.sinks);
+        AudioOut::clean_sinks(&mut self.devices);
         
         // Check to see if the event is all stop
-        if id == ItemId::all_stop() {
-            // Clear all of the currently playing audio
-            self.sinks.clear();
-            
+        if id == ItemId::all_stop() {            
             // Run all of the all stop audio, ignoring errors
             for audio_cue in self.all_stop_audio.iter() {
                 // Add the audio cue
-                AudioOut::add_cue(&mut self.devices, &mut self.sinks, audio_cue.clone()).unwrap_or(());
+                AudioOut::add_cue(&mut self.devices, audio_cue.clone()).unwrap_or(());
             }
 
         // Check to see if the event is in the audio map
         } else {
             if let Some(audio_cue) = self.audio_map.get(&id) {
-                AudioOut::add_cue(&mut self.devices, &mut self.sinks, audio_cue.clone())?;
+                
+                AudioOut::add_cue(&mut self.devices, audio_cue.clone())?;
             }
         }
 

@@ -32,13 +32,15 @@ system_connection:
           width: 1920
   - Audio:
       all_stop_audio:
-        - path: "b1.flac"
+        - path: "/home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Development/Final/Bubble Theme (Victory)Pass 2.wav"
           device_name: "front:CARD=Device,DEV=0"
+          stop_sounds: true
           volume: 1.0
       audio_map:
         ? id: 8
-        : path: "b1.flac"
+        : path: "/home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Development/Final/Bubble Theme (Victory)Pass 2.wav"
           device_name: "front:CARD=Device,DEV=0"
+          stop_sounds: false
           volume: 1.0
         
 default_scene:
