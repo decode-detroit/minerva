@@ -28,8 +28,7 @@ use super::super::event::EventUpdate;
 use super::super::item::{ItemDescription, ItemId, ItemPair};
 
 // Import FNV HashMap
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use fnv::FnvHashMap;
 
 /// A type to store a hashmap of status ids and status descriptions
 ///

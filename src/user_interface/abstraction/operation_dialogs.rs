@@ -39,20 +39,19 @@ use std::time::Duration;
 use std::ffi::c_void;
 
 // Import FNV HashMap
-extern crate fnv;
+use fnv;
 use self::fnv::FnvHashMap;
 
 // Import GTK and GDK libraries
-extern crate gdk;
-extern crate gio;
-extern crate gtk;
+use gdk;
+use gtk;
 use self::gtk::prelude::*;
 #[cfg(feature = "video")]
 use self::gdk::WindowExt;
 
 // Import Gstreamer Library
 #[cfg(feature = "video")]
-extern crate gstreamer_video as gst_video;
+use gstreamer_video as gst_video;
 #[cfg(feature = "video")]
 use self::gst_video::prelude::*;
 

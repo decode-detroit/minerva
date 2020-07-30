@@ -56,9 +56,6 @@ use std::time::{Duration, Instant};
 // Import the failure features
 use failure::Error as FailureError;
 
-// Import GTK library
-extern crate gtk;
-
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
 const DEFAULT_FILE: &str = "default.mnv"; // the default configuration filename

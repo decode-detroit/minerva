@@ -33,15 +33,14 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 // Import the serial module
-extern crate serial;
-use self::serial::prelude::*;
+use serial;
+use serial::prelude::*;
 
 // Import the failure features
 use failure::Error;
 
 // Import the byteorder module for converting between types
-extern crate byteorder;
-use self::byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 // Define the communication constants
 const FIELD_SEPARATOR: u8 = 0x2C as u8; // the divider between the three fields

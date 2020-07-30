@@ -35,17 +35,16 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 // Import the eternal time library
-extern crate time;
+use time;
 
 // Import FNV HashMap
-extern crate fnv;
+use fnv;
 use self::fnv::FnvHashMap;
 
 // Import GTK, GDK, and Cairo libraries
-extern crate cairo;
-extern crate gdk;
-extern crate gio;
-extern crate gtk;
+use cairo;
+use gdk;
+use gtk;
 use self::gtk::prelude::*;
 
 // Import module constants

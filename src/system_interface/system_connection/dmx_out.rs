@@ -32,12 +32,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 // Import the serial module
-extern crate serial;
-use self::serial::prelude::*;
+use serial;
+use serial::prelude::*;
 
 // Import FNV HashMap
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use fnv::FnvHashMap;
 
 // Import the failure features
 use failure::Error;

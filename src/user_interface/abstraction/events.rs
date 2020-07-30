@@ -35,12 +35,11 @@ use std::sync::mpsc;
 use std::u32::MAX as U32_MAX;
 
 // Import FNV HashMap
-extern crate fnv;
+use fnv;
 use self::fnv::FnvHashMap;
 
 // Import GTK and GDK libraries
-extern crate gdk;
-extern crate gtk;
+use gtk;
 use self::gtk::prelude::*;
 
 // Define module constants

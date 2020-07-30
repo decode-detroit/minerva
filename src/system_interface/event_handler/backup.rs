@@ -33,15 +33,13 @@ use std::time::Duration;
 use failure::Error;
 
 // Imprt redis client library
-extern crate redis;
-use self::redis::{Commands, RedisResult};
+use redis::{Commands, RedisResult};
 
 // Import FNV HashSet
-extern crate fnv;
-use self::fnv::FnvHashSet;
+use fnv::FnvHashSet;
 
 // Import YAML processing library
-extern crate serde_yaml;
+use serde_yaml;
 
 /// An internal structure to store queued events
 #[derive(Copy, Clone, Serialize, Deserialize)]

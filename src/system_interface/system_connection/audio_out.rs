@@ -28,14 +28,11 @@ use std::fs::File;
 use std::io::BufReader;
 
 // Import the Rust audio module
-#[cfg(feature = "audio")]
-extern crate rodio;
 #[cfg(feature = "audio")]    
-use self::rodio::{Device, DeviceTrait, Sink};
+use rodio::{Device, DeviceTrait, Sink};
 
 // Import FNV HashMap
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use fnv::FnvHashMap;
 
 // Import the failure features
 use failure::Error;
@@ -64,6 +61,7 @@ pub type AudioMap = FnvHashMap<ItemId, AudioCue>;
 
 /// A structure to hold a device and all corresponding sinks
 ///
+#[cfg(feature = "audio")]
 struct AudioDevice {
     device: Device,                 // the audio device
     sinks: Vec<Sink>,               // all the sinks that are playing on this device

@@ -26,8 +26,7 @@ use std::fmt;
 use std::time::{Duration, Instant};
 
 // Import FNV HashMap
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use fnv::FnvHashMap;
 
 /// A small struct that holds and event id and the corresponding delay until the
 /// event should be triggered. This delay is an Option<delay> to allow the

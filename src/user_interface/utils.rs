@@ -30,12 +30,8 @@ use std::rc::Rc;
 use std::u32::MAX as U32_MAX;
 
 // Import GTK library
-extern crate gtk;
-extern crate gdk;
-use self::gtk::prelude::*;
-
-// Import the serde_yaml library
-extern crate serde_yaml;
+use gtk;
+use gtk::prelude::*;
 
 // Define module constants
 const FLASH_RATE: u32 = 700;

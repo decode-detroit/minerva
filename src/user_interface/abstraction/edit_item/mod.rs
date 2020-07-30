@@ -43,13 +43,11 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 // Import the serde_yaml library
-extern crate serde_yaml;
+use serde_yaml;
 
 // Import GTK and GDK libraries
-extern crate gdk;
-extern crate gio;
-extern crate glib;
-extern crate gtk;
+use gdk;
+use gtk;
 use self::gtk::prelude::*;
 
 // Define module constants

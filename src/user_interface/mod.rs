@@ -42,9 +42,7 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 // Import GTK and GDK libraries
-extern crate gdk;
-extern crate gio;
-extern crate gtk;
+use gtk;
 use self::gtk::prelude::*;
 
 // Define user interface constants

@@ -41,9 +41,8 @@ use std::thread;
 extern crate failure;
 
 // Import GTK and GIO libraries
-extern crate gdk;
-extern crate gio;
-extern crate gtk;
+use gio;
+use gtk;
 use self::gtk::prelude::*;
 use self::gio::prelude::*;
 use self::gtk::SettingsExt;

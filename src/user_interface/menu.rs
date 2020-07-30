@@ -32,17 +32,17 @@ use std::thread;
 use std::time::Duration;
 
 // Import GTK and GDK libraries
-extern crate gdk_pixbuf;
-extern crate gio;
-extern crate gtk;
-use self::gtk::prelude::*;
-use self::gio::prelude::*;
+use gdk_pixbuf;
+use gio;
+use gtk;
+use gtk::prelude::*;
+use gio::prelude::*;
 
 // Import the Rust audio module
 #[cfg(feature = "audio")]
-extern crate rodio;
+use rodio;
 #[cfg(feature = "audio")]    
-use self::rodio::DeviceTrait;
+use rodio::DeviceTrait;
 
 /// A structure to hold all the features of the default menu.
 ///

@@ -30,13 +30,12 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 // Import FNV HashSet
-extern crate fnv;
+use fnv;
 use self::fnv::{FnvHashSet, FnvHashMap};
 
 // Import GTK and GDK libraries
-extern crate gdk;
-extern crate gio;
-extern crate gtk;
+use gdk;
+use gtk;
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
 

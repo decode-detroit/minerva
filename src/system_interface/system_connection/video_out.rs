@@ -23,25 +23,24 @@ use super::GeneralUpdate;
 
 // Import GTK Library
 #[cfg(feature = "video")]
-extern crate glib;
+use glib;
 #[cfg(feature = "video")]
-extern crate gdk;
+use gdk;
 #[cfg(feature = "video")]
-extern crate gtk;
+use gtk;
 #[cfg(feature = "video")]
-use self::gtk::prelude::*;
+use gtk::prelude::*;
 
 // Import Gstreamer Library
 #[cfg(feature = "video")]
-extern crate gstreamer as gst;
+use gstreamer as gst;
 #[cfg(feature = "video")]
-extern crate gstreamer_video as gst_video;
+use gstreamer_video as gst_video;
 #[cfg(feature = "video")]
-use self::gst_video::prelude::*;
+use gst_video::prelude::*;
 
 // Import FNV HashMap
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use fnv::FnvHashMap;
 
 // Import the failure features
 use failure::Error;
@@ -297,7 +296,7 @@ impl VideoOut {
             // Continue with other signal handlers
             glib::Continue(true)
             
-        // Warn the user of failur
+        // Warn the user of failure
         }) {
             return Err(format_err!("Unable to set loop video: Duplicate watch."));
         }

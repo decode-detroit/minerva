@@ -36,7 +36,7 @@ use std::sync::mpsc;
 use failure::Error as FailureError;
 
 // Import the eternal time library
-extern crate time;
+use time;
 
 /// An enum to contain system notifications in different types.
 ///

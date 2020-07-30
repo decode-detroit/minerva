@@ -24,12 +24,10 @@ use super::{EventConnection, ItemId, ReadResult};
 use std::path::PathBuf;
 
 // Import the ZMQ C-bindings
-extern crate zmq;
-use self::zmq::{Context, Socket};
+use zmq::{Context, Socket};
 
 // Import FNV HashMap
-extern crate fnv;
-use self::fnv::FnvHashMap;
+use fnv::FnvHashMap;
 
 // Import the failure features
 use failure::Error;

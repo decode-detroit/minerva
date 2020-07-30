@@ -50,11 +50,10 @@ use std::time::Duration;
 use failure::Error;
 
 // Import FNV HashMap and HashSet
-extern crate fnv;
-use self::fnv::{FnvHashMap, FnvHashSet};
+use fnv::{FnvHashMap, FnvHashSet};
 
 // Import YAML processing library
-extern crate serde_yaml;
+use serde_yaml;
 
 // Define module constants
 const BACKGROUND_POLLING: u64 = 100; // the polling rate for the background process in ms

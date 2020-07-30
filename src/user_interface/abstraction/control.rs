@@ -32,12 +32,8 @@ use super::{LARGE_FONT, SMALL_FONT};
 use std::sync::mpsc;
 
 // Import GTK and GDK libraries
-extern crate gdk;
-extern crate gtk;
+use gtk;
 use self::gtk::prelude::*;
-
-// Import the eternal time library
-extern crate time;
 
 // Define module constants
 const UPDATE_LIMIT: usize = 30; // maximum character width of updates

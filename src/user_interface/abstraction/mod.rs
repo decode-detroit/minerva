@@ -50,17 +50,12 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
 
-// Import the serde_yaml library
-extern crate serde_yaml;
-
 // Import GTK and GDK libraries
-extern crate gdk;
-extern crate gio;
-extern crate gtk;
+use gtk;
 use self::gtk::prelude::*;
 
 // Import the external time library
-extern crate time;
+use time;
 
 // Define module constants
 const NOTIFY_LIMIT: usize = 60; // maximum character width of the notifications
