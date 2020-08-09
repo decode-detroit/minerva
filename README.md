@@ -1,16 +1,16 @@
-# Minerva: Internet Of Things Made Simple
+# Minerva: Dynamic Show Control Software
 
-Program and Synchronize your internet of things in One Step.
+Minerva allows you to quickly program and control an interactive show. Connection modules allow real-time control of video, audio, DMX, and other common show elements.
 
-Minerva is a programming suite for networks of microcontrollers. Write one configuration for your whole system and Minerva will program the relevant code onto each device.
+In addition, Minerva supports multiple protocols for interacting with microcontroller devices (Arduino, ESP, and others) and includes a simple framework for new protocols. Submit an issue to request their addition! 
 
-In addition, Minerva can be used as a master device on the network for operator input.
+Minerva is written in pure Rust with bindings into several C libaries to support audio and video. The software is extensively tested (in the real world) to be robust, and includes an optional live-backup feature to resume the show if power is lost.
 
-Minerva is in active development, and although these are our aspirations, at the moment Minerva only serves as a master operations device. Please join in the development to solve the headache of programming the internet of things!
+Minerva is in active development, and we are currently migrating to a web interface. You can find a stable copy of the GTK interface under the gtk-interface branch.
 
 ## IN ACTIVE DEVELOPMENT
 
-Minerva (and her corresponding hardware components) are under very active development (several breaking changes per month). If you intend to use Minerva in a live deployment, please contact us so that we can make sure to get you a stable copy.
+Minerva is under very active development (several breaking changes per year). If you intend to use Minerva in a live deployment, we recommend you use the gtk-interface branch which is locked at version 0.8.3.
 
 ### Prerequisites
 
