@@ -1,4 +1,9 @@
 # Minerva: Internet Of Things Made Simple
+## GTK Interface Branch
+
+This branch is held as a stable archive branch until the new web interface is ready (or ruled incompatible with the design philosophy). This branch is stable and can be used in production environments, although at this time there are no planned improvements for this branch.
+
+### Details
 
 Program and Synchronize your internet of things in One Step.
 
