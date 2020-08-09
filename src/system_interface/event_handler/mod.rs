@@ -772,14 +772,11 @@ impl EventHandler {
                 // Try to retrieve the group status state
                 if let Some(state) = self.config.get_state(&status_id) {
                     // Try to find the corresponding event in the event_map
-                    match event_map.get(&state) {
+                    if let Some(event_id) = event_map.get(&state) {
                         // Trigger the event if it was found
-                        Some(event_id) => self
-                            .queue
-                            .add_event(EventDelay::new(None, event_id.clone())),
-
-                        // Otherwise warn the system the event was not found
-                        None => update!(warn &self.general_update => "Unable To Find State In Grouped Event: {}", state),
+                        self.queue.add_event(EventDelay::new(None, event_id.clone()));
+                        
+                    // States with no matching event are ignored
                     }
                 }
             }

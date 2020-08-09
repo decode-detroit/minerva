@@ -1163,7 +1163,7 @@ impl Config {
                             return false;
                         }
 
-                        // Verify each state is represented in the event_map
+                        // Verify each event that corresponds to a state is valid
                         for state in allowed.iter() {
                             // If there is a matching event, verify that it exists
                             if let Some(target_event) = event_map.get(state) {
@@ -1179,10 +1179,7 @@ impl Config {
                                     return false;
                                 }
 
-                            // If there isn't a match event, raise a warning
-                            } else {
-                                update!(warn general_update => "Event Group Does Not Specify Target Event: {}", state);
-                                return false;
+                            // If no event is specified, nothing is triggered
                             }
                         }
 

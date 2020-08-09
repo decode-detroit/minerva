@@ -25,8 +25,6 @@ use super::GeneralUpdate;
 #[cfg(feature = "video")]
 use glib;
 #[cfg(feature = "video")]
-use gdk;
-#[cfg(feature = "video")]
 use gtk;
 #[cfg(feature = "video")]
 use gtk::prelude::*;
