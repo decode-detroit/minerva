@@ -10,8 +10,8 @@ system_connection:
       all_stop_video: []
       video_map:
         ? id: 8
-        : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24642.mp4"
-          channel: 1
+        : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24640.mp4"
+          channel: 2
           loop_video: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24641.mp4"
         ? id: 10
         : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
@@ -23,25 +23,27 @@ system_connection:
           left: 200
           height: 300
           width: 800
+          audio_device: "default"
           loop_video: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
         ? 2
-        : window_number: 2
+        : window_number: 1
           top: 0
           left: 0
           height: 1080
           width: 1920
-  - Audio:
-      all_stop_audio:
-        - path: "/home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Development/Final/Bubble Theme (Victory)Pass 2.wav"
-          device_name: "front:CARD=Device,DEV=0"
-          stop_sounds: true
-          volume: 1.0
-      audio_map:
-        ? id: 8
-        : path: "/home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Development/Final/Bubble Theme (Victory)Pass 2.wav"
-          device_name: "front:CARD=Device,DEV=0"
-          stop_sounds: false
-          volume: 1.0
+          audio_device: "front:CARD=Device,DEV=0"
+  #- Audio:
+  #    all_stop_audio:
+  #      - path: "/home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Development/Final/Bubble Theme (Victory)Pass 2.wav"
+  #        device_name: "front:CARD=Device,DEV=0"
+  #        stop_sounds: true
+  #        volume: 1.0
+  #    audio_map:
+  #      ? id: 8
+  #      : path: "/home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Development/Final/Bubble Theme (Victory)Pass 2.wav"
+  #        device_name: "front:CARD=Device,DEV=0"
+  #        stop_sounds: false
+  #        volume: 1.0
         
 default_scene:
   id: 100
