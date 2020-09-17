@@ -10,12 +10,12 @@ system_connection:
       all_stop_video: []
       video_map:
         ? id: 8
-        : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24640.mp4"
+        : uri: "rtsp://decodede:Th3MinervaPr@192.168.0.23/videoMain" #"file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24640.mp4"
           channel: 2
           loop_video: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24641.mp4"
         ? id: 10
         : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
-          channel: 1
+          channel: 2
       channel_map:
         ? 1
         : window_number: 1
@@ -31,7 +31,7 @@ system_connection:
           left: 0
           height: 1080
           width: 1920
-          audio_device: "front:CARD=Device,DEV=0"
+          audio_device: "default" #"front:CARD=Device,DEV=0"
   #- Audio:
   #    all_stop_audio:
   #      - path: "/home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Development/Final/Bubble Theme (Victory)Pass 2.wav"
