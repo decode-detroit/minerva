@@ -88,9 +88,9 @@ impl EventConnection for ZmqBind {
     ///
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Send a multipart ZMQ message, formatted as strings
-        self.zmq_send.send_str(&id.id().to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data1.to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data2.to_string(), 0)?;
+        self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data2.to_string(), 0)?;
         Ok(())
     }
 
@@ -196,9 +196,9 @@ impl EventConnection for ZmqConnect {
     ///
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Send a multipart ZMQ message, formatted as strings
-        self.zmq_send.send_str(&id.id().to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data1.to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data2.to_string(), 0)?;
+        self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data2.to_string(), 0)?;
 
         // Add the event to the filter
         self.filter_out.push((id, data1, data2));
@@ -453,7 +453,7 @@ impl EventConnection for ZmqLookup {
             }
 
             // Try to send the string
-            self.zmq_send.send_str(&string, 0)?;
+            self.zmq_send.send(&string, 0)?;
         }
 
         // Indicate success
