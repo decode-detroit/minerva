@@ -484,7 +484,7 @@ impl EditItemAbstraction {
 
     /// A method to load a new item into the edit item window
     ///
-    pub fn load_item(&mut self, id: Option<ItemId>) {
+    pub fn _load_item(&mut self, id: Option<ItemId>) {
         // Change the current item id
         match self.current_id.try_borrow_mut() {
             Ok(mut current_id) => *current_id = id,

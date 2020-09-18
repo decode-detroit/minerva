@@ -31,7 +31,7 @@ mod web_interface;
 // Import the relevant structures into the correct namespace
 use self::system_interface::{SystemInterface, ProcessEvent};
 use self::user_interface::UserInterface;
-use self::web_interface::WebInterface;
+use self::web_interface::{WebInterface, WebReply};
 
 // Import standard library features
 use std::env::args;
@@ -108,7 +108,7 @@ impl Minerva {
                 system_clone.send(ProcessEvent { event: item_id.clone(), check_scene: true, broadcast: true });
                 
                 // Indicate success on the reply line
-                reply_line.send(item_id).unwrap_or(());
+                reply_line.send(WebReply::success()).unwrap_or(());
             }
         });
 

@@ -829,7 +829,7 @@ impl Config {
     
     /// A method to delete the item description within the lookup.
     ///
-    pub fn delete_description(&mut self, item_id: &ItemId) {
+    pub fn _delete_description(&mut self, item_id: &ItemId) {
         // Try to remove the item from the lookup
         if let Some(description) = self.lookup.remove(item_id) {
             // Notify the user that it was removed

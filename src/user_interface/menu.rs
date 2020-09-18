@@ -391,7 +391,7 @@ impl MenuAbstraction {
 
         // Create the new scene dialog action
         let new_scene = gio::SimpleAction::new("new_scene", None);
-        new_scene.connect_activate(clone!(interface_send, edit => move |_, _| {
+        new_scene.connect_activate(clone!(edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -408,7 +408,7 @@ impl MenuAbstraction {
 
         // Create the new status dialog action
         let new_status = gio::SimpleAction::new("new_status", None);
-        new_status.connect_activate(clone!(interface_send, edit => move |_, _| {
+        new_status.connect_activate(clone!(edit => move |_, _| {
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
                 // Get the current state of the checkbox
@@ -423,7 +423,7 @@ impl MenuAbstraction {
 
         // Create the new event dialog action
         let new_event = gio::SimpleAction::new("new_event", None);
-        new_event.connect_activate(clone!(interface_send, edit => move |_, _| {
+        new_event.connect_activate(clone!(edit => move |_, _| {
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
                 // Get the current state of the checkbox

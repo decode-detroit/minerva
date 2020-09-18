@@ -30,7 +30,7 @@
             id: 7,
         };
         
-        document.getElementById("info").innerHTML = `Waiting ...<br><br>`;
+        document.getElementById("info").innerHTML = `Waiting ...`;
         const response = await fetch('/triggerEvent', {
             method: 'POST',
             headers: {
@@ -38,15 +38,17 @@
             },
             body: JSON.stringify(data),
         });
-        const myJson = await response.json(); //extract JSON from the http response
-        console.log(myJson);
-        document.getElementById("info").innerHTML = `Got Id: ${myJson.id}<br><br>`;
+        const result = await response.json(); //extract JSON from the http response
+        console.log(result);
+        if (result.is_valid) {
+            document.getElementById("info").innerHTML = `Event success!`;
+        }
     }
     </script>
 </head>
 <body>
 <div id="contentBox">
-    <button onclick="updateText()">Test Button</button>
+    <button onclick="updateText()">Test Button</button><br><br>
     <div id="info">Press the button.<br>
 </div>
 </body>

@@ -26,12 +26,42 @@ use tokio::runtime::{Handle, Runtime};
 use tokio::sync::{mpsc, oneshot};
 use warp::{http, Filter};
 
+
+/// A structure to hold a reply from the system interface
+///
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub struct WebReply {
+    is_valid: bool, // An indication if the request was a success
+}
+
+// Implement key features of the web reply
+impl WebReply {
+    /// A function to return a new, successful web reply
+    ///
+    pub fn success() -> WebReply {
+        WebReply {
+            is_valid: true,
+        }
+    }
+    
+    /// A function to return a new, failed web reply
+    ///
+    pub fn failure() -> WebReply {
+        WebReply {
+            is_valid: false,
+        }
+    }
+}
+
+/// A helpder type definition for the web_sender
+type WebSend = mpsc::Sender<(ItemId, oneshot::Sender<WebReply>)>;
+
 /// A structure to contain the web interface and handle all updates to the
 /// to the interface.
 ///
 pub struct WebInterface {
-    runtime: Runtime,        // the tokio runtime
-    system_send: mpsc::Sender<(ItemId, oneshot::Sender<ItemId>)>, // send line from the web interface
+    runtime: Runtime,       // the tokio runtime
+    web_send: WebSend,   // send line from the web interface
 }
 
 // Implement key Web Interface functionality
@@ -39,15 +69,15 @@ impl WebInterface {
     /// A function to create a new web interface. The send channel should
     /// connect directly to the system interface.
     ///
-    pub fn new(system_send: &mpsc::Sender<(ItemId, oneshot::Sender<ItemId>)>) -> (WebInterface, Handle) {
+    pub fn new(web_send: &WebSend) -> (WebInterface, Handle) {
         // Create the runtime
-        let runtime = Runtime::new().unwrap(); // FIXME should be handled more nicely
+        let runtime = Runtime::new().expect("Unable To Start Tokio Runtime.");
         let handle = runtime.handle().clone();
         
         // Return the new web interface and runtime handle
         (WebInterface {
           runtime,
-          system_send: system_send.clone(),
+          web_send: web_send.clone(),
         }, handle)
     }
 
@@ -63,7 +93,7 @@ impl WebInterface {
         let trigger_event = warp::post()
             .and(warp::path("triggerEvent"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.system_send.clone()))
+            .and(WebInterface::with_sender(self.web_send.clone()))
             .and(WebInterface::json_body())
             .and_then(WebInterface::send_message);
 
@@ -84,21 +114,23 @@ impl WebInterface {
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
 
-    fn with_sender(system_send: mpsc::Sender<(ItemId, oneshot::Sender<ItemId>)>) -> impl Filter<Extract = (mpsc::Sender<(ItemId, oneshot::Sender<ItemId>)>,), Error = std::convert::Infallible> + Clone {
-        warp::any().map(move || system_send.clone())
+    fn with_sender(web_send: WebSend) -> impl Filter<Extract = (WebSend,), Error = std::convert::Infallible> + Clone {
+        warp::any().map(move || web_send.clone())
     }
 
     /// A helper function to send a message to the system thread
-    async fn send_message(mut system_send: mpsc::Sender<(ItemId, oneshot::Sender<ItemId>)>, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
+    async fn send_message(mut web_send: WebSend, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        system_send.send((item_id, reply_line)).await.unwrap_or(());
+        web_send.send((item_id, reply_line)).await.unwrap_or(());
         
         // Wait for the reply
-        let new_item = rx.await.unwrap_or(ItemId::all_stop()); // FIXME Not a great fallback
+        let new_item = rx.await.unwrap_or(WebReply::failure());
         Ok(warp::reply::with_status(
             warp::reply::json(&new_item),
             http::StatusCode::CREATED,
         ))
     }
 }
+
+
