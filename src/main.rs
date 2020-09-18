@@ -76,8 +76,8 @@ impl Minerva {
         }
 
         // Create a new web interface
-        let (web_send, web_receive) = tokio_mpsc::channel(128);
-        let (mut web_interface, handle) = WebInterface::new(web_send); // FIXME Should .expect()
+        let (web_send, mut web_receive) = tokio_mpsc::channel(128);
+        let (mut web_interface, handle) = WebInterface::new(&web_send); // FIXME Should .expect()
 
         // Open the web interface in a new thread
         thread::spawn(move || {
@@ -95,7 +95,7 @@ impl Minerva {
         });
 
         // Spawn a thread to manage the intersection of sync/async
-        system_clone = system_send.clone();
+        let system_clone = system_send.clone();
         thread::spawn(move || {
             // Loop indefinitely
             loop {
@@ -105,7 +105,7 @@ impl Minerva {
                 });
                 
                 // Pass the message to the internal system
-                system_send.send(ProcessEvent { item_id.clone(), true, true });
+                system_clone.send(ProcessEvent { event: item_id.clone(), check_scene: true, broadcast: true });
                 
                 // Indicate success on the reply line
                 reply_line.send(item_id).unwrap_or(());

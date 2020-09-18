@@ -53,10 +53,6 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-// Import tokio features
-use tokio::runtime::Handle;
-use tokio::sync::{mpsc as tokio_mpsc, oneshot};
-
 // Import the failure features
 use failure::Error as FailureError;
 
