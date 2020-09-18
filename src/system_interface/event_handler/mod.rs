@@ -57,6 +57,9 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+// Import tokio features
+use tokio::runtime::Handle;
+
 // Import the failure features
 use failure::Error;
 
@@ -96,6 +99,7 @@ impl EventHandler {
     ///
     pub fn new(
         config_path: PathBuf,
+        handle: Handle,
         general_update: GeneralUpdate,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         log_failure: bool,
@@ -123,7 +127,7 @@ impl EventHandler {
         )?;
 
         // Create an empty event queue
-        let queue = Queue::new(general_update.clone());
+        let queue = Queue::new(handle, general_update.clone());
 
         // Check for existing data from the backup handler
         if let Some((current_scene, status_pairs, queued_events)) =
@@ -425,7 +429,7 @@ impl EventHandler {
     ///
     pub fn choose_scene(&mut self, scene_id: ItemId) {
         // Send an update to the rest of the system (will preceed error if there is one)
-        update!(update &self.general_update => "Changing Current Scene ...");
+        update!(update &mut self.general_update => "Changing Current Scene ...");
 
         // Try to change the underlying scene
         if self.config.choose_scene(scene_id).is_ok() {
@@ -508,7 +512,7 @@ impl EventHandler {
         let config_file = match File::create(config_path) {
             Ok(file) => file,
             Err(_) => {
-                update!(err &self.general_update => "Unable To Open Configuration File.");
+                update!(err &mut self.general_update => "Unable To Open Configuration File.");
                 return;
             }
         };
@@ -529,7 +533,7 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line.
     ///
-    pub fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) -> bool {
+    pub async fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) -> bool {
         // Try to retrieve the event and unpack the event
         let event = match self.config.try_event(event_id, checkscene) {
             // Process a valid event
@@ -546,7 +550,7 @@ impl EventHandler {
         let mut was_broadcast = false;
         for action in event {
             // Switch based on the result of unpacking the action
-            match self.unpack_action(action) {
+            match self.unpack_action(action).await {
                 // No additional action required
                 UnpackResult::None => (),
 
@@ -559,12 +563,12 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            update!(broadcast &self.general_update => pair.clone(), Some(number));
+                            update!(broadcast &mut self.general_update => pair.clone(), Some(number));
                         }
 
                     // Otherwise just update the system about the event
                     } else {
-                        update!(now &self.general_update => pair.clone());
+                        update!(now &mut self.general_update => pair.clone());
                     }
                 }
 
@@ -584,11 +588,11 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                update!(broadcast &self.general_update => pair.clone(), None);
+                update!(broadcast &mut self.general_update => pair.clone(), None);
 
             // Otherwise just update the system about the event
             } else {
-                update!(now &self.general_update => pair.clone());
+                update!(now &mut self.general_update => pair.clone());
             }
         }
 
@@ -599,7 +603,7 @@ impl EventHandler {
     /// An internal function to unpack the event and act on it. If the
     /// event results in data to broadcast, the data will be returned.
     ///
-    fn unpack_action(&mut self, event_action: EventAction) -> UnpackResult {
+    async fn unpack_action(&mut self, event_action: EventAction) -> UnpackResult {
         // Unpack the event
         match event_action {
             // If there is a new scene, execute the change
@@ -636,7 +640,7 @@ impl EventHandler {
                     // Collect time until an event
                     DataType::TimeUntil { event_id } => {
                         // Check to see if there is time remaining for the event
-                        if let Some(duration) = self.queue.event_remaining(&event_id) {
+                        if let Ok(duration) = self.queue.event_remaining(&event_id).await {
                             // Convert the duration to minutes and seconds
                             let minutes = duration.as_secs() / 60;
                             let seconds = duration.as_secs() % 60;
@@ -645,7 +649,7 @@ impl EventHandler {
                             let data_string = format!("Time {}:{}", minutes, seconds);
 
                             // Save the data to the game log
-                            update!(save &self.general_update => data_string);
+                            update!(save &mut self.general_update => data_string);
                         }
                     }
 
@@ -655,7 +659,7 @@ impl EventHandler {
                         total_time,
                     } => {
                         // Check to see if there is time remaining for the event
-                        if let Some(remaining) = self.queue.event_remaining(&event_id) {
+                        if let Ok(remaining) = self.queue.event_remaining(&event_id).await {
                             // Subtract the remaining time from the total time
                             if let Some(result) = total_time.checked_sub(remaining) {
                                 // Convert the duration to minutes and seconds
@@ -666,7 +670,7 @@ impl EventHandler {
                                 let data_string = format!("Time {}:{}", minutes, seconds);
 
                                 // Save the data to the game log
-                                update!(save &self.general_update => data_string);
+                                update!(save &mut self.general_update => data_string);
                             }
                         }
                     }
@@ -674,13 +678,13 @@ impl EventHandler {
                     // Send the static string to the event
                     DataType::StaticString { string } => {
                         // Save the string to the game log
-                        update!(save &self.general_update => string);
+                        update!(save &mut self.general_update => string);
                     }
 
                     // Solicit a string from the user
                     DataType::UserString => {
                         // Error that this is not yet implemented
-                        update!(err &self.general_update => "Saving a User String is not yet implemented.");
+                        update!(err &mut self.general_update => "Saving a User String is not yet implemented.");
                     }
                 }
             }
@@ -692,7 +696,7 @@ impl EventHandler {
                     // Collect time until an event
                     DataType::TimeUntil { event_id } => {
                         // Check to see if there is time remaining for the event
-                        if let Some(duration) = self.queue.event_remaining(&event_id) {
+                        if let Ok(duration) = self.queue.event_remaining(&event_id).await {
                             // Convert the data to u32 (truncated)
                             return UnpackResult::Data(vec![duration.as_secs() as u32]);
 
@@ -708,7 +712,7 @@ impl EventHandler {
                         total_time,
                     } => {
                         // Check to see if there is time remaining for the event
-                        if let Some(remaining) = self.queue.event_remaining(&event_id) {
+                        if let Ok(remaining) = self.queue.event_remaining(&event_id).await {
                             // Subtract the remaining time from the total time
                             if let Some(result) = total_time.checked_sub(remaining) {
                                 // Convert the data to u32 (truncated)

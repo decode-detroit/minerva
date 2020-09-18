@@ -27,7 +27,7 @@
     <script>
     async function updateText() {
         let data = {
-            id: 101,
+            id: 9,
         };
         
         document.getElementById("info").innerHTML = `Waiting ...`;
@@ -38,17 +38,15 @@
             },
             body: JSON.stringify(data),
         });
-        const result = await response.json(); //extract JSON from the http response
-        console.log(result);
-        if (result.Generic.is_valid) {
-            document.getElementById("info").innerHTML = `Event success!`;
-        }
+        const myJson = await response.json(); //extract JSON from the http response
+        console.log(myJson);
+        document.getElementById("info").innerHTML = `Got Id: ${myJson.id}<br><br>`;
     }
     </script>
 </head>
 <body>
 <div id="contentBox">
-    <button onclick="updateText()">Test Button</button><br><br>
+    <button onclick="updateText()">Test Button</button>
     <div id="info">Press the button.<br>
 </div>
 </body>

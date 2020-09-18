@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::system_interface::{
-    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode, ErrorLog, GameLog,
-    InterfaceUpdate, LaunchWindow, SaveConfig, SystemSend, WindowType,
+    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode, ErrorLog,
+    GameLog, InterfaceUpdate, LaunchWindow, SaveConfig, SyncSystemSend, WindowType,
 };
 
 // Import standard library features
@@ -58,7 +58,7 @@ impl MenuAbstraction {
     pub fn build_menu(
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) -> MenuAbstraction {
         // Create the menu bar and the different submenus

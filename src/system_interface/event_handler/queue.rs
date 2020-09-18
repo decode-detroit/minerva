@@ -21,14 +21,18 @@
 //! that events with a longer delay always arrive later than earlier events.
 
 // Import the relevant structures into the correct namespace
-use super::super::{EventUpdate, GeneralUpdate};
+use super::super::GeneralUpdate;
 use super::event::EventDelay;
 use super::item::ItemId;
 
 // Import other standard library features
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
 use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+
+// Import tokio features
+use tokio::sync::mpsc;
+use tokio::runtime::Handle;
+use tokio::time;
 
 /// A struct to allow easier manipulation of coming events.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -279,9 +283,9 @@ impl Queue {
     /// back up the reply_line. The new implementation of the queue launches a
     /// background thread to monitor updates.
     ///
-    pub fn new(general_update: GeneralUpdate) -> Queue {
+    pub fn new(handle: Handle, general_update: GeneralUpdate) -> Queue {
         // Create a new channel pair to send updates to the background queue
-        let (queue_load, queue_receive) = mpsc::channel();
+        let (queue_load, queue_receive) = mpsc::channel(128);
 
         // Create the new queue data
         let coming_events = Arc::new(Mutex::new(ComingEvents::new(general_update.clone())));
@@ -289,9 +293,9 @@ impl Queue {
 
         // Launch the background process with the queue data
         let general_clone = general_update.clone();
-        thread::spawn(move || {
+        handle.spawn(async {
             // Run the queue background process indefinitely
-            Queue::run_loop(general_clone, queue_receive, coming_clone);
+            Queue::run_loop(general_clone, queue_receive, coming_clone).await;
         });
 
         // Return the Queue
@@ -305,23 +309,23 @@ impl Queue {
     /// An internal function to run the queue in an infinite loop. This function
     /// should be launched in a new background thread for the queue.
     ///
-    fn run_loop(
-        general_update: GeneralUpdate,
-        queue_receive: mpsc::Receiver<ComingEvent>,
+    async fn run_loop(
+        mut general_update: GeneralUpdate,
+        mut queue_receive: mpsc::Receiver<ComingEvent>,
         coming_events: Arc<Mutex<ComingEvents>>,
     ) {
         // Run the background process indefinitely
         loop {
             // Check for the next coming event
-            let next_event = coming_events.lock().unwrap().last();
+            let next_event = coming_events.lock().await.last();
             match next_event {
                 // If there isn't a coming event
                 None => {
                     // Wait indefinitely for new events on the queue receive line
-                    match queue_receive.recv() {
+                    match queue_receive.recv().await {
                         // Process an upcoming event
-                        Ok(event) => {
-                            coming_events.lock().unwrap().load_event(event);
+                        Some(event) => {
+                            coming_events.lock().await.load_event(event);
                         }
 
                         // Terminate the process if there was an error
@@ -336,32 +340,33 @@ impl Queue {
                         // If there is no time remaining, launch the event
                         None => {
                             // Remove the last event from the list and send it if it matches what we expected. Otherwise, do nothing.
-                            if let Some(event_now) = coming_events.lock().unwrap().pop_if(&event) {
+                            if let Some(event_now) = coming_events.lock().await.pop_if(&event) {
                                 general_update.send_event(event_now.id(), true, true);
                             }
                         }
 
                         // If there is some time remaining, wait for a message to arrive or the time to pass
                         Some(delay) => {
-                            // Wait for a new message or the time to elapse
-                            match queue_receive.recv_timeout(delay) {
-                                // Process an upcoming event
-                                Ok(new_event) => {
-                                    coming_events.lock().unwrap().load_event(new_event);
+                            // Create the new async delay object
+                            let mut async_delay = time::delay_for(delay);
+                            
+                            // Act on the first to return
+                            tokio::select! {
+                                // If an event is received before the delay expires
+                                Some(new_event) = queue_receive.recv() => {
+                                    // Process the new upcoming event
+                                    coming_events.lock().await.load_event(new_event);
                                 }
-
-                                // Catch the timeout of the receiver
-                                Err(mpsc::RecvTimeoutError::Timeout) => {
-                                    // Remove the last event from the list and send it if it matches what we expected. Otherwise, do nothing.
-                                    if let Some(event_now) =
-                                        coming_events.lock().unwrap().pop_if(&event)
-                                    {
+                                
+                                // If the delay expires instead
+                                _ = &mut async_delay => {
+                                    // Remove the last event from the list
+                                    if let Some(event_now) = coming_events.lock().await.pop_if(&event) {
+                                        // Send it if it matches what we expected.
                                         general_update.send_event(event_now.id(), true, true);
                                     }
+                                    // Otherwise, do nothing.
                                 }
-
-                                // Terminate the process if there was an error
-                                _ => break,
                             }
                         }
                     }
@@ -375,18 +380,18 @@ impl Queue {
     /// This function adds the new event to the existing queue. This event may
     /// preceed existing events in the queue.
     ///
-    pub fn add_event(&self, event: EventDelay) {
+    pub async fn add_event(&mut self, event: EventDelay) {
         // Sort between delayed events and static events
         match event.delay() {
             // Load delayed events into the queue
             Some(delay) => {
                 // Create a coming event and send it to the queue
                 let coming = ComingEvent::new(delay, event.id());
-                self.queue_load.send(coming).unwrap_or(());
+                self.queue_load.send(coming).await.unwrap_or(());
             }
 
             // Immediately return any events that have no delay
-            None => self.general_update.send_event(event.id(), true, true),
+            None => self.general_update.send_event(event.id(), true, true).await,
         }
     }
 
@@ -405,20 +410,9 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub fn event_remaining(&self, event_id: &ItemId) -> Option<Duration> {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(events) => {
-                // Try to get the delay of the provided event id
-                return events.remaining(event_id);
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-                return None;
-            }
-        }
+    pub async fn event_remaining(&self, event_id: &ItemId) -> Result<Duration, ()> {
+        // Open the coming events and get the delay of the provided event id
+        self.coming_events.lock().await.remaining(event_id).ok_or(())
     }
 
     /// A method to adjust the remaining delay in a specific upcoming event. If
@@ -437,21 +431,13 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub fn adjust_event(&self, new_event: ComingEvent) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => {
-                // Try to withdraw the existing event from the queue
-                if let Some(event) = events.withdraw(new_event) {
-                    // If successful, send the new event to the queue. This also triggers the queue to notice the change.
-                    self.queue_load.send(event).unwrap_or(());
-                }
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
+    pub async fn adjust_event(&mut self, new_event: ComingEvent) {
+        // Open the coming events and try to withdraw the existing event from the queue
+        let possible_event = self.coming_events.lock().await.withdraw(new_event);
+        
+        // If successful, send the new event to the queue. This also triggers the queue to notice the change.
+        if let Some(event) = possible_event {
+            self.queue_load.send(event).await.unwrap_or(());
         }
     }
 
@@ -468,64 +454,57 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub fn adjust_all(&self, adjustment: Duration, is_negative: bool) {
+    pub async fn adjust_all(&mut self, adjustment: Duration, is_negative: bool) {
         // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => {
-                // If the adjustment is positive
-                if !is_negative {
-                    // Add time to all the events
-                    for event in events.list.iter() {
-                        // Load the new event into the Queue
-                        self.queue_load
-                            .send(ComingEvent {
-                                start_time: event.start_time.clone(),
-                                delay: event.delay + adjustment,
-                                event_id: event.id(),
-                            })
-                            .unwrap_or(());
-                    }
+        let mut events = self.coming_events.lock().await;
+        
+        // If the adjustment is positive
+        if !is_negative {
+            // Add time to all the events
+            for event in events.list.iter() {
+                // Load the new event into the Queue
+                self.queue_load
+                    .send(ComingEvent {
+                        start_time: event.start_time.clone(),
+                        delay: event.delay + adjustment,
+                        event_id: event.id(),
+                    })
+                    .await.unwrap_or(());
+            }
 
-                // Otherwise, try to subtract time from the events
-                } else {
-                    // Try to subtract time from all the events
-                    for event in events.list.iter() {
-                        // Ignore events that have already happened
-                        let remaining = match event.remaining() {
-                            Some(time) => time,
-                            None => continue,
-                        };
+        // Otherwise, try to subtract time from the events
+        } else {
+            // Try to subtract time from all the events
+            for event in events.list.iter() {
+                // Ignore events that have already happened
+                let remaining = match event.remaining() {
+                    Some(time) => time,
+                    None => continue,
+                };
 
-                        // Calculate the new delay
-                        match remaining.checked_sub(adjustment) {
-                            // Drop the event if not enough time left
-                            None => continue,
-                            Some(_) => {
-                                // Calculate the new duration (should always succeed)
-                                if let Some(delay) = event.delay.checked_sub(adjustment) {
-                                    // Load the new event into the Queue
-                                    self.queue_load
-                                        .send(ComingEvent {
-                                            start_time: event.start_time.clone(),
-                                            delay,
-                                            event_id: event.id(),
-                                        })
-                                        .unwrap_or(());
-                                }
-                            }
+                // Calculate the new delay
+                match remaining.checked_sub(adjustment) {
+                    // Drop the event if not enough time left
+                    None => continue,
+                    Some(_) => {
+                        // Calculate the new duration (should always succeed)
+                        if let Some(delay) = event.delay.checked_sub(adjustment) {
+                            // Load the new event into the Queue
+                            self.queue_load
+                                .send(ComingEvent {
+                                    start_time: event.start_time.clone(),
+                                    delay,
+                                    event_id: event.id(),
+                                })
+                                .await.unwrap_or(());
                         }
                     }
                 }
-
-                // Clear the coming events (will be reloaded by the background process)
-                events.clear();
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
             }
         }
+
+        // Clear the coming events (will be reloaded by the background process)
+        events.clear();
     }
 
     /// A method to cancel a specific upcoming event.
@@ -541,19 +520,9 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub fn cancel_event(&self, new_event: ComingEvent) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => {
-                // Try to withdraw the existing event from the queue
-                events.withdraw(new_event); // Queue will automatically detect the change
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
-        }
+    pub async fn cancel_event(&self, new_event: ComingEvent) {
+        // Open the coming events and try to withdraw the existing event from the queue
+        self.coming_events.lock().await.withdraw(new_event); // Queue will automatically detect the change {
     }
 
     /// A method to cancel all upcoming instances of an event.
@@ -569,19 +538,9 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub fn cancel_all(&self, event_id: ItemId) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => {
-                // Cancel any matching events in the queue
-                events.cancel(event_id); // Queue will automatically detect the change
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
-        }
+    pub async fn cancel_all(&self, event_id: ItemId) {
+        // Open the coming events and cancel any matching events in the queue
+        self.coming_events.lock().await.cancel(event_id); // Queue will automatically detect the change
     }
 
     /// A method to clear any events in the queue.
@@ -592,16 +551,9 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub fn clear(&self) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => events.clear(),
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
-        }
+    pub async fn clear(&self) {
+        // Open the coming events and cancel all events
+        self.coming_events.lock().await.clear()
     }
 }
 

@@ -32,7 +32,7 @@ use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use super::system_interface::{
     ChangeSettings, DebugMode, DisplayComponent, DisplaySetting, EditMode, InterfaceUpdate,
-    LaunchWindow, Notify, Redraw, Reply, SystemSend, SystemUpdate, UpdateConfig,
+    LaunchWindow, Notify, Redraw, Reply, SyncSystemSend, SystemUpdate, UpdateConfig,
     UpdateNotifications, UpdateStatus, UpdateTimeline, UpdateWindow, WindowType,
 };
 
@@ -55,7 +55,7 @@ const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
 #[derive(Clone)]
 pub struct UserInterface {
     interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
-    system_send: SystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
+    system_send: SyncSystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
     menu_abstraction: Rc<RefCell<MenuAbstraction>>, // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
     window: gtk::ApplicationWindow,                 // the gtk application window
 }
@@ -69,7 +69,7 @@ impl UserInterface {
     pub fn new(
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
-        system_send: SystemSend,
+        system_send: SyncSystemSend,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         interface_receive: mpsc::Receiver<InterfaceUpdate>,
     ) -> UserInterface {

@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair, LabelControl,
-    LabelHidden, SystemSend, UpcomingEvent,
+    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair,
+    LabelControl, LabelHidden, SyncSystemSend, UpcomingEvent,
 };
 use super::super::super::FONT;
 use super::super::utils::clean_text;
@@ -133,7 +133,7 @@ impl TimelineEvent {
 ///
 #[derive(Clone, Debug)]
 struct TimelineAdjustment {
-    system_send: SystemSend, // the reply line for the interface
+    system_send: SyncSystemSend, // the reply line for the interface
     timeline_events: Rc<RefCell<FnvHashMap<String, TimelineEvent>>>, // the hashmap of timeline events to modify with the adjust button
 }
 
@@ -350,7 +350,7 @@ impl TimelineAbstraction {
     /// all the default widgets into the interface and returns a new copy to
     /// allow insertion into higher levels.
     ///
-    pub fn new(system_send: &SystemSend, window: &gtk::ApplicationWindow) -> TimelineAbstraction {
+    pub fn new(system_send: &SyncSystemSend, window: &gtk::ApplicationWindow) -> TimelineAbstraction {
         // Create the timeline title
         let timeline_title = gtk::Label::new(None);
         timeline_title.set_markup("<span color='#338DD6' size='16000'>Timeline</span>");

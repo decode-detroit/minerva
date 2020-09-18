@@ -23,7 +23,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription, ItemId,
-    ItemPair, LabelControl, LaunchWindow, ProcessEvent, StatusDescription, SystemSend, WindowType,
+    ItemPair, LabelControl, LaunchWindow, ProcessEvent, StatusDescription, SyncSystemSend, WindowType,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::{LARGE_FONT, NORMAL_FONT};
@@ -220,7 +220,7 @@ impl EventAbstraction {
         mut statuses: Vec<ItemPair>,
         mut window: EventWindow,
         full_status: &FullStatus,
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) {
         // Empty the old event grid
@@ -457,7 +457,7 @@ impl EventGroupAbstraction {
     ///
     fn new(
         event_group: EventGroup,
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
         full_status: &FullStatus,
         font_size: u32,

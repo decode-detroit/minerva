@@ -50,8 +50,12 @@ use self::system_connection::SystemConnection;
 use std::env;
 use std::fs::DirBuilder;
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::mpsc as std_mpsc;
 use std::time::{Duration, Instant};
+
+// Import tokio features
+use tokio::runtime::Handle;
+use tokio::sync::{mpsc, oneshot};
 
 // Import the failure features
 use failure::Error as FailureError;
@@ -74,7 +78,8 @@ pub struct SystemInterface {
     event_handler: Option<EventHandler>, // the event handler instance for the program, if it exists
     logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
-    interface_send: mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
+    interface_send: std_mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
+    handle: Handle,                // a handle for the tokio runtime
     general_receive: mpsc::Receiver<GeneralUpdateType>, // a receiving line for all system updates
     general_update: GeneralUpdate, // a sending structure to pass new general updates
     is_debug_mode: bool,           // a flag to indicate debug mode
@@ -85,7 +90,8 @@ impl SystemInterface {
     /// A function to create a new, blank instance of the system interface.
     ///
     pub fn new(
-        interface_send: mpsc::Sender<InterfaceUpdate>,
+        handle: Handle,
+        interface_send: std_mpsc::Sender<InterfaceUpdate>,
     ) -> Result<(SystemInterface, SystemSend), FailureError> {
         // Create the new general update structure and receive channel
         let (general_update, general_receive) = GeneralUpdate::new();
@@ -129,6 +135,7 @@ impl SystemInterface {
             logger,
             system_connection,
             interface_send,
+            handle,
             general_receive,
             general_update: general_update,
             is_debug_mode: false,
@@ -160,16 +167,16 @@ impl SystemInterface {
     /// A method to run one iteration of the system interface to update the user
     /// and underlying system of any event changes.
     ///
-    pub fn run_once(&mut self) -> bool {
+    async fn run_once(&mut self) -> Result<(),()> {        
         // Check for any of the updates
-        match self.general_receive.recv() {
+        match self.general_receive.recv().await {
             // Broadcast the event via the system connection
-            Ok(GeneralUpdateType::BroadcastEvent(event_id, data)) => {
+            Some(GeneralUpdateType::BroadcastEvent(event_id, data)) => {
                 self.system_connection.broadcast(event_id, data);
             }
 
             // Update the timeline with the new list of coming events
-            Ok(GeneralUpdateType::ComingEvents(events)) => {
+            Some(GeneralUpdateType::ComingEvents(events)) => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Repackage the coming events into upcoming events
@@ -185,7 +192,7 @@ impl SystemInterface {
             }
 
             // Solicit a string from the user
-            Ok(GeneralUpdateType::GetUserString(event)) => {
+            Some(GeneralUpdateType::GetUserString(event)) => {
                 // Request the information from the user interface
                 self.interface_send
                     .send(LaunchWindow {
@@ -196,7 +203,7 @@ impl SystemInterface {
             
             // Pass a video stream to the user interface
             #[cfg(feature = "media-out")]
-            Ok(GeneralUpdateType::NewVideo(video_stream)) => {
+            Some(GeneralUpdateType::NewVideo(video_stream)) => {
                 // Pass the stream to the user interface
                 self.interface_send
                     .send(LaunchWindow {
@@ -206,13 +213,13 @@ impl SystemInterface {
             }
 
             // Process the system update
-            Ok(GeneralUpdateType::System(update)) => {
+            Some(GeneralUpdateType::System(update)) => {
                 // Return the result of the update
-                return self.unpack_system_update(update);
+                return self.unpack_system_update(update).await;
             }
 
             // Pass the information update to the logger
-            Ok(GeneralUpdateType::Update(event_update)) => {
+            Some(GeneralUpdateType::Update(event_update)) => {
                 // Find the most recent notifications
                 let notifications = self.logger.update(event_update);
 
@@ -223,11 +230,11 @@ impl SystemInterface {
             }
 
             // Close on a communication error with the user interface thread
-            Err(mpsc::RecvError) => return false,
+            _ => return Err(()),
         }
 
         // In most cases, indicate to continue normally
-        true
+        Ok(())
     }
 
     /// A method to run an infinite number of interations of the system
@@ -236,11 +243,11 @@ impl SystemInterface {
     /// When this loop completes, it will consume the system interface and drop
     /// all associated data.
     ///
-    pub fn run(mut self) {
+    pub async fn run(mut self) {
         // Loop the structure indefinitely
         loop {
             // Repeat endlessly until run_once fails.
-            if !self.run_once() {
+            if let Err(_) = self.run_once().await {
                 break;
             }
         }
@@ -254,7 +261,7 @@ impl SystemInterface {
     /// When the update is the Close variant, the function will return false,
     /// indicating that the thread should close.
     ///
-    fn unpack_system_update(&mut self, update: SystemUpdate) -> bool {
+    async fn unpack_system_update(&mut self, update: SystemUpdate) -> Result<(),()> {
         // Unpack the different variant types
         match update {
             // Change the delay for all events in the queue
@@ -277,10 +284,10 @@ impl SystemInterface {
                 }
 
                 // Send the all stop event via the logger
-                update!(broadcast &self.general_update => ItemPair::all_stop(), None);
+                update!(broadcast &mut self.general_update => ItemPair::all_stop(), None);
 
                 // Place an error in the debug log
-                update!(err &self.general_update => "An All Stop was triggered by the operator.");
+                update!(err &mut self.general_update => "An All Stop was triggered by the operator.");
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -295,7 +302,7 @@ impl SystemInterface {
             // GeneralUpdate::BroadcastEvent)
             BroadcastEvent { event, data } => {
                 // Broadcast the event via the logger
-                update!(broadcast &self.general_update => event.clone(), data);
+                update!(broadcast &mut self.general_update => event.clone(), data);
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -314,7 +321,7 @@ impl SystemInterface {
             }
 
             // Close the system interface thread.
-            Close => return false,
+            Close => return Err(()),
 
             // Update the configuration provided to the underlying system
             ConfigFile { filepath } => {
@@ -382,7 +389,7 @@ impl SystemInterface {
 
                 // Raise a warning that there is no active configuration
                 } else {
-                    update!(warn &self.general_update => "Change Not Saved: There Is No Active Configuration.");
+                    update!(warn &mut self.general_update => "Change Not Saved: There Is No Active Configuration.");
                 }
             }
 
@@ -414,7 +421,7 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event
-                    if handler.process_event(&event, check_scene, broadcast) {
+                    if handler.process_event(&event, check_scene, broadcast).await {
                         // Notify the user interface of the event
                         let description = handler.get_description(&event);
                         self.interface_send
@@ -426,7 +433,7 @@ impl SystemInterface {
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
-                    update!(err &self.general_update => "Event Could Not Be Processed. No Active Configuration.");
+                    update!(err &mut self.general_update => "Event Could Not Be Processed. No Active Configuration.");
                 }
             }
 
@@ -439,7 +446,7 @@ impl SystemInterface {
 
                 // Otherwise noity the user that a configuration faild to load
                 } else {
-                    update!(err &self.general_update => "Event Could Not Be Added. No Active Configuration.");
+                    update!(err &mut self.general_update => "Event Could Not Be Added. No Active Configuration.");
                 }
             }
 
@@ -547,7 +554,7 @@ impl SystemInterface {
 
                 // Otherwise noity the user that a configuration failed to load
                 } else {
-                    update!(warn &self.general_update => "Information Unavailable. No Active Configuration.");
+                    update!(warn &mut self.general_update => "Information Unavailable. No Active Configuration.");
                 }
             }
 
@@ -578,7 +585,7 @@ impl SystemInterface {
                 }
             }
         }
-        true // indicate to continue
+        Ok(()) // indicate to continue
     }
 
     /// An internal method to try to load the provided configuration into the
@@ -594,6 +601,7 @@ impl SystemInterface {
         // Create a new event handler
         let mut event_handler = match EventHandler::new(
             filepath,
+            self.handle.clone(),
             self.general_update.clone(),
             self.interface_send.clone(),
             log_failure,
@@ -716,7 +724,7 @@ impl SystemInterface {
 /// An private enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 enum GeneralUpdateType {
     /// A variant that broadcasts an event with the given item id. This event id
     /// is not processed or otherwise checked for validity. If data is provided,
@@ -758,7 +766,7 @@ impl GeneralUpdate {
     ///
     fn new() -> (GeneralUpdate, mpsc::Receiver<GeneralUpdateType>) {
         // Create the new channel
-        let (general_send, receive) = mpsc::channel();
+        let (general_send, receive) = mpsc::channel(128);
 
         // Create and return both new items
         (GeneralUpdate { general_send }, receive)
@@ -767,25 +775,25 @@ impl GeneralUpdate {
     /// A method to broadcast an event via the system interface (with data,
     /// if it is provided)
     ///
-    fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
+    async fn send_broadcast(&mut self, event_id: ItemId, data: Option<u32>) {
         self.general_send
             .send(GeneralUpdateType::BroadcastEvent(event_id, data))
-            .unwrap_or(());
+            .await.unwrap_or(());
     }
 
     /// A method to send new coming events to the system
     ///
-    fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
+    async fn send_coming_events(&mut self, coming_events: Vec<ComingEvent>) {
         self.general_send
             .send(GeneralUpdateType::ComingEvents(coming_events))
-            .unwrap_or(());
+            .await.unwrap_or(());
     }
 
     /// A method to process a new event. If the check_scene flag is not set,
     /// the system will not check if the event is in the current scene. If
     /// broadcast is set to true, the event will be broadcast to the system.
     ///
-    fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
+    async fn send_event(&mut self, event: ItemId, check_scene: bool, broadcast: bool) {
         self.send_system(ProcessEvent {
             event,
             check_scene,
@@ -796,28 +804,28 @@ impl GeneralUpdate {
     /// A method to request a string from the user FIXME make this more generic
     /// for other types of data
     ///
-    fn send_get_user_string(&self, event: ItemPair) {
+    async fn send_get_user_string(&mut self, event: ItemPair) {
         self.general_send
             .send(GeneralUpdateType::GetUserString(event))
-            .unwrap_or(());
+            .await.unwrap_or(());
     }
      
     /// A method to pass a new video stream to the user interface
     ///
     #[cfg(feature = "media-out")]
-    fn send_new_video(&self, video_stream: VideoStream) {
+    async fn send_new_video(&mut self, video_stream: VideoStream) {
         self.general_send
             .send(GeneralUpdateType::NewVideo(Some(video_stream)))
-            .unwrap_or(());
+            .await.unwrap_or(());
     }
 
     /// A method to clear all video streams from the user interface
     ///
     #[cfg(feature = "media-out")]
-    fn send_clear_videos(&self) {
+    async fn send_clear_videos(&mut self) {
         self.general_send
             .send(GeneralUpdateType::NewVideo(None))
-            .unwrap_or(());
+            .await.unwrap_or(());
     }
 
     /// A method to trigger a redraw of the current window
@@ -828,18 +836,18 @@ impl GeneralUpdate {
 
     /// A method to pass a system update to the system interface.
     ///
-    fn send_system(&self, update: SystemUpdate) {
+    async fn send_system(&mut self, update: SystemUpdate) {
         self.general_send
             .send(GeneralUpdateType::System(update))
-            .unwrap_or(());
+            .await.unwrap_or(());
     }
 
     /// A method to send an event update to the system interface.
     ///
-    fn send_update(&self, update: EventUpdate) {
+    async fn send_update(&mut self, update: EventUpdate) {
         self.general_send
             .send(GeneralUpdateType::Update(update))
-            .unwrap_or(());
+            .await.unwrap_or(());
     }
 }
 
@@ -864,10 +872,48 @@ impl SystemSend {
     /// A method to send a system update. This version of the method fails
     /// silently.
     ///
-    pub fn send(&self, update: SystemUpdate) {
+    pub async fn send(&mut self, update: SystemUpdate) {
         self.general_send
-            .send(GeneralUpdateType::System(update))
-            .unwrap_or(());
+            .send(GeneralUpdateType::System(update)).await;
+    }
+}
+
+/// A special, public version of the general update which only allows for a
+/// system send (without other types of updates).
+///
+/// # Note
+///
+/// This version is depreciated. It should not be perpetuated.
+///
+#[derive(Clone, Debug)]
+pub struct SyncSystemSend {
+    handle: Handle, // a handle for the tokio runtime
+    system_send: SystemSend, // the mpsc sending line to pass system updates to the interface
+}
+
+// Implement the key features of the system send struct
+impl SyncSystemSend {
+    /// A function to create a new sync system send from a system send
+    ///
+    pub fn from_async(handle: &Handle, system_send: &SystemSend) -> SyncSystemSend {
+        // Return the completed SyncSystemSend
+        SyncSystemSend {
+            handle: handle.clone(),
+            system_send: system_send.clone(),
+        }
+    }
+
+    /// A method to send a system update. This version of the method fails
+    /// silently.
+    ///
+    pub fn send(&self, update: SystemUpdate) {
+        // Clone the send line
+        let system_send = self.system_send.clone();
+        
+        // Async send the message
+        self.handle.block_on(async {
+            system_send.send(update).await;
+        });
     }
 }
 
@@ -994,7 +1040,7 @@ pub enum DisplayComponent {
 /// An enum to provide updates from the main thread to the system interface,
 /// listed in order of increasing usage.
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum SystemUpdate {
     /// A variant to adjust all the events in the timeline
     /// NOTE: after the adjustment, events that would have already happened are discarded
@@ -1075,13 +1121,16 @@ pub enum SystemUpdate {
 
     /// A variant to change the state of the indicated status.
     StatusChange { status_id: ItemId, state: ItemId },
+    
+    /// A variant for web requests FIXME standardize this
+    WebRequest { item_id: ItemId, reply_line: oneshot::Sender<ItemId> },
 }
 
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
     AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile, DebugMode, Edit,
     ErrorLog, EventChange, GameLog, ProcessEvent, CueEvent, Redraw, Request, SaveConfig,
-    SceneChange, StatusChange,
+    SceneChange, StatusChange, WebRequest,
 };
 
 /// A structure to list a series of event buttons that are associated with one

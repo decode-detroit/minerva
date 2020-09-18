@@ -125,8 +125,7 @@ type WebSend = mpsc::Sender<(ItemId, oneshot::Sender<WebReply>)>;
 /// to the interface.
 ///
 pub struct WebInterface {
-    runtime: Runtime,       // the tokio runtime
-    web_send: WebSend,   // send line from the web interface
+    system_send: SystemSend, // send line to the system interface
 }
 
 // Implement key Web Interface functionality
@@ -134,21 +133,16 @@ impl WebInterface {
     /// A function to create a new web interface. The send channel should
     /// connect directly to the system interface.
     ///
-    pub fn new(web_send: &WebSend) -> (WebInterface, Handle) {
-        // Create the runtime
-        let runtime = Runtime::new().expect("Unable To Start Tokio Runtime.");
-        let handle = runtime.handle().clone();
-        
+    pub fn new(system_send: &SystemSend) -> WebInterface {
         // Return the new web interface and runtime handle
-        (WebInterface {
-          runtime,
-          web_send: web_send.clone(),
-        }, handle)
+        WebInterface {
+          system_send: system_send.clone(),
+        }
     }
 
     /// A method to listen for connections from the internet
     ///
-    pub fn run(&mut self) {
+    pub async fn run(&mut self) {
         // Create the index filter
         let readme = warp::get()
             .and(warp::path::end())
@@ -158,7 +152,7 @@ impl WebInterface {
         let trigger_event = warp::post()
             .and(warp::path("triggerEvent"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_sender(self.system_send.clone()))
             .and(WebInterface::json_body())
             .and_then(WebInterface::send_message);
 
@@ -166,11 +160,9 @@ impl WebInterface {
         let routes = readme.or(trigger_event);
         
         // Handle incoming requests
-        self.runtime.block_on(async {
-            warp::serve(routes)
-                .run(([127, 0, 0, 1], 64637))
-                .await;
-        });
+        warp::serve(routes)
+            .run(([127, 0, 0, 1], 64637))
+            .await;
     }
     
     /// A function to extract the json body
@@ -179,23 +171,24 @@ impl WebInterface {
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
 
-    fn with_sender(web_send: WebSend) -> impl Filter<Extract = (WebSend,), Error = std::convert::Infallible> + Clone {
-        warp::any().map(move || web_send.clone())
+    fn with_sender(system_send: SystemSend) -> impl Filter<Extract = (SystemSend,), Error = std::convert::Infallible> + Clone {
+        warp::any().map(move || system_send.clone())
     }
 
     /// A helper function to send a message to the system thread
-    async fn send_message(mut web_send: WebSend, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
+    async fn send_message(mut system_send: SystemSend, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        web_send.send((item_id, reply_line)).await.unwrap_or(());
+        system_send.send(WebRequest {
+            item_id,
+            reply_line,
+        }).await;
         
         // Wait for the reply
-        let new_item = rx.await.unwrap_or(WebReply::failure("Temporary server error."));
+        let new_item = rx.await.unwrap_or(ItemId::all_stop()); // FIXME Not a great fallback
         Ok(warp::reply::with_status(
             warp::reply::json(&new_item),
             http::StatusCode::CREATED,
         ))
     }
 }
-
-

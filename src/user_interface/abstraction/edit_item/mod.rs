@@ -33,7 +33,7 @@ use super::super::super::system_interface::{
     DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EditItemElement,
     Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
     LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType, Status,
-    SystemSend,
+    SyncSystemSend,
 };
 use super::super::utils::{clean_text, color_label};
 
@@ -66,7 +66,7 @@ const ITEM_START: u32 = 1000; // starting number for new items
 #[derive(Clone, Debug)]
 pub struct EditWindow {
     scroll_window: gtk::ScrolledWindow,            // the scroll window to hold the underlying elements
-    system_send: SystemSend,              // a copy of the system send line
+    system_send: SyncSystemSend,              // a copy of the system send line
     item_list: ItemList,                  // the list of all possible items
     edit_item_left: EditItemAbstraction,   // the left overview to edit an item
     edit_item_right: EditItemAbstraction, // the right overview to edit an item
@@ -80,7 +80,7 @@ impl EditWindow {
     ///
     pub fn new(
         window: &gtk::ApplicationWindow,
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) -> EditWindow {
         // Create the control grid for holding all the universal controls
@@ -249,7 +249,7 @@ impl EditWindow {
 #[derive(Clone, Debug)]
 pub struct EditItemAbstraction {
     grid: gtk::Grid,                               // the grid to hold underlying elements
-    system_send: SystemSend,                       // a copy of the system send line
+    system_send: SyncSystemSend,                   // a copy of the system send line
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
     current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
     is_left: bool,                                 // whether the element is on the left or right
@@ -268,7 +268,7 @@ impl EditItemAbstraction {
     ///
     pub fn new(
         window: &gtk::ApplicationWindow,
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
         is_left: bool,
     ) -> EditItemAbstraction {
@@ -494,7 +494,7 @@ impl EditItemAbstraction {
 
     // A function to refresh the components of the current item
     //
-    fn refresh_item(item_id: ItemId, is_left: bool, system_send: &SystemSend) {
+    fn refresh_item(item_id: ItemId, is_left: bool, system_send: &SyncSystemSend) {
         // Request new data for each component
         system_send.send(Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::ItemDescription },
@@ -804,7 +804,7 @@ impl ItemList {
 #[derive(Clone, Debug)]
 struct EditOverview {
     grid: gtk::Grid,                      // the main grid for this element
-    system_send: SystemSend,              // a copy of the system send line
+    system_send: SyncSystemSend,          // a copy of the system send line
     display_type: gtk::ComboBoxText,      // the display type selection for the event
     group_checkbox: gtk::CheckButton,     // the checkbox for group id
     group_description: gtk::Label,        // the description of the group
@@ -828,7 +828,7 @@ struct EditOverview {
 impl EditOverview {
     /// A function to create a new edit overview
     ///
-    fn new(system_send: &SystemSend, is_left: bool) -> EditOverview {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditOverview {
         // Add the display type dropdown
         let display_settings_label = gtk::Label::new(Some("Display Settings"));
         let display_type_label = gtk::Label::new(Some("Where to Display Item:"));

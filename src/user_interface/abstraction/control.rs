@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
-    AllStop, Current, Error, InterfaceUpdate, LaunchWindow, Notification, SystemSend, Update,
-    Warning, WindowType,
+    AllStop, Current, Error, InterfaceUpdate, LaunchWindow, Notification, SyncSystemSend,
+    Update, Warning, WindowType,
 };
 use super::super::utils::clean_text;
 use super::{LARGE_FONT, SMALL_FONT};
@@ -61,7 +61,7 @@ impl ControlAbstraction {
     /// a new copy to allow insertion into higher-level elements.
     ///
     pub fn new(
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) -> ControlAbstraction {
         // Create the control grid for holding all the universal controls

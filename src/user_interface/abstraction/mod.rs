@@ -38,7 +38,7 @@ use self::operation_dialogs::VideoWindow;
 use self::timeline::TimelineAbstraction;
 use super::super::system_interface::{
     DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair,
-    KeyMap, Notification, ReplyType, StatusDescription, SystemSend, UpcomingEvent,
+    KeyMap, Notification, ReplyType, StatusDescription, SyncSystemSend, UpcomingEvent,
 };
 #[cfg(feature = "media-out")]
 use super::super::system_interface::VideoStream;
@@ -69,7 +69,7 @@ const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 /// interaction between the interface and the underlying program.
 ///
 pub struct InterfaceAbstraction {
-    system_send: SystemSend, // a copy of system send held in the interface abstraction
+    system_send: SyncSystemSend, // a copy of system send held in the interface abstraction
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
     top_element: gtk::Stack, // the stack that contains the operations and edit grids
     full_status: Rc<RefCell<FullStatus>>, // a copy of the current full status of the system
@@ -100,7 +100,7 @@ impl InterfaceAbstraction {
     /// clarity).
     ///
     pub fn new(
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
         window: &gtk::ApplicationWindow,
     ) -> InterfaceAbstraction {

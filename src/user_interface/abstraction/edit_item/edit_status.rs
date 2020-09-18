@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
-    DisplayComponent, ItemId, ItemPair, Request, RequestType, Status, SystemSend,
+    DisplayComponent, ItemId, ItemPair, Request, RequestType, Status, SyncSystemSend,
 };
 
 // Import standard library features
@@ -54,7 +54,7 @@ pub struct ItemDisplay {
 #[derive(Clone, Debug)]
 pub struct EditStatus {
     grid: gtk::Grid,                     // a grid to hold the events
-    system_send: SystemSend,             // a copy of the system send
+    system_send: SyncSystemSend,             // a copy of the system send
     status_checkbox: gtk::CheckButton,   // the button that toggles whether the item is a scene
     status_selection: gtk::ComboBoxText, // the dropdown that toggles the status type
     edit_multistate: EditMultiState,     // the edit multi state
@@ -65,7 +65,7 @@ pub struct EditStatus {
 impl EditStatus {
     // A function to create a new Edit Status
     //
-    pub fn new(system_send: &SystemSend, is_left: bool) -> EditStatus {
+    pub fn new(system_send: &SyncSystemSend, is_left: bool) -> EditStatus {
         // Create the top-level grid
         let grid = gtk::Grid::new();
 
@@ -230,7 +230,7 @@ struct EditMultiState {
 impl EditMultiState {
     // A function to create a multistate status variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditMultiState {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditMultiState {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
@@ -341,7 +341,7 @@ impl EditMultiState {
     }
 
     // A method to load in info for a multistate status
-    pub fn load_multistate(&mut self, system_send: &SystemSend, current: &ItemId, mut allowed: Vec<ItemId>) {
+    pub fn load_multistate(&mut self, system_send: &SyncSystemSend, current: &ItemId, mut allowed: Vec<ItemId>) {
         // Clear the previous data
         self.clear();
 
@@ -416,7 +416,7 @@ impl EditMultiState {
     /// A helper function to add an event to the events list and database
     ///
     fn add_state(
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         is_left: bool,
         states_list: &gtk::ListBox,
         states_data: &Rc<RefCell<FnvHashMap<usize, ItemDisplay>>>,
@@ -534,7 +534,7 @@ impl EditMultiState {
 #[derive(Clone, Debug)]
 struct EditCountedState {
     grid: gtk::Grid,                    // the main grid for this element
-    system_send: SystemSend,            // a copy of the system send line
+    system_send: SyncSystemSend,            // a copy of the system send line
     is_left: bool,                      // whether this element is on the left or right
     status_data: Rc<RefCell<FnvHashMap<String, ItemId>>>,   // a database for the data associated with the status
     current_label: gtk::Button,          // the button to display the current state
@@ -548,7 +548,7 @@ struct EditCountedState {
 impl EditCountedState {
     // A function to create a multistate status variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditCountedState {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditCountedState {
         // Create the top level grid
         let grid = gtk::Grid::new();
 

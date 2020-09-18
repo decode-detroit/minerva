@@ -29,14 +29,13 @@ mod user_interface;
 mod web_interface;
 
 // Import the relevant structures into the correct namespace
-use self::system_interface::{SystemInterface, ProcessEvent};
+use self::system_interface::{SystemInterface, SyncSystemSend};
 use self::user_interface::UserInterface;
 use self::web_interface::{WebInterface, WebReply};
 
 // Import standard library features
 use std::env::args;
-use std::sync::mpsc;
-use std::thread;
+use std::sync::mpsc as std_mpsc;
 
 // Import failure features
 #[macro_use]
@@ -50,7 +49,7 @@ use self::gio::prelude::*;
 use self::gtk::SettingsExt;
 
 // Import tokio features
-use tokio::sync::mpsc as tokio_mpsc;
+use tokio::runtime::Runtime;
 
 // Define program constants
 const LOGO_SQUARE: &str = "logo_square.png";
@@ -74,46 +73,43 @@ impl Minerva {
             settings.set_property_gtk_theme_name(Some(GTK_THEME));
             settings.set_property_gtk_font_name(Some(FONT));
         }
-
-        // Create a new web interface
-        let (web_send, mut web_receive) = tokio_mpsc::channel(128);
-        let (mut web_interface, handle) = WebInterface::new(&web_send); // FIXME Should .expect()
-
-        // Open the web interface in a new thread
-        thread::spawn(move || {
-            web_interface.run();
-        });
-
+        
+        // Create the tokio runtime
+        let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
+        
         // Launch the background thread to monitor and handle events
-        let (interface_send, interface_receive) = mpsc::channel();
-        let (system_interface, system_send) = SystemInterface::new(interface_send.clone())
+        let sys_handle = runtime.handle().clone();
+        let (interface_send, interface_receive) = std_mpsc::channel();
+        let (system_interface, system_send) = SystemInterface::new(sys_handle, interface_send.clone())
             .expect("Unable To Create System Interface.");
 
         // Open the system interface in a new thread
-        thread::spawn(move || {
+        runtime.spawn(async move {
             system_interface.run();
         });
 
-        // Spawn a thread to manage the intersection of sync/async
-        let system_clone = system_send.clone();
-        thread::spawn(move || {
-            // Loop indefinitely
-            loop {
-                // Wait for something to come through
-                let (item_id, reply_line) = handle.block_on(async {
-                    web_receive.recv().await.unwrap()
-                });
-                
-                // Pass the message to the internal system
-                system_clone.send(ProcessEvent { event: item_id.clone(), check_scene: true, broadcast: true });
-                
-                // Indicate success on the reply line
-                reply_line.send(WebReply::success()).unwrap_or(());
-            }
+        // Create a new web interface
+        let mut web_interface = WebInterface::new(&system_send);
+
+        // Open the web interface in a new thread
+        runtime.spawn(async move {
+            web_interface.run();
         });
 
         // Create the application window
         let window = gtk::ApplicationWindow::new(application);
+
+        // Create the new sync system send to work with the user interface
+        let sync_send = SyncSystemSend::from_async(runtime.handle(), &system_send);
+
+        // Create the user interface structure to handle user interface updates
+        UserInterface::new(
+            application,
+            &window,
+            sync_send,
+            interface_send,
+            interface_receive,
+        );
 
         // Set the default parameters for the window
         window.set_title(WINDOW_TITLE);
@@ -124,15 +120,6 @@ impl Minerva {
 
         // Disable the delete button for the window
         window.set_deletable(false);
-
-        // Create the user interface structure to handle user interface updates
-        UserInterface::new(
-            application,
-            &window,
-            system_send,
-            interface_send,
-            interface_receive,
-        );
 
         // Show the window
         window.show();

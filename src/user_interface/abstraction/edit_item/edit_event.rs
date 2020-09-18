@@ -22,7 +22,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::super::system_interface::{
     DataType, DisplayComponent, EditActionElement, EventAction, Event, EventDelay,
-    ItemId, ItemPair, Request, RequestType, Status, SystemSend,
+    ItemId, ItemPair, Request, RequestType, Status, SyncSystemSend,
 };
 
 // Import standard library features
@@ -73,7 +73,7 @@ pub struct EditEvent {
 impl EditEvent {
     // A function to create a new Edit Detail
     //
-    pub fn new(system_send: &SystemSend, is_left: bool) -> EditEvent {
+    pub fn new(system_send: &SyncSystemSend, is_left: bool) -> EditEvent {
         // Create the grid
         let grid = gtk::Grid::new();
 
@@ -380,7 +380,7 @@ impl EditAction {
     /// A function to create a new instance of the EditAction
     ///
     fn new(
-        system_send: &SystemSend,
+        system_send: &SyncSystemSend,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
         is_left: bool,
     ) -> EditAction {
@@ -809,7 +809,7 @@ impl EditAction {
 #[derive(Clone, Debug)]
 struct EditNewScene {
     grid: gtk::Grid,                      // the main grid for this element
-    system_send: SystemSend,              // a copy of the system send line
+    system_send: SyncSystemSend,              // a copy of the system send line
     description: gtk::Button,             // the description of the scene
     scene: Rc<RefCell<ItemId>>,           // the wrapped data associated with the scene
     is_left: bool,                        // whether the edit element is left or right
@@ -819,7 +819,7 @@ struct EditNewScene {
 impl EditNewScene {
     // A function to create a new scene variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditNewScene {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditNewScene {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
@@ -922,7 +922,7 @@ impl EditNewScene {
 #[derive(Clone, Debug)]
 struct EditModifyStatus {
     grid: gtk::Grid,                              // the main grid for this element
-    system_send: SystemSend,                      // a copy of the system send line
+    system_send: SyncSystemSend,                      // a copy of the system send line
     status_description: gtk::Button,              // the status description display
     status_data: Rc<RefCell<ItemId>>,             // the wrapped status data
     state_dropdown: gtk::ComboBoxText,            // the state description dropdown
@@ -934,7 +934,7 @@ struct EditModifyStatus {
 impl EditModifyStatus {
     // A function to ceate a modify status variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditModifyStatus {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditModifyStatus {
         // Create the grid for the modify status variant
         let grid = gtk::Grid::new();
 
@@ -1145,7 +1145,7 @@ impl EditModifyStatus {
 #[derive(Clone, Debug)]
 struct EditCueEvent {
     grid: gtk::Grid,                  // the main grid for this element
-    system_send: SystemSend,          // a copy of the system send line
+    system_send: SyncSystemSend,          // a copy of the system send line
     event_description: gtk::Button,   // the event description display
     event_data: Rc<RefCell<ItemId>>,  // the data associated with the event
     minutes_spin: gtk::SpinButton,    // the minutes spin button
@@ -1156,7 +1156,7 @@ struct EditCueEvent {
 impl EditCueEvent {
     // A function to ceate a cue event variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditCueEvent {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditCueEvent {
         // Create the top-level grid
         let grid = gtk::Grid::new();
 
@@ -1305,7 +1305,7 @@ impl EditCueEvent {
 #[derive(Clone, Debug)]
 struct EditCancelEvent {
     grid: gtk::Grid,                  // the main grid for this element
-    system_send: SystemSend,          // a copy of the system send line
+    system_send: SyncSystemSend,          // a copy of the system send line
     event_description: gtk::Button,   // the event description
     event_data: Rc<RefCell<ItemId>>,  // the data associated with the event
     is_left: bool                     // whether the element is on the left or right
@@ -1314,7 +1314,7 @@ struct EditCancelEvent {
 impl EditCancelEvent {
     // A function to ceate a cancel event variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditCancelEvent {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditCancelEvent {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
@@ -1424,7 +1424,7 @@ impl EditCancelEvent {
 #[derive(Clone, Debug)]
 struct EditSaveData {
     grid: gtk::Grid,                 // the main grid for this element
-    system_send: SystemSend,         // a copy of the system send line
+    system_send: SyncSystemSend,         // a copy of the system send line
     data_type: gtk::ComboBoxText,    // the data type dropdown
     event_description: gtk::Button,  // the event description
     event_data: Rc<RefCell<ItemId>>, // the data associated with the event
@@ -1437,7 +1437,7 @@ struct EditSaveData {
 impl EditSaveData {
     // A function to ceate a save data variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditSaveData {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditSaveData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
 
@@ -1742,7 +1742,7 @@ impl EditSaveData {
 #[derive(Clone, Debug)]
 struct EditSendData {
     grid: gtk::Grid,               // the main grid for this element
-    system_send: SystemSend,       // a copy of the system send line
+    system_send: SyncSystemSend,       // a copy of the system send line
     data_type: gtk::ComboBoxText,  // the data type dropdown
     event_description: gtk::Button,// the event description display
     event_data: Rc<RefCell<ItemId>>, // the wrapped event data
@@ -1755,7 +1755,7 @@ struct EditSendData {
 impl EditSendData {
     // A function to ceate a send data variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditSendData {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditSendData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
 
@@ -2059,9 +2059,15 @@ impl EditSendData {
 #[derive(Clone, Debug)]
 struct EditSelectEvent {
     grid: gtk::Grid,                                         // the main grid for this element
+<<<<<<< HEAD
     system_send: SystemSend,                                 // a copy of the system send line
     select_event_list: gtk::ListBox,                        // the list for events in this variant
     select_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the select events
+=======
+    system_send: SyncSystemSend,                                 // a copy of the system send line
+    grouped_event_list: gtk::ListBox,                        // the list for events in this variant
+    grouped_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the grouped events
+>>>>>>> Rough Patch for a Fully Asyncronous backend
     next_event: Rc<RefCell<usize>>,                          // the next available event location
     status_description: gtk::Button,                         // the status description display
     status_data: Rc<RefCell<ItemId>>,                        // the wrapped status data
@@ -2071,7 +2077,7 @@ struct EditSelectEvent {
 impl EditSelectEvent {
     // A function to create a select event variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditSelectEvent {
+    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditSelectEvent {
         // Create the list for the trigger events variant
         let select_event_list = gtk::ListBox::new();
         select_event_list.set_selection_mode(gtk::SelectionMode::None);

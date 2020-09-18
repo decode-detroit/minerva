@@ -22,8 +22,13 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
+<<<<<<< HEAD
     ItemPair, KeyMap, ProcessEvent, CueEvent, ReplyType, Request, RequestType,
     SceneChange, StatusChange, StatusDescription, SystemSend,
+=======
+    ItemPair, KeyMap, ProcessEvent, QueueEvent, ReplyType, Request, RequestType,
+    SceneChange, StatusChange, StatusDescription, SyncSystemSend,
+>>>>>>> Rough Patch for a Fully Asyncronous backend
 };
 #[cfg(feature = "media-out")]
 use super::super::super::system_interface::VideoStream;
@@ -85,7 +90,7 @@ impl StatusDialog {
     /// A method to launch the new status dialog with the current state of
     /// all of the statuses in the current configuration.
     ///
-    pub fn launch(&self, system_send: &SystemSend, status: Option<ItemPair>) {
+    pub fn launch(&self, system_send: &SyncSystemSend, status: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some("Modify Status"),
@@ -294,7 +299,7 @@ impl JumpDialog {
     /// A method to launch the new jump dialog with the current list of available
     /// scenes in the configuration.
     ///
-    pub fn launch(&self, system_send: &SystemSend, scene: Option<ItemPair>) {
+    pub fn launch(&self, system_send: &SyncSystemSend, scene: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some("Jump To ..."),
@@ -384,7 +389,7 @@ impl JumpDialog {
 pub struct ShortcutsDialog {
     key_press_handler: Option<glib::signal::SignalHandlerId>, // the active handler
     key_map: KeyMap,                                          // the map of key codes to event ids
-    system_send: SystemSend,                                  // a copy of system send
+    system_send: SyncSystemSend,                                  // a copy of system send
     window: gtk::ApplicationWindow,                           // a copy of the primary window
 }
 
@@ -393,7 +398,7 @@ impl ShortcutsDialog {
     /// A function to create a new shortcuts dialog structure with the ability
     /// to bind and display keyboard shortcuts
     ///
-    pub fn new(system_send: &SystemSend, window: &gtk::ApplicationWindow) -> ShortcutsDialog {
+    pub fn new(system_send: &SyncSystemSend, window: &gtk::ApplicationWindow) -> ShortcutsDialog {
         ShortcutsDialog {
             key_press_handler: None,
             key_map: KeyMap::default(),
@@ -546,7 +551,7 @@ impl TriggerDialog {
 
     /// A method to launch the new trigger dialog
     ///
-    pub fn launch(&mut self, system_send: &SystemSend, event: Option<ItemPair>) {
+    pub fn launch(&mut self, system_send: &SyncSystemSend, event: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some("Manually Trigger Event"),
@@ -779,7 +784,7 @@ impl PromptStringDialog {
 
     /// A method to launch the new prompt string dialog
     ///
-    pub fn launch(&self, system_send: &SystemSend, event: ItemPair) {
+    pub fn launch(&self, system_send: &SyncSystemSend, event: ItemPair) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some(&clean_text(
