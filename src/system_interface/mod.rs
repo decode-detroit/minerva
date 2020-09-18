@@ -79,8 +79,6 @@ pub struct SystemInterface {
     logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
     interface_send: mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
-    handle: Handle,                // a handle for the tokio runtime
-    web_receive: tokio_mpsc::Receiver<(ItemId, oneshot::Sender<ItemId>)>, // a receiving line for updates from the web interface
     general_receive: mpsc::Receiver<GeneralUpdateType>, // a receiving line for all system updates
     general_update: GeneralUpdate, // a sending structure to pass new general updates
     is_debug_mode: bool,           // a flag to indicate debug mode
@@ -91,8 +89,6 @@ impl SystemInterface {
     /// A function to create a new, blank instance of the system interface.
     ///
     pub fn new(
-        handle: Handle,
-        web_receive: tokio_mpsc::Receiver<(ItemId, oneshot::Sender<ItemId>)>,
         interface_send: mpsc::Sender<InterfaceUpdate>,
     ) -> Result<(SystemInterface, SystemSend), FailureError> {
         // Create the new general update structure and receive channel
@@ -137,8 +133,6 @@ impl SystemInterface {
             logger,
             system_connection,
             interface_send,
-            handle,
-            web_receive,
             general_receive,
             general_update: general_update,
             is_debug_mode: false,
@@ -158,12 +152,6 @@ impl SystemInterface {
     /// and underlying system of any event changes.
     ///
     pub fn run_once(&mut self) -> bool {
-        // FIXME block on the receipt of something from the internet
-        let handle = self.handle.clone();
-        if let Some((item_id, sender)) = handle.block_on(async {self.web_receive.recv().await}) {
-            sender.send(item_id).unwrap_or(());
-        };
-        
         // Check for any of the updates
         match self.general_receive.recv() {
             // Broadcast the event via the system connection

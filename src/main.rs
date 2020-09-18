@@ -29,7 +29,7 @@ mod user_interface;
 mod web_interface;
 
 // Import the relevant structures into the correct namespace
-use self::system_interface::SystemInterface;
+use self::system_interface::{SystemInterface, ProcessEvent};
 use self::user_interface::UserInterface;
 use self::web_interface::WebInterface;
 
@@ -86,12 +86,30 @@ impl Minerva {
 
         // Launch the background thread to monitor and handle events
         let (interface_send, interface_receive) = mpsc::channel();
-        let (system_interface, system_send) = SystemInterface::new(handle, web_receive, interface_send.clone())
+        let (system_interface, system_send) = SystemInterface::new(interface_send.clone())
             .expect("Unable To Create System Interface.");
 
         // Open the system interface in a new thread
         thread::spawn(move || {
             system_interface.run();
+        });
+
+        // Spawn a thread to manage the intersection of sync/async
+        system_clone = system_send.clone();
+        thread::spawn(move || {
+            // Loop indefinitely
+            loop {
+                // Wait for something to come through
+                let (item_id, reply_line) = handle.block_on(async {
+                    web_receive.recv().await.unwrap()
+                });
+                
+                // Pass the message to the internal system
+                system_send.send(ProcessEvent { item_id.clone(), true, true });
+                
+                // Indicate success on the reply line
+                reply_line.send(item_id).unwrap_or(());
+            }
         });
 
         // Create the application window
