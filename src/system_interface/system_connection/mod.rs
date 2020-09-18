@@ -331,7 +331,7 @@ impl SystemConnection {
     /// A method to update the system connection type. This method returns false
     /// if it was unable to connect to the underlying system and warns the user.
     ///
-    pub fn update_system_connection(
+    pub async fn update_system_connection(
         &mut self,
         connections: Option<(ConnectionSet, Identifier)>,
     ) -> bool {
@@ -379,7 +379,7 @@ impl SystemConnection {
 
     /// A method to send messages between the underlying system and the program.
     ///
-    pub fn broadcast(&mut self, new_event: ItemId, data: Option<u32>) {
+    pub async fn broadcast(&mut self, new_event: ItemId, data: Option<u32>) {
         // Extract the connection, if it exists
         if let Some(ref mut conn) = self.connection_send {
             // Send the new event
@@ -391,7 +391,7 @@ impl SystemConnection {
 
     /// An internal function to run a loop of the system connection
     ///
-    fn run_loop(
+    async fn run_loop(
         mut connections: Vec<LiveConnection>,
         gen_update: GeneralUpdate,
         conn_recv: mpsc::Receiver<ConnectionUpdate>,

@@ -97,7 +97,7 @@ impl EventHandler {
     /// If the log failures flag is set to false, this function will not notify
     /// of a failure to connect to the configuration file.
     ///
-    pub fn new(
+    pub async fn new(
         config_path: PathBuf,
         handle: Handle,
         general_update: GeneralUpdate,
@@ -117,17 +117,17 @@ impl EventHandler {
         };
 
         // Attempt to process the configuration file
-        let mut config = Config::from_config(general_update.clone(), interface_send, &config_file)?;
+        let mut config = Config::from_config(handle.clone(), general_update.clone(), interface_send, &config_file).await?;
 
         // Attempt to create the backup handler
         let backup = BackupHandler::new(
             general_update.clone(),
             config.identifier(),
             config.server_location(),
-        )?;
+        ).await?;
 
         // Create an empty event queue
-        let queue = Queue::new(handle, general_update.clone());
+        let mut queue = Queue::new(handle, general_update.clone());
 
         // Check for existing data from the backup handler
         if let Some((current_scene, status_pairs, queued_events)) =
@@ -137,14 +137,14 @@ impl EventHandler {
             update!(err &general_update => "Detected Lingering Backup Data. Reloading ...");
 
             // Change the current scene silently (i.e. do not trigger the reset event)
-            config.choose_scene(current_scene).unwrap_or(());
+            config.choose_scene(current_scene).await.unwrap_or(());
 
             // Update the current status states based on the backup
             config.load_backup_status(status_pairs);
 
             // Update the queue with the found events
             for event in queued_events {
-                queue.add_event(EventDelay::new(Some(event.remaining), event.event_id));
+                queue.add_event(EventDelay::new(Some(event.remaining), event.event_id)).await;
             }
 
             // Wait 10 nanoseconds for the queued events to process
@@ -155,11 +155,11 @@ impl EventHandler {
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
-            queue.add_event(EventDelay::new(None, config.get_current_scene().get_id()));
+            queue.add_event(EventDelay::new(None, config.get_current_scene().await.get_id())).await;
         }
 
         // Load the current scene into the backup (to detect any crash after this point)
-        backup.backup_current_scene(&config.get_current_scene().get_id());
+        backup.backup_current_scene(&config.get_current_scene().await.get_id());
 
         // Return the completed EventHandler with a new queue
         Ok(EventHandler {
@@ -200,7 +200,7 @@ impl EventHandler {
     /// will occur (last event first). The coming events are backed up (if
     /// the backup feature is active).
     ///
-    pub fn repackage_events(&self, mut events: Vec<ComingEvent>) -> Vec<UpcomingEvent> {
+    pub async fn repackage_events(&self, mut events: Vec<ComingEvent>) -> Vec<UpcomingEvent> {
         // Backup the coming events
         self.backup.backup_events(events.clone());
 
@@ -211,7 +211,7 @@ impl EventHandler {
             upcoming_events.push(UpcomingEvent {
                 start_time: event.start_time,
                 delay: event.delay,
-                event: ItemPair::from_item(event.id(), self.get_description(&event.id())),
+                event: ItemPair::from_item(event.id(), self.get_description(&event.id()).await),
             });
         }
 
@@ -230,9 +230,9 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning None.
     ///
-    pub fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
+    pub async fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
         // Try to retrieve the event
-        self.config.try_event(event_id, false) // do not check the scene
+        self.config.try_event(event_id, false).await // do not check the scene
     }
 
     /// A method to return a copy of the description of the provided id.
@@ -247,9 +247,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription.
     ///
-    pub fn get_description(&self, item_id: &ItemId) -> ItemDescription {
+    pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
         // Return a new copy of the event description
-        self.config.get_description(item_id)
+        self.config.get_description(item_id).await
     }
 
     /// A method to return a copy of the status detail of the provided item id.
@@ -298,16 +298,16 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that scene.
     ///
-    pub fn get_scenes(&self) -> Vec<ItemPair> {
+    pub async fn get_scenes(&self) -> Vec<ItemPair> {
         // Return a list of available scenes
-        self.config.get_scenes()
+        self.config.get_scenes().await
     }
 
     /// A method to return a scene with available events and optional keymap, given
     /// an item id
-    pub fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+    pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
         // Return a scene corresponding to the id, or None if none
-        self.config.get_scene(item_id)
+        self.config.get_scene(item_id).await
     }
 
     /// A method to return an itempair of all available items in the configuration.
@@ -330,9 +330,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
+    pub async fn get_events(&self) -> Vec<ItemPair> {
         // Return a list of available items in the current scene
-        self.config.get_events()
+        self.config.get_events().await
     }
 
     /// A method to return an key map for the current scene, with all items
@@ -347,9 +347,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_key_map(&self) -> KeyMap {
+    pub async fn get_key_map(&self) -> KeyMap {
         // Return the key mapping for this scene
-        self.config.get_key_map()
+        self.config.get_key_map().await
     }
 
     /// A method to return the current scene.
@@ -363,9 +363,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the status line and returning an
     /// ItemPair with an empty description.
     ///
-    pub fn get_current_scene(&self) -> ItemPair {
+    pub async fn get_current_scene(&self) -> ItemPair {
         // Return an item pair for the current scene
-        self.config.get_current_scene()
+        self.config.get_current_scene().await
     }
 
     /// A method to change the selected status within the current configuration.
@@ -380,9 +380,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and leaving the
     /// current configuration unmodified.
     ///
-    pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
+    pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // Try to modify the underlying status
-        if let Some(new_id) = self.config.modify_status(status_id, new_state) {
+        if let Some(new_id) = self.config.modify_status(status_id, new_state).await {
             // Backup the status change
             self.backup.backup_status(status_id, &new_id);
 
@@ -427,12 +427,12 @@ impl EventHandler {
     /// gracefully by notifying of errors on the general line and leaving the
     /// current configuration unmodified.
     ///
-    pub fn choose_scene(&mut self, scene_id: ItemId) {
+    pub async fn choose_scene(&mut self, scene_id: ItemId) {
         // Send an update to the rest of the system (will preceed error if there is one)
-        update!(update &mut self.general_update => "Changing Current Scene ...");
+        update!(update &self.general_update => "Changing Current Scene ...");
 
         // Try to change the underlying scene
-        if self.config.choose_scene(scene_id).is_ok() {
+        if self.config.choose_scene(scene_id).await.is_ok() {
             // Backup the current scene change
             self.backup.backup_current_scene(&scene_id);
 
@@ -454,7 +454,7 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by ignoring this failure.
     ///
-    pub fn adjust_event(&self, event_id: ItemId, start_time: Instant, new_delay: Option<Duration>) {
+    pub fn adjust_event(&mut self, event_id: ItemId, start_time: Instant, new_delay: Option<Duration>) {
         // Check to see if a delay was specified
         match new_delay {
             // If a delay was specified
@@ -491,7 +491,7 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by ignoring this failure.
     ///
-    pub fn adjust_all_events(&self, adjustment: Duration, is_negative: bool) {
+    pub fn adjust_all_events(&mut self, adjustment: Duration, is_negative: bool) {
         // Modify the remaining delay for all events in the queue
         self.queue.adjust_all(adjustment, is_negative);
     }
@@ -507,12 +507,12 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying the user.
     ///
-    pub fn save_config(&self, config_path: PathBuf) {
+    pub async fn save_config(&self, config_path: PathBuf) {
         // Attempt to open the new configuration file
         let config_file = match File::create(config_path) {
             Ok(file) => file,
             Err(_) => {
-                update!(err &mut self.general_update => "Unable To Open Configuration File.");
+                update!(err &self.general_update => "Unable To Open Configuration File.");
                 return;
             }
         };
@@ -535,7 +535,7 @@ impl EventHandler {
     ///
     pub async fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) -> bool {
         // Try to retrieve the event and unpack the event
-        let event = match self.config.try_event(event_id, checkscene) {
+        let event = match self.config.try_event(event_id, checkscene).await {
             // Process a valid event
             Some(event) => event,
 
@@ -544,7 +544,7 @@ impl EventHandler {
         };
 
         // Compose the item into an item pair
-        let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
+        let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id).await);
 
         // Unpack and process each action of the event
         let mut was_broadcast = false;
@@ -563,12 +563,12 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            update!(broadcast &mut self.general_update => pair.clone(), Some(number));
+                            update!(broadcast &self.general_update => pair.clone(), Some(number));
                         }
 
                     // Otherwise just update the system about the event
                     } else {
-                        update!(now &mut self.general_update => pair.clone());
+                        update!(now &self.general_update => pair.clone());
                     }
                 }
 
@@ -588,11 +588,11 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                update!(broadcast &mut self.general_update => pair.clone(), None);
+                update!(broadcast &self.general_update => pair.clone(), None);
 
             // Otherwise just update the system about the event
             } else {
-                update!(now &mut self.general_update => pair.clone());
+                update!(now &self.general_update => pair.clone());
             }
         }
 
@@ -640,7 +640,7 @@ impl EventHandler {
                     // Collect time until an event
                     DataType::TimeUntil { event_id } => {
                         // Check to see if there is time remaining for the event
-                        if let Ok(duration) = self.queue.event_remaining(&event_id).await {
+                        if let Some(duration) = self.queue.event_remaining(&event_id).await {
                             // Convert the duration to minutes and seconds
                             let minutes = duration.as_secs() / 60;
                             let seconds = duration.as_secs() % 60;
@@ -649,7 +649,7 @@ impl EventHandler {
                             let data_string = format!("Time {}:{}", minutes, seconds);
 
                             // Save the data to the game log
-                            update!(save &mut self.general_update => data_string);
+                            update!(save &self.general_update => data_string);
                         }
                     }
 
@@ -659,7 +659,7 @@ impl EventHandler {
                         total_time,
                     } => {
                         // Check to see if there is time remaining for the event
-                        if let Ok(remaining) = self.queue.event_remaining(&event_id).await {
+                        if let Some(remaining) = self.queue.event_remaining(&event_id).await {
                             // Subtract the remaining time from the total time
                             if let Some(result) = total_time.checked_sub(remaining) {
                                 // Convert the duration to minutes and seconds
@@ -670,7 +670,7 @@ impl EventHandler {
                                 let data_string = format!("Time {}:{}", minutes, seconds);
 
                                 // Save the data to the game log
-                                update!(save &mut self.general_update => data_string);
+                                update!(save &self.general_update => data_string);
                             }
                         }
                     }
@@ -678,13 +678,13 @@ impl EventHandler {
                     // Send the static string to the event
                     DataType::StaticString { string } => {
                         // Save the string to the game log
-                        update!(save &mut self.general_update => string);
+                        update!(save &self.general_update => string);
                     }
 
                     // Solicit a string from the user
                     DataType::UserString => {
                         // Error that this is not yet implemented
-                        update!(err &mut self.general_update => "Saving a User String is not yet implemented.");
+                        update!(err &self.general_update => "Saving a User String is not yet implemented.");
                     }
                 }
             }
@@ -696,7 +696,7 @@ impl EventHandler {
                     // Collect time until an event
                     DataType::TimeUntil { event_id } => {
                         // Check to see if there is time remaining for the event
-                        if let Ok(duration) = self.queue.event_remaining(&event_id).await {
+                        if let Some(duration) = self.queue.event_remaining(&event_id).await {
                             // Convert the data to u32 (truncated)
                             return UnpackResult::Data(vec![duration.as_secs() as u32]);
 
@@ -712,7 +712,7 @@ impl EventHandler {
                         total_time,
                     } => {
                         // Check to see if there is time remaining for the event
-                        if let Ok(remaining) = self.queue.event_remaining(&event_id).await {
+                        if let Some(remaining) = self.queue.event_remaining(&event_id).await {
                             // Subtract the remaining time from the total time
                             if let Some(result) = total_time.checked_sub(remaining) {
                                 // Convert the data to u32 (truncated)
@@ -775,7 +775,7 @@ impl EventHandler {
                 event_map,
             } => {
                 // Try to retrieve the group status state
-                if let Some(state) = self.config.get_state(&status_id) {
+                if let Some(state) = self.config.get_state(&status_id).await {
                     // Try to find the corresponding event in the event_map
                     if let Some(event_id) = event_map.get(&state) {
                         // Trigger the event if it was found

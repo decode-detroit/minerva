@@ -176,7 +176,7 @@ impl WebInterface {
     }
 
     /// A helper function to send a message to the system thread
-    async fn send_message(mut system_send: SystemSend, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
+    async fn send_message(system_send: SystemSend, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
         system_send.send(WebRequest {

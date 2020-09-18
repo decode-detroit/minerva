@@ -77,7 +77,7 @@ impl BackupHandler {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn new(
+    pub async fn new(
         update_line: GeneralUpdate,
         identifier: Identifier,
         server_location: Option<String>,
@@ -134,7 +134,7 @@ impl BackupHandler {
     /// Like all BackupHandler functions and methods, this function will fail
     /// gracefully by notifying of any errors on the update line.
     ///
-    pub fn backup_current_scene(&self, current_scene: &ItemId) {
+    pub async fn backup_current_scene(&self, current_scene: &ItemId) {
         // If the redis connection exists
         if let &Some(ref connection) = &self.connection {
             // Try to copy the current scene to the server
@@ -168,7 +168,7 @@ impl BackupHandler {
     /// Like all BackupHandler functions and methods, this function will fail
     /// gracefully by notifying of any errors on the update line.
     ///
-    pub fn backup_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
+    pub async fn backup_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // If the redis connection exists
         if let &Some(ref connection) = &self.connection {
             // Try to copy the state to the server
@@ -206,7 +206,7 @@ impl BackupHandler {
     /// Like all BackupHandler functions and methods, this function will fail
     /// gracefully by notifying of any errors on the update line.
     ///
-    pub fn backup_events(&self, coming_events: Vec<ComingEvent>) {
+    pub async fn backup_events(&self, coming_events: Vec<ComingEvent>) {
         // If the redis connection exists
         if let &Some(ref connection) = &self.connection {
             // Covert the coming events to queued events

@@ -85,7 +85,7 @@ impl Minerva {
 
         // Open the system interface in a new thread
         runtime.spawn(async move {
-            system_interface.run();
+            system_interface.run().await;
         });
 
         // Create a new web interface
@@ -93,7 +93,7 @@ impl Minerva {
 
         // Open the web interface in a new thread
         runtime.spawn(async move {
-            web_interface.run();
+            web_interface.run().await;
         });
 
         // Create the application window

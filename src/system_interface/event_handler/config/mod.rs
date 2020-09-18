@@ -41,11 +41,11 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Child, Command};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
+
+// Import tokio features
+use tokio::process::Command;
+use tokio::runtime::Handle;
 
 // Import the failure crate
 use failure::Error;
@@ -55,9 +55,6 @@ use fnv::{FnvHashMap, FnvHashSet};
 
 // Import YAML processing library
 use serde_yaml;
-
-// Define module constants
-const BACKGROUND_POLLING: u64 = 100; // the polling rate for the background process in ms
 
 /// Define the instance identifier. Instances with the same identifier will trigger
 /// events with one another; instances with different identifiers will not.
@@ -114,13 +111,13 @@ struct BackgroundProcess {
 ///
 struct BackgroundThread {
     background_process: BackgroundProcess, // a copy of the background process info
-    handle: Arc<Mutex<Child>>,             // the handle of the spawned thread
 }
 
 // Implement the BackgroundThread Functions
 impl BackgroundThread {
     /// Spawn the monitoring thread
-    fn new(
+    async fn new(
+        handle: Handle,
         background_process: BackgroundProcess,
         general_update: GeneralUpdate,
     ) -> Option<BackgroundThread> {
@@ -132,6 +129,7 @@ impl BackgroundThread {
             // Create the child process
             let child = match Command::new(path.clone())
                 .args(background_process.arguments.clone())
+                .kill_on_drop(true)
                 .spawn()
             {
                 // If the child process was created, return it
@@ -139,28 +137,23 @@ impl BackgroundThread {
 
                 // Otherwise, warn of the error and return
                 _ => {
-                    update!(err general_update => "Unable To Run Background Process.");
+                    update!(err general_update => "Unable To Start Background Process.");
                     return None;
                 }
             };
 
-            // Wrap the child process in an Arc and Mutex
-            let handle = Arc::new(Mutex::new(child));
-            let clone = handle.clone();
+            // Extract the arguments
             let arguments = background_process.arguments.clone();
             let keepalive = background_process.keepalive;
 
             // Spawn a background thread to monitor the process
-            thread::spawn(move || {
-                // Run indefinitely
+            handle.spawn(async move {
+                // Run indefinitely or until the process fails
                 loop {
-                    // Wait a little bit
-                    thread::sleep(Duration::from_millis(BACKGROUND_POLLING));
-
-                    // Check to see if the child process has exited
-                    match clone.lock().unwrap().try_wait() {
+                    // Wait for the process to finish
+                    match child.await {
                         // If the process has terminated
-                        Ok(Some(status)) => {
+                        Ok(status) => {
                             // Notify that the process was a success and restart
                             if status.success() {
                                 update!(update general_update => "Background Process Finished Normally.");
@@ -171,8 +164,11 @@ impl BackgroundThread {
                             }
                         }
 
-                        // If the process is still going, continue the loop
-                        _ => continue,
+                        // If the process failed to run
+                        _ => {
+                            update!(err general_update => "Unable To Run Background Process.");
+                            break;
+                        }
                     }
 
                     // If the process has finished, and we want to keep it alive
@@ -181,7 +177,7 @@ impl BackgroundThread {
                         update!(update general_update => "Restarting Background Process ...");
 
                         // Start the process again
-                        let child = match Command::new(path.clone()).args(arguments.clone()).spawn()
+                        child = match Command::new(path.clone()).args(arguments.clone()).spawn()
                         {
                             // If the child process was created, return it
                             Ok(child) => child,
@@ -193,10 +189,6 @@ impl BackgroundThread {
                             }
                         };
 
-                        // Wait for mutable access to the handle and then update it
-                        let mut tmp = clone.lock().unwrap();
-                        *tmp = child;
-
                     // Otherwise, exit the loop and finish the thread
                     } else {
                         break;
@@ -207,7 +199,6 @@ impl BackgroundThread {
             // Return the completed background thread
             Some(BackgroundThread {
                 background_process,
-                handle,
             })
 
         // Warn that the process wasn't found
@@ -220,14 +211,6 @@ impl BackgroundThread {
     /// A helper method to return a copy of the background process info
     fn background_process(&self) -> BackgroundProcess {
         self.background_process.clone()
-    }
-}
-
-// Implement drop for BackgroundThread
-impl Drop for BackgroundThread {
-    fn drop(&mut self) {
-        // Wait for access to the handle and then kill the process
-        self.handle.lock().unwrap().kill().unwrap_or(());
     }
 }
 
@@ -290,7 +273,8 @@ impl Config {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn from_config(
+    pub async fn from_config(
+        handle: Handle,
         general_update: GeneralUpdate,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         mut config_file: &File,
@@ -345,7 +329,7 @@ impl Config {
         // Verify the configuration is defined correctly
         let all_scenes = yaml_config.all_scenes;
         let status_map = yaml_config.status_map;
-        Config::verify_config(&general_update, &all_scenes, &status_map, &lookup, &events);
+        Config::verify_config(&general_update, &all_scenes, &status_map, &lookup, &events).await;
 
         // Create the new status handler
         let status_handler = StatusHandler::new(general_update.clone(), status_map);
@@ -365,7 +349,7 @@ impl Config {
         // Try to start the background process and monitor it, if specified
         let mut background_thread = None;
         if let Some(background_process) = yaml_config.background_process.clone() {
-            background_thread = BackgroundThread::new(background_process, general_update.clone());
+            background_thread = BackgroundThread::new(handle, background_process, general_update.clone()).await;
         }
 
         // Adjust fullscreen, if specified
@@ -421,7 +405,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription.
     ///
-    pub fn get_description(&self, item_id: &ItemId) -> ItemDescription {
+    pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
         // Return an item description based on the provided item id
         match self.lookup.get(item_id) {
             // If the item is in the lookup, return the description
@@ -473,16 +457,16 @@ impl Config {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line.
     ///
-    pub fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
+    pub async fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
         // For every status in the status pairs, set the current value
         for (status_id, new_state) in status_pairs.drain(..) {
             self.status_handler.modify_status(&status_id, &new_state); // Ignore errors
 
             // Notify the system of the successful status change
             let status_pair =
-                ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
+                ItemPair::from_item(status_id.clone(), self.get_description(&status_id).await);
             let state_pair =
-                ItemPair::from_item(new_state.clone(), self.get_description(&new_state));
+                ItemPair::from_item(new_state.clone(), self.get_description(&new_state).await);
             update!(status &self.general_update => status_pair, state_pair);
         }
     }
@@ -502,7 +486,7 @@ impl Config {
     pub fn get_full_status(&self) -> FullStatus {
         // Get the full status from the status map
         self.status_handler
-            .get_full_status(|id| self.get_description(id))
+            .get_full_status(async |id| self.get_description(id).await)
     }
 
     /// A method to return an itempair of all available scenes in this
@@ -518,7 +502,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that scene.
     ///
-    pub fn get_scenes(&self) -> Vec<ItemPair> {
+    pub async fn get_scenes(&self) -> Vec<ItemPair> {
         // Compile a list of the available scenes
         let mut id_vec = Vec::new();
         for scene_id in self.all_scenes.keys() {
@@ -529,7 +513,7 @@ impl Config {
         id_vec.sort_unstable();
         let mut scenes = Vec::new();
         for scene_id in id_vec {
-            let description = self.get_description(scene_id);
+            let description = self.get_description(scene_id).await;
             scenes.push(ItemPair::from_item(scene_id.clone(), description));
         }
 
@@ -541,7 +525,7 @@ impl Config {
     /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
     /// the method returns the scene. Otherwise, it returns None.
     ///
-    pub fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+    pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
         // Check if the given item id corresponds to a scene
         match self.all_scenes.get(&item_id) {
             // If it doesn't correspond to a scene, return none
@@ -552,7 +536,7 @@ impl Config {
                 // Compile a list of the events as item pairs
                 let mut events = Vec::new();
                 for item_id in scene.events.iter() {
-                    events.push(ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
+                    events.push(ItemPair::from_item(item_id.clone(), self.get_description(&item_id).await));
                 }
 
                 // Sort the items in order
@@ -568,7 +552,7 @@ impl Config {
                         // Iterate through the key map for this scene
                         for (key, item_id) in key_map.iter() {
                             // Combine the item pair and key value
-                            map.insert(key.clone(), ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
+                            map.insert(key.clone(), ItemPair::from_item(item_id.clone(), self.get_description(&item_id).await));
                         }
                         // Return the Scene with the reversed key map
                         Some(DescriptiveScene { events, key_map: Some(map) })
@@ -608,7 +592,7 @@ impl Config {
     /// This method will raise an error if one of the item ids was not found in
     /// lookup. This indicates that the configuration file is incomplete.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
+    pub async fn get_events(&self) -> Vec<ItemPair> {
         // Create an empty events vector
         let mut items = Vec::new();
 
@@ -624,7 +608,7 @@ impl Config {
             id_vec.sort_unstable();
             for item_id in id_vec {
                 // Get the item description
-                let description = self.get_description(&item_id);
+                let description = self.get_description(&item_id).await;
 
                 // Combine the item id and description
                 items.push(ItemPair::from_item(item_id.clone(), description));
@@ -647,7 +631,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_key_map(&self) -> KeyMap {
+    pub async fn get_key_map(&self) -> KeyMap {
         // Create an empty key map
         let mut map = FnvHashMap::default();
 
@@ -658,7 +642,7 @@ impl Config {
                 // Iterate through the key map for this scene
                 for (key, id) in key_map.iter() {
                     // Get the item description
-                    let description = self.get_description(&id);
+                    let description = self.get_description(&id).await;
 
                     // Combine the item id and description
                     map.insert(key.clone(), ItemPair::from_item(id.clone(), description));
@@ -682,9 +666,9 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that scene.
     ///
-    pub fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
+    pub async fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Return the internal state of the status handler
-        self.status_handler.get_state(status_id)
+        self.status_handler.get_state(status_id).await
     }
 
     /// A method to return the current scene.
@@ -698,11 +682,11 @@ impl Config {
     /// gracefully by notifying of errors on the status line and returning an
     /// ItemPair with an empty description.
     ///
-    pub fn get_current_scene(&self) -> ItemPair {
+    pub async fn get_current_scene(&self) -> ItemPair {
         // Compose an item pair for the current scene
         ItemPair::from_item(
             self.current_scene.clone(),
-            self.get_description(&self.current_scene),
+            self.get_description(&self.current_scene).await,
         )
     }
 
@@ -720,7 +704,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and making no
     /// modifications to the current scene.
     ///
-    pub fn choose_scene(&mut self, scene_id: ItemId) -> Result<(), ()> {
+    pub async fn choose_scene(&mut self, scene_id: ItemId) -> Result<(), ()> {
         // Check to see if the scene_id is valid
         if self.all_scenes.contains_key(&scene_id) {
             // Update the current scene id
@@ -757,13 +741,13 @@ impl Config {
     /// gracefully by notifying of errors on the update line and making no
     /// modifications to the current scene.
     ///
-    pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
+    pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
         // Try to update the underlying status
-        if let Some(new_id) = self.status_handler.modify_status(&status_id, &new_state) {
+        if let Some(new_id) = self.status_handler.modify_status(&status_id, &new_state).await {
             // Notify the system of the successful status change
             let status_pair =
-                ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
-            let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
+                ItemPair::from_item(status_id.clone(), self.get_description(&status_id).await);
+            let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id).await);
             update!(status &self.general_update => status_pair, state_pair.clone());
 
             // Indicate status change
@@ -776,7 +760,7 @@ impl Config {
 
     /// A method to modify or add an item with provided item pair
     ///
-    pub fn edit_item(&mut self, item_pair: ItemPair) {
+    pub async fn edit_item(&mut self, item_pair: ItemPair) {
         // If the item is in the lookup, update the description
         if let Some(description) = self.lookup.get_mut(&item_pair.get_id()) {
             // Update the description and notify the system
@@ -793,18 +777,18 @@ impl Config {
 
     /// A method to modify or add an event with provided event id and new event.
     ///
-    pub fn edit_event(&mut self, event_id: ItemId, possible_event: Option<Event>) {
+    pub async fn edit_event(&mut self, event_id: ItemId, possible_event: Option<Event>) {
         // If a new event was specified
         if let Some(new_event) = possible_event {        
             // If the event is in the event list, update the event
             if let Some(event) = self.events.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
-                update!(update &self.general_update => "Event Updated: {}", self.get_description(&event_id));
+                update!(update &self.general_update => "Event Updated: {}", self.get_description(&event_id).await);
             
             // Otherwise, add the event
             } else {
-                update!(update &self.general_update => "Event Added: {}", self.get_description(&event_id));
+                update!(update &self.general_update => "Event Added: {}", self.get_description(&event_id).await);
                 self.events.insert(event_id, new_event);
             }
         
@@ -813,33 +797,33 @@ impl Config {
             // If the event is in the event list, remove it
             if let Some(_) = self.events.remove(&event_id) {
                 // Notify the user that it was removed
-                update!(update &self.general_update => "Event Removed: {}", self.get_description(&event_id));
+                update!(update &self.general_update => "Event Removed: {}", self.get_description(&event_id).await);
             }
         }
     }
     
     /// A method to modify or add a status with provided id.
     ///
-    pub fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
+    pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
         // Get the item description and then pass the change to the status handler
-        let description = self.get_description(&status_id).description;
+        let description = self.get_description(&status_id).await.description;
         self.status_handler.edit_status(status_id, new_status, description);
     }
 
     /// A method to modify or add a scene with provided id.
     ///
-    pub fn edit_scene(&mut self, scene_id: ItemId, possible_scene: Option<Scene>) {
+    pub async fn edit_scene(&mut self, scene_id: ItemId, possible_scene: Option<Scene>) {
         // If a new scene was specified
         if let Some(new_scene) = possible_scene {
             // If the scene is in the scene list, update the scene
             if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
                 // Update the scene and notify the system
                 *scene = new_scene;
-                update!(update &self.general_update => "Scene Updated: {}", self.get_description(&scene_id));
+                update!(update &self.general_update => "Scene Updated: {}", self.get_description(&scene_id).await);
             
             // Otherwise, add the scene
             } else {
-                update!(update &self.general_update => "Scene Added: {}", self.get_description(&scene_id));
+                update!(update &self.general_update => "Scene Added: {}", self.get_description(&scene_id).await);
                 self.all_scenes.insert(scene_id, new_scene);
             }
         
@@ -848,14 +832,14 @@ impl Config {
             // If the scene is in the scene list, remove it
             if let Some(_) = self.all_scenes.remove(&scene_id) {
                 // Notify the user that it was removed
-                update!(update &self.general_update => "Scene Removed: {}", self.get_description(&scene_id));
+                update!(update &self.general_update => "Scene Removed: {}", self.get_description(&scene_id).await);
             }
         }
     }
     
     /// A method to delete the item description within the lookup.
     ///
-    pub fn _delete_description(&mut self, item_id: &ItemId) {
+    pub async fn _delete_description(&mut self, item_id: &ItemId) {
         // Try to remove the item from the lookup
         if let Some(description) = self.lookup.remove(item_id) {
             // Notify the user that it was removed
@@ -875,7 +859,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning
     /// None.
     ///
-    pub fn try_event(&mut self, id: &ItemId, checkscene: bool) -> Option<Event> {
+    pub async fn try_event(&mut self, id: &ItemId, checkscene: bool) -> Option<Event> {
         // If the checkscene flag is set
         if checkscene {
             // Try to open the current scene
@@ -883,7 +867,7 @@ impl Config {
                 // Check to see if the event is listed in the current scene
                 if !scene.events.contains(id) {
                     // If the event is not listed in the current scene, notify
-                    update!(warnevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not In Current Scene.");
+                    update!(warnevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id).await)  => "Event Not In Current Scene.");
                     return None;
                 }
             // Warn that there isn't a current scene
@@ -901,7 +885,7 @@ impl Config {
             // Return None if the id doesn't exist
             None => {
                 // Notify of an invalid event
-                update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id)) => "Event Not Found.");
+                update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id).await) => "Event Not Found.");
 
                 // Return None
                 None
@@ -921,7 +905,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and making no
     /// modifications to the file.
     ///
-    pub fn to_config(&self, mut config_file: &File) {
+    pub async fn to_config(&self, mut config_file: &File) {
         // Assemble the event set from the events and lookup
         let mut event_set = FnvHashMap::default();
         for (item_id, description) in self.lookup.iter() {
@@ -989,7 +973,7 @@ impl Config {
     /// This function raises a warning at the first inconsistency and is not
     /// guaranteed to catch later inconsistencies.
     ///
-    fn verify_config(
+    async fn verify_config(
         general_update: &GeneralUpdate,
         all_scenes: &FnvHashMap<ItemId, Scene>,
         status_map: &StatusMap,
@@ -1005,7 +989,7 @@ impl Config {
                 status_map,
                 lookup,
                 events,
-            ) {
+            ).await {
                 update!(warn general_update => "Broken Scene Definition: {}", id);
             }
 
@@ -1027,7 +1011,7 @@ impl Config {
     /// This function raises a warning at the first inconsistency and is not
     /// guaranteed to catch later inconsistencies.
     ///
-    fn verify_scene(
+    async fn verify_scene(
         general_update: &GeneralUpdate,
         scene: &Scene,
         all_scenes: &FnvHashMap<ItemId, Scene>,
@@ -1049,7 +1033,7 @@ impl Config {
                     status_map,
                     lookup,
                     events,
-                ) {
+                ).await {
                     update!(warn general_update => "Invalid Event: {}", id);
                     test = false;
                 }
@@ -1062,7 +1046,7 @@ impl Config {
             }
 
             // Verify that the event is described in the event lookup
-            test = test & Config::verify_lookup(general_update, lookup, id);
+            test = test & Config::verify_lookup(general_update, lookup, id).await;
         }
 
         // If the key map is specified
@@ -1091,7 +1075,7 @@ impl Config {
     /// This function raises a warning at the first inconsistency and is not
     /// guaranteed to catch later inconsistencies.
     ///
-    fn verify_event(
+    async fn verify_event(
         general_update: &GeneralUpdate,
         event: &Event,
         scene: &Scene,
@@ -1122,7 +1106,7 @@ impl Config {
                     }
 
                     // If the scene exists, verify the scene is described
-                    return Config::verify_lookup(general_update, lookup, new_scene);
+                    return Config::verify_lookup(general_update, lookup, new_scene).await;
                 }
 
                 // If there is a status modification, verify both components of the modification
@@ -1143,8 +1127,8 @@ impl Config {
                     }
 
                     // If the status exists, verify the status and state are described
-                    return Config::verify_lookup(general_update, lookup, status_id)
-                        & Config::verify_lookup(general_update, lookup, new_state);
+                    return Config::verify_lookup(general_update, lookup, status_id).await
+                        & Config::verify_lookup(general_update, lookup, new_state).await;
                 }
 
                 // If there is an event to cue, verify that it exists
@@ -1226,7 +1210,7 @@ impl Config {
     /// gracefully by notifying of warnings on the status line. This function
     /// does not raise any errors.
     ///
-    fn verify_lookup(
+    async fn verify_lookup(
         general_update: &GeneralUpdate,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
         id: &ItemId,

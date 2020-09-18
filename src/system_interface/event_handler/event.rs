@@ -221,12 +221,12 @@ macro_rules! update {
 
             // Send the error to the mpsc line
             Ok(_normal) => {
-                $line.send_update(EventUpdate::Error(s, None));
+                $line.send_update(EventUpdate::Error(s, None)).await;
             },
 
             // Send generic error to the mpsc line
             Err(_error) => {
-                $line.send_update(EventUpdate::Error("Unknown Error Occured.".to_string(), None));
+                $line.send_update(EventUpdate::Error("Unknown Error Occured.".to_string(), None)).await;
             },
         }
     });
@@ -243,12 +243,12 @@ macro_rules! update {
 
             // Send the error to the mpsc line
             Ok(_normal) => {
-                $line.send_update(EventUpdate::Error(s, Some($event)));
+                $line.send_update(EventUpdate::Error(s, Some($event))).await;
             },
 
             // Send generic error to the mpsc line
             Err(_error) => {
-                $line.send_update(EventUpdate::Error("Unknown Error Occured.".to_string(), None));
+                $line.send_update(EventUpdate::Error("Unknown Error Occured.".to_string(), None)).await;
             },
         }
     });
@@ -265,12 +265,12 @@ macro_rules! update {
 
             // Send the warning to the mpsc line
             Ok(_normal) => {
-                $line.send_update(EventUpdate::Warning(s, None));
+                $line.send_update(EventUpdate::Warning(s, None)).await;
             },
 
             // Send generic warning to the mpsc line
             Err(_error) => {
-                $line.send_update(EventUpdate::Warning("Unknown Warning Occured.".to_string(), None));
+                $line.send_update(EventUpdate::Warning("Unknown Warning Occured.".to_string(), None)).await;
             },
         }
     });
@@ -288,12 +288,12 @@ macro_rules! update {
 
             // Send the warning to the mpsc line
             Ok(_normal) => {
-                $line.send_update(EventUpdate::Warning(s, Some($event)));
+                $line.send_update(EventUpdate::Warning(s, Some($event))).await;
             },
 
             // Send generic warning to the mpsc line
             Err(_error) => {
-                $line.send_update(EventUpdate::Warning("Unknown Warning Occured.".to_string(), None));
+                $line.send_update(EventUpdate::Warning("Unknown Warning Occured.".to_string(), None)).await;
             },
         }
     });
@@ -302,28 +302,28 @@ macro_rules! update {
     (broadcast $line:expr => $event:expr, $data:expr) => ({
 
         // Send an update to the mpsc line
-        $line.send_update(EventUpdate::Broadcast($event, $data));
+        $line.send_update(EventUpdate::Broadcast($event, $data)).await;
     });
 
     // Take a mpsc line and current type of event update
     (now $line:expr => $event:expr) => ({
 
         // Send an update to the mpsc line
-        $line.send_update(EventUpdate::Current($event));
+        $line.send_update(EventUpdate::Current($event)).await;
     });
 
     // Take a mpsc line and status type of event update
     (status $line:expr => $group_id:expr, $status:expr) => ({
 
         // Send an update to the mpsc line
-        $line.send_update(EventUpdate::Status($group_id, $status));
+        $line.send_update(EventUpdate::Status($group_id, $status)).await;
     });
 
     // Take a mpsc line and save type of event update
     (save $line:expr => $data:expr) => ({
 
         // Send an update to the mpsc line
-        $line.send_update(EventUpdate::Save($data));
+        $line.send_update(EventUpdate::Save($data)).await;
     });
 
     // Take a mpsc line and update type of event update
@@ -338,7 +338,7 @@ macro_rules! update {
 
             // Send the update to the mpsc line
             Ok(_normal) => {
-                $line.send_update(EventUpdate::Update(s));
+                $line.send_update(EventUpdate::Update(s)).await;
             },
 
             // Drop the failed update

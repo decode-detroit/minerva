@@ -167,7 +167,7 @@ impl SystemInterface {
     /// A method to run one iteration of the system interface to update the user
     /// and underlying system of any event changes.
     ///
-    async fn run_once(&mut self) -> Result<(),()> {        
+    async fn run_once(&mut self) -> bool {        
         // Check for any of the updates
         match self.general_receive.recv().await {
             // Broadcast the event via the system connection
@@ -180,7 +180,7 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Repackage the coming events into upcoming events
-                    let upcoming_events = handler.repackage_events(events);
+                    let upcoming_events = handler.repackage_events(events).await;
 
                     // Send the new events to the interface
                     self.interface_send
@@ -230,11 +230,11 @@ impl SystemInterface {
             }
 
             // Close on a communication error with the user interface thread
-            _ => return Err(()),
+            _ => return false,
         }
 
         // In most cases, indicate to continue normally
-        Ok(())
+        true
     }
 
     /// A method to run an infinite number of interations of the system
@@ -247,7 +247,7 @@ impl SystemInterface {
         // Loop the structure indefinitely
         loop {
             // Repeat endlessly until run_once fails.
-            if let Err(_) = self.run_once().await {
+            if !self.run_once().await {
                 break;
             }
         }
@@ -261,7 +261,7 @@ impl SystemInterface {
     /// When the update is the Close variant, the function will return false,
     /// indicating that the thread should close.
     ///
-    async fn unpack_system_update(&mut self, update: SystemUpdate) -> Result<(),()> {
+    async fn unpack_system_update(&mut self, update: SystemUpdate) -> bool {
         // Unpack the different variant types
         match update {
             // Change the delay for all events in the queue
@@ -321,7 +321,7 @@ impl SystemInterface {
             }
 
             // Close the system interface thread.
-            Close => return Err(()),
+            Close => return false,
 
             // Update the configuration provided to the underlying system
             ConfigFile { filepath } => {
@@ -423,7 +423,7 @@ impl SystemInterface {
                     // Try to process the event
                     if handler.process_event(&event, check_scene, broadcast).await {
                         // Notify the user interface of the event
-                        let description = handler.get_description(&event);
+                        let description = handler.get_description(&event).await;
                         self.interface_send
                             .send(Notify {
                                 message: description.description,
@@ -456,18 +456,18 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events(),
+                        handler.get_events().await,
                         handler,
                         self.is_debug_mode,
-                    );
+                    ).await;
 
                     // Send the update with the new event window
                     self.interface_send
                         .send(UpdateWindow {
-                            current_scene: handler.get_current_scene(),
+                            current_scene: handler.get_current_scene().await,
                             window,
                             statuses,
-                            key_map: handler.get_key_map(),
+                            key_map: handler.get_key_map().await,
                         })
                         .unwrap_or(());
                 }
@@ -482,7 +482,7 @@ impl SystemInterface {
                         // Reply to a request for the item description
                         RequestType::Description { item_id } => {
                             // Collect the description of the item
-                            let description = handler.get_description(&item_id);
+                            let description = handler.get_description(&item_id).await;
 
                             // Create the item pair
                             let item_pair = ItemPair::from_item(item_id, description);
@@ -499,7 +499,7 @@ impl SystemInterface {
                         // Reply to a request for the event
                         RequestType::Event { item_id } => {
                             // Try to get the event
-                            let event = handler.get_event(&item_id);
+                            let event = handler.get_event(&item_id).await;
 
                             // Send an update with the event (or None)
                             self.interface_send
@@ -527,7 +527,7 @@ impl SystemInterface {
                         // Reply to a request for all the events in a scene
                         RequestType::Scene { item_id } => {
                             // Collect all the items from the configuration
-                            let scene = handler.get_scene(item_id);
+                            let scene = handler.get_scene(item_id).await;
 
                             // Send it back to the user interface
                             self.interface_send
@@ -584,8 +584,24 @@ impl SystemInterface {
                     handler.modify_status(&status_id, &state);
                 }
             }
+            
+            // Trigger and event from the web FIXME mostly a duplicate of process event
+            WebRequest { item_id, reply_line } => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // Try to process the event
+                    if handler.process_event(&item_id, true, true).await {
+                        // Notify the user of success
+                        reply_line.send(item_id).unwrap_or(());
+                    }
+
+                // Otherwise, notify the user of the failure FIXME better reply format
+                } else {
+                    reply_line.send(ItemId::all_stop()).unwrap_or(());
+                }
+            }
         }
-        Ok(()) // indicate to continue
+        true // indicate to continue
     }
 
     /// An internal method to try to load the provided configuration into the
@@ -597,7 +613,7 @@ impl SystemInterface {
     /// about failing to locate the configuration file. Regardless of the flag,
     /// all other types of errors will be logged on the general_send line.
     ///
-    fn load_config(&mut self, filepath: PathBuf, log_failure: bool) {
+    async fn load_config(&mut self, filepath: PathBuf, log_failure: bool) {
         // Create a new event handler
         let mut event_handler = match EventHandler::new(
             filepath,
@@ -605,15 +621,14 @@ impl SystemInterface {
             self.general_update.clone(),
             self.interface_send.clone(),
             log_failure,
-        ) {
+        ).await {
             Ok(evnt_hdlr) => evnt_hdlr,
             Err(_) => return, // errors will be logged separately if log_failure is true
         };
 
         // Create a new connection to the underlying system
-        if !self
-            .system_connection
-            .update_system_connection(Some(event_handler.system_connection()))
+        if !self.system_connection
+            .update_system_connection(Some(event_handler.system_connection())).await
         {
             return;
         }
@@ -621,7 +636,7 @@ impl SystemInterface {
         // Send the newly available scenes and full status to the user interface
         self.interface_send
             .send(UpdateConfig {
-                scenes: event_handler.get_scenes(),
+                scenes: event_handler.get_scenes().await,
                 full_status: event_handler.get_full_status(),
             })
             .unwrap_or(());
@@ -636,7 +651,7 @@ impl SystemInterface {
     /// An internal to sort the available events in this current scene
     /// into an Event Window.
     ///
-    fn sort_items(
+    async fn sort_items(
         mut items: Vec<ItemPair>,
         event_handler: &mut EventHandler,
         is_debug_mode: bool,
@@ -654,7 +669,7 @@ impl SystemInterface {
                 // Add display with events to the matching event group
                 DisplayWith { group_id, .. } => {
                     let group_pair =
-                        ItemPair::from_item(group_id, event_handler.get_description(&group_id));
+                        ItemPair::from_item(group_id, event_handler.get_description(&group_id).await);
                     SystemInterface::sort_groups(&mut groups, group_pair, item);
                 }
 
@@ -665,7 +680,7 @@ impl SystemInterface {
                         // If a group id is specified, add it to the correct group
                         if let Some(id) = group_id {
                             let group_pair =
-                                ItemPair::from_item(id, event_handler.get_description(&id));
+                                ItemPair::from_item(id, event_handler.get_description(&id).await);
                             SystemInterface::sort_groups(&mut groups, group_pair, item);
 
                         // Otherwise add it to the general group
@@ -775,16 +790,16 @@ impl GeneralUpdate {
     /// A method to broadcast an event via the system interface (with data,
     /// if it is provided)
     ///
-    async fn send_broadcast(&mut self, event_id: ItemId, data: Option<u32>) {
-        self.general_send
+    async fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
+        self.general_send.clone()
             .send(GeneralUpdateType::BroadcastEvent(event_id, data))
             .await.unwrap_or(());
     }
 
     /// A method to send new coming events to the system
     ///
-    async fn send_coming_events(&mut self, coming_events: Vec<ComingEvent>) {
-        self.general_send
+    async fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
+        self.general_send.clone()
             .send(GeneralUpdateType::ComingEvents(coming_events))
             .await.unwrap_or(());
     }
@@ -793,7 +808,7 @@ impl GeneralUpdate {
     /// the system will not check if the event is in the current scene. If
     /// broadcast is set to true, the event will be broadcast to the system.
     ///
-    async fn send_event(&mut self, event: ItemId, check_scene: bool, broadcast: bool) {
+    async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
         self.send_system(ProcessEvent {
             event,
             check_scene,
@@ -804,8 +819,8 @@ impl GeneralUpdate {
     /// A method to request a string from the user FIXME make this more generic
     /// for other types of data
     ///
-    async fn send_get_user_string(&mut self, event: ItemPair) {
-        self.general_send
+    async fn send_get_user_string(&self, event: ItemPair) {
+        self.general_send.clone()
             .send(GeneralUpdateType::GetUserString(event))
             .await.unwrap_or(());
     }
@@ -813,8 +828,8 @@ impl GeneralUpdate {
     /// A method to pass a new video stream to the user interface
     ///
     #[cfg(feature = "media-out")]
-    async fn send_new_video(&mut self, video_stream: VideoStream) {
-        self.general_send
+    async fn send_new_video(&self, video_stream: VideoStream) {
+        self.general_send.clone()
             .send(GeneralUpdateType::NewVideo(Some(video_stream)))
             .await.unwrap_or(());
     }
@@ -822,8 +837,8 @@ impl GeneralUpdate {
     /// A method to clear all video streams from the user interface
     ///
     #[cfg(feature = "media-out")]
-    async fn send_clear_videos(&mut self) {
-        self.general_send
+    async fn send_clear_videos(&self) {
+        self.general_send.clone()
             .send(GeneralUpdateType::NewVideo(None))
             .await.unwrap_or(());
     }
@@ -836,16 +851,16 @@ impl GeneralUpdate {
 
     /// A method to pass a system update to the system interface.
     ///
-    async fn send_system(&mut self, update: SystemUpdate) {
-        self.general_send
+    async fn send_system(&self, update: SystemUpdate) {
+        self.general_send.clone()
             .send(GeneralUpdateType::System(update))
             .await.unwrap_or(());
     }
 
     /// A method to send an event update to the system interface.
     ///
-    async fn send_update(&mut self, update: EventUpdate) {
-        self.general_send
+    async fn send_update(&self, update: EventUpdate) {
+        self.general_send.clone()
             .send(GeneralUpdateType::Update(update))
             .await.unwrap_or(());
     }
@@ -872,8 +887,8 @@ impl SystemSend {
     /// A method to send a system update. This version of the method fails
     /// silently.
     ///
-    pub async fn send(&mut self, update: SystemUpdate) {
-        self.general_send
+    pub async fn send(&self, update: SystemUpdate) {
+        self.general_send.clone()
             .send(GeneralUpdateType::System(update)).await;
     }
 }

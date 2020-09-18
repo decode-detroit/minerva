@@ -83,7 +83,7 @@ impl StatusHandler {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
+    pub async fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Try to return the local status as an id
         if let Some(status) = self.status_map.get(status_id) {
             // Return the current state
@@ -108,7 +108,7 @@ impl StatusHandler {
     
     /// A method to edit an existing status, add a new one, or delete the existing
     ///
-    pub fn edit_status(&mut self, status_id: ItemId, possible_status: Option<Status>, description: String) {
+    pub async fn edit_status(&mut self, status_id: ItemId, possible_status: Option<Status>, description: String) {
         // If a new status was specified
         if let Some(new_status) = possible_status {
             // If the scene is in the status_map
@@ -150,7 +150,7 @@ impl StatusHandler {
     /// Like all StatusHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning false.
     ///
-    pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
+    pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
         // Try to get a mutable reference to the status
         if let Some(status) = self.status_map.get_mut(status_id) {
             // Try to update the status and return the result
