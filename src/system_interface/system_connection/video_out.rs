@@ -57,7 +57,7 @@ use failure::Error;
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct VideoCue {
     uri: String,            // the location of the video file to play
-    channel: u32,           // the channel of the video. A new video sent to the same channel will replace the old video, starting instantly FIXME
+    channel: u32,           // the channel of the video. A new video sent to the same channel will replace the old video, starting instantly
     loop_video: Option<String>, // the location of a video to loop after this video is complete
 }
 
@@ -81,6 +81,7 @@ pub struct VideoChannel {
     left: i32,                  // the distance (in pixels) from the left of the display
     height: i32,                // the height of the video
     width: i32,                 // the width of the video
+    audio_device: String,       // the name of the audio output device
     loop_video: Option<String>, // the location of a video to loop in the background of this stream
 }
 
@@ -188,7 +189,7 @@ impl VideoOut {
         // Otherwise, create a new channel
         } else {
             // Try to get the channel information
-            let (window_number, allocation, possible_loop) = match channel_map.get(&video_cue.channel) {
+            let (window_number, allocation, audio_device, possible_loop) = match channel_map.get(&video_cue.channel) {
                 Some(video_channel) => {
                     (video_channel.window_number,
                     gtk::Rectangle {
@@ -197,6 +198,7 @@ impl VideoOut {
                         width: video_channel.width,
                         height: video_channel.height,
                     },
+                    video_channel.audio_device.clone(),
                     video_channel.loop_video.clone())
                 }
                 
@@ -207,6 +209,11 @@ impl VideoOut {
             // Create a new playbin
             let playbin = gst::ElementFactory::make("playbin", None)?;
             
+            // Create and set the audio sink
+            let audio_sink = gst::ElementFactory::make("alsasink", None)?;
+            audio_sink.set_property("device", &audio_device)?;
+            playbin.set_property("audio-sink", &audio_sink)?;
+
             // Set the uri for the playbin
             playbin.set_property("uri", &video_cue.uri)?;
             
