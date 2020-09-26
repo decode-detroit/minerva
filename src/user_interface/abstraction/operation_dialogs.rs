@@ -25,7 +25,7 @@ use super::super::super::system_interface::{
     ItemPair, KeyMap, ProcessEvent, QueueEvent, ReplyType, Request, RequestType,
     SceneChange, StatusChange, StatusDescription, SystemSend,
 };
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 use super::super::super::system_interface::VideoStream;
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
@@ -35,7 +35,7 @@ use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
 use std::time::Duration;
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 use std::ffi::c_void;
 
 // Import FNV HashMap
@@ -46,13 +46,13 @@ use self::fnv::FnvHashMap;
 use gdk;
 use gtk;
 use self::gtk::prelude::*;
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 use self::gdk::WindowExt;
 
 // Import Gstreamer Library
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 use gstreamer_video as gst_video;
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 use self::gst_video::prelude::*;
 
 // Define and import constants
@@ -874,14 +874,14 @@ impl PromptStringDialog {
 
 /// A structure to contain the window for displaying video streams.
 ///
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 pub struct VideoWindow {
     overlay_map: FnvHashMap<u32, gtk::Overlay>, // the overlay widget
     channel_map: Rc<RefCell<FnvHashMap<std::string::String, gtk::Rectangle>>>, // the mapping of channel numbers to allocations
 }
 
 // Implement key features for the video window
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 impl VideoWindow {
     /// A function to create a new prompt string dialog structure.
     ///

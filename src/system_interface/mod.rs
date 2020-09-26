@@ -31,7 +31,7 @@ pub use self::event_handler::{
     DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
 };
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 pub use self::system_connection::VideoStream;
 
 // Define private submodules
@@ -182,7 +182,7 @@ impl SystemInterface {
             }
             
             // Pass a video stream to the user interface
-            #[cfg(feature = "video")]
+            #[cfg(feature = "media-out")]
             Ok(GeneralUpdateType::NewVideo(video_stream)) => {
                 // Pass the stream to the user interface
                 self.interface_send
@@ -719,7 +719,7 @@ enum GeneralUpdateType {
     GetUserString(ItemPair),
     
     /// A variant to pass a new video stream to the user interface
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     NewVideo(Option<VideoStream>),
 
     /// A variant to notify the system of an update from the user interface
@@ -791,7 +791,7 @@ impl GeneralUpdate {
      
     /// A method to pass a new video stream to the user interface
     ///
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     fn send_new_video(&self, video_stream: VideoStream) {
         self.general_send
             .send(GeneralUpdateType::NewVideo(Some(video_stream)))
@@ -800,7 +800,7 @@ impl GeneralUpdate {
 
     /// A method to clear all video streams from the user interface
     ///
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     fn send_clear_videos(&self) {
         self.general_send
             .send(GeneralUpdateType::NewVideo(None))
@@ -1105,7 +1105,7 @@ pub enum WindowType {
     Trigger(Option<ItemPair>),
     
     /// A variant to launch a video window with a source from the video system connection
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     Video(Option<VideoStream>),
 }
 

@@ -232,7 +232,7 @@ impl UserInterface {
                         WindowType::Trigger(event) => interface.launch_trigger(event),
 
                         // Launch the video window
-                        #[cfg(feature = "video")]
+                        #[cfg(feature = "media-out")]
                         WindowType::Video(video_stream) => {
                             // Switch based on if a video stream was provided
                             if let Some(stream) = video_stream {
