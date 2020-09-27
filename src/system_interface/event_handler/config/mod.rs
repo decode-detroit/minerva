@@ -117,7 +117,6 @@ struct BackgroundThread {
 impl BackgroundThread {
     /// Spawn the monitoring thread
     async fn new(
-        handle: Handle,
         background_process: BackgroundProcess,
         general_update: GeneralUpdate,
     ) -> Option<BackgroundThread> {
@@ -127,7 +126,7 @@ impl BackgroundThread {
             update!(update general_update => "Starting Background Process ...");
 
             // Create the child process
-            let child = match Command::new(path.clone())
+            let mut child = match Command::new(path.clone())
                 .args(background_process.arguments.clone())
                 .kill_on_drop(true)
                 .spawn()
@@ -147,7 +146,7 @@ impl BackgroundThread {
             let keepalive = background_process.keepalive;
 
             // Spawn a background thread to monitor the process
-            handle.spawn(async move {
+            Handle::current().spawn(async move {
                 // Run indefinitely or until the process fails
                 loop {
                     // Wait for the process to finish
@@ -274,7 +273,6 @@ impl Config {
     /// None.
     ///
     pub async fn from_config(
-        handle: Handle,
         general_update: GeneralUpdate,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         mut config_file: &File,
@@ -349,7 +347,7 @@ impl Config {
         // Try to start the background process and monitor it, if specified
         let mut background_thread = None;
         if let Some(background_process) = yaml_config.background_process.clone() {
-            background_thread = BackgroundThread::new(handle, background_process, general_update.clone()).await;
+            background_thread = BackgroundThread::new(background_process, general_update.clone()).await;
         }
 
         // Adjust fullscreen, if specified
@@ -405,15 +403,14 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription.
     ///
-    pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
+    pub fn get_description(&self, item_id: &ItemId) -> ItemDescription {
         // Return an item description based on the provided item id
         match self.lookup.get(item_id) {
             // If the item is in the lookup, return the description
             Some(description) => description.clone(),
 
-            // Otherwise, warn the system and return the default
+            // Otherwise, return the default
             None => {
-                update!(warn &self.general_update => "Item Has No Description: {}", item_id);
                 ItemDescription::new("No Description.", Hidden)
             }
         }
@@ -464,9 +461,9 @@ impl Config {
 
             // Notify the system of the successful status change
             let status_pair =
-                ItemPair::from_item(status_id.clone(), self.get_description(&status_id).await);
+                ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
             let state_pair =
-                ItemPair::from_item(new_state.clone(), self.get_description(&new_state).await);
+                ItemPair::from_item(new_state.clone(), self.get_description(&new_state));
             update!(status &self.general_update => status_pair, state_pair);
         }
     }
@@ -483,10 +480,36 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that status.
     ///
+    /// # FIXME This conversion should not be necessary. The UI should pull
+    /// id descriptions as needed.
+    ///
     pub fn get_full_status(&self) -> FullStatus {
-        // Get the full status from the status map
-        self.status_handler
-            .get_full_status(async |id| self.get_description(id).await)
+        // Get the partial status from the status map
+        let mut partial_status = self.status_handler.get_partial_status();
+        
+        // Create an empty full status
+        let mut full_status = FullStatus::default();
+        
+        // For each status id and status
+        for (status_id, mut status) in partial_status.drain() {
+            // Create a new status pair from the status id
+            let status_pair = ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
+            
+            // Create the new current pair from the status description
+            let current = ItemPair::from_item(status.current.clone(), self.get_description(&status.current));
+            
+            // Repackage the allowed states
+            let mut allowed = Vec::new();
+            for state in status.allowed.drain(..) {
+                allowed.push(ItemPair::from_item(state.clone(), self.get_description(&state)));
+            }
+            
+            // Add the new key/value to the full status
+            full_status.insert(status_pair, StatusDescription { current, allowed });
+        }
+
+        // Return the result
+        full_status
     }
 
     /// A method to return an itempair of all available scenes in this
@@ -502,7 +525,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that scene.
     ///
-    pub async fn get_scenes(&self) -> Vec<ItemPair> {
+    pub fn get_scenes(&self) -> Vec<ItemPair> {
         // Compile a list of the available scenes
         let mut id_vec = Vec::new();
         for scene_id in self.all_scenes.keys() {
@@ -513,7 +536,7 @@ impl Config {
         id_vec.sort_unstable();
         let mut scenes = Vec::new();
         for scene_id in id_vec {
-            let description = self.get_description(scene_id).await;
+            let description = self.get_description(scene_id);
             scenes.push(ItemPair::from_item(scene_id.clone(), description));
         }
 
@@ -525,7 +548,7 @@ impl Config {
     /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
     /// the method returns the scene. Otherwise, it returns None.
     ///
-    pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+    pub fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
         // Check if the given item id corresponds to a scene
         match self.all_scenes.get(&item_id) {
             // If it doesn't correspond to a scene, return none
@@ -536,7 +559,7 @@ impl Config {
                 // Compile a list of the events as item pairs
                 let mut events = Vec::new();
                 for item_id in scene.events.iter() {
-                    events.push(ItemPair::from_item(item_id.clone(), self.get_description(&item_id).await));
+                    events.push(ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
                 }
 
                 // Sort the items in order
@@ -552,7 +575,7 @@ impl Config {
                         // Iterate through the key map for this scene
                         for (key, item_id) in key_map.iter() {
                             // Combine the item pair and key value
-                            map.insert(key.clone(), ItemPair::from_item(item_id.clone(), self.get_description(&item_id).await));
+                            map.insert(key.clone(), ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
                         }
                         // Return the Scene with the reversed key map
                         Some(DescriptiveScene { events, key_map: Some(map) })
@@ -592,7 +615,7 @@ impl Config {
     /// This method will raise an error if one of the item ids was not found in
     /// lookup. This indicates that the configuration file is incomplete.
     ///
-    pub async fn get_events(&self) -> Vec<ItemPair> {
+    pub fn get_events(&self) -> Vec<ItemPair> {
         // Create an empty events vector
         let mut items = Vec::new();
 
@@ -608,7 +631,7 @@ impl Config {
             id_vec.sort_unstable();
             for item_id in id_vec {
                 // Get the item description
-                let description = self.get_description(&item_id).await;
+                let description = self.get_description(&item_id);
 
                 // Combine the item id and description
                 items.push(ItemPair::from_item(item_id.clone(), description));
@@ -631,7 +654,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub async fn get_key_map(&self) -> KeyMap {
+    pub fn get_key_map(&self) -> KeyMap {
         // Create an empty key map
         let mut map = FnvHashMap::default();
 
@@ -642,7 +665,7 @@ impl Config {
                 // Iterate through the key map for this scene
                 for (key, id) in key_map.iter() {
                     // Get the item description
-                    let description = self.get_description(&id).await;
+                    let description = self.get_description(&id);
 
                     // Combine the item id and description
                     map.insert(key.clone(), ItemPair::from_item(id.clone(), description));
@@ -682,11 +705,11 @@ impl Config {
     /// gracefully by notifying of errors on the status line and returning an
     /// ItemPair with an empty description.
     ///
-    pub async fn get_current_scene(&self) -> ItemPair {
+    pub fn get_current_scene(&self) -> ItemPair {
         // Compose an item pair for the current scene
         ItemPair::from_item(
             self.current_scene.clone(),
-            self.get_description(&self.current_scene).await,
+            self.get_description(&self.current_scene),
         )
     }
 
@@ -746,8 +769,8 @@ impl Config {
         if let Some(new_id) = self.status_handler.modify_status(&status_id, &new_state).await {
             // Notify the system of the successful status change
             let status_pair =
-                ItemPair::from_item(status_id.clone(), self.get_description(&status_id).await);
-            let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id).await);
+                ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
+            let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
             update!(status &self.general_update => status_pair, state_pair.clone());
 
             // Indicate status change
@@ -784,11 +807,11 @@ impl Config {
             if let Some(event) = self.events.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
-                update!(update &self.general_update => "Event Updated: {}", self.get_description(&event_id).await);
+                update!(update &self.general_update => "Event Updated: {}", self.get_description(&event_id));
             
             // Otherwise, add the event
             } else {
-                update!(update &self.general_update => "Event Added: {}", self.get_description(&event_id).await);
+                update!(update &self.general_update => "Event Added: {}", self.get_description(&event_id));
                 self.events.insert(event_id, new_event);
             }
         
@@ -797,7 +820,7 @@ impl Config {
             // If the event is in the event list, remove it
             if let Some(_) = self.events.remove(&event_id) {
                 // Notify the user that it was removed
-                update!(update &self.general_update => "Event Removed: {}", self.get_description(&event_id).await);
+                update!(update &self.general_update => "Event Removed: {}", self.get_description(&event_id));
             }
         }
     }
@@ -806,7 +829,7 @@ impl Config {
     ///
     pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
         // Get the item description and then pass the change to the status handler
-        let description = self.get_description(&status_id).await.description;
+        let description = self.get_description(&status_id).description;
         self.status_handler.edit_status(status_id, new_status, description);
     }
 
@@ -819,11 +842,11 @@ impl Config {
             if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
                 // Update the scene and notify the system
                 *scene = new_scene;
-                update!(update &self.general_update => "Scene Updated: {}", self.get_description(&scene_id).await);
+                update!(update &self.general_update => "Scene Updated: {}", self.get_description(&scene_id));
             
             // Otherwise, add the scene
             } else {
-                update!(update &self.general_update => "Scene Added: {}", self.get_description(&scene_id).await);
+                update!(update &self.general_update => "Scene Added: {}", self.get_description(&scene_id));
                 self.all_scenes.insert(scene_id, new_scene);
             }
         
@@ -832,7 +855,7 @@ impl Config {
             // If the scene is in the scene list, remove it
             if let Some(_) = self.all_scenes.remove(&scene_id) {
                 // Notify the user that it was removed
-                update!(update &self.general_update => "Scene Removed: {}", self.get_description(&scene_id).await);
+                update!(update &self.general_update => "Scene Removed: {}", self.get_description(&scene_id));
             }
         }
     }
@@ -867,7 +890,7 @@ impl Config {
                 // Check to see if the event is listed in the current scene
                 if !scene.events.contains(id) {
                     // If the event is not listed in the current scene, notify
-                    update!(warnevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id).await)  => "Event Not In Current Scene.");
+                    update!(warnevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not In Current Scene.");
                     return None;
                 }
             // Warn that there isn't a current scene
@@ -885,7 +908,7 @@ impl Config {
             // Return None if the id doesn't exist
             None => {
                 // Notify of an invalid event
-                update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id).await) => "Event Not Found.");
+                update!(errevent &self.general_update => ItemPair::from_item(id.clone(), self.get_description(&id)) => "Event Not Found.");
 
                 // Return None
                 None

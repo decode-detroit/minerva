@@ -217,18 +217,10 @@ macro_rules! update {
 
         // Attempt to format the string
         let mut s = String::new();
-        match s.write_fmt(format_args!($($arg)*)) {
+        s.write_fmt(format_args!($($arg)*)).unwrap_or(());
 
-            // Send the error to the mpsc line
-            Ok(_normal) => {
-                $line.send_update(EventUpdate::Error(s, None)).await;
-            },
-
-            // Send generic error to the mpsc line
-            Err(_error) => {
-                $line.send_update(EventUpdate::Error("Unknown Error Occured.".to_string(), None)).await;
-            },
-        }
+        // Send the error to the mpsc line
+        $line.send_update(EventUpdate::Error(s, None)).await;
     });
 
     // Take a mpsc line and error type of EventUpdate with an event id
@@ -239,18 +231,10 @@ macro_rules! update {
 
         // Attempt to format the string
         let mut s = String::new();
-        match s.write_fmt(format_args!($($arg)*)) {
-
-            // Send the error to the mpsc line
-            Ok(_normal) => {
-                $line.send_update(EventUpdate::Error(s, Some($event))).await;
-            },
-
-            // Send generic error to the mpsc line
-            Err(_error) => {
-                $line.send_update(EventUpdate::Error("Unknown Error Occured.".to_string(), None)).await;
-            },
-        }
+        s.write_fmt(format_args!($($arg)*)).unwrap_or(());
+        
+        // Send the error to the mpsc line
+        $line.send_update(EventUpdate::Error(s, Some($event))).await;
     });
 
     // Take a mpsc line and warning type of EventUpdate
@@ -261,18 +245,10 @@ macro_rules! update {
 
         // Attempt to format the string
         let mut s = String::new();
-        match s.write_fmt(format_args!($($arg)*)) {
-
-            // Send the warning to the mpsc line
-            Ok(_normal) => {
-                $line.send_update(EventUpdate::Warning(s, None)).await;
-            },
-
-            // Send generic warning to the mpsc line
-            Err(_error) => {
-                $line.send_update(EventUpdate::Warning("Unknown Warning Occured.".to_string(), None)).await;
-            },
-        }
+        s.write_fmt(format_args!($($arg)*)).unwrap_or(());
+        
+        // Send the warning to the mpsc line
+        $line.send_update(EventUpdate::Warning(s, None)).await;
     });
 
     // Take a mpsc line and warning type of EventUpdate with an event id
@@ -284,18 +260,10 @@ macro_rules! update {
 
         // Attempt to format the string
         let mut s = String::new();
-        match s.write_fmt(format_args!($($arg)*)) {
-
-            // Send the warning to the mpsc line
-            Ok(_normal) => {
-                $line.send_update(EventUpdate::Warning(s, Some($event))).await;
-            },
-
-            // Send generic warning to the mpsc line
-            Err(_error) => {
-                $line.send_update(EventUpdate::Warning("Unknown Warning Occured.".to_string(), None)).await;
-            },
-        }
+        s.write_fmt(format_args!($($arg)*)).unwrap_or(());
+        
+        // Send the warning to the mpsc line
+        $line.send_update(EventUpdate::Warning(s, Some($event))).await;
     });
 
     // Take a mpsc line and broadcast type of event update
@@ -334,16 +302,10 @@ macro_rules! update {
 
         // Attempt to format the string
         let mut s = String::new();
-        match s.write_fmt(format_args!($($arg)*)) {
-
-            // Send the update to the mpsc line
-            Ok(_normal) => {
-                $line.send_update(EventUpdate::Update(s)).await;
-            },
-
-            // Drop the failed update
-            Err(_error) => (),
-        }
+        s.write_fmt(format_args!($($arg)*)).unwrap_or(());
+        
+        // Send the update to the mpsc line
+        $line.send_update(EventUpdate::Update(s)).await;
     });
 }
 

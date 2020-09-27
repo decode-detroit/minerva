@@ -283,7 +283,7 @@ impl Queue {
     /// back up the reply_line. The new implementation of the queue launches a
     /// background thread to monitor updates.
     ///
-    pub fn new(handle: Handle, general_update: GeneralUpdate) -> Queue {
+    pub fn new(general_update: GeneralUpdate) -> Queue {
         // Create a new channel pair to send updates to the background queue
         let (queue_load, queue_receive) = mpsc::channel(128);
 
@@ -293,7 +293,7 @@ impl Queue {
 
         // Launch the background process with the queue data
         let general_clone = general_update.clone();
-        handle.spawn(async {
+        Handle::current().spawn(async {
             // Run the queue background process indefinitely
             Queue::run_loop(general_clone, queue_receive, coming_clone).await;
         });
@@ -411,19 +411,15 @@ impl Queue {
     /// function may hang as well.
     ///
     pub async fn event_remaining(&self, event_id: &ItemId) -> Option<Duration> {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(events) => {
-                // Try to get the delay of the provided event id
-                return events.remaining(event_id);
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-                return None;
-            }
+        // Try to open the coming events
+        if let Ok(events) = self.coming_events.lock() {
+            // Try to get the delay of the provided event id
+            return events.remaining(event_id);
         }
+
+        // Raise an error that the queue has failed
+        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+        return None;
     }
 
     /// A method to adjust the remaining delay in a specific upcoming event. If
@@ -443,21 +439,22 @@ impl Queue {
     /// function may hang as well.
     ///
     pub async fn adjust_event(&mut self, new_event: ComingEvent) {
-        // Open the coming events
-        match self.coming_events.lock() {
+        // Try to open the coming events
+        let possible_event = match self.coming_events.lock() {
+            // Try to withdraw the existing event from the queue
             Ok(mut events) => {
-                // Try to withdraw the existing event from the queue
-                if let Some(event) = events.withdraw(new_event) {
-                    // If successful, send the new event to the queue. This also triggers the queue to notice the change.
-                    self.queue_load.send(event).await.unwrap_or(());
-                }
+                events.withdraw(new_event)
             }
+            
+            // Return none on error
+            _ => None,
+        };
 
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
-        }
+        // Check to see if the operation was successful
+        if let Some(event) = possible_event {
+            // If successful, send the new event to the queue. This also triggers the queue to notice the change.
+            self.queue_load.send(event).await.unwrap_or(());
+        } // fail silently
     }
 
     /// A method to adjust the remaining delay for all the events in the queue.
@@ -474,62 +471,63 @@ impl Queue {
     /// function may hang as well.
     ///
     pub async fn adjust_all(&mut self, adjustment: Duration, is_negative: bool) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => {
-                // If the adjustment is positive
-                if !is_negative {
-                    // Add time to all the events
-                    for event in events.list.iter() {
-                        // Load the new event into the Queue
-                        self.queue_load
-                            .send(ComingEvent {
-                                start_time: event.start_time.clone(),
-                                delay: event.delay + adjustment,
-                                event_id: event.id(),
-                            })
-                            .await.unwrap_or(());
-                    }
+        // Try to get a copy of the coming events
+        let possible_events: Option<Vec<ComingEvent>> = match self.coming_events.lock() {
+            // Remove all the events from the list and return them
+            Ok(mut events) => Some(events.list.drain(..).collect()),
+            _ => None,
+        };
+        
+        // If collecting the events was successful
+        if let Some(mut events) = possible_events {
+            // If the adjustment is positive
+            if !is_negative {
+                // Add time to all the events
+                for event in events.drain(..) {
+                    // Load the new event into the Queue
+                    self.queue_load
+                        .send(ComingEvent {
+                            start_time: event.start_time,
+                            delay: event.delay + adjustment,
+                            event_id: event.id(),
+                        })
+                        .await.unwrap_or(());
+                }
 
-                // Otherwise, try to subtract time from the events
-                } else {
-                    // Try to subtract time from all the events
-                    for event in events.list.iter() {
-                        // Ignore events that have already happened
-                        let remaining = match event.remaining() {
-                            Some(time) => time,
-                            None => continue,
-                        };
+            // Otherwise, try to subtract time from the events
+            } else {
+                // Try to subtract time from all the events
+                for event in events.drain(..) {
+                    // Ignore events that have already happened
+                    let remaining = match event.remaining() {
+                        Some(time) => time,
+                        None => continue,
+                    };
 
-                        // Calculate the new delay
-                        match remaining.checked_sub(adjustment) {
-                            // Drop the event if not enough time left
-                            None => continue,
-                            Some(_) => {
-                                // Calculate the new duration (should always succeed)
-                                if let Some(delay) = event.delay.checked_sub(adjustment) {
-                                    // Load the new event into the Queue
-                                    self.queue_load
-                                        .send(ComingEvent {
-                                            start_time: event.start_time.clone(),
-                                            delay,
-                                            event_id: event.id(),
-                                        })
-                                        .await.unwrap_or(());
-                                }
+                    // Calculate the new delay
+                    match remaining.checked_sub(adjustment) {
+                        // Drop the event if not enough time left
+                        None => continue,
+                        Some(_) => {
+                            // Calculate the new duration (should always succeed)
+                            if let Some(delay) = event.delay.checked_sub(adjustment) {
+                                // Load the new event into the Queue
+                                self.queue_load
+                                    .send(ComingEvent {
+                                        start_time: event.start_time,
+                                        delay,
+                                        event_id: event.id(),
+                                    })
+                                    .await.unwrap_or(());
                             }
                         }
                     }
                 }
-
-                // Clear the coming events (will be reloaded by the background process)
-                events.clear();
             }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
+        
+        // Otherwise, raise an error that the queue has failed
+        } else {
+            update!(err &self.general_update => "Internal Failure Of The Event Queue.");
         }
     }
 
@@ -547,18 +545,15 @@ impl Queue {
     /// function may hang as well.
     ///
     pub async fn cancel_event(&self, new_event: ComingEvent) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => {
-                // Try to withdraw the existing event from the queue
-                events.withdraw(new_event); // Queue will automatically detect the change
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
+        // Try to open the coming events
+        if let Ok(mut events) = self.coming_events.lock() {
+            // Try to withdraw the existing event from the queue
+            events.withdraw(new_event); // Queue will automatically detect the change
+            return;
         }
+
+        // Raise an error that the queue has failed
+        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
     }
 
     /// A method to cancel all upcoming instances of an event.
@@ -575,18 +570,15 @@ impl Queue {
     /// function may hang as well.
     ///
     pub async fn cancel_all(&self, event_id: ItemId) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => {
-                // Cancel any matching events in the queue
-                events.cancel(event_id); // Queue will automatically detect the change
-            }
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
+        // Try to open the coming events
+        if let Ok(mut events) = self.coming_events.lock() {
+            // Cancel any matching events in the queue
+            events.cancel(event_id); // Queue will automatically detect the change
+            return;
         }
+
+        // Raise an error that the queue has failed
+        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
     }
 
     /// A method to clear any events in the queue.
@@ -598,15 +590,15 @@ impl Queue {
     /// function may hang as well.
     ///
     pub async fn clear(&self) {
-        // Open the coming events
-        match self.coming_events.lock() {
-            Ok(mut events) => events.clear(),
-
-            // Raise an error if the queue has failed
-            _ => {
-                update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-            }
+        // Try to open the coming events
+        if let Ok(mut events) = self.coming_events.lock() {
+            // Clear all events in the queue
+            events.clear();
+            return;
         }
+
+        // Raise an error that the queue has failed
+        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
     }
 }
 

@@ -25,7 +25,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::GeneralUpdate;
 use super::super::event::EventUpdate;
-use super::super::item::{ItemDescription, ItemId, ItemPair};
+use super::super::item::{ItemId, ItemPair};
 
 // Import FNV HashMap
 use fnv::FnvHashMap;
@@ -33,6 +33,14 @@ use fnv::FnvHashMap;
 /// A type to store a hashmap of status ids and status descriptions
 ///
 pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and status pairs
+
+/// A type to store a vector of status ids and status descriptions
+/// 
+/// # FIXME
+/// This intermediary should be eliminated and the UI should call for this
+/// information as needed.
+///
+pub type PartialStatus = FnvHashMap<ItemId, StatusPartialDescription>; // a hash map of status ids and status descriptions
 
 /// A type to store a vector of status ids and status descriptions
 ///
@@ -195,17 +203,9 @@ impl StatusHandler {
     ///
     /// # Errors
     ///
-    /// This method will raise an error if one of the status ids was not found in
-    /// the lookup. This indicates that the configuration file is incomplete.
+    /// This methos does not return any errors
     ///
-    /// Like all StatusHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that status.
-    ///
-    pub fn get_full_status<F>(&self, mut get_description: F) -> FullStatus
-    where
-        F: FnMut(&ItemId) -> ItemDescription,
-    {
+    pub fn get_partial_status(&self) -> PartialStatus {
         // Compile a list of the available statuses
         let mut id_vec = Vec::new();
         for key in self.status_map.keys() {
@@ -215,32 +215,17 @@ impl StatusHandler {
         // Sort the status ids
         id_vec.sort_unstable();
 
-        // Sort them in order and then pair them with their descriptions
-        let mut full_status = FullStatus::default();
+        // Pair them with their descriptions
+        let mut partial_status = PartialStatus::default();
         for status_id in id_vec {
-            // Create a new status pair from the status id
-            let description = get_description(&status_id);
-            let status_pair = ItemPair::from_item(status_id.clone(), description);
-
             // Compose the status into a status description
             let status_description = match self.status_map.get(&status_id) {
                 // The status exists
                 Some(status) => {
                     // Repackage as a new status description
-                    let current_pair =
-                        ItemPair::from_item(status.current(), get_description(&status.current()));
-
-                    // Rapackage the allowed states
-                    let mut allowed_pairs = Vec::new();
-                    for state in status.allowed() {
-                        allowed_pairs
-                            .push(ItemPair::from_item(state.clone(), get_description(&state)));
-                    }
-
-                    // Return the new status description
-                    StatusDescription {
-                        current: current_pair,
-                        allowed: allowed_pairs,
+                    StatusPartialDescription {
+                        current: status.current(),
+                        allowed: status.allowed(),
                     }
                 }
 
@@ -249,11 +234,11 @@ impl StatusHandler {
             };
 
             // Add the status description to the hashmap of statuses
-            full_status.insert(status_pair, status_description);
+            partial_status.insert(status_id, status_description);
         }
 
         // Return the result
-        full_status
+        partial_status
     }
 }
 
@@ -437,10 +422,24 @@ impl Status {
     }
 }
 
-/// A struct which allows a limited number of possible states. This version
-/// uses fully described itempairs for use with the user interface. If the
+/// A struct which allows a limited number of possible states. If the
 /// allowed state vector is empty, any state will be allowed.
-/// FIXME Reconsider this specification. Perhaps an empty allowed state vector
+///
+/// # FIXME
+/// Reconsider this specification. Perhaps an empty allowed state vector
+/// should indicate that the user cannot select a valid state.
+///
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub struct StatusPartialDescription {
+    pub current: ItemId,
+    pub allowed: Vec<ItemId>,
+}
+
+/// A struct which allows a limited number of possible states. If the
+/// allowed state vector is empty, any state will be allowed.
+///
+/// # FIXME
+/// Reconsider this specification. Perhaps an empty allowed state vector
 /// should indicate that the user cannot select a valid state.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]

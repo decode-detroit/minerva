@@ -77,10 +77,9 @@ impl Minerva {
         // Create the tokio runtime
         let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
         
-        // Launch the background thread to monitor and handle events
-        let sys_handle = runtime.handle().clone();
+        // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();
-        let (system_interface, system_send) = SystemInterface::new(sys_handle, interface_send.clone())
+        let (system_interface, system_send) = SystemInterface::new(interface_send.clone())
             .expect("Unable To Create System Interface.");
 
         // Open the system interface in a new thread
