@@ -88,7 +88,7 @@ pub struct SystemInterface {
 impl SystemInterface {
     /// A function to create a new, blank instance of the system interface.
     ///
-    pub fn new(
+    pub async fn new(
         interface_send: std_mpsc::Sender<InterfaceUpdate>,
     ) -> Result<(SystemInterface, SystemSend), FailureError> {
         // Create the new general update structure and receive channel
@@ -148,12 +148,12 @@ impl SystemInterface {
 
             // Try the file, if it exists
             if path.exists() {
-                sys_interface.load_config(path, false);
+                sys_interface.load_config(path, false).await;
             
             // Otherwise, try the yaml path
             } else {
                 path.set_extension("yaml");
-                sys_interface.load_config(path, false);
+                sys_interface.load_config(path, false).await;
             }
         }
 
@@ -169,7 +169,7 @@ impl SystemInterface {
         match self.general_receive.recv().await {
             // Broadcast the event via the system connection
             Some(GeneralUpdateType::BroadcastEvent(event_id, data)) => {
-                self.system_connection.broadcast(event_id, data);
+                self.system_connection.broadcast(event_id, data).await;
             }
 
             // Update the timeline with the new list of coming events
@@ -267,17 +267,23 @@ impl SystemInterface {
                 is_negative,
             } => {
                 // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Adjust the current time of the event
-                    handler.adjust_all_events(adjustment, is_negative);
+                    handler.adjust_all_events(adjustment, is_negative).await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
                 }
             }
 
             // Handle the All Stop command which clears the queue and sends the "all stop" (a.k.a. emergency stop) command.
             AllStop => {
                 // Try to clear all the events in the queue
-                if let Some(ref mut handler) = self.event_handler {
-                    handler.clear_events();
+                if let Some(mut handler) = self.event_handler.take() {
+                    handler.clear_events().await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
                 }
 
                 // Send the all stop event via the logger
@@ -312,8 +318,11 @@ impl SystemInterface {
             // Clear the events currently in the queue
             ClearQueue => {
                 // Try to clear all the events in the queue
-                if let Some(ref mut handler) = self.event_handler {
-                    handler.clear_events();
+                if let Some(mut handler) = self.event_handler.take() {
+                    handler.clear_events().await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
                 }
             }
 
@@ -323,17 +332,14 @@ impl SystemInterface {
             // Update the configuration provided to the underlying system
             ConfigFile { filepath } => {
                 // Try to clear all the events in the queue
-                if let Some(ref mut handler) = self.event_handler {
-                    handler.clear_events();
-                }
-
-                // Drop the old event handler
-                self.event_handler = None;
+                if let Some(mut handler) = self.event_handler.take() {
+                    handler.clear_events().await;
+                } // old handler is dropped
 
                 // Check to see if a new filepath was specified
                 if let Some(path) = filepath {
                     // If so, try to load it
-                    self.load_config(path, true);
+                    self.load_config(path, true).await;
                 }
             }
 
@@ -346,7 +352,7 @@ impl SystemInterface {
             // Modify the underlying configuration
             Edit { mut modifications } => {
                 // Check to see if there is an active configuration
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Process each modification in order
                     for modification in modifications.drain(..) {
                         // Match the specified moficiation
@@ -383,6 +389,9 @@ impl SystemInterface {
                             }
                         }
                     }
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
 
                 // Raise a warning that there is no active configuration
                 } else {
@@ -397,9 +406,12 @@ impl SystemInterface {
                 new_delay,
             } => {
                 // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Adjust the current time of the event
-                    handler.adjust_event(event_id, start_time, new_delay);
+                    handler.adjust_event(event_id, start_time, new_delay).await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
                 }
             }
 
@@ -416,7 +428,7 @@ impl SystemInterface {
                 broadcast,
             } => {
                 // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Try to process the event
                     if handler.process_event(&event, check_scene, broadcast).await {
                         // Notify the user interface of the event
@@ -427,6 +439,9 @@ impl SystemInterface {
                             })
                             .unwrap_or(());
                     }
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
@@ -437,9 +452,12 @@ impl SystemInterface {
             // Cue an event
             CueEvent { event_delay } => {
                 // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Cue the event
                     handler.add_event(event_delay);
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
 
                 // Otherwise noity the user that a configuration faild to load
                 } else {
@@ -473,7 +491,7 @@ impl SystemInterface {
             // Reply to the request for information
             Request { reply_to, request } => {
                 // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Match the type of information request
                     match request {
                         // Reply to a request for the item description
@@ -548,6 +566,9 @@ impl SystemInterface {
                                 .unwrap_or(());
                         }
                     }
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
 
                 // Otherwise noity the user that a configuration failed to load
                 } else {
@@ -558,39 +579,51 @@ impl SystemInterface {
             // Save the current configuration to the provided file
             SaveConfig { filepath } => {
                 // Extract the current event handler (if it exists)
-                if let Some(ref handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Save the current configuration
-                    handler.save_config(filepath);
+                    handler.save_config(filepath).await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
                 }
             }
 
             // Change the current scene based on the provided id and get a list of available events
             SceneChange { scene } => {
                 // Change the current scene, if event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Change the current scene (automatically triggers a redraw)
-                    handler.choose_scene(scene);
+                    handler.choose_scene(scene).await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
                 }
             }
 
             // Change the state of a particular status
             StatusChange { status_id, state } => {
                 // Change the status, if event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Change the state of the indicated status
-                    handler.modify_status(&status_id, &state);
+                    handler.modify_status(&status_id, &state).await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
                 }
             }
             
             // Trigger and event from the web FIXME mostly a duplicate of process event
             WebRequest { item_id, reply_line } => {
                 // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
+                if let Some(mut handler) = self.event_handler.take() {
                     // Try to process the event
                     if handler.process_event(&item_id, true, true).await {
                         // Notify the user of success
                         reply_line.send(item_id).unwrap_or(());
                     }
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
 
                 // Otherwise, notify the user of the failure FIXME better reply format
                 } else {
@@ -611,11 +644,14 @@ impl SystemInterface {
     /// all other types of errors will be logged on the general_send line.
     ///
     async fn load_config(&mut self, filepath: PathBuf, log_failure: bool) {
+        // Clone the interface send
+        let interface_send = self.interface_send.clone();
+        
         // Create a new event handler
         let mut event_handler = match EventHandler::new(
             filepath,
             self.general_update.clone(),
-            self.interface_send.clone(),
+            interface_send,
             log_failure,
         ).await {
             Ok(evnt_hdlr) => evnt_hdlr,
@@ -623,8 +659,9 @@ impl SystemInterface {
         };
 
         // Create a new connection to the underlying system
+        let system_connection = event_handler.system_connection();
         if !self.system_connection
-            .update_system_connection(Some(event_handler.system_connection())).await
+            .update_system_connection(Some(system_connection)).await
         {
             return;
         }
@@ -809,7 +846,7 @@ impl GeneralUpdate {
             event,
             check_scene,
             broadcast,
-        });
+        }).await;
     }
 
     /// A method to request a string from the user FIXME make this more generic
@@ -841,8 +878,8 @@ impl GeneralUpdate {
 
     /// A method to trigger a redraw of the current window
     ///
-    fn send_redraw(&self) {
-        self.send_system(Redraw);
+    async fn send_redraw(&self) {
+        self.send_system(Redraw).await;
     }
 
     /// A method to pass a system update to the system interface.
@@ -885,7 +922,7 @@ impl SystemSend {
     ///
     pub async fn send(&self, update: SystemUpdate) {
         self.general_send.clone()
-            .send(GeneralUpdateType::System(update)).await;
+            .send(GeneralUpdateType::System(update)).await.unwrap_or(());
     }
 }
 

@@ -79,8 +79,9 @@ impl Minerva {
         
         // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();
-        let (system_interface, system_send) = SystemInterface::new(interface_send.clone())
-            .expect("Unable To Create System Interface.");
+        let (system_interface, system_send) = runtime.block_on(async {
+            SystemInterface::new(interface_send.clone()).await
+        }).expect("Unable To Create System Interface.");
 
         // Open the system interface in a new thread
         runtime.spawn(async move {

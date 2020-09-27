@@ -116,7 +116,7 @@ impl EventHandler {
         let mut config = Config::from_config(general_update.clone(), interface_send, &config_file).await?;
 
         // Attempt to create the backup handler
-        let backup = BackupHandler::new(
+        let mut backup = BackupHandler::new(
             general_update.clone(),
             config.identifier(),
             config.server_location(),
@@ -126,9 +126,8 @@ impl EventHandler {
         let mut queue = Queue::new(general_update.clone());
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, status_pairs, queued_events)) =
-            backup.reload_backup(config.get_status_ids())
-        {
+        let possible_backup = backup.reload_backup(config.get_status_ids());
+        if let Some((current_scene, status_pairs, queued_events)) = possible_backup {
             // Notify that existing data was found
             update!(err &general_update => "Detected Lingering Backup Data. Reloading ...");
 
@@ -155,7 +154,7 @@ impl EventHandler {
         }
 
         // Load the current scene into the backup (to detect any crash after this point)
-        backup.backup_current_scene(&config.get_current_scene().get_id());
+        backup.backup_current_scene(&config.get_current_scene().get_id()).await;
 
         // Return the completed EventHandler with a new queue
         Ok(EventHandler {
@@ -174,8 +173,8 @@ impl EventHandler {
 
     /// A method to add an event to the timed queue.
     ///
-    pub fn add_event(&mut self, event_delay: EventDelay) {
-        self.queue.add_event(event_delay);
+    pub async fn add_event(&mut self, event_delay: EventDelay) {
+        self.queue.add_event(event_delay).await;
     }
 
     /// A method to clear the existing events in the timed queue.
@@ -184,8 +183,8 @@ impl EventHandler {
     /// immediately. This means that any events that have not been processed
     /// (even if their delay has already expired) will not be processed.
     ///
-    pub fn clear_events(&mut self) {
-        self.queue.clear();
+    pub async fn clear_events(&mut self) {
+        self.queue.clear().await;
     }
 
     /// A method to repackage a list of coming events as upcoming events.
@@ -430,7 +429,7 @@ impl EventHandler {
         // Try to change the underlying scene
         if self.config.choose_scene(scene_id).await.is_ok() {
             // Backup the current scene change
-            self.backup.backup_current_scene(&scene_id);
+            self.backup.backup_current_scene(&scene_id).await;
 
             // Run the reset event for the new scene (no backup necessary)
             self.queue.add_event(EventDelay::new(None, scene_id));
@@ -450,7 +449,7 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by ignoring this failure.
     ///
-    pub fn adjust_event(&mut self, event_id: ItemId, start_time: Instant, new_delay: Option<Duration>) {
+    pub async fn adjust_event(&mut self, event_id: ItemId, start_time: Instant, new_delay: Option<Duration>) {
         // Check to see if a delay was specified
         match new_delay {
             // If a delay was specified
@@ -460,7 +459,7 @@ impl EventHandler {
                     event_id,
                     start_time,
                     delay,
-                });
+                }).await;
             }
 
             // Otherwise
@@ -470,7 +469,7 @@ impl EventHandler {
                     event_id,
                     start_time,
                     delay: Duration::from_secs(0),
-                });
+                }).await;
             }
         }
     }
@@ -487,9 +486,9 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by ignoring this failure.
     ///
-    pub fn adjust_all_events(&mut self, adjustment: Duration, is_negative: bool) {
+    pub async fn adjust_all_events(&mut self, adjustment: Duration, is_negative: bool) {
         // Modify the remaining delay for all events in the queue
-        self.queue.adjust_all(adjustment, is_negative);
+        self.queue.adjust_all(adjustment, is_negative).await;
     }
 
     /// A method to save the current configuration to the provided file.
@@ -503,7 +502,7 @@ impl EventHandler {
     /// Like all EventHandler functions and methods, this method will fail
     /// gracefully by notifying the user.
     ///
-    pub async fn save_config(&self, config_path: PathBuf) {
+    pub async fn save_config(&mut self, config_path: PathBuf) {
         // Attempt to open the new configuration file
         let config_file = match File::create(config_path) {
             Ok(file) => file,

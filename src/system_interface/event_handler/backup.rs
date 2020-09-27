@@ -134,9 +134,9 @@ impl BackupHandler {
     /// Like all BackupHandler functions and methods, this function will fail
     /// gracefully by notifying of any errors on the update line.
     ///
-    pub async fn backup_current_scene(&self, current_scene: &ItemId) {
+    pub async fn backup_current_scene(&mut self, current_scene: &ItemId) {
         // If the redis connection exists
-        if let &Some(ref connection) = &self.connection {
+        if let Some(connection) = self.connection.take() {
             // Try to copy the current scene to the server
             let result: RedisResult<bool> = connection.set(
                 &format!("{}:current", self.identifier),
@@ -148,6 +148,9 @@ impl BackupHandler {
                 // Warn that it wasn't possible to update the current scene
                 update!(err self.update_line => "Unable To Backup Current Scene Onto Backup Server.");
             }
+            
+            // Put the connection back
+            self.connection = Some(connection);
         }
     }
 
@@ -170,7 +173,7 @@ impl BackupHandler {
     ///
     pub async fn backup_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // If the redis connection exists
-        if let &Some(ref connection) = &self.connection {
+        if let Some(connection) = self.connection.take() {
             // Try to copy the state to the server
             let result: RedisResult<bool>;
             result = connection.set(
@@ -186,6 +189,9 @@ impl BackupHandler {
             } else {
                 self.backup_items.insert(status_id.clone());
             }
+            
+            // Put the connection back
+            self.connection = Some(connection);
         }
     }
 
@@ -206,9 +212,9 @@ impl BackupHandler {
     /// Like all BackupHandler functions and methods, this function will fail
     /// gracefully by notifying of any errors on the update line.
     ///
-    pub async fn backup_events(&self, coming_events: Vec<ComingEvent>) {
+    pub async fn backup_events(&mut self, coming_events: Vec<ComingEvent>) {
         // If the redis connection exists
-        if let &Some(ref connection) = &self.connection {
+        if let Some(connection) = self.connection.take() {
             // Covert the coming events to queued events
             let mut queued_events = Vec::new();
             for event in coming_events {
@@ -238,6 +244,9 @@ impl BackupHandler {
             if let Err(..) = result {
                 update!(warn &self.update_line => "Unable To Backup Events Onto Backup Server.");
             }
+            
+            // Put the connection back
+            self.connection = Some(connection);
         }
     }
 
@@ -258,7 +267,7 @@ impl BackupHandler {
         mut status_ids: Vec<ItemId>,
     ) -> Option<(ItemId, Vec<(ItemId, ItemId)>, Vec<QueuedEvent>)> {
         // If the redis connection exists
-        if let &Some(ref connection) = &self.connection {
+        if let Some(ref connection) = self.connection {
             // Check to see if there is an existing scene
             let result: RedisResult<String> =
                 connection.get(&format!("{}:current", self.identifier));
@@ -325,7 +334,7 @@ impl Drop for BackupHandler {
     ///
     fn drop(&mut self) {
         // If the redis connection exists
-        if let &Some(ref connection) = &self.connection {
+        if let Some(ref connection) = self.connection {
             // Try to delete the current scene if it exists (unable to manually specify types)
             let _: RedisResult<bool> = connection.del(&format!("{}:current", self.identifier));
 

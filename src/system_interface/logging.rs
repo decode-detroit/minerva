@@ -287,7 +287,7 @@ impl Logger {
     /// errors.
     ///
     ///
-    fn unpack_update(&mut self, update: EventUpdate) -> Notification {
+    async fn unpack_update(&mut self, update: EventUpdate) -> Notification {
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
@@ -350,7 +350,7 @@ impl Logger {
             // Broadcast events and display them
             EventUpdate::Broadcast(id, data) => {
                 // Broadcast the event and data, if specified
-                self.general_update.send_broadcast(id.get_id(), data);
+                self.general_update.send_broadcast(id.get_id(), data).await;
 
                 // Send a current update with the item pair
                 Current {
