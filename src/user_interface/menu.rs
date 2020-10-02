@@ -30,6 +30,7 @@ use super::super::system_interface::{
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use std::process::Command;
 
 // Import GTK and GDK libraries
 use gdk_pixbuf;
@@ -37,12 +38,6 @@ use gio;
 use gtk;
 use gtk::prelude::*;
 use gio::prelude::*;
-
-// Import the Rust audio module
-#[cfg(feature = "audio")]
-use rodio;
-#[cfg(feature = "audio")]    
-use rodio::DeviceTrait;
 
 /// A structure to hold all the features of the default menu.
 ///
@@ -108,7 +103,6 @@ impl MenuAbstraction {
         modify_section.append(Some("New Scene"), Some("app.new_scene"));
         modify_section.append(Some("New Status"), Some("app.new_status"));
         modify_section.append(Some("New Event"), Some("app.new_event"));
-        #[cfg(feature = "audio")]
         modify_section.append(Some("List Audio Devices"), Some("app.list_audio"));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &edit_section));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &modify_section));
@@ -437,30 +431,23 @@ impl MenuAbstraction {
         }));
         
         // Create the list audio devices action
-        #[cfg(feature = "audio")]
         let list_audio = gio::SimpleAction::new("list_audio", None);
-        #[cfg(feature = "audio")]
         list_audio.connect_activate(|_, _| {
-            // Extract the list of audio devices
-            let mut names = Vec::new();
-            if let Ok(devices) = rodio::devices() {
-                // Print the header
-                println!("Errors and warnings here are normal ...");
+            // Try to run the process
+            if let Ok(process) = Command::new("aplay").arg("-L").output() {
+                // Try to convert the output
+                if let Ok(output) = String::from_utf8(process.stdout) {
+                    // Print the result
+                    print!("{}", output);
                 
-                // Examine each found device
-                for device in devices {
-                    if let Ok(_) = device.supported_output_formats() {
-                        if let Ok(name) = device.name() {
-                            names.push(name);
-                        }
-                    }
+                // Otherwise, alert the user
+                } else {
+                    println!("Error: Invalid output from 'aplay'."); // FIXME Make this pretty
                 }
-            }
             
-            // Print the found device names
-            println!("\n\n ================ Valid Devices ================ ");
-            for name in names {
-                println!("{}", name);
+            // Otherwise, alert the user aplay must be installed
+            } else {
+                println!("Error: This feature requires 'aplay'.");
             }
         });
 
@@ -543,7 +530,6 @@ impl MenuAbstraction {
         application.add_action(&font);
         application.add_action(&contrast);
         application.add_action(&edit);
-        #[cfg(feature = "audio")]
         application.add_action(&list_audio);
         application.add_action(&shortcuts);
         application.add_action(&jump);

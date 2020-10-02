@@ -23,7 +23,8 @@
 
 // Reexport the key structures and types
 pub use self::config::{
-    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
+    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, StatusDescription,
+    Status
 };
 pub use self::queue::ComingEvent;
 
@@ -167,7 +168,7 @@ impl EventHandler {
 
     /// A method to return the configured system connection type.
     ///
-    pub fn system_connection(&self) -> (ConnectionSet, ItemId) {
+    pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
         self.config.system_connection()
     }
 

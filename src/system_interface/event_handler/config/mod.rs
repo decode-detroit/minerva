@@ -36,6 +36,7 @@ use super::event::{
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 
 // Import standard library features
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -58,7 +59,28 @@ use serde_yaml;
 // Define module constants
 const BACKGROUND_POLLING: u64 = 100; // the polling rate for the background process in ms
 
+/// Define the instance identifier. Instances with the same identifier will trigger
+/// events with one another; instances with different identifiers will not.
+/// If no identifier is specified, this instance will accept all events and
+/// produce events with the identifier 0.
+///
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct Identifier {
+  pub id: Option<u32>,  // An optionally-specified identifier for this instance
+}
+
+// Implement display for identifier
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.id {
+            &Some(ref id) => write!(f, "{}", id),
+            _ => write!(f, "default"),
+        }
+    }
+}
+
 /// Define the itemid and itempair definition of a key map
+///
 type KeyMapId = FnvHashMap<u32, ItemId>;
 pub type KeyMap = FnvHashMap<u32, ItemPair>;
 
@@ -72,6 +94,7 @@ pub struct Scene {
 
 /// A structure to define the parameters of a scene, storing the ItemPairs
 /// as opposed to only ItemIds
+///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct DescriptiveScene {
     pub events: Vec<ItemPair>,     // a vector of the events and descriptions in this scene
@@ -215,7 +238,7 @@ impl Drop for BackgroundThread {
 #[derive(Serialize, Deserialize)]
 struct YamlConfig {
     version: String,    // a version tag to warn the user of incompatible versions
-    identifier: ItemId, // unique identifier for the program instance
+    identifier: Identifier, // unique identifier for the controller instance, if specified
     server_location: Option<String>, // the location of the backup server, if specified
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
@@ -232,7 +255,7 @@ struct YamlConfig {
 /// current active and modifyable scene of the program.
 ///
 pub struct Config {
-    identifier: ItemId,               // unique identifier for the program instance
+    identifier: Identifier,           // unique identifier for the controller instance
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     server_location: Option<String>,  // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
@@ -371,13 +394,13 @@ impl Config {
 
     /// A method to return the identifier for this program instance.
     ///
-    pub fn identifier(&self) -> ItemId {
+    pub fn identifier(&self) -> Identifier {
         self.identifier.clone()
     }
 
     /// A method to return a copy of the system connection type.
     ///
-    pub fn system_connection(&self) -> (ConnectionSet, ItemId) {
+    pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
         (self.system_connection.clone(), self.identifier())
     }
 

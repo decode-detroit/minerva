@@ -24,7 +24,7 @@
 
 // Import the relevant structures into the correct namespace
 use super::super::GeneralUpdate;
-use super::{ComingEvent, EventUpdate, ItemId};
+use super::{ComingEvent, EventUpdate, ItemId, Identifier};
 
 // Import standard library features
 use std::time::Duration;
@@ -58,7 +58,7 @@ pub struct QueuedEvent {
 /// handler will raise an error and return none.
 ///
 pub struct BackupHandler {
-    identifier: ItemId, // the identifier for this instance of the program
+    identifier: Identifier, // the identifier for this instance of the controller, if specified
     connection: Option<redis::Connection>, // the Redis connection, if it exists
     update_line: GeneralUpdate, // the update line for posting any warnings
     backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
@@ -79,7 +79,7 @@ impl BackupHandler {
     ///
     pub fn new(
         update_line: GeneralUpdate,
-        identifier: ItemId,
+        identifier: Identifier,
         server_location: Option<String>,
     ) -> Result<BackupHandler, Error> {
         // If a server location was specified

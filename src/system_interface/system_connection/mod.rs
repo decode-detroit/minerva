@@ -37,6 +37,7 @@ use self::comedy_comm::ComedyComm;
 use self::dmx_out::{DmxOut, DmxFade, DmxMap};
 use self::zmq_comm::{ZmqBind, ZmqConnect};
 use self::media_out::{MediaOut, MediaCue, MediaMap, ChannelMap};
+use super::event_handler::Identifier;
 use super::event_handler::event::EventUpdate;
 use super::event_handler::item::ItemId;
 use super::GeneralUpdate;
@@ -312,7 +313,7 @@ impl SystemConnection {
     ///
     pub fn new(
         general_update: GeneralUpdate,
-        connections: Option<(ConnectionSet, ItemId)>,
+        connections: Option<(ConnectionSet, Identifier)>,
     ) -> SystemConnection {
         // Create an empty system connection
         let mut system_connection = SystemConnection {
@@ -332,7 +333,7 @@ impl SystemConnection {
     ///
     pub fn update_system_connection(
         &mut self,
-        connections: Option<(ConnectionSet, ItemId)>,
+        connections: Option<(ConnectionSet, Identifier)>,
     ) -> bool {
         // Close the existing connection, if it exists
         if let Some(ref conn_send) = self.connection_send {
@@ -394,7 +395,7 @@ impl SystemConnection {
         mut connections: Vec<LiveConnection>,
         gen_update: GeneralUpdate,
         conn_recv: mpsc::Receiver<ConnectionUpdate>,
-        identifier: ItemId,
+        identifier: Identifier,
     ) {
         // Run the loop until there is an error or instructed to quit
         loop {
@@ -420,15 +421,22 @@ impl SystemConnection {
                                 .unwrap_or(());
                         }
 
-                        // Verify the game id is correct
-                        if identifier.id() == game_id {
-                            // Create a new id and send it to the program
-                            gen_update.send_event(id, true, false); // don't broadcast
-                            // FIXME Handle incoming data
+                        // If an identifier was specified
+                        if let Some(identity) = identifier.id {
+                            // Verify the game id is correct
+                            if identity == game_id {
+                                // Send the event to the program
+                                gen_update.send_event(id, true, false); // don't broadcast
+                                // FIXME Handle incoming data
 
-                        // Otherwise send a notification of an incorrect game number
+                            // Otherwise send a notification of an incorrect game number
+                            } else {
+                                update!(warn &gen_update => "Game Id Does Not Match. Event Ignored. ({})", id);
+                            }
+                        
+                        // Otherwise, send the event to the program
                         } else {
-                            update!(warn &gen_update => "Game Id Does Not Match. Event Ignored. ({})", id);
+                            gen_update.send_event(id, true, false); // don't broadcast
                         }
                     }
                     
@@ -453,14 +461,20 @@ impl SystemConnection {
                         Some(number) => number,
                         None => 0,
                     };
+                    
+                    // Use the identifier or zero for the game id
+                    let game_id = match identifier.id {
+                        Some(id) => id,
+                        None => 0 as u32,
+                    };
 
                     // Try to send the new event to every connection
                     for connection in connections.iter_mut() {
                         // Catch any write errors
-                        if let Err(_) = connection.write_event(id, identifier.id(), data2) {
+                        if let Err(_) = connection.write_event(id, game_id, data2) {
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
-                            if let Err(e) = connection.write_event(id, identifier.id(), data2) {
+                            if let Err(e) = connection.write_event(id, game_id, data2) {
                                 // If failed twice in a row, notify the system
                                 update!(err &gen_update => "Communication Error: {}", e);
                             }
