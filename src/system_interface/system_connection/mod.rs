@@ -471,13 +471,15 @@ impl SystemConnection {
                     // Try to send the new event to every connection
                     for connection in connections.iter_mut() {
                         // Catch any write errors
-                        if let Err(e1) = connection.write_event(id, game_id, data2) {
-                            update!(err &gen_update => "Communication Error: {}", e1); // FIXME Consider the appropriate course of action
+                        if let Err(error1) = connection.write_event(id, game_id, data2) {
+                            // Throw the error
+                            update!(err &gen_update => "Communication Error: {}", error1);
+                            
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
-                            if let Err(e) = connection.write_event(id, game_id, data2) {
+                            if let Err(error2) = connection.write_event(id, game_id, data2) {
                                 // If failed twice in a row, notify the system
-                                update!(err &gen_update => "Communication Error: {}", e);
+                                update!(err &gen_update => "Persistent Communication Error: {}", error2);
                             }
                         }
                     }

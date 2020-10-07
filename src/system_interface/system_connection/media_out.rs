@@ -21,6 +21,10 @@
 use super::{EventConnection, ItemId, ReadResult};
 use super::GeneralUpdate;
 
+// Import standard library features
+#[cfg(feature = "media-out")]
+use std::sync::{Arc, Mutex};
+
 // Import GTK Library
 #[cfg(feature = "media-out")]
 use glib;
@@ -92,7 +96,7 @@ pub struct MediaChannel {
     loop_media: Option<String>,         // the media (video or audio) to loop when no other media is playing
 }
 
-/// A type to stote a hashmap of channel ids and allocations
+/// A type to store a hashmap of channel ids and allocations
 ///
 pub type ChannelMap = FnvHashMap<u32, MediaChannel>;
 
@@ -106,18 +110,24 @@ pub struct VideoStream {
     pub video_overlay: gst_video::VideoOverlay, // the video overlay which should be connected to the video id
 }
 
+/// A helper type to store the playbin and loop media uri
+struct InternalChannel {
+    playbin: gst::Element,                  // the playbin for this channel
+    loop_media: Arc<Mutex<Option<String>>>, // the loop media handle for this channel
+}
+
 /// A structure to hold and manipulate the connection to the media backend
 ///
 pub struct MediaOut {
     #[cfg(feature = "media-out")]
     general_update: GeneralUpdate,          // the general send line to pass video streams to the user interface
     #[cfg(feature = "media-out")]
-    channels: FnvHashMap<u32, gst::Element>,// the map of channels to active playbins    
+    channels: FnvHashMap<u32, InternalChannel>,// the map of channels numbers to internal channels   
     #[cfg(feature = "media-out")]
     all_stop_media: Vec<MediaCue>,          // a vector of media cues for all stop
     media_map: MediaMap,                    // the map of event ids to media cues
     #[cfg(feature = "media-out")]
-    channel_map: ChannelMap,                // the map of channel numbers to allocations
+    channel_map: ChannelMap,                // the map of channel numbers to channel information
 }
 
 // Implement key functionality for the Media Out structure
@@ -163,36 +173,35 @@ impl MediaOut {
     #[cfg(feature = "media-out")]
     fn add_cue(
         general_update: &GeneralUpdate,
-        channels: &mut FnvHashMap<u32, gst::Element>,
+        channels: &mut FnvHashMap<u32, InternalChannel>,
         channel_map: &ChannelMap,
         media_cue: MediaCue
     ) -> Result<(), Error> {
         // Check to see if there is an existing channel
         if let Some(channel) = channels.get(&media_cue.channel) {
             // Stop the previous media
-            channel.set_state(gst::State::Null)?;
+            channel.playbin.set_state(gst::State::Null)?;
             
             // Add the uri to this channel
-            channel.set_property("uri", &media_cue.uri)?;
+            channel.playbin.set_property("uri", &media_cue.uri)?;
             
             // Make sure the new media is playing
-            channel.set_state(gst::State::Playing)?;
+            channel.playbin.set_state(gst::State::Playing)?;
             
-            // If a loop was specified, replace the loop media
-            if let Some(loop_media) = media_cue.loop_media {
-                println!("Adding cue-loop");
-                MediaOut::add_loop_media(&channel, loop_media)?;
+            // Try to get a lock on the loop media
+            if let Ok(mut media) = channel.loop_media.lock() {
+                // Try to get a copy of the channel's loop media
+                let channel_loop = match channel_map.get(&media_cue.channel) {
+                    Some(media_channel) => media_channel.loop_media.clone(),
+                    None => None,
+                };
+                
+                // Replace the media with the local loop or channel loop
+                *media = media_cue.loop_media.or(channel_loop);
             
-            // Otherwise, try to use the channel loop media instead
+            // Otherwise, throw an error
             } else {
-                // Try to get the channel information
-                if let Some(media_channel) = channel_map.get(&media_cue.channel) {
-                    // If a loop was specified, replace the loop media
-                    if let Some(loop_media) = media_channel.loop_media.clone() {
-                        println!("Adding media-loop");
-                        MediaOut::add_loop_media(&channel, loop_media)?;
-                    }
-                }
+                return Err(format_err!("Unable to Change Loop Media."));
             }
         
         // Otherwise, create a new channel
@@ -250,92 +259,62 @@ impl MediaOut {
                     }
                 );
             } // Otherwise, any window creation (if needed) is left to gstreamer
-                        
-            // If a loop was specified, create the loop media
-            if let Some(loop_media) = media_cue.loop_media {
-                MediaOut::add_loop_media(&playbin, loop_media)?;
             
-            // Otherwise, try to use the channel loop media instead
-            } else {
-                // If a loop was specified, create the loop media
-                if let Some(loop_media) = possible_loop {
-                    MediaOut::add_loop_media(&playbin, loop_media)?;
-                }
-            }
+            // Create the loop media mutex and resolve the current loop
+            let loop_media = Arc::new(Mutex::new(media_cue.loop_media.or(possible_loop)));
+                 
+            // Create the loop media callback
+            MediaOut::create_loop_callback(&playbin, loop_media.clone())?;
                         
             // Start playing the media
             playbin.set_state(gst::State::Playing)?;
             
             // Add the playbin to the channels
-            channels.insert(media_cue.channel, playbin);
+            channels.insert(media_cue.channel, InternalChannel { playbin, loop_media });
         }
         
         // Indicate success
         Ok(())
     }
     
-    // A helper function to add a signal watch to handle looping medias
+    // A helper function to create a signal watch to handle looping media
     #[cfg(feature = "media-out")]
-    fn add_loop_media(playbin: &gst::Element, loop_media: String) -> Result<(), Error> {
+    fn create_loop_callback(playbin: &gst::Element, loop_media: Arc<Mutex<Option<String>>>) -> Result<(), Error> {
         
-        // Try to create the playbin bus
+        // Try to access the playbin bus
         let bus = match playbin.get_bus() {
             Some(bus) => bus,
             None => return Err(format_err!("Unable to set loop media: Invalid bus.")),
         };
         
-        println!("Trying new loop video.");
-        
-        // Try to remove the old watch, if it exists
-        if let Err(_) = bus.remove_watch() { // FIXME Needs to be removed if there isn't a loop!
-            println!("Unable to remove watch in loop media 1."); // FIXME (());
-        }
-        
-        // Try to remove the old watch, if it exists
-        if let Err(_) = bus.remove_watch() {
-            println!("Unable to remove watch in loop media 2."); // FIXME (());
-        }
-        
-        // Try to remove the old watch, if it exists
-        if let Err(_) = bus.remove_watch() {
-            println!("Unable to remove watch in loop media 3."); // FIXME (());
-        }
-        
-        println!("End attempt.");
-        
-        // Create a week referene to the playbin
+        // Create a week reference to the playbin
         let channel_weak = playbin.downgrade();
         
         // Connect the signal handler for the end of stream notification
-        if let Err(_) = bus.add_watch(move |_, msg| { // FIXME Why does this fail?
+        if let Err(_) = bus.add_watch(move |_, msg| {
             // Try to get a strong reference to the channel
             let channel = match channel_weak.upgrade() {
                 Some(channel) => channel,
                 None => return glib::Continue(true), // Fail silently, but try again
             };
 
-            // Match the message type
-            match msg.view() {
-                // If the end of stream message is received
-                gst::MessageView::Eos(..) => {
-                    // Stop the previous media
-                    if let Err(_) = channel.set_state(gst::State::Null) {
-                        println!("Error setting channel state in loop media."); // FIXME (gst::StateChangeSuccess::Success);
-                    }
-                    
-                    // Add the loop uri to this channel
-                    if let Err(_) = channel.set_property("uri", &loop_media) {
-                        println!("Error setting uri in loop media.");
-                    }
-                                
-                    // Try to start playing the media
-                    if let Err(_) = channel.set_state(gst::State::Playing) {
-                        println!("Error restarting playback in loop media."); // FIXME (gst::StateChangeSuccess::Success);
+            // If the end of stream message is received
+            if let gst::MessageView::Eos(..) = msg.view() {
+                // Stop the previous media
+                channel.set_state(gst::State::Null).unwrap_or(gst::StateChangeSuccess::Success);
+                
+                // Wait for access to the current loop media
+                if let Ok(possible_media) = loop_media.lock() {
+                    // If the media was specified
+                    if let Some(media) = possible_media.clone() {
+                        // If media was specified, add the loop uri to this channel
+                        channel.set_property("uri", &media).unwrap_or(());
+                                    
+                        // Try to start playing the media
+                        channel.set_state(gst::State::Playing)
+                            .unwrap_or(gst::StateChangeSuccess::Success);
                     }
                 }
-                
-                // Ignore other messages
-                _ => (),
             }
             
             // Continue with other signal handlers
@@ -363,12 +342,12 @@ impl EventConnection for MediaOut {
     ///
     #[cfg(feature = "media-out")]
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {   
-        println!("Got event: {}", &id); // FIXME Double send?
         // Check to see if the event is all stop
         if id == ItemId::all_stop() {
             // Stop all the currently playing media
             for (_, channel) in self.channels.iter() {
-                channel.set_state(gst::State::Null).unwrap_or(gst::StateChangeSuccess::Success);
+                channel.playbin.set_state(gst::State::Null)
+                    .unwrap_or(gst::StateChangeSuccess::Success);
             }
             
             // Run all of the all stop media, ignoring errors
@@ -416,12 +395,12 @@ impl Drop for MediaOut {
         self.general_update.send_clear_videos();
         
         // For every playbin in the active channels
-        for (_, playbin) in self.channels.drain() {
+        for (_, channel) in self.channels.drain() {
             // Set the playbin state to Null
-            playbin.set_state(gst::State::Null).unwrap_or(gst::StateChangeSuccess::Success);
+            channel.playbin.set_state(gst::State::Null).unwrap_or(gst::StateChangeSuccess::Success);
             
             // Try to remove the bus signal watch
-            if let Some(bus) = playbin.get_bus() {
+            if let Some(bus) = channel.playbin.get_bus() {
                 bus.remove_watch().unwrap_or(());
             }   
         }
