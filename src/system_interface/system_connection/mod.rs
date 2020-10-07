@@ -456,22 +456,23 @@ impl SystemConnection {
             match conn_recv.try_recv() {
                 // Send the new event
                 Ok(ConnectionUpdate::Broadcast(id, data)) => {
+                    // Use the identifier or zero for the game id
+                    let game_id = match identifier.id {
+                        Some(id) => id,
+                        None => 0,
+                    };
+                     
                     // Translate the data to a placeholder, if necessary
                     let data2 = match data {
                         Some(number) => number,
                         None => 0,
                     };
-                    
-                    // Use the identifier or zero for the game id
-                    let game_id = match identifier.id {
-                        Some(id) => id,
-                        None => 0 as u32,
-                    };
 
                     // Try to send the new event to every connection
                     for connection in connections.iter_mut() {
                         // Catch any write errors
-                        if let Err(_) = connection.write_event(id, game_id, data2) {
+                        if let Err(e1) = connection.write_event(id, game_id, data2) {
+                            update!(err &gen_update => "Communication Error: {}", e1); // FIXME Consider the appropriate course of action
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
                             if let Err(e) = connection.write_event(id, game_id, data2) {

@@ -31,7 +31,7 @@ system_connection:
             width: 800
           loop_media: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
         ? 2
-        : audio_device: ~
+        : audio_device: default
         
 default_scene:
   id: 100
