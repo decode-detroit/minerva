@@ -10,6 +10,8 @@ system_connection:
       all_stop_media:
         - uri: "file:////home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Final/Fiji (Final).wav"
           channel: 2
+        - uri: "file:////home/patton/Originals/Decode_Detroit/80 Days/Soundtrack/Final/Entrance (Final).wav"
+          channel: 3
       media_map:
         ? id: 8
         : uri: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24642.mp4"
@@ -31,7 +33,13 @@ system_connection:
             width: 800
           loop_media: "file:////home/patton/Originals/Decode_Detroit/Aurora Society/Finnick/Final/Videos/Phoenix_video_24636.mp4"
         ? 2
-        : audio_device: default
+        : audio_device:
+            Pulse:
+              device_name: "alsa_output.pci-0000_00_1b.0.analog-stereo"  #default
+        ? 3
+        : audio_device: 
+            Alsa:
+              device_name: "pulse" #default
         
 default_scene:
   id: 100
