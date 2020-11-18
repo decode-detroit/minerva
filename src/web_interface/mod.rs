@@ -53,7 +53,7 @@ impl WebReply {
     }
 }
 
-/// A helpder type definition for the web_sender
+/// A helper type definition for the web_sender
 type WebSend = mpsc::Sender<(ItemId, oneshot::Sender<WebReply>)>;
 
 /// A structure to contain the web interface and handle all updates to the
