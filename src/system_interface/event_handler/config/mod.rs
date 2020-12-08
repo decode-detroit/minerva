@@ -476,7 +476,7 @@ impl Config {
     pub fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
         // For every status in the status pairs, set the current value
         for (status_id, new_state) in status_pairs.drain(..) {
-            self.status_handler.modify_status(&status_id, &new_state);
+            self.status_handler.modify_status(&status_id, &new_state); // Ignore errors
 
             // Notify the system of the successful status change
             let status_pair =
@@ -741,8 +741,11 @@ impl Config {
     }
 
     /// A method to modify a status state within the current scene based
-    /// on the provided status id and new state. Return the new state, or
-    /// None if the state was not changed successfully.
+    /// on the provided status id and new state. Method returns the new state or
+    /// None. None is returned either because
+    ///  * the status was already in this state and the status has the
+    ///    no_change_silent flag set, or
+    ///  * if the state failed to change because one or both ids are invalid.
     ///
     /// # Errors
     ///
@@ -763,11 +766,11 @@ impl Config {
             let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
             update!(status &self.general_update => status_pair, state_pair.clone());
 
-            // Indicate success
+            // Indicate status change
             return Some(new_id);
         }
 
-        // Indicate failure
+        // Indicate no change
         None
     }
 

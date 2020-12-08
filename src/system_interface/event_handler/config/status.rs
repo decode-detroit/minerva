@@ -135,8 +135,11 @@ impl StatusHandler {
     }
 
     /// A method to modify a status state within the current scene based
-    /// on the provided status id and new state. Returns Some(new state id) on
-    /// success and None on failure.
+    /// on the provided status id and new state. Method returns the new state or
+    /// None. None is returned either because
+    ///  * the status was already in this state and the status has the
+    ///    no_change_silent flag set, or
+    ///  * if the state failed to change because one or both ids are invalid.
     ///
     /// # Errors
     ///
@@ -150,17 +153,8 @@ impl StatusHandler {
     pub fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
         // Try to get a mutable reference to the status
         if let Some(status) = self.status_map.get_mut(status_id) {
-            // Try to update the status
-            match status.update(new_state.clone()) {
-                // If the update was successful, return the new state
-                Some(new_id) => Some(new_id),
-
-                // If the update failed, warn the system
-                None => {
-                    update!(warn &self.update_line => "Selected State Was Not Valid: {}", new_state);
-                    None
-                }
-            }
+            // Try to update the status and return the result
+            status.update(new_state.clone())
 
         // Warn the system that this is not a valid id
         } else {
@@ -270,19 +264,21 @@ pub enum Status {
     /// The MultState variant
     ///
     MultiState {
-        current: ItemId,      // the current state
-        allowed: Vec<ItemId>, // the allowed states
+        current: ItemId,        // the current state
+        allowed: Vec<ItemId>,   // the allowed states
+        no_change_silent: bool, // if true, events are only broadcast when the state changes
     },
 
     /// The CountedState variant
     ///
     CountedState {
-        current: ItemId,      // the current state
-        trigger: ItemId,      // the state when the status is triggered
-        anti_trigger: ItemId, // the state when the status is not triggered
-        reset: ItemId,        // the state to reset the status to its default value
-        count: u32,           // the current count of the status
-        default_count: u32,   // the starting value of the status count
+        current: ItemId,        // the current state
+        trigger: ItemId,        // the state when the status is triggered
+        anti_trigger: ItemId,   // the state when the status is not triggered
+        reset: ItemId,          // the state to reset the status to its default value
+        count: u32,             // the current count of the status
+        default_count: u32,     // the starting value of the status count
+        no_change_silent: bool, // if true, events are only broadcast when the state changes
     },
 }
 
@@ -347,7 +343,8 @@ impl Status {
 
     /// A method to update the state of the status, first checking for
     /// that the new state is valid. If the operation was successful, the
-    /// method returns the new state, otherwise None.
+    /// method returns the new state, otherwise None. // FIXME consider adding
+    /// a distinction between no change and failure
     ///
     pub fn update(&mut self, new_state: ItemId) -> Option<ItemId> {
         match self {
@@ -355,15 +352,23 @@ impl Status {
             &mut MultiState {
                 ref mut current,
                 ref allowed,
-                ..
+                ref no_change_silent,
             } => {
                 // Check that the new state is valid
                 if allowed.is_empty() | allowed.contains(&new_state) {
+                    // If no_change_slient, and the states are the same
+                    if *no_change_silent & (*current == new_state) {
+                        return None; // Indicate no change
+                    }
+                    
                     // Update the state
                     *current = new_state;
-                    return Some(new_state);
+                    Some(new_state)
+                
+                // Indicate failure
+                } else {
+                    None
                 }
-                None // indicate failure
             }
 
             // The countedstate variant
@@ -374,22 +379,34 @@ impl Status {
                 ref default_count,
                 ref trigger,
                 ref anti_trigger,
-                ..
+                ref no_change_silent,
             } => {
                 // Reset the count and state
                 if new_state == *reset {
-                    *count = *default_count; // reset the count
-                    *current = *anti_trigger; // reset the current state
-
-                    // Return the current state
+                    // Reset the count
+                    *count = *default_count;
+                    
+                    // If no_change_silent and current is already anti_trigger
+                    if *no_change_silent & (*current == *anti_trigger) {
+                        return None; // Indicate no change
+                    }
+                    
+                    // Reset the current state
+                    *current = *anti_trigger;
                     Some(current.clone())
 
                 // Increment the count when the anti-trigger is provided
                 } else if new_state == *anti_trigger {
-                    *count = *count + 1; // increase the count
-                    *current = *anti_trigger; // reset the current state
-
-                    // Return the current state
+                    // Increase the count
+                    *count = *count + 1;
+                    
+                    // If no_change_silent and current is already anti_trigger
+                    if *no_change_silent & (*current == *anti_trigger) {
+                        return None; // Indicate no change
+                    }
+                    
+                    // Reset the current state
+                    *current = *anti_trigger;
                     Some(current.clone())
 
                 // Decrement the count when the trigger is provided
@@ -397,6 +414,10 @@ impl Status {
                     // If the count is not zero, decrease it
                     if *count > 0 {
                         *count = *count - 1;
+                    
+                    // If the count is already zero and no_change_silent
+                    } else if *no_change_silent {
+                        return None; // Indicate no change
                     }
 
                     // If the count is now zero, change the current state

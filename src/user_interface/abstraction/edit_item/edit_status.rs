@@ -145,7 +145,7 @@ impl EditStatus {
 
             // Check which status variant it is
             match status.clone() {
-                Status::MultiState { current, allowed } => {
+                Status::MultiState { current, allowed, no_change_silent } => {
                     // Change the dropdown
                     self.status_selection.set_active_id(Some("multistate"));
 
@@ -388,7 +388,8 @@ impl EditMultiState {
                 // Pack and return the data as a status
                 return Status::MultiState {
                     current: current_data.clone(),
-                    allowed
+                    allowed,
+                    no_change_silent: false, // FIXME
                 };
             }
         }
@@ -785,7 +786,8 @@ impl EditCountedState {
                 anti_trigger: *database.get("antitrigger")?,
                 reset: *database.get("reset")?,
                 count: default_count.clone(), // the count is always set to default_count
-                default_count: default_count.clone()
+                default_count: default_count.clone(),
+                no_change_silent: false, // FIXME
             });
         }
 

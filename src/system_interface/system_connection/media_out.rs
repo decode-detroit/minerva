@@ -129,6 +129,7 @@ pub struct VideoStream {
 }
 
 /// A helper type to store the playbin and loop media uri
+#[cfg(feature = "media-out")]
 struct InternalChannel {
     playbin: gst::Element,                  // the playbin for this channel
     loop_media: Arc<Mutex<Option<String>>>, // the loop media handle for this channel

@@ -81,6 +81,7 @@ status_map:
       allowed:
         - id: 21
         - id: 22
+      no_change_silent: false
 
   ? id: 30
   : MultiState:
@@ -88,6 +89,7 @@ status_map:
         id: 31
       allowed:
         - id: 31
+      no_change_silent: false
 
 # Item Lookup
 event_set:
