@@ -343,7 +343,7 @@ impl EditItemAbstraction {
         let edit_status = EditStatus::new(system_send, is_left);
 
         // Create the save button
-        let save = gtk::Button::new_with_label("  Save Changes  ");
+        let save = gtk::Button::with_label("  Save Changes  ");
 
         // Create the entry for the item description
         let overview_label = gtk::Label::new(Some("Item Description:"));
@@ -421,7 +421,7 @@ impl EditItemAbstraction {
             };
 
             // Get the text in the description entry box
-            let tmp_description = item_description.get_text().unwrap_or(String::new().into());
+            let tmp_description = item_description.get_text();
 
             // Collect the information and save it
             let item_pair = ItemPair::from_item(item_id, overview.pack_description(tmp_description.to_string()));
@@ -703,7 +703,9 @@ impl ItemList {
         // Remove all the item list buttons
         let to_remove = self.items_list.get_children();
         for item in to_remove {
-            item.destroy();
+            unsafe {
+                item.destroy();
+            }
         }
     }
 
@@ -806,7 +808,7 @@ impl EditOverview {
         );
 
         // Create the group options
-        let group_checkbox = gtk::CheckButton::new_with_label("Show In Control Area");
+        let group_checkbox = gtk::CheckButton::with_label("Show In Control Area");
         // The button to hold the label
         let group_button = gtk::Button::new();
         let group_description = gtk::Label::new(None);
@@ -853,27 +855,23 @@ impl EditOverview {
         group_checkbox.connect_toggled(clone!(group_description => move | checkbox | {
             // Strikethrough the text when checkbox is selected
             if checkbox.get_active() {
-                if let Some(group_label) = group_description.get_text() {
-                    // Remove the markup
-                    let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
-                    // Display the label text with strikethrough
-                    group_description.set_markup(&format!("<s>{}</s>", label_markup));
-                }
+                // Remove the markup
+                let label_markup = clean_text(&group_description.get_text(), LABEL_LIMIT, true, false, true);
+                // Display the label text with strikethrough
+                group_description.set_markup(&format!("<s>{}</s>", label_markup));
             } else {
-                if let Some(group_label) = group_description.get_text() {
-                    // Remove the markup
-                    let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
-                    // Display the label text without strikethrough
-                    group_description.set_markup(&label_markup);
-                }
+                // Remove the markup
+                let label_markup = clean_text(&group_description.get_text(), LABEL_LIMIT, true, false, true);
+                // Display the label text without strikethrough
+                group_description.set_markup(&label_markup);
             }
         }));
 
         // Create the position option
-        let position_checkbox = gtk::CheckButton::new_with_label("Display Position");
+        let position_checkbox = gtk::CheckButton::with_label("Display Position");
         let position_label = gtk::Label::new(None);
         position_label.set_markup("<s>Position Number:</s>");
-        let position = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let position = gtk::SpinButton::with_range(1.0, 536870911.0, 1.0);
         position_checkbox.connect_toggled(clone!(position_label => move | checkbox | {
             // Strikethrough the text when checkbox not selected
             if checkbox.get_active() {
@@ -884,7 +882,7 @@ impl EditOverview {
         }));
 
         // Create the color option
-        let color_checkbox = gtk::CheckButton::new_with_label("Custom Text Color");
+        let color_checkbox = gtk::CheckButton::with_label("Custom Text Color");
         let color_label = gtk::Label::new(None);
         color_label.set_markup("<s>Select Color:</s>");
         let color = gtk::ColorButton::new();
@@ -899,7 +897,7 @@ impl EditOverview {
         }));
 
         // Create the highlight option
-        let highlight_checkbox = gtk::CheckButton::new_with_label("Custom Text Highlight");
+        let highlight_checkbox = gtk::CheckButton::with_label("Custom Text Highlight");
         let highlight_label = gtk::Label::new(None);
         highlight_label.set_markup("<s>Select Color:</s>");
         let highlight = gtk::ColorButton::new();
@@ -914,10 +912,10 @@ impl EditOverview {
         }));
 
         // Create the spotlight option
-        let spotlight_checkbox = gtk::CheckButton::new_with_label("Spotlight Changes");
+        let spotlight_checkbox = gtk::CheckButton::with_label("Spotlight Changes");
         let spotlight_label = gtk::Label::new(None);
         spotlight_label.set_markup("<s>Flash Cycles:</s>");
-        let spotlight = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let spotlight = gtk::SpinButton::with_range(1.0, 536870911.0, 1.0);
         spotlight_checkbox.connect_toggled(clone!(spotlight_label => move | checkbox | {
             // Strikethrough the text when checkbox not selected
             if checkbox.get_active() {
@@ -928,7 +926,7 @@ impl EditOverview {
         }));
 
         // Create the highlight state options
-        let highstate_checkbox = gtk::CheckButton::new_with_label("Status-Based Highlighting");
+        let highstate_checkbox = gtk::CheckButton::with_label("Status-Based Highlighting");
         // Create the button to hold the label for the status
         let highstate_status_button = gtk::Button::new();
         let highstate_status_description = gtk::Label::new(None);
@@ -997,24 +995,18 @@ impl EditOverview {
                 // Display the state label without strikethrough
                 state_label.set_markup("State:");
 
-                // Change the markup on the status label
-                if let Some(status_label) = highstate_status_description.get_text() {
-                    // Remove the markup
-                    let label_markup = clean_text(&status_label, LABEL_LIMIT, true, false, true);
-                    // Display the label text without strikethrough
-                    highstate_status_description.set_markup(&label_markup);
-                }
+                // Remove the markup
+                let label_markup = clean_text(&highstate_status_description.get_text(), LABEL_LIMIT, true, false, true);
+                // Display the label text without strikethrough
+                highstate_status_description.set_markup(&label_markup);
             } else {
                 // Display the state label with strikethrough
                 state_label.set_markup("<s>State:</s>");
 
-                // Change the markup on the status label
-                if let Some(status_label) = highstate_status_description.get_text() {
-                    // Remove the markup
-                    let label_markup = clean_text(&status_label, LABEL_LIMIT, true, false, true);
-                    // Display the label text with strikethrough
-                    highstate_status_description.set_markup(&format!("<s>{}</s>", label_markup));
-                }
+                // Remove the markup
+                let label_markup = clean_text(&highstate_status_description.get_text(), LABEL_LIMIT, true, false, true);
+                // Display the label text with strikethrough
+                highstate_status_description.set_markup(&format!("<s>{}</s>", label_markup));
             }
         }));
 
@@ -1094,12 +1086,10 @@ impl EditOverview {
                     "displaywith" => {
                         group_checkbox.hide();
                         group_button.show();
-                        if let Some(group_label) = group_description.get_text() {
-                            // Remove the markup
-                            let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
-                            // Display the label text without strikethrough
-                            group_description.set_markup(&label_markup);
-                        };
+                        // Remove the markup
+                        let label_markup = clean_text(&group_description.get_text(), LABEL_LIMIT, true, false, true);
+                        // Display the label text without strikethrough
+                        group_description.set_markup(&label_markup);
                         position_checkbox.show();
                         position_label.show();
                         position.show();
@@ -1122,12 +1112,10 @@ impl EditOverview {
                     "displaydebug" => {
                         group_checkbox.show();
                         group_button.show();
-                        if let Some(group_label) = group_description.get_text() {
-                            // Remove the markup
-                            let label_markup = clean_text(&group_label, LABEL_LIMIT, true, false, true);
-                            // Display the label text with strikethrough
-                            group_description.set_markup(&format!("<s>{}</s>", label_markup));
-                        }
+                        // Remove the markup
+                        let label_markup = clean_text(&group_description.get_text(), LABEL_LIMIT, true, false, true);
+                        // Display the label text with strikethrough
+                        group_description.set_markup(&format!("<s>{}</s>", label_markup));
                         position_checkbox.show();
                         position_label.show();
                         position.show();

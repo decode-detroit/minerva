@@ -77,7 +77,7 @@ impl EditEvent {
         let grid = gtk::Grid::new();
 
         // Construct the checkbox for the event
-        let event_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To An Event");
+        let event_checkbox = gtk::CheckButton::with_label("Item Corresponds To An Event");
 
         // Create the empty event actions
         let event_actions = Rc::new(RefCell::new(FnvHashMap::default()));
@@ -95,7 +95,7 @@ impl EditEvent {
         let edit_action = Rc::new(RefCell::new(tmp_edit_action));
 
         // Create a button to add actions to the list
-        let add_button = gtk::Button::new_from_icon_name(
+        let add_button = gtk::Button::from_icon_name(
             Some("list-add-symbolic"),
             gtk::IconSize::Button.into(),
         );
@@ -194,7 +194,9 @@ impl EditEvent {
 
         // Clear the existing list of actions
         for item in self.action_list.get_children() {
-            item.destroy();
+            unsafe {
+                item.destroy();
+            }
         }
 
         // For each event action, create a new action in the list
@@ -323,7 +325,7 @@ impl EditEvent {
         let row = gtk::ListBoxRow::new();
 
         // Create the edit button
-        let edit_button = gtk::Button::new_from_icon_name(
+        let edit_button = gtk::Button::from_icon_name(
             Some("document-edit-symbolic"),
             gtk::IconSize::Button.into(),
         );
@@ -566,10 +568,10 @@ impl EditAction {
         }
 
         // Create the button to save an action
-        let save_button = gtk::Button::new_with_label("Save");
+        let save_button = gtk::Button::with_label("Save");
 
         // Create the button to delete an action
-        let delete_button = gtk::Button::new_with_label("Delete");
+        let delete_button = gtk::Button::with_label("Delete");
 
         // Connect the delete button
         let event_actions = self.event_actions.clone();
@@ -591,11 +593,15 @@ impl EditAction {
             };
 
             // Destroy the row (automatically removing it from the action list)
-            row.destroy();
+            unsafe {
+                row.destroy();
+            }
 
             // Delete the save and delete buttons
-            save_button.destroy();
-            delete_button.destroy();
+            unsafe {
+                save_button.destroy();
+                delete_button.destroy();
+            }
 
             // Hide the grid to prevent editing
             grid.hide();
@@ -689,8 +695,10 @@ impl EditAction {
                     return;
                 }
             // Delete the save and delete buttons
-            save_button.destroy();
-            delete_button.destroy();
+            unsafe {
+                save_button.destroy();
+                delete_button.destroy();
+            }
 
             // Hide the grid to prevent editing
             grid.hide();
@@ -811,7 +819,7 @@ impl EditNewScene {
         let grid = gtk::Grid::new();
 
         // Add a button with a label to the grid
-        let description = gtk::Button::new_with_label("Scene: None");
+        let description = gtk::Button::with_label("Scene: None");
 
         // Create the data associated with the scene
         let scene = Rc::new(RefCell::new(ItemId::all_stop()));
@@ -926,7 +934,7 @@ impl EditModifyStatus {
         let grid = gtk::Grid::new();
 
         // Set up the labels and data
-        let status_description = gtk::Button::new_with_label("Status: None");
+        let status_description = gtk::Button::with_label("Status: None");
         let status_data = Rc::new(RefCell::new(ItemId::all_stop()));
         let state_label = gtk::Label::new(Some("State:"));
         let state_dropdown = gtk::ComboBoxText::new();
@@ -1148,11 +1156,11 @@ impl EditQueueEvent {
         let grid = gtk::Grid::new();
 
         // Create the labels and spin buttons
-        let event_description = gtk::Button::new_with_label("Event: None");
+        let event_description = gtk::Button::with_label("Event: None");
         let minutes_label = gtk::Label::new(Some("Delay: Minutes"));
-        let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
+        let minutes_spin = gtk::SpinButton::with_range(0.0, MINUTES_LIMIT, 1.0);
         let millis_label = gtk::Label::new(Some("Milliseconds"));
-        let millis_spin = gtk::SpinButton::new_with_range(0.0, 60000.0, 1.0);
+        let millis_spin = gtk::SpinButton::with_range(0.0, 60000.0, 1.0);
 
         // Create the id to hold the event data
         let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
@@ -1306,7 +1314,7 @@ impl EditCancelEvent {
         let grid = gtk::Grid::new();
 
         // Create the button to hold the event description
-        let event_description = gtk::Button::new_with_label("Event: None");
+        let event_description = gtk::Button::with_label("Event: None");
 
         // Create the variable to hold the event data
         let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
@@ -1438,12 +1446,12 @@ impl EditSaveData {
         data_type.append(Some("userstring"), "A user-provided string");
 
         // Add the entry boxes and data for the different data types
-        let event_description = gtk::Button::new_with_label("Event: None");
+        let event_description = gtk::Button::with_label("Event: None");
         let event_data = Rc::new(RefCell::new(ItemId::all_stop()));
         let minutes_label = gtk::Label::new(Some("Time: Minutes"));
-        let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
+        let minutes_spin = gtk::SpinButton::with_range(0.0, MINUTES_LIMIT, 1.0);
         let millis_label = gtk::Label::new(Some("Milliseconds"));
-        let millis_spin = gtk::SpinButton::new_with_range(0.0, 60000.0, 1.0);
+        let millis_spin = gtk::SpinButton::with_range(0.0, 60000.0, 1.0);
         let string_label = gtk::Label::new(Some("Data:"));
         let string_entry = gtk::Entry::new();
         string_entry.set_placeholder_text(Some("Enter Data Here"));
@@ -1704,12 +1712,8 @@ impl EditSaveData {
 
                 // The StaticString variant
                 "staticstring" => {
-                    // Extract the string, if there is one
-                    if let Some(string) = self.string_entry.get_text() {
-                        DataType::StaticString { string: string.to_string(), }
-                    } else {
-                        DataType::StaticString { string: String::new(), }
-                    }
+                    // Extract the string
+                    DataType::StaticString { string: self.string_entry.get_text().to_string(), }
                 }
 
                 // The UserString variant
@@ -1760,11 +1764,11 @@ impl EditSendData {
         data_type.append(Some("userstring"), "A user-provided string");
 
         // Add the entry boxes for the different data types
-        let event_description = gtk::Button::new_with_label("Event to track");
+        let event_description = gtk::Button::with_label("Event to track");
         let minutes_label = gtk::Label::new(Some("Time: Minutes"));
-        let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
+        let minutes_spin = gtk::SpinButton::with_range(0.0, MINUTES_LIMIT, 1.0);
         let millis_label = gtk::Label::new(Some("Milliseconds"));
-        let millis_spin = gtk::SpinButton::new_with_range(0.0, 60000.0, 1.0);
+        let millis_spin = gtk::SpinButton::with_range(0.0, 60000.0, 1.0);
         let string_label = gtk::Label::new(Some("Data:"));
         let string_entry = gtk::Entry::new();
         string_entry.set_placeholder_text(Some("Enter Data Here"));
@@ -2026,11 +2030,7 @@ impl EditSendData {
 
                 // The StaticString variant
                 "staticstring" => {
-                    if let Some(string) = self.string_entry.get_text() {
-                        DataType::StaticString { string: string.to_string(), }
-                    } else {
-                        DataType::StaticString { string: String::new(), }
-                    }
+                    DataType::StaticString { string: self.string_entry.get_text().to_string(), }
                 }
 
                 // The UserString variant
@@ -2072,7 +2072,7 @@ impl EditGroupedEvent {
         grouped_event_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create the status description and data
-        let status_description = gtk::Button::new_with_label("Status: None");
+        let status_description = gtk::Button::with_label("Status: None");
         let status_data = Rc::new(RefCell::new(ItemId::all_stop()));
 
         // Set up the status description as a drag source and destination
@@ -2199,7 +2199,9 @@ impl EditGroupedEvent {
         // Remove all the user interface elements
         let to_remove = self.grouped_event_list.get_children();
         for item in to_remove {
-            item.destroy();
+            unsafe {
+                item.destroy();
+            }
         }
         // Empty the database
         if let Ok(mut events) = self.grouped_events.try_borrow_mut() {
@@ -2236,7 +2238,7 @@ impl EditGroupedEvent {
         state_label.set_vexpand(false);
 
         // Create a event button to hold the even description
-        let event_label = gtk::Button::new_with_label("Event: None");
+        let event_label = gtk::Button::with_label("Event: None");
         event_label.set_size_request(80, 30);
         event_label.set_hexpand(false);
         event_label.set_vexpand(false);

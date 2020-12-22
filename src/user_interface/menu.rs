@@ -141,7 +141,9 @@ impl MenuAbstraction {
                 }
 
                 // Close the window either way
-                chooser.destroy();
+                unsafe {
+                    chooser.destroy();
+                }
             }));
 
             // Show the dialog
@@ -169,7 +171,9 @@ impl MenuAbstraction {
                 }
 
                 // Close the window either way
-                chooser.destroy();
+                unsafe {
+                    chooser.destroy();
+                }
             }));
 
             // Show the dialog
@@ -197,7 +201,9 @@ impl MenuAbstraction {
                 }
 
                 // Close the window either way
-                chooser.destroy();
+                unsafe {
+                    chooser.destroy();
+                }
             }));
 
             // Show the dialog
@@ -215,7 +221,9 @@ impl MenuAbstraction {
             thread::sleep(Duration::new(0, 1000));
 
             // Close the window for the program
-            window.destroy();
+            unsafe {
+                window.destroy();
+            }
         }));
 
         // Create the fullscreen action
@@ -374,7 +382,9 @@ impl MenuAbstraction {
                         }
 
                         // Close the window either way
-                        chooser.destroy();
+                        unsafe {
+                            chooser.destroy();
+                        }
                     }));
 
                     // Show the dialog
@@ -497,7 +507,7 @@ impl MenuAbstraction {
 
             // Create the dialog and set the parameters of the information
             let dialog = gtk::AboutDialog::new();
-            dialog.set_authors(&["Patton Doyle","and Team Decode"]);
+            dialog.set_authors(&["Patton Doyle","Jasmine Powell","and Team Decode"]);
             dialog.set_website_label(Some("www.ComedyElectronics.com"));
             dialog.set_website(Some("http://www.ComedyElectronics.com"));
             dialog.set_title("About Minerva");
@@ -507,7 +517,7 @@ impl MenuAbstraction {
             dialog.set_license_type(gtk::License::Gpl30);
 
             // Try to add the software logo
-            match gdk_pixbuf::Pixbuf::new_from_file(super::super::LOGO_WIDE) {
+            match gdk_pixbuf::Pixbuf::from_file(super::super::LOGO_WIDE) {
 
                 // Add the logo if successful
                Ok(ref pixbuf) => dialog.set_logo(Some(pixbuf)),
@@ -517,7 +527,9 @@ impl MenuAbstraction {
             // Set the closure and destroy parameters
             dialog.set_transient_for(Some(&window));
             dialog.run();
-            dialog.destroy();
+            unsafe {
+                dialog.destroy();
+            }
         }));
 
         // Add the actions to the application

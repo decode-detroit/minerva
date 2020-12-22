@@ -162,7 +162,7 @@ impl EditScene {
         keys_scroll.add(&keys_list);
 
         // Create a button to make a new key binding
-        let add_key = gtk::Button::new_with_label("Add key binding");
+        let add_key = gtk::Button::with_label("Add key binding");
 
         //Create the wrapped key press handler
         let key_press_handler = Rc::new(RefCell::new(None));
@@ -184,7 +184,7 @@ impl EditScene {
         let keys_label = gtk::Label::new(Some("Keyboard shortcuts"));
 
         // Construct the checkbox for the scene
-        let scene_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Scene");
+        let scene_checkbox = gtk::CheckButton::with_label("Item Corresponds To A Scene");
 
         // Connect the checkbox to the visibility of the other elements
         scene_checkbox.connect_toggled(clone!(
@@ -308,13 +308,17 @@ impl EditScene {
         // Remove all the event list elements
         let to_remove_events = self.events_list.get_children();
         for item in to_remove_events {
-            item.destroy();
+            unsafe {
+                item.destroy();
+            }
         }
 
         // Remove all key binding elements
         let to_remove_keys = self.keys_list.get_children();
         for item in to_remove_keys {
-            item.destroy();
+            unsafe {
+                item.destroy();
+            }
         }
 
         // Empty the events database
@@ -420,7 +424,7 @@ impl EditScene {
         }));
 
         // Create a delete button
-        let event_delete = gtk::Button::new_with_label("Delete");
+        let event_delete = gtk::Button::with_label("Delete");
 
         // Create a grid to display the label and button, and add it to the event list
         let event_grid = gtk::Grid::new();
@@ -485,7 +489,7 @@ impl EditScene {
         let key_label = gtk::Label::new(Some("Keyboard shortcut:"));
 
         // Create a button to hold the key binding
-        let key_button = gtk::Button::new_with_label("None");
+        let key_button = gtk::Button::with_label("None");
 
         // If a key value is given
         if let Some(key) = key_value {
@@ -531,7 +535,7 @@ impl EditScene {
         }
 
         // Create the delete button
-        let key_delete = gtk::Button::new_with_label("Delete");
+        let key_delete = gtk::Button::with_label("Delete");
 
         // Create the list box grid element
         let keybinding_info = gtk::Grid::new();
@@ -618,7 +622,7 @@ impl EditScene {
             *key_press_handler = Some(
                 window.connect_key_press_event(clone!(button, keys_data, handler, window => move |_, key_press| {
                     // Get the name of the key pressed
-                    let key = match gdk::keyval_name(key_press.get_keyval()) {
+                    let key = match key_press.get_keyval().name() {
                         Some(gstring) => String::from(gstring),
                         None => String::from("Invalid Key Code"),
                     };
@@ -633,7 +637,7 @@ impl EditScene {
                         if let Some(binding) = data.get_mut(&position) {
 
                             // Update the key value
-                            binding.update_key(key_press.get_keyval());
+                            binding.update_key(*key_press.get_keyval().clone());
                         }
                     }
 

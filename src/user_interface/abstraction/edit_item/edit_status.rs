@@ -73,7 +73,7 @@ impl EditStatus {
         let status_grid = gtk::Grid::new();
 
         // Construct the checkbox for the status
-        let status_checkbox = gtk::CheckButton::new_with_label("Item Corresponds To A Status");
+        let status_checkbox = gtk::CheckButton::with_label("Item Corresponds To A Status");
 
         // Connect the checkbox to the visibility of the grid
         status_checkbox.connect_toggled(clone!(status_grid => move | checkbox | {
@@ -235,7 +235,7 @@ impl EditMultiState {
         let grid = gtk::Grid::new();
 
         // Create a label to hold the current state description
-        let current_label = gtk::Button::new_with_label("Current State: None");
+        let current_label = gtk::Button::with_label("Current State: None");
 
         // Create an ItemId to hold the current state data
         let current_data = Rc::new(RefCell::new(ItemId::all_stop()));
@@ -402,7 +402,9 @@ impl EditMultiState {
         // Remove all the state list elements
         let to_remove_states = self.states_list.get_children();
         for item in to_remove_states {
-            item.destroy();
+            unsafe {
+                item.destroy();
+            }
         }
 
         // Empty the states database
@@ -457,7 +459,7 @@ impl EditMultiState {
         });
 
         // Create a delete button
-        let state_delete = gtk::Button::new_with_label("Delete");
+        let state_delete = gtk::Button::with_label("Delete");
 
         // Create a grid to display the label and delete button, and add it to the event list
         let state_grid = gtk::Grid::new();
@@ -554,20 +556,20 @@ impl EditCountedState {
         let status_data = Rc::new(RefCell::new(FnvHashMap::default()));
 
         // Create the label for the current item id
-        let current_label = gtk::Button::new_with_label("Current State: None");
+        let current_label = gtk::Button::with_label("Current State: None");
 
         // Create the label for the trigger item id
-        let trigger_label = gtk::Button::new_with_label("Trigger State: None");
+        let trigger_label = gtk::Button::with_label("Trigger State: None");
 
         // Create the label for the anti-trigger item id
-        let antitrigger_label = gtk::Button::new_with_label("Anti-Trigger State: None");
+        let antitrigger_label = gtk::Button::with_label("Anti-Trigger State: None");
 
         // Create the label for the reset item id
-        let reset_label = gtk::Button::new_with_label("Reset State: None");
+        let reset_label = gtk::Button::with_label("Reset State: None");
 
         // Create the label and spin button for the default count
         let count_label = gtk::Label::new(Some("Default Count:"));
-        let count_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let count_spin = gtk::SpinButton::with_range(1.0, 536870911.0, 1.0);
 
         // Make the current button a drag source and destination
         drag!(source current_label);

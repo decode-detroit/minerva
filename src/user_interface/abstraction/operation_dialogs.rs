@@ -47,7 +47,7 @@ use gdk;
 use gtk;
 use self::gtk::prelude::*;
 #[cfg(feature = "media-out")]
-use self::gdk::WindowExt;
+use self::gdk::{Cursor, WindowExt};
 
 // Import Gstreamer Library
 #[cfg(feature = "media-out")]
@@ -87,7 +87,7 @@ impl StatusDialog {
     ///
     pub fn launch(&self, system_send: &SystemSend, status: Option<ItemPair>) {
         // Create the new dialog
-        let dialog = gtk::Dialog::new_with_buttons(
+        let dialog = gtk::Dialog::with_buttons(
             Some("Modify Status"),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
@@ -131,7 +131,9 @@ impl StatusDialog {
             // Remove all the existing items in the state box and vector
             let to_remove = state_box.get_children();
             for item in to_remove {
-                item.destroy();
+                unsafe {
+                    item.destroy();
+                }
             }
             let mut map = match state_map.try_borrow_mut() {
                 Ok(map) => map,
@@ -260,7 +262,9 @@ impl StatusDialog {
             }
 
             // Close the window either way
-            modal.destroy();
+            unsafe {
+                modal.destroy();
+            }
         }));
 
         // Show the dialog and return
@@ -292,7 +296,7 @@ impl JumpDialog {
     ///
     pub fn launch(&self, system_send: &SystemSend, scene: Option<ItemPair>) {
         // Create the new dialog
-        let dialog = gtk::Dialog::new_with_buttons(
+        let dialog = gtk::Dialog::with_buttons(
             Some("Jump To ..."),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
@@ -359,7 +363,9 @@ impl JumpDialog {
             }
 
             // Close the window either way
-            modal.destroy();
+            unsafe {
+                modal.destroy();
+            }
         }));
 
         // Show the dialog and return
@@ -396,12 +402,12 @@ impl ShortcutsDialog {
         }
     }
 
-    /// A method to launch the new jump dialog with the current list of available
-    /// scenes in the configuration.
+    /// A method to launch the new jump dialog with the current list of current
+    /// shortcuts in the configuration.
     ///
     pub fn launch(&self) {
         // Create the new dialog
-        let dialog = gtk::Dialog::new_with_buttons(
+        let dialog = gtk::Dialog::with_buttons(
             Some("Keyboard Shortcuts"),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
@@ -441,11 +447,7 @@ impl ShortcutsDialog {
                 None => String::from("Invalid Key Code"),
             };
             grid.attach(
-                &gtk::Label::new(Some(&format!("  {}  ", key))),
-                0,
-                count,
-                1,
-                1,
+                &gtk::Label::new(Some(&format!("  {}  ", key))), 0, count, 1, 1,
             );
 
             // Increment the count
@@ -470,7 +472,9 @@ impl ShortcutsDialog {
         // Connect the close event for when the dialog is complete
         dialog.connect_response(|modal, _| {
             // Close the window
-            modal.destroy();
+            unsafe {
+                modal.destroy();
+            }
         });
 
         // Show the dialog and return
@@ -544,7 +548,7 @@ impl TriggerDialog {
     ///
     pub fn launch(&mut self, system_send: &SystemSend, event: Option<ItemPair>) {
         // Create the new dialog
-        let dialog = gtk::Dialog::new_with_buttons(
+        let dialog = gtk::Dialog::with_buttons(
             Some("Manually Trigger Event"),
             Some(&self.window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
@@ -589,7 +593,7 @@ impl TriggerDialog {
         grid.attach(&label, 1, 2, 2, 1);
 
         // Create the event selection
-        let event_spin = gtk::SpinButton::new_with_range(1.0, 536870911.0, 1.0);
+        let event_spin = gtk::SpinButton::with_range(1.0, 536870911.0, 1.0);
 
         // Description label for the current event
         let event_description = gtk::Label::new(Some(""));
@@ -637,17 +641,17 @@ impl TriggerDialog {
         grid.attach(&minutes_label, 1, 7, 1, 1);
         let seconds_label = gtk::Label::new(Some(" Seconds "));
         grid.attach(&seconds_label, 2, 7, 1, 1);
-        let minutes_spin = gtk::SpinButton::new_with_range(0.0, MINUTES_LIMIT, 1.0);
+        let minutes_spin = gtk::SpinButton::with_range(0.0, MINUTES_LIMIT, 1.0);
         grid.attach(&minutes_spin, 1, 8, 1, 1);
-        let seconds_spin = gtk::SpinButton::new_with_range(0.0, 59.0, 1.0);
+        let seconds_spin = gtk::SpinButton::with_range(0.0, 59.0, 1.0);
         grid.attach(&seconds_spin, 2, 8, 1, 1);
 
         // Create the checkboxes
-        let now_checkbox = gtk::CheckButton::new_with_label("Trigger Now");
+        let now_checkbox = gtk::CheckButton::with_label("Trigger Now");
         now_checkbox.set_active(true);
-        let broadcast_checkbox = gtk::CheckButton::new_with_label("Skip All Checks");
+        let broadcast_checkbox = gtk::CheckButton::with_label("Skip All Checks");
         broadcast_checkbox.set_active(false);
-        let scene_checkbox = gtk::CheckButton::new_with_label("Check Scene");
+        let scene_checkbox = gtk::CheckButton::with_label("Check Scene");
         scene_checkbox.set_active(true);
         grid.attach(&now_checkbox, 0, 5, 1, 1);
         grid.attach(&broadcast_checkbox, 1, 5, 1, 1);
@@ -728,7 +732,9 @@ impl TriggerDialog {
             }
 
             // Close the window either way
-            modal.destroy();
+            unsafe {
+                modal.destroy();
+            }
         }));
 
         // Show the dialog and components
@@ -775,7 +781,7 @@ impl PromptStringDialog {
     ///
     pub fn launch(&self, system_send: &SystemSend, event: ItemPair) {
         // Create the new dialog
-        let dialog = gtk::Dialog::new_with_buttons(
+        let dialog = gtk::Dialog::with_buttons(
             Some(&clean_text(
                 &event.description,
                 STATE_LIMIT,
@@ -803,7 +809,7 @@ impl PromptStringDialog {
 
         // Create the text entry area of the dialog
         let buffer = gtk::TextBuffer::new(Some(&gtk::TextTagTable::new())); // because gtk struggles with typing
-        let view = gtk::TextView::new_with_buffer(&buffer);
+        let view = gtk::TextView::with_buffer(&buffer);
         view.set_size_request(200, 100);
         grid.attach(&view, 0, 1, 1, 1);
 
@@ -864,7 +870,9 @@ impl PromptStringDialog {
             }
 
             // Close the window either way
-            modal.destroy();
+            unsafe {
+                modal.destroy();
+            }
         }));
 
         // Show the dialog and return
@@ -906,7 +914,9 @@ impl VideoWindow {
         // Destroy any open windows
         for (_, overlay) in self.overlay_map.drain() {
             if let Some(window) = overlay.get_parent() {
-                window.destroy();
+                unsafe {
+                    window.destroy();
+                }
             }
         }
         
@@ -950,6 +960,11 @@ impl VideoWindow {
                     return;
                 }
             };
+
+            // Set the window cursor to blank
+            let display = gdk_window.get_display();
+            let cursor = Cursor::new_for_display(&display, gdk::CursorType::BlankCursor);
+            gdk_window.set_cursor(Some(&cursor)); 
             
             // Check to make sure the window is native
             if !gdk_window.ensure_native() {
@@ -1057,13 +1072,10 @@ impl VideoWindow {
         overlay.connect_get_child_position(move |_, widget| {
             // Try to get the channel map
             if let Ok(map) = channel_map.try_borrow() {
-                // Try to get the widget name
-                if let Some(name) = widget.get_widget_name() {
-                    // Look up the name in the channel map
-                    if let Some(allocation) = map.get(name.as_str()) {
-                        // Return the completed allocation
-                        return Some(allocation.clone());
-                    }
+                // Look up the name in the channel map
+                if let Some(allocation) = map.get(&widget.get_widget_name().to_string()) {
+                    // Return the completed allocation
+                    return Some(allocation.clone());
                 }
             }
             
