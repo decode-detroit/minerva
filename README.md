@@ -1,6 +1,6 @@
 # Minerva
 #### Interactive Show Control
---
+
 Quickly configure and control an interactive show, no programming experience necessary.
 
 * **Plug-And-Play**: Control video, audio, DMX, LEDs, microcontrollers, and other common show elements with the connection modules. You can run everthing on a single computer or seamlessly connect multiple computers for large installations.
