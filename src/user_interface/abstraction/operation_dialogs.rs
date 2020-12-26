@@ -22,7 +22,7 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
-    ItemPair, KeyMap, ProcessEvent, QueueEvent, ReplyType, Request, RequestType,
+    ItemPair, KeyMap, ProcessEvent, CueEvent, ReplyType, Request, RequestType,
     SceneChange, StatusChange, StatusDescription, SystemSend,
 };
 #[cfg(feature = "media-out")]
@@ -720,7 +720,7 @@ impl TriggerDialog {
                     }
 
                     // Send the new event
-                    system_send.send(QueueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
+                    system_send.send(CueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
 
                 // If broadcast is selected, send a broadcast event
                 } else if broadcast_checkbox.get_active() {

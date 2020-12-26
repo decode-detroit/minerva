@@ -43,7 +43,7 @@ use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
     CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, GroupedEvent,
-    ModifyStatus, NewScene, QueueEvent, SaveData, SendData, UpcomingEvent,
+    ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::Queue;
@@ -618,7 +618,7 @@ impl EventHandler {
             }
 
             // If there is a queued event to load, load it into the queue
-            QueueEvent { event } => {
+            CueEvent { event } => {
                 // Add the event to the queue
                 self.queue.add_event(event);
             }

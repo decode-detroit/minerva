@@ -112,7 +112,7 @@ pub enum EventAction {
     /// A variant that links to one event to add to the queue These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
-    QueueEvent { event: EventDelay },
+    CueEvent { event: EventDelay },
 
     /// A variant that links to one or more events to cancel. All upcoming
     /// events that match the specified id(s) will be cancelled.
@@ -140,7 +140,7 @@ pub type Event = Vec<EventAction>;
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    CancelEvent, GroupedEvent, ModifyStatus, NewScene, QueueEvent, SaveData, SendData,
+    CancelEvent, GroupedEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
 };
 
 /// An enum for updating the rest of the system on changes to the scene and

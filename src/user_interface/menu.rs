@@ -507,7 +507,7 @@ impl MenuAbstraction {
 
             // Create the dialog and set the parameters of the information
             let dialog = gtk::AboutDialog::new();
-            dialog.set_authors(&["Patton Doyle","Jasmine Powell","and Team Decode"]);
+            dialog.set_authors(&["Patton Doyle","Peter Doyle","Jasmine Powell","and Team Decode"]);
             dialog.set_website_label(Some("www.ComedyElectronics.com"));
             dialog.set_website(Some("http://www.ComedyElectronics.com"));
             dialog.set_title("About Minerva");

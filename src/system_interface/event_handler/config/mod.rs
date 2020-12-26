@@ -30,7 +30,7 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
 use super::event::{
-    CancelEvent, Event, EventUpdate, GroupedEvent, ModifyStatus, NewScene, QueueEvent,
+    CancelEvent, Event, EventUpdate, GroupedEvent, ModifyStatus, NewScene, CueEvent,
     SaveData, SendData,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
@@ -1148,7 +1148,7 @@ impl Config {
                 }
 
                 // If there is an event to queue, verify that it exists
-                &QueueEvent { ref event } => {
+                &CueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
                     if !scene.events.contains(&event.id()) {
                         update!(warn general_update => "Event Contains Queue Event, But Not In Scene: {}", &event.id());

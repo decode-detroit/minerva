@@ -163,42 +163,42 @@ event_set:
       DisplayWith:
         group_id:
           id: 31
-  : - QueueEvent:
+  : - CueEvent:
         event:
           delay:
             secs: 10
             nanos: 0
           event_id:
             id: 8
-    - QueueEvent:
+    - CueEvent:
         event:
           delay:
             secs: 11
             nanos: 0
           event_id:
             id: 9
-    - QueueEvent:
+    - CueEvent:
         event:
           delay:
             secs: 20
             nanos: 0
           event_id:
             id: 8
-    - QueueEvent:
+    - CueEvent:
         event:
           delay:
             secs: 30
             nanos: 0
           event_id:
             id: 8
-    - QueueEvent:
+    - CueEvent:
         event:
           delay:
             secs: 40
             nanos: 0
           event_id:
             id: 8
-    - QueueEvent:
+    - CueEvent:
         event:
           delay:
             secs: 50

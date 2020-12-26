@@ -304,7 +304,7 @@ impl EditEvent {
             match action {
                 EventAction::NewScene { .. } => overview.set_text("New Scene"),
                 EventAction::ModifyStatus { .. } => overview.set_text("Modify Status"),
-                EventAction::QueueEvent { .. } => overview.set_text("Queue Event"),
+                EventAction::CueEvent { .. } => overview.set_text("Queue Event"),
                 EventAction::CancelEvent { .. } => overview.set_text("Cancel Event"),
                 EventAction::SaveData { .. } => overview.set_text("Save Data"),
                 EventAction::SendData { .. } => overview.set_text("Send Data"),
@@ -361,7 +361,7 @@ struct EditAction {
     action_selection: gtk::ComboBoxText,                        // the action selection element
     edit_new_scene: Rc<RefCell<EditNewScene>>,                  // the wrapped EditNewScene structure
     edit_modify_status: Rc<RefCell<EditModifyStatus>>,          // the wrapped EditModifyStatus structure
-    edit_queue_event: Rc<RefCell<EditQueueEvent>>,              // the wrapped EditQueueEvent structure
+    edit_queue_event: Rc<RefCell<EditCueEvent>>,              // the wrapped EditCueEvent structure
     edit_cancel_event: Rc<RefCell<EditCancelEvent>>,            // the wrapped EditCancelEvent structure
     edit_save_data: Rc<RefCell<EditSaveData>>,                  // the wrapped EditSaveData structure
     edit_send_data: Rc<RefCell<EditSendData>>,                  // the wrapped EditSendData structure
@@ -385,7 +385,7 @@ impl EditAction {
         // Add each of the available action types to the dropdown
         action_selection.append(Some("newscene"), "New Scene");
         action_selection.append(Some("modifystatus"), "Modify Status");
-        action_selection.append(Some("queueevent"), "Queue Event");
+        action_selection.append(Some("CueEvent"), "Queue Event");
         action_selection.append(Some("cancelevent"), "Cancel Event");
         action_selection.append(Some("savedata"), "Save Data");
         action_selection.append(Some("senddata"), "Send Data");
@@ -394,7 +394,7 @@ impl EditAction {
         // Create the different edit windows for the action types
         let edit_new_scene = EditNewScene::new(system_send, is_left);
         let edit_modify_status = EditModifyStatus::new(system_send, is_left);
-        let edit_queue_event = EditQueueEvent::new(system_send, is_left);
+        let edit_queue_event = EditCueEvent::new(system_send, is_left);
         let edit_cancel_event = EditCancelEvent::new(system_send, is_left);
         let edit_save_data = EditSaveData::new(system_send, is_left);
         let edit_send_data = EditSendData::new(system_send, is_left);
@@ -406,7 +406,7 @@ impl EditAction {
         // Add the edit types to the action stack
         action_stack.add_named(edit_new_scene.get_top_element(), "newscene");
         action_stack.add_named(edit_modify_status.get_top_element(), "modifystatus");
-        action_stack.add_named(edit_queue_event.get_top_element(), "queueevent");
+        action_stack.add_named(edit_queue_event.get_top_element(), "CueEvent");
         action_stack.add_named(edit_cancel_event.get_top_element(), "cancelevent");
         action_stack.add_named(edit_save_data.get_top_element(), "savedata");
         action_stack.add_named(edit_send_data.get_top_element(), "senddata");
@@ -533,9 +533,9 @@ impl EditAction {
                 edit_modify_status.load_action(status_id, new_state);
             }
 
-            // the QueueEvent variant
-            EventAction::QueueEvent { event } => {
-                self.action_selection.set_active_id(Some("queueevent"));
+            // the CueEvent variant
+            EventAction::CueEvent { event } => {
+                self.action_selection.set_active_id(Some("CueEvent"));
                 edit_queue_event.load_action(event);
             }
 
@@ -651,8 +651,8 @@ impl EditAction {
                             *action = edit_modify_status.pack_action();
                         }
 
-                        // the QueueEvent variant
-                        "queueevent" => {
+                        // the CueEvent variant
+                        "CueEvent" => {
                             // Update the action label and action
                             overview.set_text("Queue Event");
                             *action = edit_queue_event.pack_action();
@@ -735,7 +735,7 @@ impl EditAction {
                 }
             }
 
-            EditActionElement::EditQueueEvent => {
+            EditActionElement::EditCueEvent => {
                 // Get a copy of the edit queue event element
                 if let Ok(edit_queue_event) = self.edit_queue_event.try_borrow() {
                     edit_queue_event.update_description(description)
@@ -1138,7 +1138,7 @@ impl EditModifyStatus {
 // Create the queue event variant
 //
 #[derive(Clone, Debug)]
-struct EditQueueEvent {
+struct EditCueEvent {
     grid: gtk::Grid,                  // the main grid for this element
     system_send: SystemSend,          // a copy of the system send line
     event_description: gtk::Button,   // the event description display
@@ -1148,10 +1148,10 @@ struct EditQueueEvent {
     is_left: bool,                    // whether the element is on the left
 }
 
-impl EditQueueEvent {
+impl EditCueEvent {
     // A function to ceate a queue event variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditQueueEvent {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditCueEvent {
         // Create the top-level grid
         let grid = gtk::Grid::new();
 
@@ -1208,7 +1208,7 @@ impl EditQueueEvent {
 
         // Create and return the queue event variant
         grid.show_all();
-        EditQueueEvent {
+        EditCueEvent {
             grid,
             system_send: system_send.clone(),
             event_description,
@@ -1237,7 +1237,7 @@ impl EditQueueEvent {
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
-                variant: EditActionElement::EditQueueEvent,
+                variant: EditActionElement::EditCueEvent,
             },
             request: RequestType::Description { item_id: event_delay.id() },
         });
@@ -1285,7 +1285,7 @@ impl EditQueueEvent {
                 }
 
                 // Compose the event delay and return the event action
-                EventAction::QueueEvent {
+                EventAction::CueEvent {
                     event: EventDelay::new(delay, *event_data),
                 }
             }

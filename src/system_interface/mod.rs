@@ -58,7 +58,7 @@ use failure::Error as FailureError;
 
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
-const DEFAULT_FILE: &str = "default.mnv"; // the default configuration filename
+const DEFAULT_FILE: &str = "default"; // the default configuration filename
 const LOG_FOLDER: &str = "log/"; // the default log folder
 const ERROR_LOG: &str = "debug_log.txt"; // the default logging filename
 
@@ -136,8 +136,21 @@ impl SystemInterface {
 
         // Try to load a default configuration, if it exists
         if let Ok(mut path) = env::current_dir() {
-            path.push(DEFAULT_FILE); // append the default filename
-            sys_interface.load_config(path, false);
+            // Add the default filename
+            path.push(DEFAULT_FILE);
+
+            // Add the mnv filetype
+            path.set_extension("mnv");
+
+            // Try the file, if it exists
+            if path.exists() {
+                sys_interface.load_config(path, false);
+            
+            // Otherwise, try the yaml path
+            } else {
+                path.set_extension("yaml");
+                sys_interface.load_config(path, false);
+            }
         }
 
         // Regardless, return the new SystemInterface and general send line
@@ -418,7 +431,7 @@ impl SystemInterface {
             }
 
             // Pass an event to the queue
-            QueueEvent { event_delay } => {
+            CueEvent { event_delay } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // add the event to the queue
@@ -919,7 +932,7 @@ pub enum EditActionElement {
     EditModifyStatus { is_status: bool },
 
     /// A variant for the edit queue event
-    EditQueueEvent,
+    EditCueEvent,
 
     /// A variant for the edit cancel event
     EditCancelEvent,
@@ -1041,7 +1054,7 @@ pub enum SystemUpdate {
 
     /// A variant that queues a new event with the given item id. The event
     /// will trigger after the specified delay has passed.
-    QueueEvent { event_delay: EventDelay },
+    CueEvent { event_delay: EventDelay },
 
     /// A variant that triggers a redraw of the user interface window
     Redraw,
@@ -1067,7 +1080,7 @@ pub enum SystemUpdate {
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
     AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile, DebugMode, Edit,
-    ErrorLog, EventChange, GameLog, ProcessEvent, QueueEvent, Redraw, Request, SaveConfig,
+    ErrorLog, EventChange, GameLog, ProcessEvent, CueEvent, Redraw, Request, SaveConfig,
     SceneChange, StatusChange,
 };
 
