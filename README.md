@@ -11,7 +11,7 @@ Quickly configure and control an interactive show, no programming experience nec
 
 ### In Active Development
 
-Minerva is under very active development (one or two significant updates each year) and we are currently migrating to a web interface. You can find a stable copy of the GTK interface under the [gtk-interface branch](decode-detroit/minerva/tree/gtk-interface) which is locked at version 0.8.3.
+Minerva is under very active development (one or two significant updates each year) and we are currently migrating to a web interface. You can find a stable copy of the GTK interface under the [gtk-interface branch](https://github.com/decode-detroit/minerva/tree/gtk-interface) which is locked at version 0.8.3.
 
 ## Prerequisites
 
