@@ -69,32 +69,34 @@ all_scenes:
   # Status Scene
   ? id: 300
   : events:
-      - id: 200
-      - id: 7
-      - id: 8
-      - id: 9
-      - id: 10
-      - id: 11
+      - id: 301
+      - id: 302
+      - id: 303
+      - id: 304
+      - id: 311
+      - id: 312
+      - id: 313
+      - id: 314
+      - id: 321
+      - id: 322
+      - id: 323
+      - id: 324
     key_map:
       ? 32
-      : id: 7
-      ? 104
-      : id: 9
+      : id: 301
 
   # Data Input, Output Scene
   ? id: 400
   : events:
-      - id: 200
-      - id: 7
-      - id: 8
-      - id: 9
-      - id: 10
-      - id: 11
+      - id: 400
+      - id: 401
+      - id: 402
+      - id: 403
+      - id: 404
+      - id: 410
     key_map:
       ? 32
-      : id: 7
-      ? 104
-      : id: 9
+      : id: 401
 
   # Media Scene
   ? id: 500
@@ -111,21 +113,22 @@ all_scenes:
 
 # Status Map
 status_map:
-  ? id: 20
+  ? id: 310
   : MultiState:
       current: 
-        id: 21
+        id: 312
       allowed:
-        - id: 21
-        - id: 22
+        - id: 311
+        - id: 312
       no_change_silent: false
 
-  ? id: 30
+  ? id: 320
   : MultiState:
       current: 
-        id: 31
+        id: 321
       allowed:
-        - id: 31
+        - id: 321
+        - id: 322
       no_change_silent: false
 
 
@@ -156,7 +159,6 @@ event_set:
     description: Event Examples
     display:
       LabelHidden:
-        position: ~
         color: [115, 210, 22]
   : []
   ? id: 201
@@ -251,30 +253,180 @@ event_set:
     description: That's an Event! Try Again ...
     display: Hidden
 
-  ? id: 5
-    description: Reload Events Or Do Nothing
+  # Status Scene
+  ? id: 300
+    description: Status Examples
+    display:
+      LabelHidden:
+        color: [51, 161, 255]
+  : []
+  ? id: 301
+    description: Next Scene
+    display:
+      DisplayWith:
+        group_id:
+          id: 310
+  : - NewScene:
+        new_scene:
+          id: 400
+  ? id: 302
+    description: Variable Event
     display: 
       DisplayWith:
         group_id:
-          id: 20
-        position: ~
-        color: ~
-        highlight: [0, 255, 0]
-        spotlight: 0
+          id: 320
   : - GroupedEvent:
         status_id:
-          id: 20
+          id: 320
         event_map:
-          ? id: 21
-          : id: 2
-          ? id: 22
-          : id: 6
+          ? id: 321
+          : id: 303
+          ? id: 322
+          : id: 304
+  ? id: 303
+    description: Add Delayed Events
+    display: Hidden
+  : - CueEvent:
+        event:
+          delay:
+            secs: 10
+            nanos: 0
+          event_id:
+            id: 304
+    - CueEvent:
+        event:
+          delay:
+            secs: 20
+            nanos: 0
+          event_id:
+            id: 304
+  ? id: 304
+    description: Empty Event
+    display: Hidden
+  : []
+  ? id: 310
+    description: "This Is A Status:"
+    display: Hidden
+  ? id: 311
+    description: "On"
+    display:
+      LabelHidden:
+        color: [0, 255, 100]
+  : []
+  ? id: 312
+    description: "Off"
+    display:
+      LabelHidden:
+        color: [255, 0, 0]
+  : []
+  ? id: 313
+    description: Turn On
+    display:
+      DisplayWith:
+        group_id:
+          id: 310
+        color: [0, 255, 100]
+  : - ModifyStatus:
+        status_id:
+          id: 310
+        new_state:
+          id: 311
+  ? id: 314
+    description: Turn Off
+    display:
+      DisplayWith:
+        group_id:
+          id: 310
+        color: [255, 0, 0]
+  : - ModifyStatus:
+        status_id:
+          id: 310
+        new_state:
+          id: 312
+  ? id: 320
+    description: Change The Event
+    display: Hidden
+  ? id: 321
+    description: Trigger Delayed Events
+    display:
+      LabelHidden:
+        color: [51, 161, 255]
+  : []
+  ? id: 322
+    description: Do Nothing
+    display:
+      LabelHidden:
+        color: [255, 161, 255]
+  : []
+  ? id: 323
+    description: Activate
+    display:
+      DisplayWith:
+        group_id:
+          id: 320
+        color: [51, 161, 255]
+  : - ModifyStatus:
+        status_id:
+          id: 320
+        new_state:
+          id: 321
+  ? id: 324
+    description: Deactivate
+    display:
+      DisplayWith:
+        group_id:
+          id: 320
+        color: [255, 161, 255]
+  : - ModifyStatus:
+        status_id:
+          id: 320
+        new_state:
+          id: 322
 
+  # Event Scene
+  ? id: 400
+    description: Data Examples
+    display:
+      LabelHidden:
+        color: [255, 161, 255]
+  : []
+  ? id: 401
+    description: Next Scene
+    display:
+      DisplayWith:
+        group_id:
+          id: 410
+  : - NewScene:
+        new_scene:
+          id: 500
+  ? id: 402
+    description: "Save 'Example String'"
+    display:
+      DisplayWith:
+        group_id:
+          id: 410
+  : - SaveData:
+        data:
+          StaticString:
+            string: "Example String"
+  ? id: 403
+    description: Send Custom String
+    display:
+      DisplayWith:
+        group_id:
+          id: 410
+  : - SendData:
+        data: UserString
+  ? id: 410
+    description: Save Data To Game Log
+    display: Hidden
 
   # Media Scene
   ? id: 500
     description: Media Examples
-    display: Hidden
+    display:
+      LabelHidden:
+        color: [255, 0, 0]
   : []
   ? id: 501
     description: Back To Introduction
@@ -309,40 +461,4 @@ event_set:
   ? id: 510
     description: You Can Play Media As Well
     display: Hidden
-
-
-  ? id: 20
-    description: Event Status
-    display:
-      LabelControl:
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-  ? id: 21
-    description: Loading Delayed Events
-    display:
-      LabelHidden:
-        color: [255, 161, 255]
-  ? id: 22
-    description: Doing Nothing
-    display:
-      LabelHidden:
-        color: [51, 161, 255]
-        highlight: [255, 0, 0]
-        spotlight: 5
-  ? id: 30
-    description: Unchangeable Status
-    display:
-      LabelControl:
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-  ? id: 31
-    description: Can't Change This
-    display:
-      LabelHidden:
-        color: [255, 161, 255]
-
 
