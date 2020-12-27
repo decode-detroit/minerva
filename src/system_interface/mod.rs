@@ -651,11 +651,11 @@ impl SystemInterface {
                 }
 
                 // Add display debug events to the matching event group
-                DisplayDebug { group, .. } => {
+                DisplayDebug { group_id, .. } => {
                     // If the system is in debug mode
                     if is_debug_mode {
                         // If a group id is specified, add it to the correct group
-                        if let Some(id) = group {
+                        if let Some(id) = group_id {
                             let group_pair =
                                 ItemPair::from_item(id, event_handler.get_description(&id));
                             SystemInterface::sort_groups(&mut groups, group_pair, item);

@@ -248,7 +248,7 @@ pub enum DisplayType {
     /// yet been pressed. A value of zero implies indefinite flashing.
     ///
     DisplayDebug {
-        group: Option<ItemId>,
+        group_id: Option<ItemId>,
         position: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,

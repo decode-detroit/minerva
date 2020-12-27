@@ -1299,7 +1299,7 @@ impl EditOverview {
 
                     // The DisplayDebug variant
                     DisplayDebug {
-                        group,
+                        group_id,
                         position,
                         color,
                         highlight,
@@ -1310,7 +1310,7 @@ impl EditOverview {
                         self.display_type.set_active_id(Some("displaydebug"));
 
                         // Save the available elements
-                        new_group = group;
+                        new_group = group_id;
                         new_position = position;
                         new_color = color;
                         new_highlight = highlight;
@@ -1513,7 +1513,7 @@ impl EditOverview {
     //
     fn pack_description(&self, tmp_description: String) -> ItemDescription {
         // Create default placeholders for the display settings
-        let mut group = None;
+        let mut possible_group = None;
         let group_id = ItemId::all_stop();
         let mut position = None;
         let mut color = None;
@@ -1524,7 +1524,7 @@ impl EditOverview {
         // Extract the group id, if selected
         if !self.group_checkbox.get_active() {
             if let Ok(group_data) = self.group_data.try_borrow() {
-                group = Some(*group_data);
+                possible_group = Some(*group_data);
             }
         }
 
@@ -1606,7 +1606,7 @@ impl EditOverview {
 
             // Compose the DisplayDebug type
             "displaydebug" => DisplayDebug {
-                group,
+                group_id: possible_group,
                 position,
                 color,
                 highlight,

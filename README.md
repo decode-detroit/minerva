@@ -63,11 +63,11 @@ sudo apt install build-essential libgtk-3-dev
 
 Extras! Everyone loves extras. To take advantage of all Minerva's features, you'll need ZMQ bindings, the Gstreamer library, and a Redis server.
 
-* **ZMQ bindings** provides an easy and reliable way to network your devices.
-* **GStreamer** allows you to trigger and control media playback directly within Minerva.
-* **Redis** provides real-time crash recovery to make sure your systems run reliably.
+* **ZMQ bindings** provide an easy and reliable way to network your devices.
+* **GStreamer** controls media playback directly within Minerva.
+* **Redis** provides real-time crash recovery.
 
-You'll need to install these tools on whichever computers you would like to *run* Minerva.
+You'll need to install these tools on whichever computers you would like to **run** Minerva.
 
 #### ZMQ for Communication
 
@@ -81,11 +81,7 @@ You can install ZMQ bindings on a Debian-like system with
 apt install libzmq3-dev
 ```
 
-Currently, rust-zmq requires ZeroMQ 4.1. If your OS of choice does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
-
-#### Redis for Instant Recovery
-
-The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
+Currently, rust-zmq requires ZeroMQ 4.1. If your operating system does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
 
 #### GStreamer for Audio/Video
 
@@ -98,7 +94,11 @@ To meet the media playback dependancies, you will need to follow the playform-sp
 
 This replaces the separate audio and video features in previous versions and syncronizes the options available to both.
 
-Audio output support Alsa and Pulse Audio. Each output has its advantages - documentation forthcoming.
+Audio output supports Alsa and Pulse Audio. Each output has its advantages - documentation forthcoming.
+
+#### Redis for Instant Recovery
+
+The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
 
 #### Make It Pretty
 
