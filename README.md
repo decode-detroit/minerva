@@ -55,7 +55,7 @@ The completed binary will be located in the automatically generated "target/rele
 
 Note: This procedure should work on all systems. If you run into an error or bug, let us know!
 
-### Issues Installing
+### Issues Compiling
 
 If you run into issues with glib-2.0 or gdk-3.0, you can run these commands on a Debian-like system:
 
@@ -69,7 +69,7 @@ gdk-3.0 issue:
 sudo apt install build-essential libgtk-3-dev
 ```
 
-### Installing Extras
+## Installing Extras
 
 Extras! Everyone loves extras. To take advantage of all Minerva's features, you'll need ZMQ bindings, the Gstreamer library, and a Redis server.
 
@@ -79,7 +79,7 @@ Extras! Everyone loves extras. To take advantage of all Minerva's features, you'
 
 You'll need to install these tools on whichever computers you would like to **run** Minerva.
 
-#### ZMQ for Communication
+### ZMQ for Communication
 
 Enable reliable messaging to other devices by compiling with the "zmq-comm" feature.
 ```
@@ -93,7 +93,7 @@ apt install libzmq3-dev
 
 Currently, rust-zmq requires ZeroMQ 4.1. If your operating system does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
 
-#### GStreamer for Audio/Video
+### GStreamer for Audio/Video
 
 Enable audio and video playback by compiling with the "media-out" feature.
 ```
@@ -106,11 +106,11 @@ This replaces the separate audio and video features in previous versions and syn
 
 Audio output supports Alsa and Pulse Audio. Each output has its advantages - documentation forthcoming.
 
-#### Redis for Instant Recovery
+### Redis for Instant Recovery
 
 The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
 
-#### Make It Pretty
+### Make It Pretty
 
 GTK can be easily re-themed. We recommend the Materia Dark theme for Minerva which will automatically load if you install the Materia theme package (See here: https://github.com/nana-4/materia-theme). On a GNU/Linux system, simply install the materia-gtk-theme package.
 
