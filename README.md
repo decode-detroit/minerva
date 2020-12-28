@@ -13,6 +13,10 @@ Quickly configure and control an interactive show, no programming experience nec
 
 Minerva is under very active development (one or two significant updates each year) and we are currently migrating to a web interface. You can find a stable copy of the GTK interface under the [gtk-interface branch](https://github.com/decode-detroit/minerva/tree/gtk-interface) which is locked at version 0.8.3.
 
+## Getting Started
+
+If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases/tag/0.9.0) and skip down to [Extras](#Installing Extras) below.
+
 ## Prerequisites
 
 You'll need Rust and GTK+ to compile and run Minerva. Binaries are on the todo list.
