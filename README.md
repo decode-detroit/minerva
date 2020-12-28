@@ -15,18 +15,24 @@ Minerva is under very active development (one or two significant updates each ye
 
 ## Getting Started
 
-If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases/tag/0.9.0) and skip down to [Extras](#Installing Extras) below.
+If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases/tag/0.9.0) and skip down to [Installing Extras](#Installing-Extras) below.
 
-## Prerequisites
+If you're on Windows or Mac, binaries are still a work in progress.
 
-You'll need Rust and GTK+ to compile and run Minerva. Binaries are on the todo list.
+## Compile From Source (Cross-Platform)
+
+If you would like to contribute to Minerva, or if you are on Windows or Mac, you'll need to compile from source. Start with these prerequisites.
+
+### Prerequisites
+
+You'll need Rust and GTK+ to compile and run Minerva.
 
 * Installation of Rust: https://www.rust-lang.org/
 * Installation of GTK+: https://www.gtk.org/ (This is usually installed already on GNU/Linux systems. Search for package libgtk-3-0.)
 
 Follow the directions on both websites to download and install these tools before you proceed.
 
-## Installing
+### Compiling
 
 Once you have installed the two prerequities above, clone or download this repository. Then compile and run the program using Cargo (included with Rust):
 ```
