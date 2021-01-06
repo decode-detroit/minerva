@@ -45,7 +45,7 @@ const MINUTES_LIMIT: f64 = 10080.0; // maximum input time for a delayed event (o
 
 
 /// A compound structure to store the state and event ids, as well as
-/// the elements where they are displayed, for a grouped event
+/// the elements where they are displayed, for a select event
 ///
 #[derive(Clone, Debug)]
 pub struct EventGrouping {
@@ -308,7 +308,7 @@ impl EditEvent {
                 EventAction::CancelEvent { .. } => overview.set_text("Cancel Event"),
                 EventAction::SaveData { .. } => overview.set_text("Save Data"),
                 EventAction::SendData { .. } => overview.set_text("Send Data"),
-                EventAction::GroupedEvent { .. } => overview.set_text("Grouped Event"),
+                EventAction::SelectEvent { .. } => overview.set_text("Select Event"),
             }
 
         // Default to a new scene action
@@ -365,7 +365,7 @@ struct EditAction {
     edit_cancel_event: Rc<RefCell<EditCancelEvent>>,            // the wrapped EditCancelEvent structure
     edit_save_data: Rc<RefCell<EditSaveData>>,                  // the wrapped EditSaveData structure
     edit_send_data: Rc<RefCell<EditSendData>>,                  // the wrapped EditSendData structure
-    edit_grouped_event: Rc<RefCell<EditGroupedEvent>>,          // the wrapped EditGroupedEvent structure
+    edit_select_event: Rc<RefCell<EditSelectEvent>>,          // the wrapped EditSelectEvent structure
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of event actions
     is_left: bool,                                              // whether the element is on the left
 }
@@ -389,7 +389,7 @@ impl EditAction {
         action_selection.append(Some("cancelevent"), "Cancel Event");
         action_selection.append(Some("savedata"), "Save Data");
         action_selection.append(Some("senddata"), "Send Data");
-        action_selection.append(Some("groupedevent"), "Grouped Event");
+        action_selection.append(Some("selectevent"), "Select Event");
 
         // Create the different edit windows for the action types
         let edit_new_scene = EditNewScene::new(system_send, is_left);
@@ -398,7 +398,7 @@ impl EditAction {
         let edit_cancel_event = EditCancelEvent::new(system_send, is_left);
         let edit_save_data = EditSaveData::new(system_send, is_left);
         let edit_send_data = EditSendData::new(system_send, is_left);
-        let edit_grouped_event = EditGroupedEvent::new(system_send, is_left);
+        let edit_select_event = EditSelectEvent::new(system_send, is_left);
 
         // Create the action stack
         let action_stack = gtk::Stack::new();
@@ -410,7 +410,7 @@ impl EditAction {
         action_stack.add_named(edit_cancel_event.get_top_element(), "cancelevent");
         action_stack.add_named(edit_save_data.get_top_element(), "savedata");
         action_stack.add_named(edit_send_data.get_top_element(), "senddata");
-        action_stack.add_named(edit_grouped_event.get_top_element(), "groupedevent");
+        action_stack.add_named(edit_select_event.get_top_element(), "selectevent");
 
         // Connect the function to trigger action selection changes
         action_selection.connect_changed(clone!(action_stack => move |dropdown| {
@@ -450,7 +450,7 @@ impl EditAction {
             edit_cancel_event: Rc::new(RefCell::new(edit_cancel_event)),
             edit_save_data: Rc::new(RefCell::new(edit_save_data)),
             edit_send_data: Rc::new(RefCell::new(edit_send_data)),
-            edit_grouped_event: Rc::new(RefCell::new(edit_grouped_event)),
+            edit_select_event: Rc::new(RefCell::new(edit_select_event)),
             event_actions: event_actions.clone(),
             is_left,
         }
@@ -510,9 +510,9 @@ impl EditAction {
             _ => return,
         };
 
-        // Try to get a copy of the edit grouped event
-        let mut edit_grouped_event = match self.edit_grouped_event.try_borrow_mut() {
-            Ok(edit_grouped) => edit_grouped,
+        // Try to get a copy of the edit select event
+        let mut edit_select_event = match self.edit_select_event.try_borrow_mut() {
+            Ok(edit_select) => edit_select,
             _ => return,
         };
 
@@ -557,13 +557,13 @@ impl EditAction {
                 edit_send_data.load_action(data);
             }
 
-            // the GroupedEvent variant
-            EventAction::GroupedEvent {
+            // the SelectEvent variant
+            EventAction::SelectEvent {
                 status_id,
                 event_map,
             } => {
-                self.action_selection.set_active_id(Some("groupedevent"));
-                edit_grouped_event.load_action(status_id, event_map);
+                self.action_selection.set_active_id(Some("selectevent"));
+                edit_select_event.load_action(status_id, event_map);
             }
         }
 
@@ -620,7 +620,7 @@ impl EditAction {
             edit_cancel_event,
             edit_save_data,
             edit_send_data,
-            edit_grouped_event => move |_| {
+            edit_select_event => move |_| {
 
                 // Try to get a mutable copy of the event actions
                 let mut actions = match event_actions.try_borrow_mut() {
@@ -680,11 +680,11 @@ impl EditAction {
                             *action = edit_send_data.pack_action();
                         }
 
-                        // The GroupedEvent variant
-                        "groupedevent" => {
+                        // The SelectEvent variant
+                        "selectevent" => {
                             // Update the action label and action
-                            overview.set_text("Grouped Event");
-                            *action = edit_grouped_event.pack_action();
+                            overview.set_text("Select Event");
+                            *action = edit_select_event.pack_action();
                         }
 
                         _ => unreachable!(),
@@ -763,10 +763,10 @@ impl EditAction {
                 }
             }
 
-            EditActionElement::GroupedEventDescription { position, is_event } => {
-                // Get a copy of the edit grouped event element
-                if let Ok(edit_grouped_event) = self.edit_grouped_event.try_borrow() {
-                    edit_grouped_event.update_description(position, is_event, description)
+            EditActionElement::SelectEventDescription { position, is_event } => {
+                // Get a copy of the edit select event element
+                if let Ok(edit_select_event) = self.edit_select_event.try_borrow() {
+                    edit_select_event.update_description(position, is_event, description)
                 }
             }
 
@@ -780,11 +780,11 @@ impl EditAction {
     fn update_info(&self, variant: EditActionElement, status: Option<Status>) {
         // Check who requested the status
         match variant {
-            // The edit grouped event variant
-            EditActionElement::GroupedEventStates => {
-                // Update the info in the edit grouped event
-                if let Ok(mut edit_grouped_event) = self.edit_grouped_event.try_borrow_mut() {
-                    edit_grouped_event.update_info(status);
+            // The edit select event variant
+            EditActionElement::SelectEventStates => {
+                // Update the info in the edit select event
+                if let Ok(mut edit_select_event) = self.edit_select_event.try_borrow_mut() {
+                    edit_select_event.update_info(status);
                 }
             }
 
@@ -2049,27 +2049,27 @@ impl EditSendData {
     }
 }
 
-// Create the grouped event variant
+// Create the select event variant
 //
 #[derive(Clone, Debug)]
-struct EditGroupedEvent {
+struct EditSelectEvent {
     grid: gtk::Grid,                                         // the main grid for this element
     system_send: SystemSend,                                 // a copy of the system send line
-    grouped_event_list: gtk::ListBox,                        // the list for events in this variant
-    grouped_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the grouped events
+    select_event_list: gtk::ListBox,                        // the list for events in this variant
+    select_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the select events
     next_event: Rc<RefCell<usize>>,                          // the next available event location
     status_description: gtk::Button,                         // the status description display
     status_data: Rc<RefCell<ItemId>>,                        // the wrapped status data
     is_left: bool,                                           // whether the element is to the left or right
 }
 
-impl EditGroupedEvent {
-    // A function to create a grouped event variant
+impl EditSelectEvent {
+    // A function to create a select event variant
     //
-    fn new(system_send: &SystemSend, is_left: bool) -> EditGroupedEvent {
+    fn new(system_send: &SystemSend, is_left: bool) -> EditSelectEvent {
         // Create the list for the trigger events variant
-        let grouped_event_list = gtk::ListBox::new();
-        grouped_event_list.set_selection_mode(gtk::SelectionMode::None);
+        let select_event_list = gtk::ListBox::new();
+        select_event_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create the status description and data
         let status_description = gtk::Button::with_label("Status: None");
@@ -2107,7 +2107,7 @@ impl EditGroupedEvent {
 
                 // Send a request to get the data associated with the status
                 system_send.send(Request {
-                    reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::GroupedEventStates },
+                    reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::SelectEventStates },
                     request: RequestType::Status { item_id: item_pair.get_id(), },
                 });
             }
@@ -2119,7 +2119,7 @@ impl EditGroupedEvent {
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
         ); // Should be None, None, but the compiler has difficulty inferring types
-        group_window.add(&grouped_event_list);
+        group_window.add(&select_event_list);
         group_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
         // Format the scrolling window
@@ -2134,13 +2134,13 @@ impl EditGroupedEvent {
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
-        // Create and return the grouped event variant
+        // Create and return the select event variant
         grid.show_all();
-        EditGroupedEvent {
+        EditSelectEvent {
             grid,
             system_send: system_send.clone(),
-            grouped_event_list,
-            grouped_events: Rc::new(RefCell::new(FnvHashMap::default())),
+            select_event_list,
+            select_events: Rc::new(RefCell::new(FnvHashMap::default())),
             next_event: Rc::new(RefCell::new(0)),
             status_description,
             status_data,
@@ -2163,7 +2163,7 @@ impl EditGroupedEvent {
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
-                variant: EditActionElement::GroupedEventDescription { position: None, is_event: false } },
+                variant: EditActionElement::SelectEventDescription { position: None, is_event: false } },
             request: RequestType::Description { item_id: status_id.clone() },
         });
 
@@ -2173,7 +2173,7 @@ impl EditGroupedEvent {
         }
     }
 
-    // A method to update the listed states in the grouped event
+    // A method to update the listed states in the select event
     fn update_info(&mut self, possible_status: Option<Status>) {
         // Clear the ListBox
         self.clear();
@@ -2189,7 +2189,7 @@ impl EditGroupedEvent {
             let invalid_label = gtk::Label::new(Some("Not a valid status."));
 
             // Display "not a valid status"
-            &self.grouped_event_list.add(&invalid_label);
+            &self.select_event_list.add(&invalid_label);
             invalid_label.show();
         }
     }
@@ -2197,19 +2197,19 @@ impl EditGroupedEvent {
     // A method to clear all the listed states in the ListBox
     pub fn clear(&self) {
         // Remove all the user interface elements
-        let to_remove = self.grouped_event_list.get_children();
+        let to_remove = self.select_event_list.get_children();
         for item in to_remove {
             unsafe {
                 item.destroy();
             }
         }
         // Empty the database
-        if let Ok(mut events) = self.grouped_events.try_borrow_mut() {
+        if let Ok(mut events) = self.select_events.try_borrow_mut() {
             events.clear();
         }
     }
 
-    // A method to add a grouped event to the list
+    // A method to add a select event to the list
     pub fn add_event(
         &mut self,
         state_id: &ItemId,
@@ -2246,7 +2246,7 @@ impl EditGroupedEvent {
         // Check to see if an event id is given
         if let Some(event_id) = event_id {
             // Add the state id and event id to the database
-            if let Ok(mut events) = self.grouped_events.try_borrow_mut() {
+            if let Ok(mut events) = self.select_events.try_borrow_mut() {
                 events.insert(position, EventGrouping {
                     state_id: state_id.clone(),
                     event_id: event_id.clone(),
@@ -2259,7 +2259,7 @@ impl EditGroupedEvent {
             self.system_send.send(Request {
                 reply_to: DisplayComponent::EditActionElement {
                     is_left: self.is_left,
-                    variant: EditActionElement::GroupedEventDescription{
+                    variant: EditActionElement::SelectEventDescription{
                         position: Some(position),
                         is_event: true,
                     },
@@ -2272,7 +2272,7 @@ impl EditGroupedEvent {
         self.system_send.send(Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
-                variant: EditActionElement::GroupedEventDescription{
+                variant: EditActionElement::SelectEventDescription{
                     position: Some(position),
                     is_event: false,
                 },
@@ -2285,7 +2285,7 @@ impl EditGroupedEvent {
         drag!(source event_label);
 
         // Set the callback function when data is received
-        let grouped_events = self.grouped_events.clone();
+        let select_events = self.select_events.clone();
         event_label.connect_drag_data_received(clone!(position => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
@@ -2299,11 +2299,11 @@ impl EditGroupedEvent {
                 widget.set_label(&format!("Event: {}", item_pair.description));
 
                 // Update the database
-                if let Ok(events) = grouped_events.try_borrow() {
+                if let Ok(events) = select_events.try_borrow() {
                     // Get the current database entry
                     if let Some(current_event_grouping) = events.get(&position) {
                         // Re-borrow a mutable copy
-                        if let Ok(mut events_mut) = grouped_events.try_borrow_mut() {
+                        if let Ok(mut events_mut) = select_events.try_borrow_mut() {
                             // Update the event id in the current entry
                             events_mut.insert(
                                 position,
@@ -2334,7 +2334,7 @@ impl EditGroupedEvent {
 
         // Add the new grid to the list
         group_grid.show_all();
-        self.grouped_event_list.add(&group_grid);
+        self.select_event_list.add(&group_grid);
     }
 
     // A method to update the description of the status
@@ -2346,8 +2346,8 @@ impl EditGroupedEvent {
             // If a position is given, extract the data associated with the position
             Some(position) => {
                 // Unwrap the database
-                if let Ok(grouped_events) = self.grouped_events.try_borrow() {
-                    if let Some(event_grouping) = grouped_events.get(&position) {
+                if let Ok(select_events) = self.select_events.try_borrow() {
+                    if let Some(event_grouping) = select_events.get(&position) {
                         // Check if the description to update is for the event or state
                         match is_event {
                             // Update the event description
@@ -2366,7 +2366,7 @@ impl EditGroupedEvent {
     //
     fn pack_action(&self) -> EventAction {
         // Create the event vector
-        let event_groupings = match self.grouped_events.try_borrow() {
+        let event_groupings = match self.select_events.try_borrow() {
             Ok(events) => {
                 // Create a hash map to store the data
                 let mut event_map = FnvHashMap::default();
@@ -2386,7 +2386,7 @@ impl EditGroupedEvent {
         match self.status_data.try_borrow() {
             Ok(status_data) => {
                 // Return the completed Event Action
-                EventAction::GroupedEvent {
+                EventAction::SelectEvent {
                     status_id: *status_data,
                     event_map: event_groupings,
                 }

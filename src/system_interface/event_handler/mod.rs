@@ -42,7 +42,7 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, GroupedEvent,
+    CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, SelectEvent,
     ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
@@ -765,8 +765,8 @@ impl EventHandler {
                 }
             }
 
-            // If there is a grouped event, trigger the corresponding event
-            GroupedEvent {
+            // If there is a select event, trigger the selected event
+            SelectEvent {
                 status_id,
                 event_map,
             } => {
@@ -900,7 +900,7 @@ mod tests {
             EventUpdate::Current(
                 ItemPair::new(
                     6,
-                    "Load Events Or Save Data (Grouped Event)",
+                    "Load Events Or Save Data (Select Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
                         position: None,
@@ -919,7 +919,7 @@ mod tests {
             EventUpdate::Current(
                 ItemPair::new(
                     6,
-                    "Load Events Or Save Data (Grouped Event)",
+                    "Load Events Or Save Data (Select Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
                         position: None,
@@ -944,7 +944,7 @@ mod tests {
             EventUpdate::Current(
                 ItemPair::new(
                     6,
-                    "Load Events Or Save Data (Grouped Event)",
+                    "Load Events Or Save Data (Select Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
                         position: None,

@@ -126,9 +126,9 @@ pub enum EventAction {
     /// when broadcast to the system
     SendData { data: DataType },
 
-    /// A variant which indicates a grouped event. This event changes its
-    /// triggered event based on the state of the corresponding status.
-    GroupedEvent {
+    /// A variant which selects an event based on the state of the indicated
+    /// status.
+    SelectEvent {
         status_id: ItemId,
         event_map: FnvHashMap<ItemId, ItemId>,
     },
@@ -140,7 +140,7 @@ pub type Event = Vec<EventAction>;
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    CancelEvent, GroupedEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
+    CancelEvent, SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
 };
 
 /// An enum for updating the rest of the system on changes to the scene and

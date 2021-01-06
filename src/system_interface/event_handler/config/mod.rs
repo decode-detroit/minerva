@@ -30,7 +30,7 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
 use super::event::{
-    CancelEvent, Event, EventUpdate, GroupedEvent, ModifyStatus, NewScene, CueEvent,
+    CancelEvent, Event, EventUpdate, SelectEvent, ModifyStatus, NewScene, CueEvent,
     SaveData, SendData,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
@@ -1175,8 +1175,8 @@ impl Config {
                 &SaveData { .. } => (),
                 &SendData { .. } => (),
 
-                // If there is a grouped event, verify the components of the event
-                &GroupedEvent {
+                // If there is a select event, verify the components of the event
+                &SelectEvent {
                     ref status_id,
                     ref event_map,
                 } => {
@@ -1185,7 +1185,7 @@ impl Config {
                         // Verify that the allowed states vector isn't empty
                         let allowed = status.allowed();
                         if allowed.is_empty() {
-                            update!(warn general_update => "Event Contains Empty Grouped Event: {}", status_id);
+                            update!(warn general_update => "Event Contains Empty Select Event: {}", status_id);
                             return false;
                         }
 
@@ -1256,12 +1256,12 @@ mod tests {
         use std::time::Duration;
         use std::sync::mpsc;
 
-        // Write the example grouped event
-        let mut one_grouped_map = FnvHashMap::default();
-        one_grouped_map.insert(ItemId::new(31).unwrap(), ItemId::new(61).unwrap());
-        let one_grouped_event = GroupedEvent {
+        // Write the example select event
+        let mut one_select_map = FnvHashMap::default();
+        one_select_map.insert(ItemId::new(31).unwrap(), ItemId::new(61).unwrap());
+        let one_select_event = SelectEvent {
             group_id: ItemId::new(43).unwrap(),
-            status_map: one_grouped_map,
+            status_map: one_select_map,
         };
 
         // Write the example triggered event
@@ -1275,7 +1275,7 @@ mod tests {
         // Write the example scene
         let mut one_scene = scene::default();
         one_scene.insert(ItemId::new(12).unwrap(), SaveData { data: vec![12] });
-        one_scene.insert(ItemId::new(20).unwrap(), one_grouped_event);
+        one_scene.insert(ItemId::new(20).unwrap(), one_select_event);
         one_scene.insert(ItemId::new(22).unwrap(), trigger_event);
         let mut all_scenes = FnvHashMap::default();
         all_scenes.insert(ItemId::new(24).unwrap(), one_scene);

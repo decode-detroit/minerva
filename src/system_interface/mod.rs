@@ -943,11 +943,11 @@ pub enum EditActionElement {
     /// A variant for the edit send data
     EditSendData,
 
-    /// A variant for the grouped event status description
-    GroupedEventDescription { position: Option<usize>, is_event: bool },
+    /// A variant for the select event status description
+    SelectEventDescription { position: Option<usize>, is_event: bool },
 
-    /// A variant for the grouped event states
-    GroupedEventStates,
+    /// A variant for the select event states
+    SelectEventStates,
 }
 
 /// An enum to specify which Edit Item subcomponent has requested the information

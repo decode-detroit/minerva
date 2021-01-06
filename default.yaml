@@ -275,7 +275,7 @@ event_set:
       DisplayWith:
         group_id:
           id: 320
-  : - GroupedEvent:
+  : - SelectEvent:
         status_id:
           id: 320
         event_map:
