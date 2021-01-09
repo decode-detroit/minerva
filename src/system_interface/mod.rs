@@ -122,7 +122,7 @@ impl SystemInterface {
         )?;
 
         // Create a new system connection instance
-        let system_connection = SystemConnection::new(general_update.clone(), None);
+        let system_connection = SystemConnection::new(general_update.clone(), None).await;
 
         // Create the sytem send for the user interface
         let system_send = SystemSend::from_general(&general_update);
@@ -177,7 +177,7 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Repackage the coming events into upcoming events
-                    let upcoming_events = handler.repackage_events(events);
+                    let upcoming_events = handler.repackage_events(events).await;
 
                     // Send the new events to the interface
                     self.interface_send
@@ -218,7 +218,7 @@ impl SystemInterface {
             // Pass the information update to the logger
             Some(GeneralUpdateType::Update(event_update)) => {
                 // Find the most recent notifications
-                let notifications = self.logger.update(event_update);
+                let notifications = self.logger.update(event_update).await;
 
                 // Send a notification update to the system
                 self.interface_send
@@ -361,7 +361,7 @@ impl SystemInterface {
                             Modification::ModifyItem {
                                 item_pair,
                             } => {
-                                handler.edit_item(item_pair);
+                                handler.edit_item(item_pair).await;
                             }
 
                             // Add or modify the event
@@ -369,7 +369,7 @@ impl SystemInterface {
                                 item_id,
                                 event,
                             } => {
-                                handler.edit_event(item_id, event);
+                                handler.edit_event(item_id, event).await;
                             }
 
                             // Add or modify the status
@@ -377,7 +377,7 @@ impl SystemInterface {
                                 item_id,
                                 status,
                             } => {
-                                handler.edit_status(item_id, status);
+                                handler.edit_status(item_id, status).await;
                             }
 
                             // Add or modify the scene
@@ -385,7 +385,7 @@ impl SystemInterface {
                                 item_id,
                                 scene,
                             } => {
-                                handler.edit_scene(item_id, scene);
+                                handler.edit_scene(item_id, scene).await;
                             }
                         }
                     }
@@ -454,7 +454,7 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Cue the event
-                    handler.add_event(event_delay);
+                    handler.add_event(event_delay).await;
                     
                     // Put the handler back
                     self.event_handler = Some(handler);
@@ -675,7 +675,7 @@ impl SystemInterface {
             .unwrap_or(());
 
         // Trigger a redraw of the system
-        self.general_update.send_redraw();
+        self.general_update.send_redraw().await;
 
         // Update the event handler
         self.event_handler = Some(event_handler);

@@ -135,7 +135,7 @@ impl EventHandler {
             config.choose_scene(current_scene).await.unwrap_or(());
 
             // Update the current status states based on the backup
-            config.load_backup_status(status_pairs);
+            config.load_backup_status(status_pairs).await;
 
             // Update the queue with the found events
             for event in queued_events {
@@ -146,7 +146,7 @@ impl EventHandler {
             thread::sleep(Duration::new(0, 20));
 
             // Trigger a redraw of the window and timeline
-            general_update.send_redraw();
+            general_update.send_redraw().await;
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
@@ -195,9 +195,9 @@ impl EventHandler {
     /// will occur (last event first). The coming events are backed up (if
     /// the backup feature is active).
     ///
-    pub fn repackage_events(&self, mut events: Vec<ComingEvent>) -> Vec<UpcomingEvent> {
+    pub async fn repackage_events(&mut self, mut events: Vec<ComingEvent>) -> Vec<UpcomingEvent> {
         // Backup the coming events
-        self.backup.backup_events(events.clone());
+        self.backup.backup_events(events.clone()).await;
 
         // Repackage the list as upcoming events
         let mut upcoming_events = Vec::new();
@@ -379,35 +379,35 @@ impl EventHandler {
         // Try to modify the underlying status
         if let Some(new_id) = self.config.modify_status(status_id, new_state).await {
             // Backup the status change
-            self.backup.backup_status(status_id, &new_id);
+            self.backup.backup_status(status_id, &new_id).await;
 
             // Run the change event for the new state (no backup necessary)
-            self.queue.add_event(EventDelay::new(None, new_id));
+            self.queue.add_event(EventDelay::new(None, new_id)).await;
         }
     }
 
     /// A method to add or modify an item within the current configuration.
     ///
-    pub fn edit_item(&mut self, item_id: ItemPair) {
-        self.config.edit_item(item_id);
+    pub async fn edit_item(&mut self, item_id: ItemPair) {
+        self.config.edit_item(item_id).await;
     }
 
     /// A method to add or modify an event within the current configuration.
     ///
-    pub fn edit_event(&mut self, event_id: ItemId, new_event: Option<Event>) {
-        self.config.edit_event(event_id, new_event);
+    pub async fn edit_event(&mut self, event_id: ItemId, new_event: Option<Event>) {
+        self.config.edit_event(event_id, new_event).await;
     }
         
     /// A method to add or modify a status within the current configuration.
     ///
-    pub fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
-        self.config.edit_status(status_id, new_status);
+    pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
+        self.config.edit_status(status_id, new_status).await;
     }
     
     /// A method to add or modify a scene within the current configuration.
     ///
-    pub fn edit_scene(&mut self, scene_id: ItemId, new_scene: Option<Scene>) {
-        self.config.edit_scene(scene_id, new_scene);
+    pub async fn edit_scene(&mut self, scene_id: ItemId, new_scene: Option<Scene>) {
+        self.config.edit_scene(scene_id, new_scene).await;
     }
 
     /// A method to change the selected scene within the current configuration.
@@ -432,7 +432,7 @@ impl EventHandler {
             self.backup.backup_current_scene(&scene_id).await;
 
             // Run the reset event for the new scene (no backup necessary)
-            self.queue.add_event(EventDelay::new(None, scene_id));
+            self.queue.add_event(EventDelay::new(None, scene_id)).await;
         }
     }
 
@@ -513,7 +513,7 @@ impl EventHandler {
         };
 
         // Save the configuration to the provided file
-        self.config.to_config(&config_file);
+        self.config.to_config(&config_file).await;
     }
 
     /// A method to process a new event in the event handler. If the event was
@@ -573,7 +573,7 @@ impl EventHandler {
                     was_broadcast = true;
 
                     // Solicit a string
-                    self.general_update.send_get_user_string(pair.clone());
+                    self.general_update.send_get_user_string(pair.clone()).await;
                 }
             }
         }
@@ -604,7 +604,7 @@ impl EventHandler {
             // If there is a new scene, execute the change
             NewScene { new_scene } => {
                 // Try to change the scene current scene
-                self.choose_scene(new_scene);
+                self.choose_scene(new_scene).await;
             }
 
             // If there is a status modification, execute the change
@@ -613,19 +613,19 @@ impl EventHandler {
                 new_state,
             } => {
                 // Try to change the state of the status and trigger the event
-                self.modify_status(&status_id, &new_state);
+                self.modify_status(&status_id, &new_state).await;
             }
 
             // If there is a queued event to load, load it into the queue
             CueEvent { event } => {
                 // Add the event to the queue
-                self.queue.add_event(event);
+                self.queue.add_event(event).await;
             }
 
             // If there is an event to cancel, remove it from the queue
             CancelEvent { event } => {
                 // Cancel any events with the matching id in the queue
-                self.queue.cancel_all(event);
+                self.queue.cancel_all(event).await;
             }
 
             // If there is data to save, save it
@@ -774,7 +774,7 @@ impl EventHandler {
                     // Try to find the corresponding event in the event_map
                     if let Some(event_id) = event_map.get(&state) {
                         // Trigger the event if it was found
-                        self.queue.add_event(EventDelay::new(None, event_id.clone()));
+                        self.queue.add_event(EventDelay::new(None, event_id.clone())).await;
                         
                     // States with no matching event are ignored
                     }

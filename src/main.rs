@@ -75,7 +75,7 @@ impl Minerva {
         }
         
         // Create the tokio runtime
-        let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
+        let mut runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
         
         // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();

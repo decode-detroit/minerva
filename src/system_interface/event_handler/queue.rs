@@ -83,8 +83,9 @@ impl ComingEvent {
 /// then increase in delay toward the front of the list. This results in slow
 /// addition of new events but quick removal.
 ///
+#[derive(Clone)]
 struct ComingEvents {
-    list: Vec<ComingEvent>,        // a vector to hold the coming events
+    list: Arc<Mutex<Vec<ComingEvent>>>, // a threadsafe vector to hold the coming events
     general_update: GeneralUpdate, // the general update line for passing current events back to the rest of the system
 }
 
@@ -94,7 +95,7 @@ impl ComingEvents {
     ///
     fn new(general_update: GeneralUpdate) -> ComingEvents {
         ComingEvents {
-            list: Vec::new(),
+            list: Arc::new(Mutex::new(Vec::new())),
             general_update,
         }
     }
@@ -102,8 +103,13 @@ impl ComingEvents {
     /// A method to update the rest of the system with the current events in
     /// the queue
     ///
-    fn send_current(&self) {
-        self.general_update.send_coming_events(self.list.clone());
+    async fn send_current(&self) {
+        // Make a copy of the list and send it
+        let list = match self.list.lock() {
+            Ok(list) => list.clone(),
+            _ => Vec::new(), // inelegant failure handling
+        };
+        self.general_update.send_coming_events(list).await;
     }
 
     /// A method to load an additional coming event.
@@ -114,69 +120,87 @@ impl ComingEvents {
     /// Otherwise the thread may not process an event properly that has a shorter
     /// delay than existing events
     ///
-    fn load_event(&mut self, event: ComingEvent) {
-        // Calculate the remaining time before the event triggers
-        if let Some(event_remaining) = event.remaining() {
-            // Find the correct spot in the queue
-            let mut index = 0;
-            for coming in self.list.iter() {
-                // Calculate the remaining time for this particular coming event
-                if let Some(coming_remaining) = coming.remaining() {
-                    // If event delay is larger than coming event, put new event in front
-                    if event_remaining > coming_remaining {
-                        break;
+    async fn load_event(&mut self, event: ComingEvent) {
+        // Get access to the list
+        if let Ok(mut list) = self.list.lock() {
+            // Calculate the remaining time before the event triggers
+            if let Some(event_remaining) = event.remaining() {
+                // Find the correct spot in the queue
+                let mut index = 0;
+                for coming in list.iter() {
+                    // Calculate the remaining time for this particular coming event
+                    if let Some(coming_remaining) = coming.remaining() {
+                        // If event delay is larger than coming event, put new event in front
+                        if event_remaining > coming_remaining {
+                            break;
+                        }
                     }
+
+                    // Otherwise, increment
+                    index += 1;
                 }
 
-                // Otherwise, increment
-                index += 1;
+                // Load the event at the appropriate point in the queue
+                list.insert(index, event);
+
+            // If the event had no time left, put it at the back of the list
+            } else {
+                list.push(event);
             }
-
-            // Load the event at the appropriate point in the queue
-            self.list.insert(index, event);
-
-        // If the event had no time left, put it at the back of the list
-        } else {
-            self.list.push(event);
         }
 
         // Update the system
-        self.send_current();
+        self.send_current().await;
     }
 
     /// A method to clear the events in the queue.
     ///
-    fn clear(&mut self) {
-        self.list = Vec::new(); // drop the old list
-        self.send_current();
+    async fn clear(&mut self) {
+        // Get access to the list
+        if let Ok(mut list) = self.list.lock() {
+            *list = Vec::new();
+        }
+        
+        // Send the update
+        self.send_current().await;
     }
 
     /// A method that returns a copy of the last coming event in the list,
     /// if it exists.
     ///
     fn last(&self) -> Option<ComingEvent> {
-        match self.list.last() {
-            Some(event) => Some(event.clone()),
-            None => None,
+        // Get access to the list
+        if let Ok(list) = self.list.lock() {
+            // Return the last entry
+            return match list.last() {
+                Some(event) => Some(event.clone()),
+                None => None,
+            }
         }
+        None
     }
 
     /// A method that removes the last event in the list if it matches the
     /// provided coming event. Returns the event if they match and None
     /// otherwise.
     ///
-    fn pop_if(&mut self, test_event: &ComingEvent) -> Option<ComingEvent> {
+    async fn pop_if(&mut self, test_event: &ComingEvent) -> Option<ComingEvent> {
         // If an event was found, compare it
         let mut result = false;
-        if let Some(event) = self.list.last() {
+        if let Some(event) = self.last() {
             // Compare the id and the start time with the test event
             result = event.compare_with(test_event);
         }
 
         // If the event is correct, pop it from the list and notify the system
         if result {
-            let tmp = self.list.pop(); // technically could be None, but isn't because of the logic above
-            self.send_current();
+            let tmp = match self.list.lock() {
+                Ok(mut list) => list.pop(), // technically could be None, but isn't because of the logic above
+                _ => None,
+            };
+            
+            // Send the update
+            self.send_current().await;
             return tmp;
         }
 
@@ -193,12 +217,15 @@ impl ComingEvents {
     /// return None.
     ///
     fn remaining(&self, event_id: &ItemId) -> Option<Duration> {
-        // Look through the list for a matching event
-        for coming in self.list.iter().rev() {
-            // If the event ids match
-            if coming.event_id == *event_id {
-                // Return the corresponding remaining duration
-                return coming.remaining();
+        // Get access to the list
+        if let Ok(list) = self.list.lock() {
+            // Look through the list for a matching event
+            for coming in list.iter().rev() {
+                // If the event ids match
+                if coming.event_id == *event_id {
+                    // Return the corresponding remaining duration
+                    return coming.remaining();
+                }
             }
         }
 
@@ -214,26 +241,36 @@ impl ComingEvents {
     /// If the requested event does not exist in the queue, this method will
     /// return None.
     ///
-    fn withdraw(&mut self, new_event: ComingEvent) -> Option<ComingEvent> {
-        // Look for and remove the requested event (based on the drain_filter code)
-        let mut index = 0;
-        while index != self.list.len() {
-            // If the event was found, remove it, and return the provided event
-            if self.list[index].compare_with(&new_event) {
-                // Remove the old event and update the flag
-                self.list.remove(index);
-                self.send_current();
+    async fn withdraw(&mut self, new_event: ComingEvent) -> Option<ComingEvent> {
+        // Get access to the list
+        if let Ok(mut list) = self.list.lock() {
+            // Look for and remove the requested event (based on the drain_filter code)
+            let mut index = 0;
+            while index != list.len() {
+                // If the event was found, 
+                if list[index].compare_with(&new_event) {
+                    // Break at this index point
+                    break;
+                }
 
-                // Return the new event
-                return Some(new_event);
+                // Otherwise, keep looking
+                index += 1;
             }
-
-            // Otherwise, keep looking
-            index += 1;
+            
+            // If the event wasn't found, return None
+            if index == list.len() {
+                return None;
+            }
+            
+            // Otherwise, remove the event from the list
+            list.remove(index);
         }
+        
+        // Send the update
+        self.send_current().await;
 
-        // If the event wasn't found, return None
-        None
+        // Return the new event
+        return Some(new_event);
     }
 
     /// A method to remove any events that match the event id from the list.
@@ -243,23 +280,32 @@ impl ComingEvents {
     /// If the requested event id does not exist in the queue, this method will
     /// fail silently.
     ///
-    fn cancel(&mut self, event_id: ItemId) {
-        // Look for and remove any events that match the requested id
-        let mut index = 0;
-        while index != self.list.len() {
-            // If the event was found, remove it, and return the provided event
-            if self.list[index].event_id == event_id {
-                // Remove the old event and update the flag
-                self.list.remove(index);
-                // Do not increment, as the index has now changed by one
+    async fn cancel(&mut self, event_id: ItemId) {
+        // Get access to the list
+        let mut is_changed = false;
+        if let Ok(mut list) = self.list.lock() {
+            // Look for and remove any events that match the requested id
+            let mut index = 0;
+            while index != list.len() {
+                // If the event was found, remove it, and return the provided event
+                if list[index].event_id == event_id {
+                    // Remove the old event and update the flag
+                    list.remove(index);
+                    // Do not increment, as the index has now changed by one
 
-                // Update the current events
-                self.send_current();
+                    // Note the change
+                    is_changed = true;
 
-            // Otherwise, keep looking
-            } else {
-                index += 1;
+                // Otherwise, keep looking
+                } else {
+                    index += 1;
+                }
             }
+        }
+        
+        // If changed, update the current events
+        if is_changed {
+            self.send_current().await;
         }
     }
 }
@@ -272,7 +318,7 @@ impl ComingEvents {
 pub struct Queue {
     queue_load: mpsc::Sender<ComingEvent>, // the queue loading line that sends additional items to the daemon
     general_update: GeneralUpdate, // the general update line for passing current events back to the rest of the system
-    coming_events: Arc<Mutex<ComingEvents>>, // the data queue to be modified by the background process and system handler process
+    coming_events: ComingEvents, // the data queue to be modified by the background process and system handler process
 }
 
 // Implement the Queue methods
@@ -288,7 +334,7 @@ impl Queue {
         let (queue_load, queue_receive) = mpsc::channel(128);
 
         // Create the new queue data
-        let coming_events = Arc::new(Mutex::new(ComingEvents::new(general_update.clone())));
+        let coming_events = ComingEvents::new(general_update.clone());
         let coming_clone = coming_events.clone();
 
         // Launch the background process with the queue data
@@ -312,12 +358,12 @@ impl Queue {
     async fn run_loop(
         general_update: GeneralUpdate,
         mut queue_receive: mpsc::Receiver<ComingEvent>,
-        coming_events: Arc<Mutex<ComingEvents>>,
+        mut coming_events: ComingEvents,
     ) {
         // Run the background process indefinitely
         loop {
             // Check for the next coming event
-            let next_event = coming_events.lock().unwrap().last();
+            let next_event = coming_events.last();
             match next_event {
                 // If there isn't a coming event
                 None => {
@@ -325,7 +371,7 @@ impl Queue {
                     match queue_receive.recv().await {
                         // Process an upcoming event
                         Some(event) => {
-                            coming_events.lock().unwrap().load_event(event);
+                            coming_events.load_event(event).await;
                         }
 
                         // Terminate the process if there was an error
@@ -339,9 +385,12 @@ impl Queue {
                     match event.remaining() {
                         // If there is no time remaining, launch the event
                         None => {
-                            // Remove the last event from the list and send it if it matches what we expected. Otherwise, do nothing.
-                            if let Some(event_now) = coming_events.lock().unwrap().pop_if(&event) {
-                                general_update.send_event(event_now.id(), true, true);
+                            // Remove the last event from the list
+                            let last_event = coming_events.pop_if(&event).await;
+                            
+                            // Send it if it matches what we expected. Otherwise, do nothing.
+                            if let Some(event_now) = last_event {
+                                general_update.send_event(event_now.id(), true, true).await;
                             }
                         }
 
@@ -355,15 +404,17 @@ impl Queue {
                                 // If an event is received before the delay expires
                                 Some(new_event) = queue_receive.recv() => {
                                     // Process the new upcoming event
-                                    coming_events.lock().unwrap().load_event(new_event);
+                                    coming_events.load_event(new_event).await;
                                 }
                                 
                                 // If the delay expires instead
                                 _ = &mut async_delay => {
                                     // Remove the last event from the list
-                                    if let Some(event_now) = coming_events.lock().unwrap().pop_if(&event) {
-                                        // Send it if it matches what we expected.
-                                        general_update.send_event(event_now.id(), true, true);
+                                    let last_event = coming_events.pop_if(&event).await;
+                                    
+                                    // Send it if it matches what we expected. Otherwise, do nothing.
+                                    if let Some(event_now) = last_event {
+                                        general_update.send_event(event_now.id(), true, true).await;
                                     }
                                     // Otherwise, do nothing.
                                 }
@@ -411,15 +462,8 @@ impl Queue {
     /// function may hang as well.
     ///
     pub async fn event_remaining(&self, event_id: &ItemId) -> Option<Duration> {
-        // Try to open the coming events
-        if let Ok(events) = self.coming_events.lock() {
-            // Try to get the delay of the provided event id
-            return events.remaining(event_id);
-        }
-
-        // Raise an error that the queue has failed
-        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
-        return None;
+        // Try to get the delay of the provided event id
+        self.coming_events.remaining(event_id)
     }
 
     /// A method to adjust the remaining delay in a specific upcoming event. If
@@ -440,15 +484,7 @@ impl Queue {
     ///
     pub async fn adjust_event(&mut self, new_event: ComingEvent) {
         // Try to open the coming events
-        let possible_event = match self.coming_events.lock() {
-            // Try to withdraw the existing event from the queue
-            Ok(mut events) => {
-                events.withdraw(new_event)
-            }
-            
-            // Return none on error
-            _ => None,
-        };
+        let possible_event = self.coming_events.withdraw(new_event).await;
 
         // Check to see if the operation was successful
         if let Some(event) = possible_event {
@@ -472,9 +508,9 @@ impl Queue {
     ///
     pub async fn adjust_all(&mut self, adjustment: Duration, is_negative: bool) {
         // Try to get a copy of the coming events
-        let possible_events: Option<Vec<ComingEvent>> = match self.coming_events.lock() {
+        let possible_events: Option<Vec<ComingEvent>> = match self.coming_events.list.lock() {
             // Remove all the events from the list and return them
-            Ok(mut events) => Some(events.list.drain(..).collect()),
+            Ok(mut list) => Some(list.drain(..).collect()),
             _ => None,
         };
         
@@ -544,16 +580,9 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub async fn cancel_event(&self, new_event: ComingEvent) {
-        // Try to open the coming events
-        if let Ok(mut events) = self.coming_events.lock() {
-            // Try to withdraw the existing event from the queue
-            events.withdraw(new_event); // Queue will automatically detect the change
-            return;
-        }
-
-        // Raise an error that the queue has failed
-        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+    pub async fn cancel_event(&mut self, new_event: ComingEvent) {
+        // Try to withdraw the existing event from the queue
+        self.coming_events.withdraw(new_event).await; // Queue will automatically detect the change
     }
 
     /// A method to cancel all upcoming instances of an event.
@@ -569,16 +598,9 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub async fn cancel_all(&self, event_id: ItemId) {
-        // Try to open the coming events
-        if let Ok(mut events) = self.coming_events.lock() {
-            // Cancel any matching events in the queue
-            events.cancel(event_id); // Queue will automatically detect the change
-            return;
-        }
-
-        // Raise an error that the queue has failed
-        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+    pub async fn cancel_all(&mut self, event_id: ItemId) {
+        // Cancel any matching events in the queue
+        self.coming_events.cancel(event_id).await; // Queue will automatically detect the change
     }
 
     /// A method to clear any events in the queue.
@@ -589,16 +611,9 @@ impl Queue {
     /// release the lock on the queue. If the background process hangs, this
     /// function may hang as well.
     ///
-    pub async fn clear(&self) {
-        // Try to open the coming events
-        if let Ok(mut events) = self.coming_events.lock() {
-            // Clear all events in the queue
-            events.clear();
-            return;
-        }
-
-        // Raise an error that the queue has failed
-        update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+    pub async fn clear(&mut self) {
+        // Clear all events in the queue
+        self.coming_events.clear().await;
     }
 }
 

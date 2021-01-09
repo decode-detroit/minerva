@@ -261,9 +261,9 @@ impl Logger {
     /// from this method are the newest notifications as well as notifications
     /// from the last minute of operation.
     ///
-    pub fn update(&mut self, update: EventUpdate) -> Vec<Notification> {
+    pub async fn update(&mut self, update: EventUpdate) -> Vec<Notification> {
         // Unpack the new update into a notification
-        let mut notifications = vec![self.unpack_update(update)];
+        let mut notifications = vec![self.unpack_update(update).await];
 
         // Iterate through the old notifications
         for old_note in self.old_notifications.drain(..) {

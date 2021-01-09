@@ -48,6 +48,9 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+// Import tokio features
+use tokio::runtime::Handle;
+
 // Import the failure features
 use failure::Error;
 
@@ -311,7 +314,7 @@ impl SystemConnection {
     /// Like all SystemInterface functions and methods, this function will fail
     /// gracefully by warning the user and returning a default system connection.
     ///
-    pub fn new(
+    pub async fn new(
         general_update: GeneralUpdate,
         connections: Option<(ConnectionSet, Identifier)>,
     ) -> SystemConnection {
@@ -322,7 +325,7 @@ impl SystemConnection {
         };
 
         // Try to update the system connection using the provided connection type(s)
-        system_connection.update_system_connection(connections);
+        system_connection.update_system_connection(connections).await;
 
         // Return the system connection
         system_connection
@@ -363,9 +366,9 @@ impl SystemConnection {
             // Spin a new thread with the connection(s)
             let (conn_send, conn_recv) = mpsc::channel();
             let gen_update = self.general_update.clone();
-            thread::spawn(move || {
+            Handle::current().spawn(async move {
                 // Loop indefinitely
-                SystemConnection::run_loop(live_connections, gen_update, conn_recv, identifier);
+                SystemConnection::run_loop(live_connections, gen_update, conn_recv, identifier).await;
             });
 
             // Update the system connection
@@ -383,7 +386,8 @@ impl SystemConnection {
         // Extract the connection, if it exists
         if let Some(ref mut conn) = self.connection_send {
             // Send the new event
-            if let Err(e) = conn.send(ConnectionUpdate::Broadcast(new_event, data)) {
+            let result = conn.send(ConnectionUpdate::Broadcast(new_event, data));
+            if let Err(e) = result {
                 update!(err &self.general_update => "Unable To Connect: {}", e);
             }
         }
@@ -426,7 +430,7 @@ impl SystemConnection {
                             // Verify the game id is correct
                             if identity == game_id {
                                 // Send the event to the program
-                                gen_update.send_event(id, true, false); // don't broadcast
+                                gen_update.send_event(id, true, false).await; // don't broadcast
                                 // FIXME Handle incoming data
 
                             // Otherwise send a notification of an incorrect game number
@@ -453,7 +457,8 @@ impl SystemConnection {
             }
 
             // Send any new events to the system
-            match conn_recv.try_recv() {
+            let update = conn_recv.try_recv();
+            match update {
                 // Send the new event
                 Ok(ConnectionUpdate::Broadcast(id, data)) => {
                     // Use the identifier or zero for the game id

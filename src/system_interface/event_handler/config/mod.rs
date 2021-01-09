@@ -457,7 +457,7 @@ impl Config {
     pub async fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
         // For every status in the status pairs, set the current value
         for (status_id, new_state) in status_pairs.drain(..) {
-            self.status_handler.modify_status(&status_id, &new_state); // Ignore errors
+            self.status_handler.modify_status(&status_id, &new_state).await;
 
             // Notify the system of the successful status change
             let status_pair =
@@ -734,7 +734,7 @@ impl Config {
             self.current_scene = scene_id;
 
             // Trigger a redraw of the window
-            self.general_update.send_redraw();
+            self.general_update.send_redraw().await;
 
             // Indicate success
             return Ok(());
@@ -830,7 +830,7 @@ impl Config {
     pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
         // Get the item description and then pass the change to the status handler
         let description = self.get_description(&status_id).description;
-        self.status_handler.edit_status(status_id, new_status, description);
+        self.status_handler.edit_status(status_id, new_status, description).await;
     }
 
     /// A method to modify or add a scene with provided id.
