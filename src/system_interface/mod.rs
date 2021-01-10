@@ -430,11 +430,11 @@ impl SystemInterface {
                 }
             }
 
-            // Pass an event to the queue
+            // Cue an event
             CueEvent { event_delay } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
-                    // add the event to the queue
+                    // Cue the event
                     handler.add_event(event_delay);
 
                 // Otherwise noity the user that a configuration faild to load
@@ -931,7 +931,7 @@ pub enum EditActionElement {
     /// A variant for the edit modify status
     EditModifyStatus { is_status: bool },
 
-    /// A variant for the edit queue event
+    /// A variant for the edit cue event
     EditCueEvent,
 
     /// A variant for the edit cancel event
@@ -1099,7 +1099,7 @@ pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong 
 
 /// An enum to launch one of the special windows for the user interface
 ///
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum WindowType {
     /// A variant to launch the jump dialog with an optional scene of interest
     Jump(Option<ItemPair>),
@@ -1123,13 +1123,16 @@ pub enum WindowType {
 }
 
 /// An enum to change one of the display settings of the user interface
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum DisplaySetting {
     /// A variant to change the fullscreen mode of the display
     FullScreen(bool),
 
     /// A variant to change the debug mode of the display
     DebugMode(bool),
+
+    /// A variant to change the edit mode of the display
+    // FIXME EditMode(bool),
 
     /// A variant to change the font size of the display
     LargeFont(bool),

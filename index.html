@@ -27,7 +27,7 @@
     <script>
     async function updateText() {
         let data = {
-            id: 7,
+            id: 101,
         };
         
         document.getElementById("info").innerHTML = `Waiting ...`;
@@ -40,7 +40,7 @@
         });
         const result = await response.json(); //extract JSON from the http response
         console.log(result);
-        if (result.is_valid) {
+        if (result.Generic.is_valid) {
             document.getElementById("info").innerHTML = `Event success!`;
         }
     }

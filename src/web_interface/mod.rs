@@ -19,19 +19,52 @@
 //! system interface. This module links directly to the system interface.
 
 // Import the relevant structures into the correct namespace
-use super::system_interface::ItemId;
+use super::system_interface::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting, WindowType, Notification, UpcomingEvent};
 
 // Import tokio and warp modules
 use tokio::runtime::{Handle, Runtime};
 use tokio::sync::{mpsc, oneshot};
 use warp::{http, Filter};
 
+/// A type to cover all web api replies
+/// 
+#[derive(Clone, Serialize, Deserialize)]
+pub enum WebReply {
+    // A variant for replies with no specific content
+    Generic {
+        is_valid: bool, // a flag to indicate the result of the request
+        message: String, // a message describing the success or failure
+    },
+    
+    // A variant that contains the complete item list
+    AllItems {
+        is_valid: bool, // a flag to indicate the result of the request
+        all_items: Option<Vec<ItemPair>>, // the list of all items, if found
+    },
 
-/// A structure to hold a reply from the system interface
-///
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub struct WebReply {
-    is_valid: bool, // An indication if the request was a success
+    // A variant that contains scene detail
+    Scene {
+        is_valid: bool, // a flag to indicate the result of the request
+        scene: Option<DescriptiveScene>, // the scene detail, if found
+    },
+
+    // A variant that contains status detail
+    Status {
+        is_valid: bool, // a flag to indicate the result of the request
+        status: Option<Status>, // the status detail, if found
+    },
+
+    // A variant that contains event detail
+    Event {
+        is_valid: bool, // a flag to indicate the result of the request
+        event: Option<Event>, // the event detail, if found
+    },
+
+    // A variant that contains item detail
+    Item {
+        is_valid: bool, // a flag to indicate the result of the request
+        item_pair: Option<ItemPair>, // the item pair, if found
+    },
 }
 
 // Implement key features of the web reply
@@ -39,18 +72,50 @@ impl WebReply {
     /// A function to return a new, successful web reply
     ///
     pub fn success() -> WebReply {
-        WebReply {
+        WebReply::Generic {
             is_valid: true,
+            message: "Request completed.".to_string(),
         }
     }
     
     /// A function to return a new, failed web reply
     ///
-    pub fn failure() -> WebReply {
-        WebReply {
+    pub fn failure<S>(reason: S) -> WebReply
+        where S: Into<String>
+    {
+    
+        WebReply::Generic {
             is_valid: false,
+            message: reason.into(),
         }
     }
+}
+
+/// A structure to pass server-side updates to the user interface
+/// 
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WebUpdate {// FIXME change to an enum
+    display_setting: Option<DisplaySetting>, // variable for to changes the display settings
+    launch_window: Option<WindowType>, // launch a special window
+    notice: Option<String>, // a notice to post briefly
+    // FIXME notifications: Option<Vec<Notification>>, // formatted system notifications
+    // FIXME upcoming_events: Option<Vec<UpcomingEvent>>, // a list of upcoming events for the timeline
+    /*
+    UpdateConfig {
+        scenes: Vec<ItemPair>,
+        full_status: FullStatus,
+    },
+    UpdateWindow {
+        current_scene: ItemPair,
+        statuses: Vec<ItemPair>,
+        window: EventWindow,
+        key_map: KeyMap,
+    },
+    UpdateStatus {
+        status_id: ItemPair, // the group to update
+        new_state: ItemPair, // the new state of the group
+    },
+    */
 }
 
 /// A helper type definition for the web_sender
@@ -125,7 +190,7 @@ impl WebInterface {
         web_send.send((item_id, reply_line)).await.unwrap_or(());
         
         // Wait for the reply
-        let new_item = rx.await.unwrap_or(WebReply::failure());
+        let new_item = rx.await.unwrap_or(WebReply::failure("Temporary server error."));
         Ok(warp::reply::with_status(
             warp::reply::json(&new_item),
             http::StatusCode::CREATED,

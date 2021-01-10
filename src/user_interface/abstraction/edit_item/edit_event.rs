@@ -304,7 +304,7 @@ impl EditEvent {
             match action {
                 EventAction::NewScene { .. } => overview.set_text("New Scene"),
                 EventAction::ModifyStatus { .. } => overview.set_text("Modify Status"),
-                EventAction::CueEvent { .. } => overview.set_text("Queue Event"),
+                EventAction::CueEvent { .. } => overview.set_text("Cue Event"),
                 EventAction::CancelEvent { .. } => overview.set_text("Cancel Event"),
                 EventAction::SaveData { .. } => overview.set_text("Save Data"),
                 EventAction::SendData { .. } => overview.set_text("Send Data"),
@@ -361,7 +361,7 @@ struct EditAction {
     action_selection: gtk::ComboBoxText,                        // the action selection element
     edit_new_scene: Rc<RefCell<EditNewScene>>,                  // the wrapped EditNewScene structure
     edit_modify_status: Rc<RefCell<EditModifyStatus>>,          // the wrapped EditModifyStatus structure
-    edit_queue_event: Rc<RefCell<EditCueEvent>>,              // the wrapped EditCueEvent structure
+    edit_cue_event: Rc<RefCell<EditCueEvent>>,              // the wrapped EditCueEvent structure
     edit_cancel_event: Rc<RefCell<EditCancelEvent>>,            // the wrapped EditCancelEvent structure
     edit_save_data: Rc<RefCell<EditSaveData>>,                  // the wrapped EditSaveData structure
     edit_send_data: Rc<RefCell<EditSendData>>,                  // the wrapped EditSendData structure
@@ -385,7 +385,7 @@ impl EditAction {
         // Add each of the available action types to the dropdown
         action_selection.append(Some("newscene"), "New Scene");
         action_selection.append(Some("modifystatus"), "Modify Status");
-        action_selection.append(Some("CueEvent"), "Queue Event");
+        action_selection.append(Some("cueevent"), "Cue Event");
         action_selection.append(Some("cancelevent"), "Cancel Event");
         action_selection.append(Some("savedata"), "Save Data");
         action_selection.append(Some("senddata"), "Send Data");
@@ -394,7 +394,7 @@ impl EditAction {
         // Create the different edit windows for the action types
         let edit_new_scene = EditNewScene::new(system_send, is_left);
         let edit_modify_status = EditModifyStatus::new(system_send, is_left);
-        let edit_queue_event = EditCueEvent::new(system_send, is_left);
+        let edit_cue_event = EditCueEvent::new(system_send, is_left);
         let edit_cancel_event = EditCancelEvent::new(system_send, is_left);
         let edit_save_data = EditSaveData::new(system_send, is_left);
         let edit_send_data = EditSendData::new(system_send, is_left);
@@ -406,7 +406,7 @@ impl EditAction {
         // Add the edit types to the action stack
         action_stack.add_named(edit_new_scene.get_top_element(), "newscene");
         action_stack.add_named(edit_modify_status.get_top_element(), "modifystatus");
-        action_stack.add_named(edit_queue_event.get_top_element(), "CueEvent");
+        action_stack.add_named(edit_cue_event.get_top_element(), "cueevent");
         action_stack.add_named(edit_cancel_event.get_top_element(), "cancelevent");
         action_stack.add_named(edit_save_data.get_top_element(), "savedata");
         action_stack.add_named(edit_send_data.get_top_element(), "senddata");
@@ -446,7 +446,7 @@ impl EditAction {
             action_selection,
             edit_new_scene: Rc::new(RefCell::new(edit_new_scene)),
             edit_modify_status: Rc::new(RefCell::new(edit_modify_status)),
-            edit_queue_event: Rc::new(RefCell::new(edit_queue_event)),
+            edit_cue_event: Rc::new(RefCell::new(edit_cue_event)),
             edit_cancel_event: Rc::new(RefCell::new(edit_cancel_event)),
             edit_save_data: Rc::new(RefCell::new(edit_save_data)),
             edit_send_data: Rc::new(RefCell::new(edit_send_data)),
@@ -486,9 +486,9 @@ impl EditAction {
             _ => return,
         };
 
-        // Try to get a copy of the edit queue event
-        let edit_queue_event = match self.edit_queue_event.try_borrow() {
-            Ok(edit_queue) => edit_queue,
+        // Try to get a copy of the edit cue event
+        let edit_cue_event = match self.edit_cue_event.try_borrow() {
+            Ok(edit_cue) => edit_cue,
             _ => return,
         };
 
@@ -536,7 +536,7 @@ impl EditAction {
             // the CueEvent variant
             EventAction::CueEvent { event } => {
                 self.action_selection.set_active_id(Some("CueEvent"));
-                edit_queue_event.load_action(event);
+                edit_cue_event.load_action(event);
             }
 
             // the CancelEvent variant
@@ -616,7 +616,7 @@ impl EditAction {
             delete_button,
             edit_new_scene,
             edit_modify_status,
-            edit_queue_event,
+            edit_cue_event,
             edit_cancel_event,
             edit_save_data,
             edit_send_data,
@@ -654,8 +654,8 @@ impl EditAction {
                         // the CueEvent variant
                         "CueEvent" => {
                             // Update the action label and action
-                            overview.set_text("Queue Event");
-                            *action = edit_queue_event.pack_action();
+                            overview.set_text("Cue Event");
+                            *action = edit_cue_event.pack_action();
                         }
 
                         // the CancelEvent variant
@@ -736,9 +736,9 @@ impl EditAction {
             }
 
             EditActionElement::EditCueEvent => {
-                // Get a copy of the edit queue event element
-                if let Ok(edit_queue_event) = self.edit_queue_event.try_borrow() {
-                    edit_queue_event.update_description(description)
+                // Get a copy of the edit cue event element
+                if let Ok(edit_cue_event) = self.edit_cue_event.try_borrow() {
+                    edit_cue_event.update_description(description)
                 }
             }
 
@@ -1135,7 +1135,7 @@ impl EditModifyStatus {
     }
 }
 
-// Create the queue event variant
+// Create the cue event variant
 //
 #[derive(Clone, Debug)]
 struct EditCueEvent {
@@ -1149,7 +1149,7 @@ struct EditCueEvent {
 }
 
 impl EditCueEvent {
-    // A function to ceate a queue event variant
+    // A function to ceate a cue event variant
     //
     fn new(system_send: &SystemSend, is_left: bool) -> EditCueEvent {
         // Create the top-level grid
@@ -1206,7 +1206,7 @@ impl EditCueEvent {
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
-        // Create and return the queue event variant
+        // Create and return the cue event variant
         grid.show_all();
         EditCueEvent {
             grid,
@@ -1440,7 +1440,7 @@ impl EditSaveData {
         data_type.append(Some("timeuntil"), "Time until an event will occur");
         data_type.append(
             Some("timepasseduntil"),
-            "Time passed since an event was queued",
+            "Time passed since an event was cued",
         );
         data_type.append(Some("staticstring"), "A hardcoded string of data");
         data_type.append(Some("userstring"), "A user-provided string");
@@ -1758,7 +1758,7 @@ impl EditSendData {
         data_type.append(Some("timeuntil"), "Time until an event will occur");
         data_type.append(
             Some("timepasseduntil"),
-            "Time passed since an event was queued",
+            "Time passed since an event was cued",
         );
         data_type.append(Some("staticstring"), "A hardcoded string of data");
         data_type.append(Some("userstring"), "A user-provided string");

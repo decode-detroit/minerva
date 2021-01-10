@@ -482,21 +482,6 @@ impl EditItemAbstraction {
         &self.grid
     }
 
-    /// A method to load a new item into the edit item window
-    ///
-    pub fn _load_item(&mut self, id: Option<ItemId>) {
-        // Change the current item id
-        match self.current_id.try_borrow_mut() {
-            Ok(mut current_id) => *current_id = id,
-            _ => return,
-        }
-
-        // Refresh all the item components
-        if let Some(item_id) = id {
-            EditItemAbstraction::refresh_item(item_id, self.is_left, &self.system_send);
-        }
-    }
-
     // A function to refresh the components of the current item
     //
     fn refresh_item(item_id: ItemId, is_left: bool, system_send: &SystemSend) {
@@ -535,15 +520,15 @@ impl EditItemAbstraction {
                             EditItemElement::ItemDescription => {
                                 // Load the description into the text entry
                                 self.item_description.set_text(&description.description);
-                            }
-                            
-                            // Otherwise, pass it to the edit overview
-                            _ => {
+
                                 // Try to borrow the edit overview
                                 if let Ok(edit_overview) = self.edit_overview.try_borrow() {
                                     edit_overview.load_description(variant, description);
                                 }
                             }
+                            
+                            // Otherwise, pass it to the edit overview
+                            _ => (),
                         }
                     }
 

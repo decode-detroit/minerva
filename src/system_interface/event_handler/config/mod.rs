@@ -1147,17 +1147,17 @@ impl Config {
                         & Config::verify_lookup(general_update, lookup, new_state);
                 }
 
-                // If there is an event to queue, verify that it exists
+                // If there is an event to cue, verify that it exists
                 &CueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
                     if !scene.events.contains(&event.id()) {
-                        update!(warn general_update => "Event Contains Queue Event, But Not In Scene: {}", &event.id());
+                        update!(warn general_update => "Event Contains Cue Event, But Not In Scene: {}", &event.id());
                         // Do not flag as incorrect
                     }
 
                     // Return false if the event_id is incorrect
                     if !event_list.contains_key(&event.id()) {
-                        update!(warn general_update => "Event Contains Invalid Queue Event: {}", &event.id());
+                        update!(warn general_update => "Event Contains Invalid Cue Event: {}", &event.id());
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
