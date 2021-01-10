@@ -440,7 +440,7 @@ impl SystemConnection {
                         
                         // Otherwise, send the event to the program
                         } else {
-                            gen_update.send_event(id, true, false); // don't broadcast
+                            gen_update.send_event(id, true, false).await; // don't broadcast
                         }
                     }
                     

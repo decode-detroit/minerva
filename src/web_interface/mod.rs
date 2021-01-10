@@ -19,7 +19,7 @@
 //! system interface. This module links directly to the system interface.
 
 // Import the relevant structures into the correct namespace
-use super::system_interface::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting}; // FIXME WindowType , Notification, UpcomingEvent};
+use super::system_interface::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting, WindowType, Notification, UpcomingEvent, SystemSend, WebRequest};
 
 // Import tokio and warp modules
 use tokio::runtime::{Handle, Runtime};
@@ -96,7 +96,7 @@ impl WebReply {
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WebUpdate {// FIXME change to an enum
     display_setting: Option<DisplaySetting>, // variable for to changes the display settings
-    //launch_window: Option<WindowType>, // FIXME launch a special window
+    launch_window: Option<WindowType>, // launch a special window
     notice: Option<String>, // a notice to post briefly
     // FIXME notifications: Option<Vec<Notification>>, // formatted system notifications
     // FIXME upcoming_events: Option<Vec<UpcomingEvent>>, // a list of upcoming events for the timeline
@@ -118,9 +118,12 @@ pub struct WebUpdate {// FIXME change to an enum
     */
 }
 
+<<<<<<< HEAD
 /// A helper type definition for the web_sender
 type WebSend = mpsc::Sender<(ItemId, oneshot::Sender<WebReply>)>;
 
+=======
+>>>>>>> Another Step Closer to Full Async Version
 /// A structure to contain the web interface and handle all updates to the
 /// to the interface.
 ///
