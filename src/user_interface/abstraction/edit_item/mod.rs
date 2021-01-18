@@ -45,6 +45,9 @@ use std::sync::mpsc;
 // Import the serde_yaml library
 use serde_yaml;
 
+// Import FNV Hash Set
+use fnv::FnvHashSet;
+
 // Import GTK and GDK libraries
 use gdk;
 use gtk;
@@ -52,6 +55,7 @@ use self::gtk::prelude::*;
 
 // Define module constants
 const LABEL_LIMIT: usize = 30; // maximum character width of labels
+const ITEM_START: u32 = 1000; // starting number for new items
 
 
 /// A structure to hold all editing components.
@@ -107,7 +111,7 @@ impl EditWindow {
         scroll_window.add(&grid);
 
         // Create the item list that holds the buttons with all item data
-        let item_list = ItemList::new();
+        let item_list = ItemList::new(system_send);
 
         // Create an EditItemAbstraction copy for the left side
         let edit_item_left = EditItemAbstraction::new(
@@ -351,10 +355,10 @@ impl EditItemAbstraction {
         item_description.set_placeholder_text(Some("Enter Item Description Here"));
 
         // Attach all elements to the edit grid
-        edit_grid.attach(edit_overview.get_top_element(), 0, 0, 2, 1);
-        edit_grid.attach(edit_event.get_top_element(), 0, 2, 2, 1);
-        edit_grid.attach(edit_scene.get_top_element(), 0, 3, 2, 1);
-        edit_grid.attach(edit_status.get_top_element(), 0, 4, 2, 1);
+        edit_grid.attach(edit_event.get_top_element(), 0, 0, 2, 1);
+        edit_grid.attach(edit_scene.get_top_element(), 0, 1, 2, 1);
+        edit_grid.attach(edit_status.get_top_element(), 0, 2, 2, 1);
+        edit_grid.attach(edit_overview.get_top_element(), 0, 3, 2, 1);
 
         // Attach the edit window and other elements to the top-level grid
         grid.attach(&edit_title, 0, 0, 2, 1);
@@ -448,7 +452,13 @@ impl EditItemAbstraction {
             // Save the edit to the configuration
             system_send.send(Edit { modifications });
 
-            // Refresh from the underlying data (will process after the save)
+            // Refresh the item list
+            system_send.send(Request {
+                reply_to: DisplayComponent::ItemList,
+                request: RequestType::Items,
+            });
+
+            // Refresh the item
             EditItemAbstraction::refresh_item(item_id, is_left, &system_send);
         }));
 
@@ -514,21 +524,15 @@ impl EditItemAbstraction {
                 match reply {
                     // The description variant
                     ReplyType::Description { description } => {
-                        // Match the variant
-                        match variant {
-                            // Item Description (in the overview)
-                            EditItemElement::ItemDescription => {
-                                // Load the description into the text entry
-                                self.item_description.set_text(&description.description);
+                        // If the type is an item description
+                        if variant == EditItemElement::ItemDescription {
+                            // Load the description into the text entry
+                            self.item_description.set_text(&description.description);
+                        }
 
-                                // Try to borrow the edit overview
-                                if let Ok(edit_overview) = self.edit_overview.try_borrow() {
-                                    edit_overview.load_description(variant, description);
-                                }
-                            }
-                            
-                            // Otherwise, pass it to the edit overview
-                            _ => (),
+                        // Try to borrow the edit overview
+                        if let Ok(edit_overview) = self.edit_overview.try_borrow() {
+                            edit_overview.load_description(variant, description);
                         }
                     }
 
@@ -629,28 +633,80 @@ impl EditItemAbstraction {
 // Create a structure for listing all items
 #[derive(Clone, Debug)]
 struct ItemList {
-    grid: gtk::Grid,              // the main grid for this element
-    items_list: gtk::ListBox,     // the list of item buttons
+    grid: gtk::Grid,                        // the main grid for this element
+    next_item: Rc<RefCell<u32>>,            // the number for the next-created item, not necessarily unique
+    id_list: Rc<RefCell<FnvHashSet<u32>>>,  // the list of existing ids
+    items_list: gtk::ListBox,               // the list of item buttons
 }
 
 // Implement key features of the ItemList
 impl ItemList {
     /// A function to create a new ItemList
     ///
-    fn new() -> ItemList {
+    fn new(system_send: &SystemSend) -> ItemList {
         // Add the top-level grid
         let grid = gtk::Grid::new();
         grid.set_row_spacing(10); // add some internal space
 
         // Create the item list title and attach it to the grid
-        let grid_title = gtk::Label::new(Some("All Items"));
+        let grid_title = gtk::Label::new(Some("  All Items  "));
         grid.attach(&grid_title, 0, 0, 1, 1);
+
+        // Create the new item count tracker and id list
+        let next_item = Rc::new(RefCell::new(ITEM_START));
+        let id_list = Rc::new(RefCell::new(FnvHashSet::default()));
+
+        // Create the New Item button and attach it to the grid
+        let new = gtk::Button::with_label("New Item");
+        grid.attach(&new, 1, 0, 1, 1);
+
+        // Connect the new item button
+        new.connect_clicked(clone!(
+            system_send,
+            next_item,
+            id_list
+        => move |_| {
+            // Try to borrow the the next id
+            let mut next_id = match next_item.try_borrow_mut() {
+                Ok(id) => id,
+                _ => return,
+            };
+
+            // Try to borrow the the list of ids
+            let mut list = match id_list.try_borrow_mut() {
+                Ok(list) => list,
+                _ => return,
+            };
+
+            // Increment until an open id is found
+            let mut new_id = *next_id;
+            while let Some(_) = list.get(&new_id) {
+                new_id += 1;
+            }
+
+            // Save the new starting id and add it to the list
+            *next_id = new_id + 1;
+            list.insert(new_id);
+
+            // Create the item pair and save the modification
+            let item_pair = ItemPair::new_blank(new_id);
+            let modifications = vec!(Modification::ModifyItem { item_pair });
+
+            // Save the new id to the configuration
+            system_send.send(Edit { modifications });
+
+            // Refresh the item list
+            system_send.send(Request {
+                reply_to: DisplayComponent::ItemList,
+                request: RequestType::Items,
+            });
+        }));
 
         // Add the top separator for the item list
         let items_separator = gtk::Separator::new(gtk::Orientation::Horizontal);
         items_separator.set_hexpand(true);
         items_separator.set_halign(gtk::Align::Fill);
-        grid.attach(&items_separator, 0, 1, 1, 1);
+        grid.attach(&items_separator, 0, 1, 2, 1);
         
         // Create the scrolling window that contains the list box
         let items_scroll = gtk::ScrolledWindow::new(
@@ -662,7 +718,7 @@ impl ItemList {
         // Format the scrolling window and attach it to the grid
         items_scroll.set_vexpand(true);
         items_scroll.set_valign(gtk::Align::Fill);
-        grid.attach(&items_scroll, 0, 2, 1, 1);
+        grid.attach(&items_scroll, 0, 2, 2, 1);
 
         // Create the list box to hold the item buttons
         let items_list = gtk::ListBox::new();
@@ -673,7 +729,7 @@ impl ItemList {
         grid.show_all();
 
         // Return the completed structure
-        ItemList { grid, items_list }
+        ItemList { grid, next_item, id_list, items_list }
     }
     
     /// A method to return the top element
@@ -743,7 +799,7 @@ struct EditOverview {
     display_type: gtk::ComboBoxText,      // the display type selection for the event
     group_checkbox: gtk::CheckButton,     // the checkbox for group id
     group_description: gtk::Label,        // the description of the group
-    group_data: Rc<RefCell<ItemId>>,      // the data associated with the group
+    group_data: Rc<RefCell<Option<ItemId>>>,      // the data associated with the group
     position_checkbox: gtk::CheckButton,  // the position checkbox
     position: gtk::SpinButton,            // the spin selection for position
     color_checkbox: gtk::CheckButton,     // the color checkbox
@@ -765,6 +821,7 @@ impl EditOverview {
     ///
     fn new(system_send: &SystemSend, is_left: bool) -> EditOverview {
         // Add the display type dropdown
+        let display_settings_label = gtk::Label::new(Some("Display Settings"));
         let display_type_label = gtk::Label::new(Some("Where to Display Item:"));
         let display_type = gtk::ComboBoxText::new();
         display_type.append(
@@ -803,7 +860,7 @@ impl EditOverview {
         group_button.add(&group_description);
 
         // Create the variable to hold the group data
-        let group_data = Rc::new(RefCell::new(ItemId::all_stop()));
+        let group_data = Rc::new(RefCell::new(None));
 
         // Set up the group description button to act as a drag source and destination
         drag!(source group_button);
@@ -824,7 +881,7 @@ impl EditOverview {
 
                 // Update the group data
                 if let Ok(mut group) = group_data.try_borrow_mut() {
-                    *group = item_pair.get_id();
+                    *group = Some(item_pair.get_id());
                 }
 
                 // Serialize the item pair data
@@ -1190,9 +1247,10 @@ impl EditOverview {
 
         // Create the edit overview grid and populate it
         let grid = gtk::Grid::new();
-        grid.attach(&display_type_label, 0, 0, 1, 1);
-        grid.attach(&display_type, 1, 0, 2, 1);
-        grid.attach(&display_grid, 0, 1, 3, 1);
+        grid.attach(&display_settings_label, 0, 0, 3, 1);
+        grid.attach(&display_type_label, 0, 1, 1, 1);
+        grid.attach(&display_type, 1, 1, 2, 1);
+        grid.attach(&display_grid, 0, 2, 3, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
         grid.show_all();
@@ -1352,10 +1410,12 @@ impl EditOverview {
                     None => self.group_checkbox.set_active(true),
                     Some(id) => {
                         self.group_checkbox.set_active(false);
+                        
                         // Set the group data
                         if let Ok(mut group_data) = self.group_data.try_borrow_mut() {
-                            *group_data = id.clone();
+                            *group_data = Some(id.clone());
                         }
+
                         // Send a request to update the group description
                         self.system_send.send(Request {
                             reply_to: DisplayComponent::EditItemOverview {
@@ -1446,15 +1506,15 @@ impl EditOverview {
             },
 
             // Update the group description
-            EditItemElement::Group => self.group_description.set_text(&description.description),
+            EditItemElement::Group => self.group_description.set_text(&format!("Group: {}", description.description)),
 
             // Update the status description
-            EditItemElement::Status { .. } => self.highstate_status_description.set_text(&description.description),
+            EditItemElement::Status { .. } => self.highstate_status_description.set_text(&format!("Status: {}", description.description)),
 
             // Update the state description in the dropdown
             EditItemElement::State => {
                 // Add the decription to the dropdown with the item id as the id
-                self.highstate_state_dropdown.append(Some(&description.id().to_string()), &description.description)
+                self.highstate_state_dropdown.append(Some(&description.id().to_string()), &description.description) // FIXME This probably doesn't work
             },
 
             _ => unreachable!(),
@@ -1499,18 +1559,15 @@ impl EditOverview {
     fn pack_description(&self, tmp_description: String) -> ItemDescription {
         // Create default placeholders for the display settings
         let mut possible_group = None;
-        let group_id = ItemId::all_stop();
         let mut position = None;
         let mut color = None;
         let mut highlight = None;
         let mut highlight_state = None;
         let mut spotlight = None;
 
-        // Extract the group id, if selected
-        if !self.group_checkbox.get_active() {
-            if let Ok(group_data) = self.group_data.try_borrow() {
-                possible_group = Some(*group_data);
-            }
+        // Extract the group id, if available
+        if let Ok(group_data) = self.group_data.try_borrow() {
+            possible_group = *group_data;
         }
 
         // Extract the position, if selected
@@ -1580,23 +1637,45 @@ impl EditOverview {
             },
 
             // Compose the DisplayWith type
-            "displaywith" => DisplayWith {
-                group_id,
-                position,
-                color,
-                highlight,
-                highlight_state,
-                spotlight,
-            },
+            "displaywith" => {
+                // If a group was selected, return DisplayWith
+                if let Some(group_id) = possible_group {
+                    DisplayWith {
+                        group_id,
+                        position,
+                        color,
+                        highlight,
+                        highlight_state,
+                        spotlight,
+                    }
+                
+                // Fallback to DisplayControl
+                } else {
+                    DisplayControl {
+                        position,
+                        color,
+                        highlight,
+                        highlight_state,
+                        spotlight,
+                    }
+                }
+            } 
 
             // Compose the DisplayDebug type
-            "displaydebug" => DisplayDebug {
-                group_id: possible_group,
-                position,
-                color,
-                highlight,
-                highlight_state,
-                spotlight,
+            "displaydebug" => {
+                // If the group checkbox is selected
+                if self.group_checkbox.get_active() {
+                    // Make sure the possible group is none
+                    possible_group = None;
+                }
+                DisplayDebug {
+                    group_id: possible_group,
+                    position,
+                    color,
+                    highlight,
+                    highlight_state,
+                    spotlight,
+                }
             },
 
             // Compose the LabelControl type

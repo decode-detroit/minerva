@@ -1099,7 +1099,7 @@ pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong 
 
 /// An enum to launch one of the special windows for the user interface
 ///
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum WindowType {
     /// A variant to launch the jump dialog with an optional scene of interest
     Jump(Option<ItemPair>),
