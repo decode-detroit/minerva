@@ -753,11 +753,20 @@ impl ItemList {
     /// A method to make a button for each item in the configuration file
     ///
     fn update_info(&self, items: Vec<ItemPair>) {
+        // Try to borrow the the list of ids
+        let mut list = match self.id_list.try_borrow_mut() {
+            Ok(list) => list,
+            _ => return,
+        };
+        
         // Clear the item list
         self.clear();
         
         // Iterate through the item pairs in the items vector
         for item_pair in items {
+            // Add the id to the id_list
+            list.insert(item_pair.id()); // if it is already present, nothing happens
+            
             // Create the label to hold the data
             let item_label = gtk::Label::new(None);
             let item_markup = clean_text(&item_pair.description, LABEL_LIMIT, true, false, true);
