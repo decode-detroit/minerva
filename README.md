@@ -15,7 +15,7 @@ Minerva is under very active development (one or two significant updates each ye
 
 ## Getting Started
 
-If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases/tag/0.9.0) and skip down to [Installing Extras](#Installing-Extras) below.
+If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below.
 
 If you're on Windows or Mac, binaries are still a work in progress.
 
