@@ -2115,22 +2115,22 @@ impl EditSelectEvent {
 
 
         // Create the scrollable window for the list
-        let group_window = gtk::ScrolledWindow::new(
+        let select_window = gtk::ScrolledWindow::new(
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
         ); // Should be None, None, but the compiler has difficulty inferring types
-        group_window.add(&select_event_list);
-        group_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+        select_window.add(&select_event_list);
+        select_window.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
         // Format the scrolling window
-        group_window.set_hexpand(true);
-        group_window.set_size_request(-1, 120);
+        select_window.set_hexpand(true);
+        select_window.set_size_request(-1, 120);
 
 
         // Add the status above and button below the event list
         let grid = gtk::Grid::new();
         grid.attach(&status_description, 0, 0, 1, 1);
-        grid.attach(&group_window, 0, 1, 1, 1);
+        grid.attach(&select_window, 0, 1, 1, 1);
         grid.set_column_spacing(10); // Add some space
         grid.set_row_spacing(10);
 
@@ -2213,7 +2213,7 @@ impl EditSelectEvent {
     pub fn add_event(
         &mut self,
         state_id: &ItemId,
-        event_id: Option<&ItemId>
+        possible_event_id: Option<&ItemId>
     ){
 
         // Try to get a mutable copy of the next_event
@@ -2229,10 +2229,10 @@ impl EditSelectEvent {
         };
 
         // Create the grid to hold the state and event labels
-        let group_grid = gtk::Grid::new();
+        let state_grid = gtk::Grid::new();
 
         // Create a state description for the list
-        let state_label = gtk::Label::new(None);
+        let state_label = gtk::Label::new(Some("  State: Loading ...  "));
         state_label.set_size_request(80, 30);
         state_label.set_hexpand(false);
         state_label.set_vexpand(false);
@@ -2244,29 +2244,32 @@ impl EditSelectEvent {
         event_label.set_vexpand(false);
 
         // Check to see if an event id is given
-        if let Some(event_id) = event_id {
-            // Add the state id and event id to the database
-            if let Ok(mut events) = self.select_events.try_borrow_mut() {
-                events.insert(position, EventGrouping {
-                    state_id: state_id.clone(),
-                    event_id: event_id.clone(),
-                    state_label: state_label.clone(),
-                    event_label: event_label.clone(),
-                });
-            }
+        let event_id = match possible_event_id {
+            Some(event_id) => event_id.clone(),
+            None => ItemId::all_stop(),
+        };
 
-            // Request the event description
-            self.system_send.send(Request {
-                reply_to: DisplayComponent::EditActionElement {
-                    is_left: self.is_left,
-                    variant: EditActionElement::SelectEventDescription{
-                        position: Some(position),
-                        is_event: true,
-                    },
-                },
-                request: RequestType::Description { item_id: event_id.clone() },
+        // Add the state id and event id to the database
+        if let Ok(mut events) = self.select_events.try_borrow_mut() {
+            events.insert(position, EventGrouping {
+                state_id: state_id.clone(),
+                event_id: event_id.clone(),
+                state_label: state_label.clone(),
+                event_label: event_label.clone(),
             });
         }
+
+        // Request the event description
+        self.system_send.send(Request {
+            reply_to: DisplayComponent::EditActionElement {
+                is_left: self.is_left,
+                variant: EditActionElement::SelectEventDescription{
+                    position: Some(position),
+                    is_event: true,
+                },
+            },
+            request: RequestType::Description { item_id: event_id.clone() },
+        });
 
         // Request the state description
         self.system_send.send(Request {
@@ -2301,17 +2304,17 @@ impl EditSelectEvent {
                 // Update the database
                 if let Ok(events) = select_events.try_borrow() {
                     // Get the current database entry
-                    if let Some(current_event_grouping) = events.get(&position) {
+                    if let Some(ref current_event_grouping) = events.get(&position) {
                         // Re-borrow a mutable copy
                         if let Ok(mut events_mut) = select_events.try_borrow_mut() {
                             // Update the event id in the current entry
                             events_mut.insert(
                                 position,
                                 EventGrouping {
-                                    state_id: current_event_grouping.clone().state_id,
+                                    state_id: current_event_grouping.state_id.clone(),
                                     event_id: item_pair.get_id(),
-                                    state_label: current_event_grouping.clone().state_label,
-                                    event_label: current_event_grouping.clone().event_label,
+                                    state_label: current_event_grouping.state_label.clone(),
+                                    event_label: current_event_grouping.event_label.clone(),
                                 }
                             );
                         }
@@ -2327,14 +2330,13 @@ impl EditSelectEvent {
             }
         }));
 
-
         // Add all the items to the group grid
-        group_grid.attach(&state_label, 0, 0, 1, 1);
-        group_grid.attach(&event_label, 1, 0, 1, 1);
+        state_grid.attach(&state_label, 0, 0, 1, 1);
+        state_grid.attach(&event_label, 1, 0, 1, 1);
 
         // Add the new grid to the list
-        group_grid.show_all();
-        self.select_event_list.add(&group_grid);
+        state_grid.show_all();
+        self.select_event_list.add(&state_grid);
     }
 
     // A method to update the description of the status
@@ -2351,10 +2353,14 @@ impl EditSelectEvent {
                         // Check if the description to update is for the event or state
                         match is_event {
                             // Update the event description
-                            true => event_grouping.event_label.set_label(&format!("Event: {}", description.description)),
+                            true => {
+                                event_grouping.event_label.set_label(&format!("Event: {}", description.description))
+                            },
 
                             // Update the state description
-                            false => event_grouping.state_label.set_text(&format!("State: {}", description.description)),
+                            false => {
+                                event_grouping.state_label.set_text(&format!("  State: {}  ", description.description))
+                            },
                         }
                     }
                 }
