@@ -120,7 +120,7 @@ impl EditScene {
         events_scroll.add(&events_list);
 
         // Create a label for the list of events
-        let events_label = gtk::Label::new(Some("Events in the scene"));
+        let events_label = gtk::Label::new(Some("Items in the scene"));
 
         // Make the list box a drag destination for events
         drag!(dest events_list);
