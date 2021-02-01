@@ -2301,23 +2301,21 @@ impl EditSelectEvent {
                 // Update the event description
                 widget.set_label(&format!("Event: {}", item_pair.description));
 
-                // Update the database
-                if let Ok(events) = select_events.try_borrow() {
-                    // Get the current database entry
-                    if let Some(ref current_event_grouping) = events.get(&position) {
-                        // Re-borrow a mutable copy
-                        if let Ok(mut events_mut) = select_events.try_borrow_mut() {
-                            // Update the event id in the current entry
-                            events_mut.insert(
-                                position,
-                                EventGrouping {
-                                    state_id: current_event_grouping.state_id.clone(),
-                                    event_id: item_pair.get_id(),
-                                    state_label: current_event_grouping.state_label.clone(),
-                                    event_label: current_event_grouping.event_label.clone(),
-                                }
-                            );
-                        }
+                // Borrow a mutable copy of the database
+                if let Ok(mut events) = select_events.try_borrow_mut() {
+                    // Clone the current database entry
+                    let possible_grouping = events.get(&position).map(|value| value.clone());
+                    if let Some(current_event_grouping) = possible_grouping {
+                        // Update the event id in the current entry
+                        events.insert(
+                            position,
+                            EventGrouping {
+                                state_id: current_event_grouping.state_id.clone(),
+                                event_id: item_pair.get_id(),
+                                state_label: current_event_grouping.state_label.clone(),
+                                event_label: current_event_grouping.event_label.clone(),
+                            }
+                        );
                     }
                 }
 
