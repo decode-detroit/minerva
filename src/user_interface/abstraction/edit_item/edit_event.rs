@@ -61,6 +61,7 @@ pub struct EventGrouping {
 pub struct EditEvent {
     grid: gtk::Grid,                   // the main grid for this element
     edit_action: Rc<RefCell<EditAction>>, // a wrapped dialog to edit the current action
+    edit_action_window: gtk::Grid,    // the window holding the edit action
     event_checkbox: gtk::CheckButton, // the checkbox to indicate an active event
     event_actions: Rc<RefCell<FnvHashMap<usize, EventAction>>>, // a wrapped hash map of actions (may be empty)
     next_position: Rc<RefCell<usize>>, // the next available position in the hash map
@@ -155,6 +156,7 @@ impl EditEvent {
         EditEvent {
             grid,
             edit_action,
+            edit_action_window,
             event_checkbox,
             event_actions,
             next_position,
@@ -172,6 +174,21 @@ impl EditEvent {
     // A method to load an existing event, or none
     //
     pub fn load_event(&self, event: Option<Event>) {
+        // Hide the edit action window
+        self.edit_action_window.hide();
+        
+        // Remove the existing event actions
+        if let Ok(mut actions) = self.event_actions.try_borrow_mut() {
+            actions.clear();
+        }
+
+        // Clear the existing list of actions
+        for item in self.action_list.get_children() {
+            unsafe {
+                item.destroy();
+            }
+        }
+        
         // See if an event was specified
         let mut event = match event {
             // If a event was specified, switch the checkbox
@@ -186,18 +203,6 @@ impl EditEvent {
                 return;
             }
         };
-
-        // Remove the existing event actions
-        if let Ok(mut actions) = self.event_actions.try_borrow_mut() {
-            actions.clear();
-        }
-
-        // Clear the existing list of actions
-        for item in self.action_list.get_children() {
-            unsafe {
-                item.destroy();
-            }
-        }
 
         // For each event action, create a new action in the list
         for action in event.drain(..) {
@@ -652,7 +657,7 @@ impl EditAction {
                         }
 
                         // the CueEvent variant
-                        "CueEvent" => {
+                        "cueevent" => {
                             // Update the action label and action
                             overview.set_text("Cue Event");
                             *action = edit_cue_event.pack_action();
