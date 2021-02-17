@@ -22,17 +22,8 @@
 // Import the relevant structures into the correct namespace
 use super::super::super::system_interface::{
     BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
-<<<<<<< HEAD
-<<<<<<< HEAD
     ItemPair, KeyMap, ProcessEvent, CueEvent, ReplyType, Request, RequestType,
-    SceneChange, StatusChange, StatusDescription, SystemSend,
-=======
-    ItemPair, KeyMap, ProcessEvent, QueueEvent, ReplyType, Request, RequestType,
-=======
-    ItemPair, KeyMap, ProcessEvent, CueEvent, ReplyType, Request, RequestType,
->>>>>>> Another Step Closer to Full Async Version
     SceneChange, StatusChange, StatusDescription, SyncSystemSend,
->>>>>>> Rough Patch for a Fully Asyncronous backend
 };
 #[cfg(feature = "media-out")]
 use super::super::super::system_interface::VideoStream;

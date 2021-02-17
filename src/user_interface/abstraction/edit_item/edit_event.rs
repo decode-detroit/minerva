@@ -2059,20 +2059,9 @@ impl EditSendData {
 #[derive(Clone, Debug)]
 struct EditSelectEvent {
     grid: gtk::Grid,                                         // the main grid for this element
-<<<<<<< HEAD
-    system_send: SystemSend,                                 // a copy of the system send line
+    system_send: SyncSystemSend,                            // a copy of the system send line
     select_event_list: gtk::ListBox,                        // the list for events in this variant
     select_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the select events
-=======
-    system_send: SyncSystemSend,                                 // a copy of the system send line
-<<<<<<< HEAD
-    grouped_event_list: gtk::ListBox,                        // the list for events in this variant
-    grouped_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the grouped events
->>>>>>> Rough Patch for a Fully Asyncronous backend
-=======
-    select_event_list: gtk::ListBox,                        // the list for events in this variant
-    select_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the select events
->>>>>>> Another Step Closer to Full Async Version
     next_event: Rc<RefCell<usize>>,                          // the next available event location
     status_description: gtk::Button,                         // the status description display
     status_data: Rc<RefCell<ItemId>>,                        // the wrapped status data

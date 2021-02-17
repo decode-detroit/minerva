@@ -658,7 +658,7 @@ struct ItemList {
 impl ItemList {
     /// A function to create a new ItemList
     ///
-    fn new(system_send: &SystemSend) -> ItemList {
+    fn new(system_send: &SyncSystemSend) -> ItemList {
         // Add the top-level grid
         let grid = gtk::Grid::new();
         grid.set_row_spacing(10); // add some internal space
