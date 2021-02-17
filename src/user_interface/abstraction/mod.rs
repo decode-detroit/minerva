@@ -54,8 +54,8 @@ use std::sync::mpsc;
 use gtk;
 use self::gtk::prelude::*;
 
-// Import the external time library
-use time;
+// Import the chrono library
+use chrono::Local;
 
 // Define module constants
 const NOTIFY_LIMIT: usize = 60; // maximum character width of the notifications
@@ -351,8 +351,7 @@ impl InterfaceAbstraction {
         self.notification_bar.pop(0);
 
         // Add the time to the event description
-        let now = time::now();
-        let timestr = now.strftime("%a %T").unwrap_or_else(|_| now.asctime()); // Fallback on other time format
+        let timestr = Local::now().format("%a %T");
         let message = format!(
             "\t{} — {}",
             timestr,

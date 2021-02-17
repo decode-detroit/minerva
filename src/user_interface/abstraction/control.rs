@@ -338,7 +338,7 @@ impl ControlAbstraction {
                 event,
             } => {
                 // Format the time appropriately
-                let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
+                let timestr = time.format("%a %T");
 
                 // Assemble a button if there should be one
                 match event {
@@ -401,7 +401,7 @@ impl ControlAbstraction {
                 event,
             } => {
                 // Format the time appropriately
-                let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
+                let timestr = time.format("%a %T");
 
                 // Assemble a button if there should be one
                 match event {
@@ -460,7 +460,7 @@ impl ControlAbstraction {
             // Add a prefix to the current variant and highlight with blue
             Current { message, time } => {
                 // Format the time appropriately
-                let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
+                let timestr = time.format("%a %T");
 
                 // Combine the message and the time
                 (
@@ -477,7 +477,7 @@ impl ControlAbstraction {
             // Leave the other update unformatted
             Update { message, time } => {
                 // Format the time appropriately
-                let timestr = time.strftime("%a %T").unwrap_or_else(|_| time.asctime()); // Fallback on other time format
+                let timestr = time.format("%a %T");
 
                 // Combine the message and the time
                 (

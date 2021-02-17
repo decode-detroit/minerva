@@ -34,6 +34,7 @@ use self::user_interface::UserInterface;
 use self::web_interface::{WebInterface, WebReply};
 
 // Import standard library features
+use std::thread;
 use std::env::args;
 use std::sync::mpsc as std_mpsc;
 
@@ -75,7 +76,7 @@ impl Minerva {
         }
         
         // Create the tokio runtime
-        let mut runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
+        let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
         
         // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();
@@ -83,24 +84,27 @@ impl Minerva {
             SystemInterface::new(interface_send.clone()).await
         }).expect("Unable To Create System Interface.");
 
-        // Open the system interface in a new thread
-        runtime.spawn(async move {
-            system_interface.run().await;
-        });
-
         // Create a new web interface
         let mut web_interface = WebInterface::new(&system_send);
 
-        // Open the web interface in a new thread
-        runtime.spawn(async move {
-            web_interface.run().await;
+        // Create the new sync system send to work with the user interface
+        let sync_send = SyncSystemSend::from_async(runtime.handle(), &system_send);
+
+        // Spin the runtime into a native thread
+        thread::spawn(move || {
+            // Open the system interface in a new thread
+            runtime.spawn(async move {
+                system_interface.run().await;
+            });
+
+            // Block on the web interface
+            runtime.block_on(async move {
+                web_interface.run().await;
+            });
         });
 
         // Create the application window
         let window = gtk::ApplicationWindow::new(application);
-
-        // Create the new sync system send to work with the user interface
-        let sync_send = SyncSystemSend::from_async(runtime.handle(), &system_send);
 
         // Create the user interface structure to handle user interface updates
         UserInterface::new(

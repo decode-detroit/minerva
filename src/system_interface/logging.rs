@@ -35,8 +35,8 @@ use std::sync::mpsc;
 // Import the failure features
 use failure::Error as FailureError;
 
-// Import the eternal time library
-use time;
+// Import the chrono library
+use chrono::{Duration, Local, NaiveDateTime};
 
 /// An enum to contain system notifications in different types.
 ///
@@ -51,22 +51,22 @@ pub enum Notification {
     /// An error type of notification
     Error {
         message: String,
-        time: time::Tm,
+        time: NaiveDateTime,
         event: Option<ItemPair>,
     },
 
     /// A warning type of notification
     Warning {
         message: String,
-        time: time::Tm,
+        time: NaiveDateTime,
         event: Option<ItemPair>,
     },
 
     /// A current event type of notification
-    Current { message: String, time: time::Tm },
+    Current { message: String, time: NaiveDateTime },
 
     /// Any other type of system update
-    Update { message: String, time: time::Tm },
+    Update { message: String, time: NaiveDateTime },
 }
 
 // Reexport the notification type variants
@@ -77,7 +77,7 @@ impl Notification {
     /// A function to return a copy of the time inside the notification,
     /// regardless of variant.
     ///
-    pub fn time(&self) -> time::Tm {
+    pub fn time(&self) -> NaiveDateTime {
         match self {
             // For every variant type, return a copy of the message
             &Error { ref time, .. } => time.clone(),
@@ -100,7 +100,7 @@ impl fmt::Display for Notification {
             } => write!(
                 f,
                 "{}: {}",
-                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                time.format("%F %T"),
                 message
             ),
             &Warning {
@@ -110,7 +110,7 @@ impl fmt::Display for Notification {
             } => write!(
                 f,
                 "{}: {}",
-                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                time.format("%F %T"),
                 message
             ),
             &Current {
@@ -119,7 +119,7 @@ impl fmt::Display for Notification {
             } => write!(
                 f,
                 "{}: {}",
-                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                time.format("%F %T"),
                 message
             ),
             &Update {
@@ -128,7 +128,7 @@ impl fmt::Display for Notification {
             } => write!(
                 f,
                 "{}: {}",
-                time.strftime("%a %T").unwrap_or_else(|_| time.asctime()),
+                time.format("%F %T"),
                 message
             ),
         }
@@ -170,18 +170,7 @@ impl Logger {
             // If a file was specified, try to load it
             Some(mut filepath) => {
                 // Use the current time for each instance
-                let time = time::now();
-                filepath.push(
-                    format!(
-                        "game_log_{:04}-{:02}-{:02}_{:02}-{:02}.txt",
-                        time.tm_year + 1900,
-                        time.tm_mon + 1,
-                        time.tm_mday,
-                        time.tm_hour,
-                        time.tm_min
-                    )
-                    .as_str(),
-                );
+                filepath.push(format!("game_log_{}", Local::now().format("%F_%H-%M")).as_str());
 
                 // Create the new file instance
                 match File::create(filepath.to_str().unwrap_or("")) {
@@ -268,7 +257,7 @@ impl Logger {
         // Iterate through the old notifications
         for old_note in self.old_notifications.drain(..) {
             // If the notification is younger than one minute, add it back
-            if (time::now() - old_note.time()) < time::Duration::minutes(1) {
+            if Local::now().naive_local() < old_note.time() + Duration::minutes(1) {
                 notifications.push(old_note);
             }
         }
@@ -288,24 +277,20 @@ impl Logger {
     ///
     ///
     async fn unpack_update(&mut self, update: EventUpdate) -> Notification {
+        // Note the current time
+        let now = Local::now().naive_local();
+        
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
             EventUpdate::Error(error, event) => {
-                // Note the current time
-                let now = time::now();
-
                 // Try to write it to the file
                 if let Some(ref mut file) = self.error_log {
                     // Try to write to the file
                     if let Err(_) = file.write_all(
                         format!(
-                            "{:04}-{:02}-{:02} {:02}:{:02} — ERROR: {}\n",
-                            now.tm_year + 1900,
-                            now.tm_mon + 1,
-                            now.tm_mday,
-                            now.tm_hour,
-                            now.tm_min,
+                            "{} — ERROR: {}\n",
+                            now.format("%F %H:%M"),
                             &error
                         )
                         .as_bytes(),
@@ -339,12 +324,12 @@ impl Logger {
             // Simply display warnings and updates
             EventUpdate::Warning(warning, event) => Warning {
                 message: warning,
-                time: time::now(),
+                time: now,
                 event,
             },
             EventUpdate::Update(update) => Update {
                 message: update,
-                time: time::now(),
+                time: now,
             },
 
             // Broadcast events and display them
@@ -355,7 +340,7 @@ impl Logger {
                 // Send a current update with the item pair
                 Current {
                     message: format!("{}", id),
-                    time: time::now(),
+                    time: now,
                 }
             }
 
@@ -364,7 +349,7 @@ impl Logger {
                 // Send a current update with the item pair
                 Current {
                     message: format!("{}", id),
-                    time: time::now(),
+                    time: now,
                 }
             }
 
@@ -384,26 +369,19 @@ impl Logger {
                         "Changing {} To {}.",
                         status_id.description, new_state.description
                     ),
-                    time: time::now(),
+                    time: now,
                 }
             }
 
             // Save data to the system
             EventUpdate::Save(data) => {
-                // Get the current time
-                let now = time::now();
-
                 // Try to write the data to the game log
                 if let Some(ref mut file) = self.game_log {
                     // Try to write to the file
                     if let Err(_) = file.write_all(
                         format!(
-                            "{:04}-{:02}-{:02} {:02}:{:02} — {}\n",
-                            now.tm_year + 1900,
-                            now.tm_mon + 1,
-                            now.tm_mday,
-                            now.tm_hour,
-                            now.tm_min,
+                            "{} — {}\n",
+                            now.format("%F %H:%M"),
                             &data
                         )
                         .as_bytes(),

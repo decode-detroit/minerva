@@ -150,7 +150,7 @@ impl BackgroundThread {
                 // Run indefinitely or until the process fails
                 loop {
                     // Wait for the process to finish
-                    match child.await {
+                    match child.wait().await {
                         // If the process has terminated
                         Ok(status) => {
                             // Notify that the process was a success and restart

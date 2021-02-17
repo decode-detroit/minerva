@@ -136,7 +136,7 @@ impl BackupHandler {
     ///
     pub async fn backup_current_scene(&mut self, current_scene: &ItemId) {
         // If the redis connection exists
-        if let Some(connection) = self.connection.take() {
+        if let Some(mut connection) = self.connection.take() {
             // Try to copy the current scene to the server
             let result: RedisResult<bool> = connection.set(
                 &format!("{}:current", self.identifier),
@@ -173,7 +173,7 @@ impl BackupHandler {
     ///
     pub async fn backup_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // If the redis connection exists
-        if let Some(connection) = self.connection.take() {
+        if let Some(mut connection) = self.connection.take() {
             // Try to copy the state to the server
             let result: RedisResult<bool>;
             result = connection.set(
@@ -214,7 +214,7 @@ impl BackupHandler {
     ///
     pub async fn backup_events(&mut self, coming_events: Vec<ComingEvent>) {
         // If the redis connection exists
-        if let Some(connection) = self.connection.take() {
+        if let Some(mut connection) = self.connection.take() {
             // Covert the coming events to queued events
             let mut queued_events = Vec::new();
             for event in coming_events {
@@ -232,6 +232,9 @@ impl BackupHandler {
                 Ok(string) => string,
                 Err(error) => {
                     update!(err &self.update_line => "Unable To Parse Coming Events: {}", error);
+                    
+                    // Put the connection back
+                    self.connection = Some(connection);
                     return;
                 }
             };
@@ -263,11 +266,11 @@ impl BackupHandler {
     /// None.
     ///
     pub fn reload_backup(
-        &self,
+        &mut self,
         mut status_ids: Vec<ItemId>,
     ) -> Option<(ItemId, Vec<(ItemId, ItemId)>, Vec<QueuedEvent>)> {
         // If the redis connection exists
-        if let Some(ref connection) = self.connection {
+        if let Some(mut connection) = self.connection.take() {
             // Check to see if there is an existing scene
             let result: RedisResult<String> =
                 connection.get(&format!("{}:current", self.identifier));
@@ -311,11 +314,17 @@ impl BackupHandler {
                 if let Ok(current_id) = current_str.parse::<u32>() {
                     // Try to compose the id into an item
                     if let Some(current_scene) = ItemId::new(current_id) {
+                        // Put the connection back
+                        self.connection = Some(connection);
+                        
                         // Return the current scene and status pairs
                         return Some((current_scene, status_pairs, queued_events));
                     }
                 }
             }
+
+            // Put the connection back
+            self.connection = Some(connection);
         }
 
         // Silently return nothing if the connection does not exist or there was not a current scene
@@ -334,7 +343,7 @@ impl Drop for BackupHandler {
     ///
     fn drop(&mut self) {
         // If the redis connection exists
-        if let Some(ref connection) = self.connection {
+        if let Some(mut connection) = self.connection.take() {
             // Try to delete the current scene if it exists (unable to manually specify types)
             let _: RedisResult<bool> = connection.del(&format!("{}:current", self.identifier));
 

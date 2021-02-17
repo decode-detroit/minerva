@@ -32,7 +32,7 @@ use std::sync::{Arc, Mutex};
 // Import tokio features
 use tokio::sync::mpsc;
 use tokio::runtime::Handle;
-use tokio::time;
+use tokio::time::sleep;
 
 /// A struct to allow easier manipulation of coming events.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -396,8 +396,8 @@ impl Queue {
 
                         // If there is some time remaining, wait for a message to arrive or the time to pass
                         Some(delay) => {
-                            // Create the new async delay object
-                            let mut async_delay = time::delay_for(delay);
+                            // Create the new sleep
+                            let sleep = sleep(delay);
                             
                             // Act on the first to return
                             tokio::select! {
@@ -408,7 +408,7 @@ impl Queue {
                                 }
                                 
                                 // If the delay expires instead
-                                _ = &mut async_delay => {
+                                _ = sleep => {
                                     // Remove the last event from the list
                                     let last_event = coming_events.pop_if(&event).await;
                                     

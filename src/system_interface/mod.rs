@@ -922,7 +922,7 @@ impl SystemSend {
     ///
     pub async fn send(&self, update: SystemUpdate) {
         self.general_send.clone()
-            .send(GeneralUpdateType::System(update)).await.unwrap_or(());
+            .send(GeneralUpdateType::System(update)).await.unwrap_or_else(|_| {println!("Send Failed")});
     }
 }
 
@@ -959,9 +959,7 @@ impl SyncSystemSend {
         let system_send = self.system_send.clone();
         
         // Async send the message
-        self.handle.block_on(async {
-            system_send.send(update).await;
-        });
+        self.handle.spawn(async move { system_send.send(update).await });
     }
 }
 

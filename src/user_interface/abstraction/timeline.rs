@@ -34,8 +34,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-// Import the eternal time library
-use time;
+// Import the chrono library
+use chrono::{Local, Duration as ChronoDuration};
 
 // Import FNV HashMap
 use fnv;
@@ -656,10 +656,9 @@ impl TimelineAbstraction {
         cr.stroke();
 
         // Add the current time to the timeline
-        let time = time::now();
         cr.move_to(NOW_LOCATION, 0.95);
         cr.show_text(
-            format!(" {:02}:{:02}:{:02}", time.tm_hour, time.tm_min, time.tm_sec).as_str(),
+            format!(" {}", Local::now().format("%T")).as_str(),
         );
 
         // Calculate the time subdivisions
@@ -988,15 +987,16 @@ impl TimelineAbstraction {
                 cr.show_text(format!("In {:02}:{:02}", min, sec).as_str());
 
                 // Show what time the event will happen
-                let now = time::now();
-                let minute =
+                let now = Local::now();
+                let future_time = now + ChronoDuration::minutes(min as i64) + ChronoDuration::seconds(sec as i64);
+                /*let minute =
                     (((now.tm_sec as f64 + sec) / 60.0 + now.tm_min as f64 + min) % 60.0) as u64;
                 let hour = (((now.tm_sec as f64 + sec) / 3600.0
                     + (now.tm_min as f64 + min) / 60.0
                     + now.tm_hour as f64)
-                    % 24.0) as u64;
+                    % 24.0) as u64;*/
                 cr.move_to(location + (4.0 / width), 0.68);
-                cr.show_text(format!("At {:02}:{:02}", hour, minute).as_str());
+                cr.show_text(format!("At {}", future_time.format("%H:%M")).as_str());
             }
         }
     }

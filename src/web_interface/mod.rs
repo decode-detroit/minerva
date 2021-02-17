@@ -146,6 +146,9 @@ impl WebInterface {
     /// A method to listen for connections from the internet
     ///
     pub async fn run(&mut self) {
+        // FIXME For testing
+        let hi = warp::path("hi").map(|| "Hello, World!");
+        
         // Create the index filter
         let readme = warp::get()
             .and(warp::path::end())
@@ -160,7 +163,7 @@ impl WebInterface {
             .and_then(WebInterface::send_message);
 
         // Combine the filters
-        let routes = readme.or(trigger_event);
+        let routes = hi.or(readme).or(trigger_event);
         
         // Handle incoming requests
         warp::serve(routes)
