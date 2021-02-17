@@ -87,9 +87,6 @@ impl Minerva {
         // Create a new web interface
         let mut web_interface = WebInterface::new(&system_send);
 
-        // Create the new sync system send to work with the user interface
-        let sync_send = SyncSystemSend::from_async(runtime.handle(), &system_send);
-
         // Spin the runtime into a native thread
         thread::spawn(move || {
             // Open the system interface in a new thread
@@ -103,6 +100,9 @@ impl Minerva {
             });
         });
 
+        // Create the new sync system send to work with the user interface
+        let sync_send = SyncSystemSend::from_async(&system_send);
+        
         // Create the application window
         let window = gtk::ApplicationWindow::new(application);
 

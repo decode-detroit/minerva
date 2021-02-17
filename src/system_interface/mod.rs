@@ -54,7 +54,6 @@ use std::sync::mpsc as std_mpsc;
 use std::time::{Duration, Instant};
 
 // Import tokio features
-use tokio::runtime::Handle;
 use tokio::sync::{mpsc, oneshot};
 
 // Import the failure features
@@ -921,8 +920,14 @@ impl SystemSend {
     /// silently.
     ///
     pub async fn send(&self, update: SystemUpdate) {
-        self.general_send.clone()
-            .send(GeneralUpdateType::System(update)).await.unwrap_or_else(|_| {println!("Send Failed")});
+        self.general_send.send(GeneralUpdateType::System(update)).await.unwrap_or(());
+    }
+
+    /// A method to send a system update in a sync setting. This method fails
+    /// silently.
+    ///
+    pub fn blocking_send(&self, update: SystemUpdate) {
+        self.general_send.blocking_send(GeneralUpdateType::System(update)).unwrap_or(());
     }
 }
 
@@ -935,7 +940,6 @@ impl SystemSend {
 ///
 #[derive(Clone, Debug)]
 pub struct SyncSystemSend {
-    handle: Handle, // a handle for the tokio runtime
     system_send: SystemSend, // the mpsc sending line to pass system updates to the interface
 }
 
@@ -943,10 +947,9 @@ pub struct SyncSystemSend {
 impl SyncSystemSend {
     /// A function to create a new sync system send from a system send
     ///
-    pub fn from_async(handle: &Handle, system_send: &SystemSend) -> SyncSystemSend {
+    pub fn from_async(system_send: &SystemSend) -> SyncSystemSend {
         // Return the completed SyncSystemSend
         SyncSystemSend {
-            handle: handle.clone(),
             system_send: system_send.clone(),
         }
     }
@@ -955,11 +958,8 @@ impl SyncSystemSend {
     /// silently.
     ///
     pub fn send(&self, update: SystemUpdate) {
-        // Clone the send line
-        let system_send = self.system_send.clone();
-        
-        // Async send the message
-        self.handle.spawn(async move { system_send.send(update).await });
+        // Send the message
+        self.system_send.blocking_send(update);
     }
 }
 
