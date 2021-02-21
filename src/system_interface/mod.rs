@@ -23,10 +23,6 @@
 pub use self::event_handler::event::{
     DataType, EventAction, EventDelay, Event, EventUpdate, UpcomingEvent,
 };
-pub use self::event_handler::item::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription,
-    ItemId, ItemPair, LabelControl, LabelHidden,
-};
 pub use self::event_handler::{
     DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
 };
@@ -43,6 +39,10 @@ mod event_handler;
 mod system_connection;
 
 // Import the relevant structures into the correct namespace
+use crate::definitions::{
+    DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription,
+    ItemId, ItemPair, LabelControl, LabelHidden,
+};
 use self::event_handler::{ComingEvent, EventHandler};
 use self::system_connection::SystemConnection;
 
