@@ -19,7 +19,7 @@
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{ItemId, GeneralUpdate};
-use super::{EventConnection, ItemId, ReadResult};
+use super::{EventConnection, ReadResult};
 
 // Import standard library features
 #[cfg(feature = "media-out")]

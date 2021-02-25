@@ -23,7 +23,7 @@
 use crate::definitions::{Hidden, ItemDescription, ItemId, ItemPair, CancelEvent, Event,
     EventUpdate, SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
     FullStatus, StatusMap, StatusDescription, Status, ChangeSettings, DisplaySetting,
-    GeneralUpdate, InterfaceUpdate, DescriptiveScene};
+    GeneralUpdate, InterfaceUpdate, DescriptiveScene, Scene};
 
 // Define private submodules
 mod status;
@@ -48,7 +48,7 @@ use tokio::runtime::Handle;
 use failure::Error;
 
 // Import FNV HashMap and HashSet
-use fnv::{FnvHashMap, FnvHashSet};
+use fnv::FnvHashMap;
 
 // Import YAML processing library
 use serde_yaml;

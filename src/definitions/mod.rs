@@ -22,6 +22,7 @@ mod item;
 #[macro_use]
 mod event;
 mod status;
+mod scene;
 mod communication;
 
 // Reexport all the definitions from the submodules

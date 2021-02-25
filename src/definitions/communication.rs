@@ -19,10 +19,9 @@
 //! across the modules of the system.
 
 // Reexport the key structures and types
-pub use crate::definitions::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription,
-    ItemId, ItemPair, LabelControl, LabelHidden, DataType, EventAction, EventDelay,
-    Event, EventUpdate, UpcomingEvent, DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
+use crate::definitions::{
+    ItemId, ItemPair, EventDelay, Event, EventUpdate, UpcomingEvent, DescriptiveScene,
+    FullStatus, KeyMap, Scene, Status
 };
 #[cfg(feature = "media-out")]
 pub use self::system_connection::VideoStream;
@@ -30,8 +29,8 @@ pub use self::system_connection::VideoStream;
 
 // Import standard library features
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
 
 
 /// A struct to allow easier manipulation of coming events.
@@ -119,7 +118,7 @@ impl GeneralUpdate {
     /// The function returns the the General Update structure and the general
     /// receive channel which will return the provided updates.
     ///
-    fn new() -> (GeneralUpdate, mpsc::Receiver<GeneralUpdateType>) {
+    pub fn new() -> (GeneralUpdate, mpsc::Receiver<GeneralUpdateType>) {
         // Create the new channel
         let (general_send, receive) = mpsc::channel();
 
@@ -130,17 +129,17 @@ impl GeneralUpdate {
     /// A method to broadcast an event via the system interface (with data,
     /// if it is provided)
     ///
-    fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
+    pub async fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
         self.general_send
-            .send(GeneralUpdateType::BroadcastEvent(event_id, data))
+            .send(GeneralUpdateType::BroadcastEvent(event_id, data)).await
             .unwrap_or(());
     }
 
     /// A method to send new coming events to the system
     ///
-    fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
+    pub async fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
         self.general_send
-            .send(GeneralUpdateType::ComingEvents(coming_events))
+            .send(GeneralUpdateType::ComingEvents(coming_events)).await
             .unwrap_or(());
     }
 
@@ -148,60 +147,60 @@ impl GeneralUpdate {
     /// the system will not check if the event is in the current scene. If
     /// broadcast is set to true, the event will be broadcast to the system.
     ///
-    fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
+    pub async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
         self.send_system(ProcessEvent {
             event,
             check_scene,
             broadcast,
-        });
+        }).await;
     }
 
     /// A method to request a string from the user FIXME make this more generic
     /// for other types of data
     ///
-    fn send_get_user_string(&self, event: ItemPair) {
+    pub async fn send_get_user_string(&self, event: ItemPair) {
         self.general_send
-            .send(GeneralUpdateType::GetUserString(event))
+            .send(GeneralUpdateType::GetUserString(event)).await
             .unwrap_or(());
     }
      
     /// A method to pass a new video stream to the user interface
     ///
     #[cfg(feature = "media-out")]
-    fn send_new_video(&self, video_stream: VideoStream) {
+    pub async fn send_new_video(&self, video_stream: VideoStream) {
         self.general_send
-            .send(GeneralUpdateType::NewVideo(Some(video_stream)))
+            .send(GeneralUpdateType::NewVideo(Some(video_stream))).await
             .unwrap_or(());
     }
 
     /// A method to clear all video streams from the user interface
     ///
     #[cfg(feature = "media-out")]
-    fn send_clear_videos(&self) {
+    pub async fn send_clear_videos(&self) {
         self.general_send
-            .send(GeneralUpdateType::NewVideo(None))
+            .send(GeneralUpdateType::NewVideo(None)).await
             .unwrap_or(());
     }
 
     /// A method to trigger a redraw of the current window
     ///
-    fn send_redraw(&self) {
-        self.send_system(Redraw);
+    pub async fn send_redraw(&self) {
+        self.send_system(Redraw).await;
     }
 
     /// A method to pass a system update to the system interface.
     ///
-    fn send_system(&self, update: SystemUpdate) {
+    pub async fn send_system(&self, update: SystemUpdate) {
         self.general_send
-            .send(GeneralUpdateType::System(update))
+            .send(GeneralUpdateType::System(update)).await
             .unwrap_or(());
     }
 
     /// A method to send an event update to the system interface.
     ///
-    fn send_update(&self, update: EventUpdate) {
+    pub async fn send_update(&self, update: EventUpdate) {
         self.general_send
-            .send(GeneralUpdateType::Update(update))
+            .send(GeneralUpdateType::Update(update)).await
             .unwrap_or(());
     }
 }
@@ -218,7 +217,7 @@ pub struct SystemSend {
 impl SystemSend {
     /// A function to create a new system send from a general update.
     ///
-    fn from_general(general_update: &GeneralUpdate) -> SystemSend {
+    pub fn from_general(general_update: &GeneralUpdate) -> SystemSend {
         SystemSend {
             general_send: general_update.general_send.clone(),
         }

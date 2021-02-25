@@ -24,7 +24,7 @@
 use crate::definitions::{ItemId, EventDelay, EventUpdate, ComingEvent, GeneralUpdate};
 
 // Import other standard library features
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::sync::{Arc, Mutex};
 
 // Import tokio features

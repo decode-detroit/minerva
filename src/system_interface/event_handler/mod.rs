@@ -31,9 +31,9 @@ mod queue;
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, SelectEvent,
+    ItemId, CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, SelectEvent,
     ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
-    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, StatusDescription,
+    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene,
     Status, GeneralUpdate, InterfaceUpdate,
 };
 use self::backup::BackupHandler;

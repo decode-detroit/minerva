@@ -173,9 +173,6 @@ pub enum EventUpdate {
     Warning(String, Option<ItemPair>),
 }
 
-// Reexport the event update type variants
-pub use self::EventUpdate::{Broadcast, Current, Error, Save, Status, Update, Warning};
-
 // Implement displaying that shows detail of the event update
 impl fmt::Display for EventUpdate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
