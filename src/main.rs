@@ -23,6 +23,7 @@
 extern crate serde;
 
 // Define program modules
+#[macro_use]
 mod definitions;
 mod system_interface;
 #[macro_use]

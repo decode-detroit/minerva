@@ -25,7 +25,8 @@
 //! may become completely incompatible in the furture.
 
 // Import the relevant structures into the correct namespace
-use super::{EventConnection, ItemId, ReadResult};
+use crate::definitions::ItemId;
+use super::{EventConnection, ReadResult};
 
 // Import standard library modules and traits
 use std::io::{Cursor, Read, Write};

@@ -20,12 +20,6 @@
 //! to the application window.
 
 // Reexport the key structures and types
-pub use self::event_handler::event::{
-    DataType, EventAction, EventDelay, Event, EventUpdate, UpcomingEvent,
-};
-pub use self::event_handler::{
-    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
-};
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 #[cfg(feature = "media-out")]
 pub use self::system_connection::VideoStream;
@@ -41,9 +35,11 @@ mod system_connection;
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
     DisplayControl, DisplayDebug, DisplayType, DisplayWith, Hidden, ItemDescription,
-    ItemId, ItemPair, LabelControl, LabelHidden,
+    ItemId, ItemPair, LabelControl, LabelHidden, DataType, EventAction, EventDelay,
+    Event, EventUpdate, UpcomingEvent, ComingEvent, DescriptiveScene, FullStatus, KeyMap, Scene,
+    StatusDescription, Status,
 };
-use self::event_handler::{ComingEvent, EventHandler};
+use self::event_handler::EventHandler;
 use self::system_connection::SystemConnection;
 
 // Import standard library features

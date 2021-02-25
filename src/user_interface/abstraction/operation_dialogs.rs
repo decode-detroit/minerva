@@ -20,7 +20,7 @@
 
 
 // Import the relevant structures into the correct namespace
-use super::super::super::system_interface::{
+use crate::definitions::{
     BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
     ItemPair, KeyMap, ProcessEvent, CueEvent, ReplyType, Request, RequestType,
     SceneChange, StatusChange, StatusDescription, SyncSystemSend,

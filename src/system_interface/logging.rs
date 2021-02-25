@@ -22,8 +22,7 @@
 //! readable format and returned to higher-level modules.
 
 // Import the relevant structures into the correct namespace
-use super::event_handler::event::EventUpdate;
-use super::{GeneralUpdate, InterfaceUpdate, ItemPair, UpdateStatus};
+use crate::definitions::{EventUpdate, GeneralUpdate, InterfaceUpdate, ItemPair, UpdateStatus};
 
 // Import standard library modules
 use std::fmt;

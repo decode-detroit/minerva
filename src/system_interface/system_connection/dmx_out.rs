@@ -22,7 +22,8 @@
 //! This module is currently limited to Enttec DMX USB Pro compatible hardware.
 
 // Import the relevant structures into the correct namespace
-use super::{EventConnection, ItemId, ReadResult};
+use crate::definitions::ItemId;
+use super::{EventConnection, ReadResult};
 
 // Import standard library features
 use std::io::Write;

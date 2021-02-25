@@ -21,9 +21,9 @@
 //! sends any updates to the application window through gtk widgets.
 
 // Import the relevant structures into the correct namespace
-use super::super::super::system_interface::{
-    AllStop, Current, Error, InterfaceUpdate, LaunchWindow, Notification, SyncSystemSend,
-    Update, Warning, WindowType,
+use crate::definitions::{
+    AllStop, Current, Error, InterfaceUpdate, LaunchWindow, Notification, SyncSystemSend, Update,
+    Warning, WindowType,
 };
 use super::super::utils::clean_text;
 use super::{LARGE_FONT, SMALL_FONT};

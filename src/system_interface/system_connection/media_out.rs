@@ -18,8 +18,8 @@
 //! A module to load and play video and audio files on this device
 
 // Import the relevant structures into the correct namespace
+use crate::definitions::{ItemId, GeneralUpdate};
 use super::{EventConnection, ItemId, ReadResult};
-use super::GeneralUpdate;
 
 // Import standard library features
 #[cfg(feature = "media-out")]

@@ -23,28 +23,7 @@
 //! facilitate the storage of the status and the current state of that status.
 
 // Import the relevant structures into the correct namespace
-use super::super::super::GeneralUpdate;
-use super::super::event::EventUpdate;
-use super::super::item::{ItemId, ItemPair};
-
-// Import FNV HashMap
-use fnv::FnvHashMap;
-
-/// A type to store a hashmap of status ids and status descriptions
-///
-pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and status pairs
-
-/// A type to store a vector of status ids and status descriptions
-/// 
-/// # FIXME
-/// This intermediary should be eliminated and the UI should call for this
-/// information as needed.
-///
-pub type PartialStatus = FnvHashMap<ItemId, StatusPartialDescription>; // a hash map of status ids and status descriptions
-
-/// A type to store a vector of status ids and status descriptions
-///
-pub type FullStatus = FnvHashMap<ItemPair, StatusDescription>; // a hash map of status id pairs and status description pairs
+use crate::definitions::{GeneralUpdate, ItemDescription, ItemId, ItemPair, StatusMap, PartialStatus, FullStatus};
 
 /// A structure which holds the local status and manages any state changes.
 ///
@@ -242,6 +221,7 @@ impl StatusHandler {
     }
 }
 
+<<<<<<< Updated upstream
 /// An enum to hold all status variants.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
@@ -448,6 +428,8 @@ pub struct StatusDescription {
     pub allowed: Vec<ItemPair>,
 }
 
+=======
+>>>>>>> Stashed changes
 // Tests of the status module
 #[cfg(test)]
 mod tests {

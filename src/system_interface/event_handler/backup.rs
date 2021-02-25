@@ -23,8 +23,7 @@
 //! WARNING: This module assumes no authorized systems/operators are compromised.
 
 // Import the relevant structures into the correct namespace
-use super::super::GeneralUpdate;
-use super::{ComingEvent, EventUpdate, ItemId, Identifier};
+use crate::definitions::{ComingEvent, EventUpdate, ItemId, Identifier, GeneralUpdate};
 
 // Import standard library features
 use std::time::Duration;

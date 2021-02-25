@@ -18,7 +18,8 @@
 //! A module to communicate using a ZMQ connection
 
 // Import the relevant structures into the correct namespace
-use super::{EventConnection, ItemId, ReadResult};
+use crate::definitions::ItemId;
+use super::{EventConnection, ReadResult};
 
 // Import standard library features
 use std::path::PathBuf;

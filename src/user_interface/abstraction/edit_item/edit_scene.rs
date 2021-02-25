@@ -20,7 +20,7 @@
 //! from the edit screen.
 
 // Import the relevant structures into the correct namespace
-use super::super::super::super::system_interface::{
+use crate::definitions::{
     DescriptiveScene, ItemId, ItemPair, Scene,
 };
 

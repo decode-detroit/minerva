@@ -22,16 +22,7 @@
 //! of the program.
 
 // Reexport the key structures and types
-pub use self::config::{
-    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, StatusDescription,
-    Status
-};
 pub use self::queue::ComingEvent;
-
-// Define public submodules
-pub mod item;
-#[macro_use]
-pub mod event;
 
 // Define private submodules
 mod backup;
@@ -39,16 +30,16 @@ mod config;
 mod queue;
 
 // Import the relevant structures into the correct namespace
-use self::backup::BackupHandler;
-use self::config::Config;
-use self::event::{
+use crate::definitions::{
     CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, SelectEvent,
     ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
+    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, StatusDescription,
+    Status, GeneralUpdate, InterfaceUpdate,
 };
-use self::item::{ItemDescription, ItemId, ItemPair};
+use self::backup::BackupHandler;
+use self::config::Config;
 use self::queue::Queue;
 use super::system_connection::ConnectionSet;
-use super::{GeneralUpdate, InterfaceUpdate};
 
 // Import standard library modules
 use std::fs::File;

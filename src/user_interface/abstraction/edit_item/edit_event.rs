@@ -20,7 +20,7 @@
 //! from the edit screen.
 
 // Import the relevant structures into the correct namespace
-use super::super::super::super::system_interface::{
+use crate::definitions::{
     DataType, DisplayComponent, EditActionElement, EventAction, Event, EventDelay,
     ItemId, ItemPair, Request, RequestType, Status, SyncSystemSend,
 };

@@ -21,9 +21,9 @@
 //! the application window through gtk widgets.
 
 // Import the relevant structures into the correct namespace
-use super::super::system_interface::{
-    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode, ErrorLog,
-    GameLog, InterfaceUpdate, LaunchWindow, SaveConfig, SyncSystemSend, WindowType,
+use crate::definitions::{
+    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode, ErrorLog, GameLog,
+    InterfaceUpdate, LaunchWindow, SaveConfig, SyncSystemSend, WindowType,
 };
 
 // Import standard library features

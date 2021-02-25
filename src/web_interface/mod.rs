@@ -19,7 +19,7 @@
 //! system interface. This module links directly to the system interface.
 
 // Import the relevant structures into the correct namespace
-use super::system_interface::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting, WindowType, Notification, UpcomingEvent, SystemSend, WebRequest};
+use crate::definitions::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting, WindowType, Notification, UpcomingEvent, SystemSend, WebRequest};
 
 // Import tokio and warp modules
 use tokio::sync::{mpsc, oneshot};

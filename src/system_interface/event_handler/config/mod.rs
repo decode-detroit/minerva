@@ -20,20 +20,17 @@
 //! program.
 
 // Reexport the key structures and types
-pub use self::status::{FullStatus, StatusDescription, Status};
+use crate::definitions::{Hidden, ItemDescription, ItemId, ItemPair, CancelEvent, Event,
+    EventUpdate, SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
+    FullStatus, StatusMap, StatusDescription, Status, ChangeSettings, DisplaySetting,
+    GeneralUpdate, InterfaceUpdate, DescriptiveScene};
 
 // Define private submodules
 mod status;
 
 // Import the relevant structures into the correct namespace
-use self::status::{StatusHandler, StatusMap};
+use self::status::StatusHandler;
 use super::super::system_connection::ConnectionSet;
-use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
-use super::event::{
-    CancelEvent, Event, EventUpdate, SelectEvent, ModifyStatus, NewScene, CueEvent,
-    SaveData, SendData,
-};
-use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 
 // Import standard library features
 use std::fmt;
@@ -74,28 +71,6 @@ impl fmt::Display for Identifier {
             _ => write!(f, "default"),
         }
     }
-}
-
-/// Define the itemid and itempair definition of a key map
-///
-type KeyMapId = FnvHashMap<u32, ItemId>;
-pub type KeyMap = FnvHashMap<u32, ItemPair>;
-
-/// A structure to define the parameters of a scene
-///
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub struct Scene {
-    pub events: FnvHashSet<ItemId>, // hash set of the events in this scene
-    pub key_map: Option<KeyMapId>,  // an optional mapping of key codes to events
-}
-
-/// A structure to define the parameters of a scene, storing the ItemPairs
-/// as opposed to only ItemIds
-///
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub struct DescriptiveScene {
-    pub events: Vec<ItemPair>,     // a vector of the events and descriptions in this scene
-    pub key_map: Option<FnvHashMap<u32, ItemPair>>,  // an optional mapping of event ids to key codes
 }
 
 /// A struct to define the elements of a background process

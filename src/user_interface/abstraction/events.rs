@@ -21,7 +21,7 @@
 //! sends any updates to the application window through gtk widgets.
 
 // Import the relevant structures into the correct namespace
-use super::super::super::system_interface::{
+use crate::definitions::{
     EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription, ItemId,
     ItemPair, LabelControl, LaunchWindow, ProcessEvent, StatusDescription, SyncSystemSend, WindowType,
 };

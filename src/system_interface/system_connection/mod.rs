@@ -33,14 +33,11 @@ mod media_out;
 mod zmq_comm;
 
 // Import the relevant structures into the correct namespace
+use crate::definitions::{ItemId, EventUpdate, Identifier, GeneralUpdate};
 use self::comedy_comm::ComedyComm;
 use self::dmx_out::{DmxOut, DmxFade, DmxMap};
 use self::zmq_comm::{ZmqBind, ZmqConnect};
 use self::media_out::{MediaOut, MediaCue, MediaMap, ChannelMap};
-use super::event_handler::Identifier;
-use super::event_handler::event::EventUpdate;
-use super::event_handler::item::ItemId;
-use super::GeneralUpdate;
 
 // Import standard library modules and traits
 use std::path::PathBuf;

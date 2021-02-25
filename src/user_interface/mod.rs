@@ -30,7 +30,7 @@ mod menu;
 // Import the relevant structures into the correct namespace
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
-use super::system_interface::{
+use crate::definitions::{
     ChangeSettings, DebugMode, DisplayComponent, DisplaySetting, EditMode, InterfaceUpdate,
     LaunchWindow, Notify, Redraw, Reply, SyncSystemSend, SystemUpdate, UpdateConfig,
     UpdateNotifications, UpdateStatus, UpdateTimeline, UpdateWindow, WindowType,

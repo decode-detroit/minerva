@@ -36,7 +36,7 @@ use self::operation_dialogs::{
 #[cfg(feature = "media-out")]
 use self::operation_dialogs::VideoWindow;
 use self::timeline::TimelineAbstraction;
-use super::super::system_interface::{
+use crate::definitions::{
     DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair,
     KeyMap, Notification, ReplyType, StatusDescription, SyncSystemSend, UpcomingEvent,
 };

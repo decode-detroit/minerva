@@ -29,7 +29,7 @@ mod edit_status;
 use self::edit_event::EditEvent;
 use self::edit_scene::EditScene;
 use self::edit_status::EditStatus;
-use super::super::super::system_interface::{
+use crate::definitions::{
     DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EditItemElement,
     Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
     LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType, Status,

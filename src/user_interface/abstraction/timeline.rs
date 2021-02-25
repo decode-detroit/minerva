@@ -21,9 +21,9 @@
 //! to the application window through gtk widgets.
 
 // Import the relevant structures into the correct namespace
-use super::super::super::system_interface::{
-    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair,
-    LabelControl, LabelHidden, SyncSystemSend, UpcomingEvent,
+use crate::definitions::{
+    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair, LabelControl,
+    LabelHidden, SyncSystemSend, UpcomingEvent,
 };
 use super::super::super::FONT;
 use super::super::utils::clean_text;

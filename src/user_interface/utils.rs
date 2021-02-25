@@ -19,9 +19,9 @@
 //! creating and updating the user interface.
 
 // Import the relevant structures into the correct namespace
-use super::super::system_interface::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, FullStatus, Hidden,
-    ItemDescription, ItemPair, LabelControl, LabelHidden, StatusDescription,
+use crate::definitions::{
+    DisplayControl, DisplayDebug, DisplayType, DisplayWith, FullStatus, Hidden, ItemDescription,
+    ItemPair, LabelControl, LabelHidden, StatusDescription,
 };
 
 // Import standard library features
