@@ -21,9 +21,9 @@
 
 // Reexport the key structures and types
 use crate::definitions::{Hidden, ItemDescription, ItemId, ItemPair, CancelEvent, Event,
-    EventUpdate, SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
+    SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
     FullStatus, StatusMap, StatusDescription, Status, ChangeSettings, DisplaySetting,
-    GeneralUpdate, InterfaceUpdate, DescriptiveScene, Scene};
+    GeneralUpdate, InterfaceUpdate, DescriptiveScene, Scene, KeyMap, Identifier};
 
 // Define private submodules
 mod status;
@@ -33,7 +33,6 @@ use self::status::StatusHandler;
 use super::super::system_connection::ConnectionSet;
 
 // Import standard library features
-use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -52,26 +51,6 @@ use fnv::FnvHashMap;
 
 // Import YAML processing library
 use serde_yaml;
-
-/// Define the instance identifier. Instances with the same identifier will trigger
-/// events with one another; instances with different identifiers will not.
-/// If no identifier is specified, this instance will accept all events and
-/// produce events with the identifier 0.
-///
-#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
-pub struct Identifier {
-  pub id: Option<u32>,  // An optionally-specified identifier for this instance
-}
-
-// Implement display for identifier
-impl fmt::Display for Identifier {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.id {
-            &Some(ref id) => write!(f, "{}", id),
-            _ => write!(f, "default"),
-        }
-    }
-}
 
 /// A struct to define the elements of a background process
 ///

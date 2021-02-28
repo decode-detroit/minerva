@@ -22,7 +22,7 @@
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
     DataType, DisplayComponent, EditActionElement, EventAction, Event, EventDelay,
-    ItemId, ItemPair, Request, RequestType, Status, SyncSystemSend,
+    ItemId, ItemPair, RequestType, Status, SyncSystemSend, SystemUpdate,
 };
 
 // Import standard library features
@@ -891,7 +891,7 @@ impl EditNewScene {
         }
 
         // Request the description associated with the id
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement { is_left: self.is_left, variant: EditActionElement::EditNewScene },
             request: RequestType::Description { item_id: new_scene.clone() },
         });
@@ -971,7 +971,7 @@ impl EditModifyStatus {
                 }
 
                 // Request the state data associated with the status
-                system_send.send(Request {
+                system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left,
                         variant: EditActionElement::EditModifyStatus { is_status: false }
@@ -1049,7 +1049,7 @@ impl EditModifyStatus {
         }
 
         // Request the description associated with the status
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditModifyStatus { is_status: true }
@@ -1058,7 +1058,7 @@ impl EditModifyStatus {
         });
 
         // Request the state data associated with the status
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditModifyStatus { is_status: false }
@@ -1074,7 +1074,7 @@ impl EditModifyStatus {
         if let Some(status) = status {
             // Go through each allowed state and request its description
             for state_id in status.allowed().drain(..) {
-                self.system_send.send(Request {
+                self.system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditModifyStatus { is_status: false }
@@ -1239,7 +1239,7 @@ impl EditCueEvent {
         }
 
         // Request the description associated with the event id
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditCueEvent,
@@ -1387,7 +1387,7 @@ impl EditCancelEvent {
         }
 
         // Request the description associated with the id
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditCancelEvent
@@ -1604,7 +1604,7 @@ impl EditSaveData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(Request {
+                self.system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSaveData
@@ -1627,7 +1627,7 @@ impl EditSaveData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(Request {
+                self.system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSaveData
@@ -1924,7 +1924,7 @@ impl EditSendData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(Request {
+                self.system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSendData
@@ -1947,7 +1947,7 @@ impl EditSendData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(Request {
+                self.system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSendData
@@ -2111,7 +2111,7 @@ impl EditSelectEvent {
                 }));
 
                 // Send a request to get the data associated with the status
-                system_send.send(Request {
+                system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::SelectEventStates },
                     request: RequestType::Status { item_id: item_pair.get_id(), },
                 });
@@ -2165,7 +2165,7 @@ impl EditSelectEvent {
         self.clear();
 
         // Send the request to update the status description
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription { position: None, is_event: false } },
@@ -2265,7 +2265,7 @@ impl EditSelectEvent {
         }
 
         // Request the event description
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription{
@@ -2277,7 +2277,7 @@ impl EditSelectEvent {
         });
 
         // Request the state description
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription{

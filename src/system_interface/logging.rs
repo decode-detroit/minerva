@@ -22,117 +22,19 @@
 //! readable format and returned to higher-level modules.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{EventUpdate, GeneralUpdate, InterfaceUpdate, ItemPair, UpdateStatus};
+use crate::definitions::{EventUpdate, GeneralUpdate, InterfaceUpdate, UpdateStatus, Notification};
 
 // Import standard library modules
-use std::fmt;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::mpsc;
 
+// Import the chrono library
+use chrono::{Local, Duration};
+
 // Import the failure features
 use failure::Error as FailureError;
-
-// Import the chrono library
-use chrono::{Duration, Local, NaiveDateTime};
-
-/// An enum to contain system notifications in different types.
-///
-/// This notification type mirrors the event update type, but is only allowed
-/// to contain strings for display to the user and the system time of the
-/// notification (no other types, as in event update). This type also omits
-/// several of the variants described in the event update as they are not
-/// needed to be displayed to the user.
-///
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub enum Notification {
-    /// An error type of notification
-    Error {
-        message: String,
-        time: NaiveDateTime,
-        event: Option<ItemPair>,
-    },
-
-    /// A warning type of notification
-    Warning {
-        message: String,
-        time: NaiveDateTime,
-        event: Option<ItemPair>,
-    },
-
-    /// A current event type of notification
-    Current { message: String, time: NaiveDateTime },
-
-    /// Any other type of system update
-    Update { message: String, time: NaiveDateTime },
-}
-
-// Reexport the notification type variants
-pub use self::Notification::{Current, Error, Update, Warning};
-
-// Implement key features for the Notification type
-impl Notification {
-    /// A function to return a copy of the time inside the notification,
-    /// regardless of variant.
-    ///
-    pub fn time(&self) -> NaiveDateTime {
-        match self {
-            // For every variant type, return a copy of the message
-            &Error { ref time, .. } => time.clone(),
-            &Warning { ref time, .. } => time.clone(),
-            &Current { ref time, .. } => time.clone(),
-            &Update { ref time, .. } => time.clone(),
-        }
-    }
-}
-
-// Implement the display formatting for notifications.
-impl fmt::Display for Notification {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            // For every variant type, combine the message and notification time
-            &Error {
-                ref message,
-                ref time,
-                ..
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
-            &Warning {
-                ref message,
-                ref time,
-                ..
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
-            &Current {
-                ref message,
-                ref time,
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
-            &Update {
-                ref message,
-                ref time,
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
-        }
-    }
-}
 
 /// A structure to handle all logging and update processing for the program.
 ///
@@ -296,7 +198,7 @@ impl Logger {
                     
                     // Post a message on error
                     ) {
-                        return Error {
+                        return Notification::Error {
                             message: "Unable To Write To Error Log.".to_string(),
                             time: now,
                             event: None,
@@ -305,7 +207,7 @@ impl Logger {
 
                 // Warn that there is no file
                 } else {
-                    return Warning {
+                    return Notification::Warning {
                         message: "No Active Error Log.".to_string(),
                         time: now,
                         event: None,
@@ -313,7 +215,7 @@ impl Logger {
                 }
 
                 // Return the error either way
-                Error {
+                Notification::Error {
                     message: error,
                     time: now,
                     event,
@@ -321,12 +223,12 @@ impl Logger {
             }
 
             // Simply display warnings and updates
-            EventUpdate::Warning(warning, event) => Warning {
+            EventUpdate::Warning(warning, event) => Notification::Warning {
                 message: warning,
                 time: now,
                 event,
             },
-            EventUpdate::Update(update) => Update {
+            EventUpdate::Update(update) => Notification::Update {
                 message: update,
                 time: now,
             },
@@ -337,7 +239,7 @@ impl Logger {
                 self.general_update.send_broadcast(id.get_id(), data).await;
 
                 // Send a current update with the item pair
-                Current {
+                Notification::Current {
                     message: format!("{}", id),
                     time: now,
                 }
@@ -346,7 +248,7 @@ impl Logger {
             // Notify of current events and display them
             EventUpdate::Current(id) => {
                 // Send a current update with the item pair
-                Current {
+                Notification::Current {
                     message: format!("{}", id),
                     time: now,
                 }
@@ -363,7 +265,7 @@ impl Logger {
                     .unwrap_or(());
 
                 // Return the notification
-                Update {
+                Notification::Update {
                     message: format!(
                         "Changing {} To {}.",
                         status_id.description, new_state.description
@@ -387,7 +289,7 @@ impl Logger {
                     
                     // Post a message on error
                     ) {
-                        return Error {
+                        return Notification::Error {
                             message: "Unable To Write To Game Log.".to_string(),
                             time: now,
                             event: None,
@@ -396,7 +298,7 @@ impl Logger {
 
                 // Warn that there is no file
                 } else {
-                    return Warning {
+                    return Notification::Warning {
                         message: "No Active Game Log.".to_string(),
                         time: now,
                         event: None,
@@ -404,7 +306,7 @@ impl Logger {
                 }
 
                 // Print the full data to the notification area
-                Update {
+                Notification::Update {
                     message: format!("Recorded: {}", data),
                     time: now,
                 }

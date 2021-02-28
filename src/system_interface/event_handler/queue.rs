@@ -21,7 +21,7 @@
 //! that events with a longer delay always arrive later than earlier events.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, EventDelay, EventUpdate, ComingEvent, GeneralUpdate};
+use crate::definitions::{ItemId, EventDelay, ComingEvent, GeneralUpdate};
 
 // Import other standard library features
 use std::time::Duration;
@@ -582,8 +582,7 @@ mod tests {
     #[test]
     fn run_queue() {
         // Import libraries for testing
-        use super::super::super::GeneralUpdate;
-        use super::super::super::GeneralUpdateType;
+        use crate::definitions::{GeneralUpdate, GeneralUpdateType, SystemUpdate};
         use std::time::Duration;
 
         // Create a channel for receiving messages from the queue
@@ -616,11 +615,11 @@ mod tests {
 
         // Create the test vector
         let test = vec![
-            GeneralUpdateType::Event(ItemId::new_unchecked(20)),
-            GeneralUpdateType::Event(ItemId::new_unchecked(40)),
-            GeneralUpdateType::Event(ItemId::new_unchecked(60)),
-            GeneralUpdateType::Event(ItemId::new_unchecked(80)),
-            GeneralUpdateType::Event(ItemId::new_unchecked(100)),
+            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(20), check_scene: true, broadcast: true }),
+            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(40), check_scene: true, broadcast: true }),
+            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(60), check_scene: true, broadcast: true }),
+            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(80), check_scene: true, broadcast: true }),
+            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(100), check_scene: true, broadcast: true }),
         ];
 
         // Print and check the messages received (wait at most half a second)

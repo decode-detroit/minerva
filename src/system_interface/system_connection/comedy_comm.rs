@@ -392,7 +392,7 @@ impl EventConnection for ComedyComm {
     }
 }
 
-// Tests of the CmdMessenger module
+// Tests of the Comedy Comm module
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -405,7 +405,7 @@ mod tests {
         use std::time::Duration;
 
         // Create a new CmdMessenger instance
-        if let Some(mut cc) = ComedyComm::new(&PathBuf::from("/dev/ttyACM0"), 115200, 100) {
+        if let Ok(mut cc) = ComedyComm::new(&PathBuf::from("/dev/ttyACM0"), 115200, 100) {
             // Wait for the Arduino to boot
             thread::sleep(Duration::from_secs(3));
 
@@ -419,16 +419,21 @@ mod tests {
             thread::sleep(Duration::from_secs(1));
 
             // Read a response
-            for (id, data1, data2) in cc.read_events() {
-                // Verify that it is correct
-                assert_eq!(id, id_ref);
-                assert_eq!(data1, data1_ref);
-                assert_eq!(data2, data2_ref);
+            for result in cc.read_events() {
+                if let ReadResult::Normal(id, data1, data2) = result {
+                    // Verify that it is correct
+                    assert_eq!(id, id_ref);
+                    assert_eq!(data1, data1_ref);
+                    assert_eq!(data2, data2_ref);
+                
+                } else {
+                    panic!("Read error in the Commedy Comm")
+                }
             }
 
         // Indicate failure
         } else {
-            panic!("Could not initialize the Command Messenger.");
+            panic!("Could not initialize the Commedy Comm.");
         }
     }
 }

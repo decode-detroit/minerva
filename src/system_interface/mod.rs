@@ -20,13 +20,10 @@
 //! to the application window.
 
 // Reexport the key structures and types
-pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
 #[cfg(feature = "media-out")]
 pub use self::system_connection::VideoStream;
 
 // Define private submodules
-#[macro_use]
-mod test;
 mod logging;
 #[macro_use]
 mod event_handler;
@@ -35,23 +32,21 @@ mod system_connection;
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
     DisplayControl, DisplayDebug, DisplayWith, ItemId, ItemPair, LabelControl,
-    EventUpdate, GeneralUpdate, GeneralUpdateType,
-    AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile, DebugMode, Edit,
-    ErrorLog, EventChange, GameLog, ProcessEvent, CueEvent, Redraw, Request, SaveConfig,
-    SceneChange, StatusChange,
+    GeneralUpdate, GeneralUpdateType, SystemSend, SystemUpdate, InterfaceUpdate,
+    WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply,
 };
 use self::event_handler::EventHandler;
 use self::system_connection::SystemConnection;
+use self::logging::Logger;
 
 // Import standard library features
 use std::env;
 use std::fs::DirBuilder;
 use std::path::PathBuf;
 use std::sync::mpsc as std_mpsc;
-use std::time::{Duration, Instant};
 
-// Import tokio features
-use tokio::sync::{mpsc, oneshot};
+// Import Tokio features
+use tokio::sync::mpsc;
 
 // Import the failure features
 use failure::Error as FailureError;
@@ -177,7 +172,7 @@ impl SystemInterface {
 
                     // Send the new events to the interface
                     self.interface_send
-                        .send(UpdateTimeline {
+                        .send(InterfaceUpdate::UpdateTimeline {
                             events: upcoming_events,
                         })
                         .unwrap_or(());
@@ -188,7 +183,7 @@ impl SystemInterface {
             Some(GeneralUpdateType::GetUserString(event)) => {
                 // Request the information from the user interface
                 self.interface_send
-                    .send(LaunchWindow {
+                    .send(InterfaceUpdate::LaunchWindow {
                         window_type: WindowType::PromptString(event),
                     })
                     .unwrap_or(());
@@ -218,7 +213,7 @@ impl SystemInterface {
 
                 // Send a notification update to the system
                 self.interface_send
-                    .send(UpdateNotifications { notifications })
+                    .send(InterfaceUpdate::UpdateNotifications { notifications })
                     .unwrap_or(());
             }
 
@@ -258,7 +253,7 @@ impl SystemInterface {
         // Unpack the different variant types
         match update {
             // Change the delay for all events in the queue
-            AllEventChange {
+            SystemUpdate::AllEventChange {
                 adjustment,
                 is_negative,
             } => {
@@ -273,7 +268,7 @@ impl SystemInterface {
             }
 
             // Handle the All Stop command which clears the queue and sends the "all stop" (a.k.a. emergency stop) command.
-            AllStop => {
+            SystemUpdate::AllStop => {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
@@ -290,7 +285,7 @@ impl SystemInterface {
 
                 // Notify the user interface of the event
                 self.interface_send
-                    .send(Notify {
+                    .send(InterfaceUpdate::Notify {
                         message: "ALL STOP. Upcoming events have been cleared.".to_string(),
                     })
                     .unwrap_or(());
@@ -299,20 +294,20 @@ impl SystemInterface {
             // Pass a broadcast event to the system connection (used only by
             // the user interface, not for internal messaging. See
             // GeneralUpdate::BroadcastEvent)
-            BroadcastEvent { event, data } => {
+            SystemUpdate::BroadcastEvent { event, data } => {
                 // Broadcast the event via the logger
                 update!(broadcast &mut self.general_update => event.clone(), data);
 
                 // Notify the user interface of the event
                 self.interface_send
-                    .send(Notify {
+                    .send(InterfaceUpdate::Notify {
                         message: event.description,
                     })
                     .unwrap_or(());
             }
 
             // Clear the events currently in the queue
-            ClearQueue => {
+            SystemUpdate::ClearQueue => {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
@@ -323,10 +318,10 @@ impl SystemInterface {
             }
 
             // Close the system interface thread.
-            Close => return false,
+            SystemUpdate::Close => return false,
 
             // Update the configuration provided to the underlying system
-            ConfigFile { filepath } => {
+            SystemUpdate::ConfigFile { filepath } => {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
@@ -340,13 +335,13 @@ impl SystemInterface {
             }
 
             // Swtich between normal mode and debug mode
-            DebugMode(mode) => {
+            SystemUpdate::DebugMode(mode) => {
                 // Switch the mode (redraw triggered by the user interface)
                 self.is_debug_mode = mode;
             }
 
             // Modify the underlying configuration
-            Edit { mut modifications } => {
+            SystemUpdate::Edit { mut modifications } => {
                 // Check to see if there is an active configuration
                 if let Some(mut handler) = self.event_handler.take() {
                     // Process each modification in order
@@ -396,7 +391,7 @@ impl SystemInterface {
             }
 
             // Change the remaining delay for an existing event in the queue
-            EventChange {
+            SystemUpdate::EventChange {
                 event_id,
                 start_time,
                 new_delay,
@@ -412,13 +407,13 @@ impl SystemInterface {
             }
 
             // Update the system log provided to the underlying system
-            ErrorLog { filepath } => self.logger.set_error_log(filepath),
+            SystemUpdate::ErrorLog { filepath } => self.logger.set_error_log(filepath),
 
             // Update the game log provided to the underlying system
-            GameLog { filepath } => self.logger.set_game_log(filepath),
+            SystemUpdate::GameLog { filepath } => self.logger.set_game_log(filepath),
 
             // Pass an event to the event_handler
-            ProcessEvent {
+            SystemUpdate::ProcessEvent {
                 event,
                 check_scene,
                 broadcast,
@@ -430,7 +425,7 @@ impl SystemInterface {
                         // Notify the user interface of the event
                         let description = handler.get_description(&event);
                         self.interface_send
-                            .send(Notify {
+                            .send(InterfaceUpdate::Notify {
                                 message: description.description,
                             })
                             .unwrap_or(());
@@ -446,7 +441,7 @@ impl SystemInterface {
             }
 
             // Cue an event
-            CueEvent { event_delay } => {
+            SystemUpdate::CueEvent { event_delay } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Cue the event
@@ -462,7 +457,7 @@ impl SystemInterface {
             }
 
             // Redraw the current window
-            Redraw => {
+            SystemUpdate::Redraw => {
                 // Try to redraw the current window
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
@@ -474,7 +469,7 @@ impl SystemInterface {
 
                     // Send the update with the new event window
                     self.interface_send
-                        .send(UpdateWindow {
+                        .send(InterfaceUpdate::UpdateWindow {
                             current_scene: handler.get_current_scene(),
                             window,
                             statuses,
@@ -485,7 +480,7 @@ impl SystemInterface {
             }
 
             // Reply to the request for information
-            Request { reply_to, request } => {
+            SystemUpdate::Request { reply_to, request } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Match the type of information request
@@ -573,7 +568,7 @@ impl SystemInterface {
             }
 
             // Save the current configuration to the provided file
-            SaveConfig { filepath } => {
+            SystemUpdate::SaveConfig { filepath } => {
                 // Extract the current event handler (if it exists)
                 if let Some(mut handler) = self.event_handler.take() {
                     // Save the current configuration
@@ -585,7 +580,7 @@ impl SystemInterface {
             }
 
             // Change the current scene based on the provided id and get a list of available events
-            SceneChange { scene } => {
+            SystemUpdate::SceneChange { scene } => {
                 // Change the current scene, if event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Change the current scene (automatically triggers a redraw)
@@ -597,7 +592,7 @@ impl SystemInterface {
             }
 
             // Change the state of a particular status
-            StatusChange { status_id, state } => {
+            SystemUpdate::StatusChange { status_id, state } => {
                 // Change the status, if event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Change the state of the indicated status
@@ -609,7 +604,7 @@ impl SystemInterface {
             }
             
             // Trigger and event from the web FIXME mostly a duplicate of process event
-            WebRequest { item_id, reply_line } => {
+            SystemUpdate::WebRequest { item_id, reply_line } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Try to process the event
@@ -664,7 +659,7 @@ impl SystemInterface {
 
         // Send the newly available scenes and full status to the user interface
         self.interface_send
-            .send(UpdateConfig {
+            .send(InterfaceUpdate::UpdateConfig {
                 scenes: event_handler.get_scenes(),
                 full_status: event_handler.get_full_status(),
             })

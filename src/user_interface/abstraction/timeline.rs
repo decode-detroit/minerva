@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    AllEventChange, DisplayControl, DisplayDebug, DisplayWith, EventChange, ItemPair, LabelControl,
-    LabelHidden, SyncSystemSend, UpcomingEvent,
+    DisplayControl, DisplayDebug, DisplayWith, ItemPair, LabelControl,
+    LabelHidden, SyncSystemSend, UpcomingEvent, SystemUpdate,
 };
 use super::super::super::FONT;
 use super::super::utils::clean_text;
@@ -277,7 +277,7 @@ impl TimelineAdjustment {
                         let adjustment = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
 
                         // Send an all event update to the system
-                        system_send.send(AllEventChange {
+                        system_send.send(SystemUpdate::AllEventChange {
                             adjustment,
                             is_negative: cancel_checkbox.get_active(),
                         });
@@ -287,7 +287,7 @@ impl TimelineAdjustment {
                         // If the event was selected to be canceled
                         if cancel_checkbox.get_active() {
                             // Send an event update to the system
-                            system_send.send(EventChange {
+                            system_send.send(SystemUpdate::EventChange {
                                 event_id: event.event.get_id(),
                                 start_time: event.start_time.clone(),
                                 new_delay: None,
@@ -300,7 +300,7 @@ impl TimelineAdjustment {
                             new_delay += event.start_time.elapsed();
 
                             // Send an event update to the system
-                            system_send.send(EventChange {
+                            system_send.send(SystemUpdate::EventChange {
                                 event_id: event.event.get_id(),
                                 start_time: event.start_time.clone(),
                                 new_delay: Some(new_delay),

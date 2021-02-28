@@ -17,10 +17,34 @@
 
 //! This module implements the scene structure for grouping events.
 
+// Import the relevant structures into the correct namespace
 use crate::definitions::{ItemId, ItemPair};
+
+// Import standard library features
+use std::fmt;
 
 // Import FNV HashMap and HashSet
 use fnv::{FnvHashMap, FnvHashSet};
+
+/// Define the instance identifier. Instances with the same identifier will trigger
+/// events with one another; instances with different identifiers will not.
+/// If no identifier is specified, this instance will accept all events and
+/// produce events with the identifier 0.
+///
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct Identifier {
+  pub id: Option<u32>,  // An optionally-specified identifier for this instance
+}
+
+// Implement display for identifier
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.id {
+            &Some(ref id) => write!(f, "{}", id),
+            _ => write!(f, "default"),
+        }
+    }
+}
 
 /// Define the itemid and itempair definition of a key map
 ///

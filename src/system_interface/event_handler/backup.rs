@@ -23,7 +23,7 @@
 //! WARNING: This module assumes no authorized systems/operators are compromised.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{ComingEvent, EventUpdate, ItemId, Identifier, GeneralUpdate};
+use crate::definitions::{ComingEvent, ItemId, Identifier, GeneralUpdate};
 
 // Import standard library features
 use std::time::Duration;
@@ -139,7 +139,7 @@ impl BackupHandler {
             // Try to copy the current scene to the server
             let result: RedisResult<bool> = connection.set(
                 &format!("{}:current", self.identifier),
-                &current_scene.as_string(),
+                &format!("{}", current_scene.id()),
             );
 
             // Unpack the result from the operation
@@ -177,7 +177,7 @@ impl BackupHandler {
             let result: RedisResult<bool>;
             result = connection.set(
                 &format!("{}:{}", self.identifier, status_id),
-                &new_state.as_string(),
+                &format!("{}", new_state.id()),
             );
 
             // Warn that the particular status was not set

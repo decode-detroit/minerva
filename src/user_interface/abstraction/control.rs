@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    AllStop, Current, Error, InterfaceUpdate, LaunchWindow, Notification, SyncSystemSend, Update,
-    Warning, WindowType,
+    Current, Error, InterfaceUpdate, LaunchWindow, Notification, SyncSystemSend, Update,
+    Warning, WindowType, SystemUpdate,
 };
 use super::super::utils::clean_text;
 use super::{LARGE_FONT, SMALL_FONT};
@@ -159,7 +159,7 @@ impl ControlAbstraction {
         all_stop_confirm.connect_clicked(clone!(system_send, stop_stack => move |_| {
 
             // Send the all stop and close the confirmation
-            system_send.send(AllStop);
+            system_send.send(SystemUpdate::AllStop);
             stop_stack.set_visible_child_full("button", gtk::StackTransitionType::SlideDown);
         }));
 

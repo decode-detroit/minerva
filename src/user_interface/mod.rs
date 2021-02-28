@@ -31,8 +31,8 @@ mod menu;
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
 use crate::definitions::{
-    ChangeSettings, DebugMode, DisplayComponent, DisplaySetting, EditMode, InterfaceUpdate,
-    LaunchWindow, Notify, Redraw, Reply, SyncSystemSend, SystemUpdate, UpdateConfig,
+    ChangeSettings, DisplayComponent, DisplaySetting, EditMode, InterfaceUpdate,
+    LaunchWindow, Notify, Reply, SyncSystemSend, SystemUpdate, UpdateConfig,
     UpdateNotifications, UpdateStatus, UpdateTimeline, UpdateWindow, WindowType,
 };
 
@@ -106,13 +106,6 @@ impl UserInterface {
         user_interface
     }
 
-    /// A method to try to send a system update to the rest of the system. This
-    /// method ignores a failed send.
-    ///
-    pub fn send(&self, update: SystemUpdate) {
-        self.system_send.send(update);
-    }
-
     /// A method to listen for modifications to the user interface.
     ///
     /// This method listens on the provided interface_update line for any changes
@@ -173,8 +166,8 @@ impl UserInterface {
 
                             // Update the interface and trigger a redraw.
                             interface.select_debug(is_debug);
-                            self.send(DebugMode(is_debug));
-                            self.send(Redraw);
+                            self.system_send.send(SystemUpdate::DebugMode(is_debug));
+                            self.system_send.send(SystemUpdate::Redraw);
                         }
 
                         // Change the font size of the display
@@ -184,7 +177,7 @@ impl UserInterface {
 
                             // Update the interface and trigger a redraw
                             interface.select_font(is_large);
-                            self.send(Redraw);
+                            self.system_send.send(SystemUpdate::Redraw);
                         }
 
                         // Change the color mode of the display
@@ -194,7 +187,7 @@ impl UserInterface {
 
                             // Update the interface and trigger a redraw
                             interface.select_contrast(is_hc);
-                            self.send(Redraw);
+                            self.system_send.send(SystemUpdate::Redraw);
                         }
                     }
                 }

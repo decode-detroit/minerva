@@ -21,9 +21,6 @@
 //! events. This module also processes the events and sends updtes to the rest
 //! of the program.
 
-// Reexport the key structures and types
-pub use self::queue::ComingEvent;
-
 // Define private submodules
 mod backup;
 mod config;
@@ -31,17 +28,17 @@ mod queue;
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    ItemId, CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, SelectEvent,
+    ItemId, CancelEvent, DataType, EventAction, EventDelay, Event, SelectEvent,
     ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
-    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene,
-    Status, GeneralUpdate, InterfaceUpdate,
+    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, ItemPair,
+    Status, GeneralUpdate, InterfaceUpdate, ItemDescription, ComingEvent,
 };
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::queue::Queue;
 use super::system_connection::ConnectionSet;
 
-// Import standard library modules
+// Import standard library features
 use std::fs::File;
 use std::path::PathBuf;
 use std::sync::mpsc;

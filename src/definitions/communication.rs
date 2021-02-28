@@ -26,12 +26,16 @@ use crate::definitions::{
 #[cfg(feature = "media-out")]
 pub use self::system_connection::VideoStream;
 
-
 // Import standard library features
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
+use std::fmt;
 
+// Import Tokio features
+use tokio::sync::{mpsc, oneshot};
+
+// Import Chrono features
+use chrono::NaiveDateTime;
 
 /// A struct to allow easier manipulation of coming events.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -75,11 +79,108 @@ impl ComingEvent {
     }
 }
 
+/// An enum to contain system notifications in different types.
+///
+/// This notification type mirrors the event update type, but is only allowed
+/// to contain strings for display to the user and the system time of the
+/// notification (no other types, as in event update). This type also omits
+/// several of the variants described in the event update as they are not
+/// needed to be displayed to the user.
+///
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum Notification {
+    /// An error type of notification
+    Error {
+        message: String,
+        time: NaiveDateTime,
+        event: Option<ItemPair>,
+    },
+
+    /// A warning type of notification
+    Warning {
+        message: String,
+        time: NaiveDateTime,
+        event: Option<ItemPair>,
+    },
+
+    /// A current event type of notification
+    Current { message: String, time: NaiveDateTime },
+
+    /// Any other type of system update
+    Update { message: String, time: NaiveDateTime },
+}
+
+// Reexport the notification type variants
+pub use self::Notification::{Current, Error, Update, Warning};
+
+// Implement key features for the Notification type
+impl Notification {
+    /// A function to return a copy of the time inside the notification,
+    /// regardless of variant.
+    ///
+    pub fn time(&self) -> NaiveDateTime {
+        match self {
+            // For every variant type, return a copy of the message
+            &Error { ref time, .. } => time.clone(),
+            &Warning { ref time, .. } => time.clone(),
+            &Current { ref time, .. } => time.clone(),
+            &Update { ref time, .. } => time.clone(),
+        }
+    }
+}
+
+// Implement the display formatting for notifications.
+impl fmt::Display for Notification {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            // For every variant type, combine the message and notification time
+            &Error {
+                ref message,
+                ref time,
+                ..
+            } => write!(
+                f,
+                "{}: {}",
+                time.format("%F %T"),
+                message
+            ),
+            &Warning {
+                ref message,
+                ref time,
+                ..
+            } => write!(
+                f,
+                "{}: {}",
+                time.format("%F %T"),
+                message
+            ),
+            &Current {
+                ref message,
+                ref time,
+            } => write!(
+                f,
+                "{}: {}",
+                time.format("%F %T"),
+                message
+            ),
+            &Update {
+                ref message,
+                ref time,
+            } => write!(
+                f,
+                "{}: {}",
+                time.format("%F %T"),
+                message
+            ),
+        }
+    }
+}
+
 /// An private enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
-enum GeneralUpdateType {
+#[derive(Debug)]
+pub enum GeneralUpdateType {
     /// A variant that broadcasts an event with the given item id. This event id
     /// is not processed or otherwise checked for validity. If data is provided,
     /// it will be broadcast with the event.
@@ -120,7 +221,7 @@ impl GeneralUpdate {
     ///
     pub fn new() -> (GeneralUpdate, mpsc::Receiver<GeneralUpdateType>) {
         // Create the new channel
-        let (general_send, receive) = mpsc::channel();
+        let (general_send, receive) = mpsc::channel(128);
 
         // Create and return both new items
         (GeneralUpdate { general_send }, receive)
@@ -148,7 +249,7 @@ impl GeneralUpdate {
     /// broadcast is set to true, the event will be broadcast to the system.
     ///
     pub async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
-        self.send_system(ProcessEvent {
+        self.send_system(SystemUpdate::ProcessEvent {
             event,
             check_scene,
             broadcast,
@@ -185,7 +286,7 @@ impl GeneralUpdate {
     /// A method to trigger a redraw of the current window
     ///
     pub async fn send_redraw(&self) {
-        self.send_system(Redraw).await;
+        self.send_system(SystemUpdate::Redraw).await;
     }
 
     /// A method to pass a system update to the system interface.
@@ -223,13 +324,49 @@ impl SystemSend {
         }
     }
 
+    /// A method to send a system update. This method fails silently.
+    ///
+    pub async fn send(&self, update: SystemUpdate) {
+        self.general_send.send(GeneralUpdateType::System(update)).await.unwrap_or(());
+    }
+
+    /// A method to send a system update in a sync setting. This method fails
+    /// silently.
+    ///
+    pub fn blocking_send(&self, update: SystemUpdate) {
+        self.general_send.blocking_send(GeneralUpdateType::System(update)).unwrap_or(());
+    }
+}
+
+/// A special, public version of the general update which only allows for a
+/// system send (without other types of updates).
+///
+/// # Note
+///
+/// This version is depreciated. It should not be perpetuated.
+///
+#[derive(Clone, Debug)]
+pub struct SyncSystemSend {
+    system_send: SystemSend, // the mpsc sending line to pass system updates to the interface
+}
+
+// Implement the key features of the system send struct
+impl SyncSystemSend {
+    /// A function to create a new sync system send from a system send
+    ///
+    pub fn from_async(system_send: &SystemSend) -> SyncSystemSend {
+        // Return the completed SyncSystemSend
+        SyncSystemSend {
+            system_send: system_send.clone(),
+        }
+    }
+
     /// A method to send a system update. This version of the method fails
     /// silently.
     ///
     pub fn send(&self, update: SystemUpdate) {
-        self.general_send
-            .send(GeneralUpdateType::System(update))
-            .unwrap_or(());
+        // Use a blocking send
+        self.system_send.blocking_send(update);
     }
 }
 
@@ -356,7 +493,7 @@ pub enum DisplayComponent {
 /// An enum to provide updates from the main thread to the system interface,
 /// listed in order of increasing usage.
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum SystemUpdate {
     /// A variant to adjust all the events in the timeline
     /// NOTE: after the adjustment, events that would have already happened are discarded
@@ -437,14 +574,10 @@ pub enum SystemUpdate {
 
     /// A variant to change the state of the indicated status.
     StatusChange { status_id: ItemId, state: ItemId },
+    
+    /// A variant for web requests FIXME standardize this
+    WebRequest { item_id: ItemId, reply_line: oneshot::Sender<ItemId> },
 }
-
-// Reexport the system update type variants
-pub use self::SystemUpdate::{
-    AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile, DebugMode, Edit,
-    ErrorLog, EventChange, GameLog, ProcessEvent, CueEvent, Redraw, Request, SaveConfig,
-    SceneChange, StatusChange,
-};
 
 /// A structure to list a series of event buttons that are associated with one
 /// event group.

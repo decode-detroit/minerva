@@ -21,7 +21,7 @@
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    DisplayComponent, ItemId, ItemPair, Request, RequestType, Status, SyncSystemSend,
+    DisplayComponent, ItemId, ItemPair, SystemUpdate, RequestType, Status, SyncSystemSend,
 };
 
 // Import standard library features
@@ -351,7 +351,7 @@ impl EditMultiState {
         }
 
         // Request the description associated with the current id
-        system_send.send(Request {
+        system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditMultiStateStatus{ is_left: self.is_left, position: None },
             request: RequestType::Description { item_id: current.clone() },
         });
@@ -453,7 +453,7 @@ impl EditMultiState {
         }
 
         // Request the description associated with the id
-        system_send.send(Request {
+        system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditMultiStateStatus{ is_left, position: Some(position) },
             request: RequestType::Description { item_id: state_id.clone() },
         });
@@ -735,7 +735,7 @@ impl EditCountedState {
         }
 
         // Request the current id description
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("current")
@@ -744,7 +744,7 @@ impl EditCountedState {
         });
 
         // Request the trigger id description
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("trigger")
@@ -753,7 +753,7 @@ impl EditCountedState {
         });
 
         // Request the antitrigger id description
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("antitrigger")
@@ -762,7 +762,7 @@ impl EditCountedState {
         });
 
         // Request the reset id description
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("reset")

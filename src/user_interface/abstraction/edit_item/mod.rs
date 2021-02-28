@@ -30,10 +30,10 @@ use self::edit_event::EditEvent;
 use self::edit_scene::EditScene;
 use self::edit_status::EditStatus;
 use crate::definitions::{
-    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, Edit, EditItemElement,
+    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, EditItemElement,
     Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
-    LabelControl, LabelHidden, Modification, ReplyType, Request, RequestType, Status,
-    SyncSystemSend,
+    LabelControl, LabelHidden, Modification, ReplyType, RequestType, Status,
+    SyncSystemSend, SystemUpdate,
 };
 use super::super::utils::{clean_text, color_label};
 
@@ -157,7 +157,7 @@ impl EditWindow {
     //
     pub fn refresh_all(&self) {
         // Refresh the available items
-        self.system_send.send(Request {
+        self.system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::ItemList,
             request: RequestType::Items,
         });
@@ -450,10 +450,10 @@ impl EditItemAbstraction {
             });
 
             // Save the edit to the configuration
-            system_send.send(Edit { modifications });
+            system_send.send(SystemUpdate::Edit { modifications });
 
             // Refresh the item list
-            system_send.send(Request {
+            system_send.send(SystemUpdate::Request {
                 reply_to: DisplayComponent::ItemList,
                 request: RequestType::Items,
             });
@@ -511,19 +511,19 @@ impl EditItemAbstraction {
     //
     fn refresh_item(item_id: ItemId, is_left: bool, system_send: &SyncSystemSend) {
         // Request new data for each component
-        system_send.send(Request {
+        system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::ItemDescription },
             request: RequestType::Description { item_id },
         });
-        system_send.send(Request {
+        system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Event { item_id },
         });
-        system_send.send(Request {
+        system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Scene { item_id, },
         });
-        system_send.send(Request {
+        system_send.send(SystemUpdate::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Status { item_id, },
         });
@@ -704,14 +704,14 @@ impl ItemList {
             list.insert(new_id);
 
             // Create the item pair and save the modification
-            let item_pair = ItemPair::new_blank(new_id);
+            let item_pair = ItemPair::new_default(new_id);
             let modifications = vec!(Modification::ModifyItem { item_pair });
 
             // Save the new id to the configuration
-            system_send.send(Edit { modifications });
+            system_send.send(SystemUpdate::Edit { modifications });
 
             // Refresh the item list
-            system_send.send(Request {
+            system_send.send(SystemUpdate::Request {
                 reply_to: DisplayComponent::ItemList,
                 request: RequestType::Items,
             });
@@ -1037,7 +1037,7 @@ impl EditOverview {
                 }
 
                 // Request the allowed states
-                system_send.send(Request {
+                system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditItemOverview {
                         is_left,
                         variant: EditItemElement::Status { state: None },
@@ -1441,7 +1441,7 @@ impl EditOverview {
                         }
 
                         // Send a request to update the group description
-                        self.system_send.send(Request {
+                        self.system_send.send(SystemUpdate::Request {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Group,
@@ -1500,7 +1500,7 @@ impl EditOverview {
                             *status_data = new_status.clone();
                         }
                         // Send a request to update the status description
-                        self.system_send.send(Request {
+                        self.system_send.send(SystemUpdate::Request {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Status { state: None },
@@ -1509,7 +1509,7 @@ impl EditOverview {
                         });
 
                         // Send a request to get the states associated with the status
-                        self.system_send.send(Request {
+                        self.system_send.send(SystemUpdate::Request {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Status { state: Some(new_state.clone()) },
@@ -1555,7 +1555,7 @@ impl EditOverview {
         if let Some(status) = status {
             // Go through each allowed state and request its description
             for state_id in status.allowed().drain(..) {
-                self.system_send.send(Request {
+                self.system_send.send(SystemUpdate::Request {
                     reply_to: DisplayComponent::EditItemOverview {
                         is_left: self.is_left,
                         variant: EditItemElement::State,

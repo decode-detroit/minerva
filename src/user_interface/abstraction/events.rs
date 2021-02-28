@@ -23,7 +23,8 @@
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
     EventGroup, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemDescription, ItemId,
-    ItemPair, LabelControl, LaunchWindow, ProcessEvent, StatusDescription, SyncSystemSend, WindowType,
+    ItemPair, LabelControl, LaunchWindow, StatusDescription, SyncSystemSend, WindowType,
+    SystemUpdate,
 };
 use super::super::utils::{clean_text, decorate_label};
 use super::{LARGE_FONT, NORMAL_FONT};
@@ -587,7 +588,7 @@ impl EventGroupAbstraction {
                 // Create the new button action and connect it
                 button.connect_clicked(clone!(system_send => move |_| {
                     // Send the event trigger to the underlying system
-                    system_send.send(ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
+                    system_send.send(SystemUpdate::ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
 
                     // Stop the button from flashing, if it is
                     if let Ok(mut count) = expiration.try_borrow_mut() {
@@ -600,7 +601,7 @@ impl EventGroupAbstraction {
                 // Create the new button action and connect it
                 button.connect_clicked(clone!(system_send => move |_| {
                     // Send the event trigger to the underlying system
-                    system_send.send(ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
+                    system_send.send(SystemUpdate::ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
                 }));
             }
 

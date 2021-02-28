@@ -29,6 +29,14 @@ use fnv::FnvHashMap;
 pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and status pairs
 
 /// A type to store a vector of status ids and status descriptions
+/// 
+/// # FIXME
+/// This intermediary should be eliminated and the UI should call for this
+/// information as needed.
+///
+pub type PartialStatus = FnvHashMap<ItemId, StatusPartialDescription>; // a hash map of status ids and status descriptions
+
+/// A type to store a vector of status ids and status descriptions
 ///
 pub type FullStatus = FnvHashMap<ItemPair, StatusDescription>; // a hash map of status id pairs and status description pairs
 
@@ -212,10 +220,24 @@ impl Status {
     }
 }
 
-/// A struct which allows a limited number of possible states. This version
-/// uses fully described itempairs for use with the user interface. If the
+/// A struct which allows a limited number of possible states. If the
 /// allowed state vector is empty, any state will be allowed.
-/// FIXME Reconsider this specification. Perhaps an empty allowed state vector
+///
+/// # FIXME
+/// Reconsider this specification. Perhaps an empty allowed state vector
+/// should indicate that the user cannot select a valid state.
+///
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub struct StatusPartialDescription {
+    pub current: ItemId,
+    pub allowed: Vec<ItemId>,
+}
+
+/// A struct which allows a limited number of possible states. If the
+/// allowed state vector is empty, any state will be allowed.
+///
+/// # FIXME
+/// Reconsider this specification. Perhaps an empty allowed state vector
 /// should indicate that the user cannot select a valid state.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
@@ -223,6 +245,7 @@ pub struct StatusDescription {
     pub current: ItemPair,
     pub allowed: Vec<ItemPair>,
 }
+
 
 // Tests of the status module
 #[cfg(test)]

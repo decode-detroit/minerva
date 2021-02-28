@@ -19,7 +19,7 @@
 //! passing event-related updates.
 
 // Import the relevant structures into the correct namespace
-use crate::item::{ItemId, ItemPair};
+use crate::definitions::{ItemId, ItemPair};
 
 // Import standard library modules
 use std::fmt;
@@ -178,25 +178,25 @@ impl fmt::Display for EventUpdate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             // If there is a broadcast event, write the formatted ID
-            &Broadcast(ref event, ..) => write!(f, "Broadcast: {}", event),
+            &EventUpdate::Broadcast(ref event, ..) => write!(f, "Broadcast: {}", event),
 
             // If there is a current event, write the formatted ID
-            &Current(ref current_event) => write!(f, "Now Playing: {}", current_event),
+            &EventUpdate::Current(ref current_event) => write!(f, "Now Playing: {}", current_event),
 
             // If there is an error, simply write the string
-            &Error(ref error, ..) => write!(f, "ERROR: {}", error),
+            &EventUpdate::Error(ref error, ..) => write!(f, "ERROR: {}", error),
 
             // If there is data to save, write it
-            &Save(ref data) => write!(f, "Got Data: {:?}", data),
+            &EventUpdate::Save(ref data) => write!(f, "Got Data: {:?}", data),
 
             // If there is a status change, copy it
-            &Status(ref group_id, ref status) => write!(f, "Status: {} Now {}", group_id, status),
+            &EventUpdate::Status(ref group_id, ref status) => write!(f, "Status: {} Now {}", group_id, status),
 
             // If there is a system update, simply write the string
-            &Update(ref update) => write!(f, "Update: {}", update),
+            &EventUpdate::Update(ref update) => write!(f, "Update: {}", update),
 
             // If there is a warning, simply write the string
-            &Warning(ref warning, ..) => write!(f, "WARNING: {}", warning),
+            &EventUpdate::Warning(ref warning, ..) => write!(f, "WARNING: {}", warning),
         }
     }
 }
@@ -208,9 +208,9 @@ macro_rules! update {
 
     // Take a mpsc line and error type of EventUpdate
     (err $line:expr => $($arg:tt)*) => ({
-
-        // Import the standard library
+        // Import necessary features
         use std::fmt::Write;
+        use crate::definitions::EventUpdate;
 
         // Attempt to format the string
         let mut s = String::new();
@@ -222,9 +222,9 @@ macro_rules! update {
 
     // Take a mpsc line and error type of EventUpdate with an event id
     (errevent $line:expr => $event:expr => $($arg:tt)*) => ({
-
-        // Import the standard library
+        // Import necessary features
         use std::fmt::Write;
+        use crate::definitions::EventUpdate;
 
         // Attempt to format the string
         let mut s = String::new();
@@ -236,9 +236,9 @@ macro_rules! update {
 
     // Take a mpsc line and warning type of EventUpdate
     (warn $line:expr => $($arg:tt)*) => ({
-
-        // Import the standard library
+        // Import necessary features
         use std::fmt::Write;
+        use crate::definitions::EventUpdate;
 
         // Attempt to format the string
         let mut s = String::new();
@@ -251,9 +251,9 @@ macro_rules! update {
     // Take a mpsc line and warning type of EventUpdate with an event id
         // Take a mpsc line and warning type of EventUpdate
     (warnevent $line:expr => $event:expr => $($arg:tt)*) => ({
-
-        // Import the standard library
+        // Import necessary features
         use std::fmt::Write;
+        use crate::definitions::EventUpdate;
 
         // Attempt to format the string
         let mut s = String::new();
@@ -265,6 +265,8 @@ macro_rules! update {
 
     // Take a mpsc line and broadcast type of event update
     (broadcast $line:expr => $event:expr, $data:expr) => ({
+        // Import necessary features
+        use crate::definitions::EventUpdate;
 
         // Send an update to the mpsc line
         $line.send_update(EventUpdate::Broadcast($event, $data)).await;
@@ -272,6 +274,8 @@ macro_rules! update {
 
     // Take a mpsc line and current type of event update
     (now $line:expr => $event:expr) => ({
+        // Import necessary features
+        use crate::definitions::EventUpdate;
 
         // Send an update to the mpsc line
         $line.send_update(EventUpdate::Current($event)).await;
@@ -279,6 +283,8 @@ macro_rules! update {
 
     // Take a mpsc line and status type of event update
     (status $line:expr => $group_id:expr, $status:expr) => ({
+        // Import necessary features
+        use crate::definitions::EventUpdate;
 
         // Send an update to the mpsc line
         $line.send_update(EventUpdate::Status($group_id, $status)).await;
@@ -286,6 +292,8 @@ macro_rules! update {
 
     // Take a mpsc line and save type of event update
     (save $line:expr => $data:expr) => ({
+        // Import necessary features
+        use crate::definitions::EventUpdate;
 
         // Send an update to the mpsc line
         $line.send_update(EventUpdate::Save($data)).await;
@@ -293,6 +301,8 @@ macro_rules! update {
 
     // Take a mpsc line and update type of event update
     (update $line:expr => $($arg:tt)*) => ({
+        // Import necessary features
+        use crate::definitions::EventUpdate;
 
         // Import the standard library
         use std::fmt::Write;
@@ -323,17 +333,17 @@ mod tests {
         // Generate a few messages
         update!(err tx => "Test Error {}", 1);
         update!(warn tx => "Test Warning {}", 2);
-        update!(broadcast tx => ItemPair::new(3, "Test Event 3", Hidden).unwrap());
-        update!(now tx => ItemPair::new(4, "Test Event 4", Hidden).unwrap());
+        update!(broadcast tx => ItemPair::new_unchecked(3, "Test Event 3", Hidden));
+        update!(now tx => ItemPair::new_unchecked(4, "Test Event 4", Hidden));
         update!(update tx => "Test Update {}", "5");
 
         // Create the test vector
         let test = vec![
-            GeneralUpdateType::Update(Error("Test Error 1".to_string())),
-            GeneralUpdateType::Update(Warning("Test Warning 2".to_string())),
-            GeneralUpdateType::Update(Broadcast(ItemPair::new(3, "Test Event 3", Hidden).unwrap())),
-            GeneralUpdateType::Update(Current(ItemPair::new(4, "Test Event 4", Hidden).unwrap())),
-            GeneralUpdateType::Update(Update("Test Update 5".to_string())),
+            GeneralUpdateType::Update(EventUpdate::Error("Test Error 1".to_string(), None)),
+            GeneralUpdateType::Update(EventUpdate::Warning("Test Warning 2".to_string(), None)),
+            GeneralUpdateType::Update(EventUpdate::Broadcast(ItemPair::new_unchecked(3, "Test Event 3", Hidden), None)),
+            GeneralUpdateType::Update(EventUpdate::Current(ItemPair::new_unchecked(4, "Test Event 4", Hidden))),
+            GeneralUpdateType::Update(EventUpdate::Update("Test Update 5".to_string())),
         ];
 
         // Print and check the messages received (wait at most half a second)

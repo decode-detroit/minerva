@@ -21,9 +21,9 @@
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    BroadcastEvent, DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
-    ItemPair, KeyMap, ProcessEvent, CueEvent, ReplyType, Request, RequestType,
-    SceneChange, StatusChange, StatusDescription, SyncSystemSend,
+    DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
+    ItemPair, KeyMap, ReplyType, RequestType,
+    StatusDescription, SyncSystemSend, SystemUpdate,
 };
 #[cfg(feature = "media-out")]
 use super::super::super::system_interface::VideoStream;
@@ -255,7 +255,7 @@ impl StatusDialog {
                             }
 
                             // Send the new state update to the system
-                            system_send.send(StatusChange { status_id, state });
+                            system_send.send(SystemUpdate::StatusChange { status_id, state });
                         }
                     }
                 }
@@ -356,7 +356,7 @@ impl JumpDialog {
                         if let Some(scene) = ItemId::new(scene_number) {
 
                             // Send the new state update to the system
-                            system_send.send(SceneChange { scene });
+                            system_send.send(SystemUpdate::SceneChange { scene });
                         }
                     }
                 }
@@ -511,7 +511,7 @@ impl ShortcutsDialog {
                 self.window.connect_key_press_event(move |_, key_press| {
                     // Check to see if it matches one of our events
                     if let Some(id) = key_clone.get(&key_press.get_keyval()) {
-                        send_clone.send(ProcessEvent {
+                        send_clone.send(SystemUpdate::ProcessEvent {
                             event: id.get_id(),
                             check_scene: true,
                             broadcast: true,
@@ -604,7 +604,7 @@ impl TriggerDialog {
         // Connect the update description function to the spin button
         event_spin.connect_property_value_notify(clone!(system_send => move |spin| {
             // Request a new description from the system
-            system_send.send(Request {
+            system_send.send(SystemUpdate::Request {
                 reply_to: DisplayComponent::TriggerDialog,
                 request: RequestType::Description {
                     item_id: ItemId::new_unchecked(spin.get_value() as u32),
@@ -720,14 +720,14 @@ impl TriggerDialog {
                     }
 
                     // Send the new event
-                    system_send.send(CueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
+                    system_send.send(SystemUpdate::CueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
 
                 // If broadcast is selected, send a broadcast event
                 } else if broadcast_checkbox.get_active() {
-                    system_send.send(BroadcastEvent { event: ItemPair::new_unchecked(event_spin.get_value() as u32, "", Hidden), data: None});
+                    system_send.send(SystemUpdate::BroadcastEvent { event: ItemPair::new_unchecked(event_spin.get_value() as u32, "", Hidden), data: None});
 
                 // Otherwise, send the event to be processed by the system
-                } else { system_send.send(ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
+                } else { system_send.send(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
                 }
             }
 
@@ -864,7 +864,7 @@ impl PromptStringDialog {
 
                     // Send each bit of data to the system
                     for num in data.drain(..) {
-                        system_send.send(BroadcastEvent { event: event.clone(), data: Some(num)});
+                        system_send.send(SystemUpdate::BroadcastEvent { event: event.clone(), data: Some(num)});
                     }
                 }
             }

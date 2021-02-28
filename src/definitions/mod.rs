@@ -18,6 +18,8 @@
 //! This module defines all structures and types used across modules.
 
 // Define submodules
+#[macro_use]
+mod test;
 mod item;
 #[macro_use]
 mod event;

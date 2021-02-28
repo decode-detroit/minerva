@@ -19,7 +19,7 @@
 //! system interface. This module links directly to the system interface.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting, WindowType, Notification, UpcomingEvent, SystemSend, WebRequest};
+use crate::definitions::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting, WindowType, Notification, UpcomingEvent, SystemSend, SystemUpdate};
 
 // Import tokio and warp modules
 use tokio::sync::{mpsc, oneshot};
@@ -181,7 +181,7 @@ impl WebInterface {
     async fn send_message(system_send: SystemSend, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        system_send.send(WebRequest {
+        system_send.send(SystemUpdate::WebRequest {
             item_id,
             reply_line,
         }).await;

@@ -22,8 +22,8 @@
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    ChangeSettings, ClearQueue, Close, ConfigFile, DisplaySetting, EditMode, ErrorLog, GameLog,
-    InterfaceUpdate, LaunchWindow, SaveConfig, SyncSystemSend, WindowType,
+    ChangeSettings, DisplaySetting, EditMode, SystemUpdate,
+    InterfaceUpdate, LaunchWindow, SyncSystemSend, WindowType,
 };
 
 // Import standard library features
@@ -136,7 +136,7 @@ impl MenuAbstraction {
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        system_send.send(ConfigFile { filepath: Some(filepath), });
+                        system_send.send(SystemUpdate::ConfigFile { filepath: Some(filepath), });
                     }
                 }
 
@@ -166,7 +166,7 @@ impl MenuAbstraction {
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        system_send.send(GameLog { filepath, });
+                        system_send.send(SystemUpdate::GameLog { filepath, });
                     }
                 }
 
@@ -196,7 +196,7 @@ impl MenuAbstraction {
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        system_send.send(ErrorLog { filepath, });
+                        system_send.send(SystemUpdate::ErrorLog { filepath, });
                     }
                 }
 
@@ -215,7 +215,7 @@ impl MenuAbstraction {
         quit.connect_activate(clone!(system_send, window => move |_, _| {
 
             // Tell the system interface to close
-            system_send.send(Close);
+            system_send.send(SystemUpdate::Close);
 
             // Wait 1000 nanoseconds for the process to complete
             thread::sleep(Duration::new(0, 1000));
@@ -336,7 +336,7 @@ impl MenuAbstraction {
         let clear = gio::SimpleAction::new("clear", None);
         clear.connect_activate(clone!(system_send => move |_, _| {
             // Launch the trigger event dialog
-            system_send.send(ClearQueue);
+            system_send.send(SystemUpdate::ClearQueue);
         }));
 
         // Create the trigger event to dialog action
@@ -377,7 +377,7 @@ impl MenuAbstraction {
                         // Notify the system of the new configuration file
                         if id == gtk::ResponseType::Ok {
                             if let Some(filepath) = chooser.get_filename() {
-                                system_send.send(SaveConfig { filepath, });
+                                system_send.send(SystemUpdate::SaveConfig { filepath, });
                             }
                         }
 

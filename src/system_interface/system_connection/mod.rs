@@ -33,7 +33,7 @@ mod media_out;
 mod zmq_comm;
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, EventUpdate, Identifier, GeneralUpdate};
+use crate::definitions::{ItemId, Identifier, GeneralUpdate};
 use self::comedy_comm::ComedyComm;
 use self::dmx_out::{DmxOut, DmxFade, DmxMap};
 use self::zmq_comm::{ZmqBind, ZmqConnect};

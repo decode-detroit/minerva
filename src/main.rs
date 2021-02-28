@@ -31,9 +31,10 @@ mod user_interface;
 mod web_interface;
 
 // Import the relevant structures into the correct namespace
-use self::system_interface::{SystemInterface, SyncSystemSend};
+use self::definitions::SyncSystemSend;
+use self::system_interface::SystemInterface;
 use self::user_interface::UserInterface;
-use self::web_interface::{WebInterface, WebReply};
+use self::web_interface::WebInterface;
 
 // Import standard library features
 use std::thread;

@@ -381,6 +381,8 @@ impl DmxQueue {
 mod tests {
     use super::*;
 
+    // FIXME Rewrite this test to use the new infrastructure
+    /*
     // Import the library items for the testing function
     use std::thread;
     use std::time::{Duration, Instant};
@@ -391,9 +393,9 @@ mod tests {
         println!("Starting up ...");
 
         // Try to open the serial connection
-        match DmxOut::new(&PathBuf::from("/dev/ttyUSB0")) {
+        match DmxOut::new(&PathBuf::from("/dev/ttyUSB0"), Vec::new(), DmxMap::default()) {
             // If the connection is a success
-            Some(mut connection) => {
+            Ok(mut connection) => {
                 println!("Connected.");
 
                 // Running the dimming cycle indefinitely
@@ -404,7 +406,7 @@ mod tests {
                         println!("Dimming ... {}", count);
 
                         // Send the updated value
-                        connection.write_frame_now(count * 2);
+                        connection.write_frame(count * 2);
 
                         // Wait a little bit
                         thread::sleep(Duration::from_millis(25));
@@ -416,7 +418,7 @@ mod tests {
                         println!("Dimming ... {}", 125-count);
 
                         // Send the updated value
-                        connection.write_frame_now((125-count) * 2);
+                        connection.write_frame((125-count) * 2);
 
                         // Wait a little bit
                         thread::sleep(Duration::from_millis(50));
@@ -425,7 +427,7 @@ mod tests {
             },
 
             // Otherwise, warn of the error
-            None => println!("Unable to connect."),
+            _ => println!("Unable to connect."),
         }
-    }
+    }*/
 }
