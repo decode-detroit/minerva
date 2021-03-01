@@ -23,7 +23,7 @@
 //! facilitate the storage of the status and the current state of that status.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{GeneralUpdate, ItemId, Status, StatusMap, PartialStatus, StatusPartialDescription};
+use crate::definitions::{InternalSend, ItemId, Status, StatusMap, PartialStatus, StatusPartialDescription};
 
 /// A structure which holds the local status and manages any state changes.
 ///
@@ -34,7 +34,7 @@ use crate::definitions::{GeneralUpdate, ItemId, Status, StatusMap, PartialStatus
 ///
 pub struct StatusHandler {
     status_map: StatusMap,      // hash map of the local status
-    update_line: GeneralUpdate, // the update line for posting any warnings
+    update_line: InternalSend, // the update line for posting any warnings
 }
 
 // Implement key features for the status handler
@@ -49,7 +49,7 @@ impl StatusHandler {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn new(update_line: GeneralUpdate, status_map: StatusMap) -> StatusHandler {
+    pub fn new(update_line: InternalSend, status_map: StatusMap) -> StatusHandler {
         // Return the new status handler
         StatusHandler {
             status_map,

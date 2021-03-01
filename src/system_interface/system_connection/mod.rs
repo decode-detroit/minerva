@@ -22,10 +22,6 @@
 //! rest of the system. Updates from the system are passed back to the event
 //! handler system via the event_send line.
 
-// Reexport the key structures and types
-#[cfg(feature = "media-out")]
-pub use self::media_out::VideoStream;
-
 // Define private submodules
 mod comedy_comm;
 mod dmx_out;
@@ -33,7 +29,7 @@ mod media_out;
 mod zmq_comm;
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, Identifier, GeneralUpdate};
+use crate::definitions::{ItemId, Identifier, InternalSend};
 use self::comedy_comm::ComedyComm;
 use self::dmx_out::{DmxOut, DmxFade, DmxMap};
 use self::zmq_comm::{ZmqBind, ZmqConnect};
@@ -116,7 +112,7 @@ impl ConnectionType {
     /// Type. This method estahblishes the connection to the underlying system.
     /// If the connection fails, it will return the Error.
     ///
-    fn initialize(&self, general_update: &GeneralUpdate) -> Result<LiveConnection, Error> {
+    fn initialize(&self, internal_send: &InternalSend) -> Result<LiveConnection, Error> {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the comedy serial port
@@ -165,7 +161,7 @@ impl ConnectionType {
             } => {
                 // Create the new media connection
                 let connection = MediaOut::new(
-                    general_update,
+                    internal_send,
                     all_stop_media.clone(),
                     media_map.clone(),
                     channel_map.clone()
@@ -291,7 +287,7 @@ enum ConnectionUpdate {
 /// A structure to handle all the input and output with the rest of the system.
 ///
 pub struct SystemConnection {
-    general_update: GeneralUpdate, // sending structure for new events from the system
+    internal_send: InternalSend, // sending structure for new events from the system
     connection_send: Option<mpsc::Sender<ConnectionUpdate>>, // receiving structure for new events from the program
                                                              //connection: Option<LiveConnection>, // an element that implements both read and write
 }
@@ -312,12 +308,12 @@ impl SystemConnection {
     /// gracefully by warning the user and returning a default system connection.
     ///
     pub async fn new(
-        general_update: GeneralUpdate,
+        internal_send: InternalSend,
         connections: Option<(ConnectionSet, Identifier)>,
     ) -> SystemConnection {
         // Create an empty system connection
         let mut system_connection = SystemConnection {
-            general_update,
+            internal_send,
             connection_send: None,
         };
 
@@ -349,12 +345,12 @@ impl SystemConnection {
             let mut live_connections = Vec::new();
             for connection in conn_set {
                 // Attempt to initialize each connection
-                match connection.initialize(&self.general_update) {
+                match connection.initialize(&self.internal_send) {
                     Ok(conn) => live_connections.push(conn),
 
                     // If it fails, warn the user
                     Err(e) => {
-                        update!(err self.general_update => "System Connection Error: {}", e);
+                        update!(err self.internal_send => "System Connection Error: {}", e);
                         return false;
                     }
                 };
@@ -362,10 +358,10 @@ impl SystemConnection {
 
             // Spin a new thread with the connection(s)
             let (conn_send, conn_recv) = mpsc::channel();
-            let gen_update = self.general_update.clone();
+            let internal_send = self.internal_send.clone();
             Handle::current().spawn(async move {
                 // Loop indefinitely
-                SystemConnection::run_loop(live_connections, gen_update, conn_recv, identifier).await;
+                SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier).await;
             });
 
             // Update the system connection
@@ -385,7 +381,7 @@ impl SystemConnection {
             // Send the new event
             let result = conn.send(ConnectionUpdate::Broadcast(new_event, data));
             if let Err(e) = result {
-                update!(err &self.general_update => "Unable To Connect: {}", e);
+                update!(err &self.internal_send => "Unable To Connect: {}", e);
             }
         }
     }
@@ -394,7 +390,7 @@ impl SystemConnection {
     ///
     async fn run_loop(
         mut connections: Vec<LiveConnection>,
-        gen_update: GeneralUpdate,
+        internal_send: InternalSend,
         conn_recv: mpsc::Receiver<ConnectionUpdate>,
         identifier: Identifier,
     ) {
@@ -427,28 +423,28 @@ impl SystemConnection {
                             // Verify the game id is correct
                             if identity == game_id {
                                 // Send the event to the program
-                                gen_update.send_event(id, true, false).await; // don't broadcast
+                                internal_send.send_event(id, true, false).await; // don't broadcast
                                 // FIXME Handle incoming data
 
                             // Otherwise send a notification of an incorrect game number
                             } else {
-                                update!(warn &gen_update => "Game Id Does Not Match. Event Ignored. ({})", id);
+                                update!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
                             }
                         
                         // Otherwise, send the event to the program
                         } else {
-                            gen_update.send_event(id, true, false).await; // don't broadcast
+                            internal_send.send_event(id, true, false).await; // don't broadcast
                         }
                     }
                     
                     // For a write error, notify the system
                     ReadResult::WriteError(error) => {
-                        update!(err &gen_update => "Communication Write Error: {}", error);
+                        update!(err &internal_send => "Communication Write Error: {}", error);
                     }
                     
                     // For a read error, notify the system
                     ReadResult::ReadError(error) => {
-                        update!(err &gen_update => "Communication Read Error: {}", error);
+                        update!(err &internal_send => "Communication Read Error: {}", error);
                     }
                 }
             }
@@ -475,13 +471,13 @@ impl SystemConnection {
                         // Catch any write errors
                         if let Err(error1) = connection.write_event(id, game_id, data2) {
                             // Throw the error
-                            update!(err &gen_update => "Communication Error: {}", error1);
+                            update!(err &internal_send => "Communication Error: {}", error1);
                             
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
                             if let Err(error2) = connection.write_event(id, game_id, data2) {
                                 // If failed twice in a row, notify the system
-                                update!(err &gen_update => "Persistent Communication Error: {}", error2);
+                                update!(err &internal_send => "Persistent Communication Error: {}", error2);
                             }
                         }
                     }

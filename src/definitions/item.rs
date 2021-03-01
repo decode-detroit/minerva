@@ -571,17 +571,17 @@ mod tests {
 
     // Test comparison of simple item pairs
     #[test]
-    fn compare_events() {
+    fn compare_ids() {
         // Create several events
-        let event = ItemPair::new(1, "One Event", Hidden).unwrap();
-        let same_event = event.clone();
+        let id = ItemPair::new(1, "One Event", Hidden).unwrap();
+        let same_id = id.clone();
         let different_description = ItemPair::new(1, "Different Description", Hidden).unwrap();
-        let different_event = ItemPair::new(2, "Two Event", Hidden).unwrap();
+        let different_id = ItemPair::new(2, "Two Event", Hidden).unwrap();
 
         // Compare the events
-        assert_eq!(event, same_event);
-        assert_eq!(event, different_description);
-        assert_ne!(event, different_event);
-        assert_ne!(same_event, different_event);
+        assert_eq!(id, same_id);
+        assert_eq!(id, different_description);
+        assert_ne!(id, different_id);
+        assert_ne!(same_id, different_id);
     }
 }

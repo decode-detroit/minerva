@@ -23,7 +23,7 @@
 //! WARNING: This module assumes no authorized systems/operators are compromised.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{ComingEvent, ItemId, Identifier, GeneralUpdate};
+use crate::definitions::{ComingEvent, ItemId, Identifier, InternalSend};
 
 // Import standard library features
 use std::time::Duration;
@@ -59,7 +59,7 @@ pub struct QueuedEvent {
 pub struct BackupHandler {
     identifier: Identifier, // the identifier for this instance of the controller, if specified
     connection: Option<redis::Connection>, // the Redis connection, if it exists
-    update_line: GeneralUpdate, // the update line for posting any warnings
+    internal_send: InternalSend, // the update line for posting any warnings
     backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
 }
 
@@ -77,7 +77,7 @@ impl BackupHandler {
     /// None.
     ///
     pub async fn new(
-        update_line: GeneralUpdate,
+        internal_send: InternalSend,
         identifier: Identifier,
         server_location: Option<String>,
     ) -> Result<BackupHandler, Error> {
@@ -91,18 +91,18 @@ impl BackupHandler {
                     return Ok(BackupHandler {
                         identifier,
                         connection: Some(connection),
-                        update_line,
+                        internal_send,
                         backup_items: FnvHashSet::default(),
                     });
 
                 // Indicate that there was a failure to connect to the server
                 } else {
-                    update!(err &update_line => "Unable To Connect To Backup Server: {}.", location);
+                    update!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
                 }
 
             // Indicate that there was a failure to connect to the server
             } else {
-                update!(err &update_line => "Unable To Connect To Backup Server: {}.", location);
+                update!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
             }
 
             // Indicate failure
@@ -117,7 +117,7 @@ impl BackupHandler {
             return Ok(BackupHandler {
                 identifier,
                 connection: None,
-                update_line,
+                internal_send,
                 backup_items: FnvHashSet::default(),
             });
         }
@@ -145,7 +145,7 @@ impl BackupHandler {
             // Unpack the result from the operation
             if let Err(..) = result {
                 // Warn that it wasn't possible to update the current scene
-                update!(err self.update_line => "Unable To Backup Current Scene Onto Backup Server.");
+                update!(err self.internal_send => "Unable To Backup Current Scene Onto Backup Server.");
             }
             
             // Put the connection back
@@ -182,7 +182,7 @@ impl BackupHandler {
 
             // Warn that the particular status was not set
             if let Err(..) = result {
-                update!(warn &self.update_line => "Unable To Backup Status Onto Backup Server: {}.", status_id);
+                update!(warn &self.internal_send => "Unable To Backup Status Onto Backup Server: {}.", status_id);
 
             // Otherwise, add the id to the backup items
             } else {
@@ -230,7 +230,7 @@ impl BackupHandler {
             let event_string = match serde_yaml::to_string(&queued_events) {
                 Ok(string) => string,
                 Err(error) => {
-                    update!(err &self.update_line => "Unable To Parse Coming Events: {}", error);
+                    update!(err &self.internal_send => "Unable To Parse Coming Events: {}", error);
                     
                     // Put the connection back
                     self.connection = Some(connection);
@@ -244,7 +244,7 @@ impl BackupHandler {
 
             // Warn that the event queue was not set
             if let Err(..) = result {
-                update!(warn &self.update_line => "Unable To Backup Events Onto Backup Server.");
+                update!(warn &self.internal_send => "Unable To Backup Events Onto Backup Server.");
             }
             
             // Put the connection back
@@ -363,9 +363,50 @@ mod tests {
     use super::*;
 
     // FIXME Define tests of this module
-    #[test]
-    fn test_status() {
-        // FIXME: Implement this
-        unimplemented!();
+    #[tokio::test]
+    async fn backup_game() {
+        // Import libraries for testing
+        use crate::definitions::{Identifier, InternalSend, InternalUpdate};
+
+        // Create a channel for receiving messages from the backup handler
+        let (internal_send, mut rx) = InternalSend::new();
+
+        // Create the backup handler
+        let mut backup_handler = BackupHandler::new(
+            internal_send,
+            Identifier { id: None },
+            Some("redis://127.0.0.1:6379".to_string()),
+        ).await.unwrap();
+
+        // Make sure there is no existing backup
+        if let Some(_) = backup_handler.reload_backup(Vec::new()) {
+            panic!("Backup already existed before beginning of the test.");
+        }
+
+        // Create the current scene and status pairs
+        let current_scene = ItemId::new_unchecked(10);
+        let status1  = ItemId::new_unchecked(11);
+        let state1 = ItemId::new_unchecked(12);
+        let status2 = ItemId::new_unchecked(13);
+        let state2 = ItemId::new_unchecked(14);
+        
+        // Backup the current scene, statuses (unable to easily test coming events)
+        backup_handler.backup_current_scene(&current_scene).await;
+        backup_handler.backup_status(&status1, &state1).await;
+        backup_handler.backup_status(&status2, &state2).await;
+
+        // Reload the backup
+        if let Some((reload_scene, statuses, _)) = backup_handler.reload_backup(vec!(status1, status2)) {
+            assert_eq!(current_scene, reload_scene);
+            assert_eq!(vec!((status1, state1), (status2, state2)), statuses);
+        
+        // If the backup doesn't exist, throw the error
+        } else {
+            panic!("Backup was not reloaded.");
+        }
+
+        // Make sure no messages were received (wait at most half a second)
+        let empty: Vec<InternalUpdate> = Vec::new();
+        test_vec!(=rx, empty);
     }
 }

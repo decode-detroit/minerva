@@ -31,7 +31,7 @@ use crate::definitions::{
     ItemId, CancelEvent, DataType, EventAction, EventDelay, Event, SelectEvent,
     ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
     DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, ItemPair,
-    Status, GeneralUpdate, InterfaceUpdate, ItemDescription, ComingEvent,
+    Status, InternalSend, InterfaceUpdate, ItemDescription, ComingEvent,
 };
 use self::backup::BackupHandler;
 use self::config::Config;
@@ -53,7 +53,7 @@ use failure::Error;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    general_update: GeneralUpdate, // sending line for event updates and timed events
+    internal_send: InternalSend, // sending line for event updates and timed events
     queue: Queue,                  // current event queue
     config: Config,                // current configuration
     backup: BackupHandler,         // current backup server
@@ -84,7 +84,7 @@ impl EventHandler {
     ///
     pub async fn new(
         config_path: PathBuf,
-        general_update: GeneralUpdate,
+        internal_send: InternalSend,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         log_failure: bool,
     ) -> Result<EventHandler, Error> {
@@ -94,30 +94,30 @@ impl EventHandler {
             Err(_) => {
                 // Only log failure if the flag is set
                 if log_failure {
-                    update!(err &general_update => "Unable To Open Configuration File.");
+                    update!(err &internal_send => "Unable To Open Configuration File.");
                 }
                 return Err(format_err!("Unable to open configuration file."));
             }
         };
 
         // Attempt to process the configuration file
-        let mut config = Config::from_config(general_update.clone(), interface_send, &config_file).await?;
+        let mut config = Config::from_config(internal_send.clone(), interface_send, &config_file).await?;
 
         // Attempt to create the backup handler
         let mut backup = BackupHandler::new(
-            general_update.clone(),
+            internal_send.clone(),
             config.identifier(),
             config.server_location(),
         ).await?;
 
         // Create an empty event queue
-        let mut queue = Queue::new(general_update.clone());
+        let mut queue = Queue::new(internal_send.clone());
 
         // Check for existing data from the backup handler
         let possible_backup = backup.reload_backup(config.get_status_ids());
         if let Some((current_scene, status_pairs, queued_events)) = possible_backup {
             // Notify that existing data was found
-            update!(err &general_update => "Detected Lingering Backup Data. Reloading ...");
+            update!(err &internal_send => "Detected Lingering Backup Data. Reloading ...");
 
             // Change the current scene silently (i.e. do not trigger the reset event)
             config.choose_scene(current_scene).await.unwrap_or(());
@@ -134,7 +134,7 @@ impl EventHandler {
             thread::sleep(Duration::new(0, 20));
 
             // Trigger a redraw of the window and timeline
-            general_update.send_redraw().await;
+            internal_send.send_refresh().await;
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
@@ -146,7 +146,7 @@ impl EventHandler {
 
         // Return the completed EventHandler with a new queue
         Ok(EventHandler {
-            general_update: general_update,
+            internal_send: internal_send,
             queue,
             config,
             backup,
@@ -412,7 +412,7 @@ impl EventHandler {
     ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) {
         // Send an update to the rest of the system (will preceed error if there is one)
-        update!(update &self.general_update => "Changing Current Scene ...");
+        update!(update &self.internal_send => "Changing Current Scene ...");
 
         // Try to change the underlying scene
         if self.config.choose_scene(scene_id).await.is_ok() {
@@ -495,7 +495,7 @@ impl EventHandler {
         let config_file = match File::create(config_path) {
             Ok(file) => file,
             Err(_) => {
-                update!(err &self.general_update => "Unable To Open Configuration File.");
+                update!(err &self.internal_send => "Unable To Open Configuration File.");
                 return;
             }
         };
@@ -546,12 +546,12 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            update!(broadcast &self.general_update => pair.clone(), Some(number));
+                            update!(broadcast &self.internal_send => pair.clone(), Some(number));
                         }
 
                     // Otherwise just update the system about the event
                     } else {
-                        update!(now &self.general_update => pair.clone());
+                        update!(now &self.internal_send => pair.clone());
                     }
                 }
 
@@ -561,7 +561,7 @@ impl EventHandler {
                     was_broadcast = true;
 
                     // Solicit a string
-                    self.general_update.send_get_user_string(pair.clone()).await;
+                    self.internal_send.send_get_user_string(pair.clone()).await;
                 }
             }
         }
@@ -571,11 +571,11 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                update!(broadcast &self.general_update => pair.clone(), None);
+                update!(broadcast &self.internal_send => pair.clone(), None);
 
             // Otherwise just update the system about the event
             } else {
-                update!(now &self.general_update => pair.clone());
+                update!(now &self.internal_send => pair.clone());
             }
         }
 
@@ -632,7 +632,7 @@ impl EventHandler {
                             let data_string = format!("Time {}:{}", minutes, seconds);
 
                             // Save the data to the game log
-                            update!(save &self.general_update => data_string);
+                            update!(save &self.internal_send => data_string);
                         }
                     }
 
@@ -653,7 +653,7 @@ impl EventHandler {
                                 let data_string = format!("Time {}:{}", minutes, seconds);
 
                                 // Save the data to the game log
-                                update!(save &self.general_update => data_string);
+                                update!(save &self.internal_send => data_string);
                             }
                         }
                     }
@@ -661,13 +661,13 @@ impl EventHandler {
                     // Send the static string to the event
                     DataType::StaticString { string } => {
                         // Save the string to the game log
-                        update!(save &self.general_update => string);
+                        update!(save &self.internal_send => string);
                     }
 
                     // Solicit a string from the user
                     DataType::UserString => {
                         // Error that this is not yet implemented
-                        update!(err &self.general_update => "Saving a User String is not yet implemented.");
+                        update!(err &self.internal_send => "Saving a User String is not yet implemented.");
                     }
                 }
             }

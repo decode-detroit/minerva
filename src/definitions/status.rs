@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Decode Detroit
+// Copyright (c) 2019-2021 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -252,10 +252,76 @@ pub struct StatusDescription {
 mod tests {
     use super::*;
 
-    // FIXME Define tests of this module
+    // Test creation and modification of a MultiState status
     #[test]
-    fn test_status() {
-        // FIXME: Implement this
-        unimplemented!();
+    fn multistate() {
+        // Create a new multistate
+        let id1 = ItemId::new_unchecked(10);
+        let id2 = ItemId::new_unchecked(11);
+        let id3 = ItemId::new_unchecked(12);
+        let id4 = ItemId::new_unchecked(13);
+        let valid_states = vec!(id1, id2, id3);
+        let mut status = MultiState {
+            current: id1,
+            allowed: valid_states.clone(),
+            no_change_silent: false,
+        };
+
+        // Check the current state
+        assert_eq!(id1, status.current());
+
+        // Check the allowed states
+        assert_eq!(valid_states, status.allowed());
+
+        // Check changing the state
+        assert_eq!(Some(id2), status.update(id2));
+        assert_eq!(id2, status.current());
+
+        // Check changing the state to an invalid option
+        assert_eq!(None, status.update(id4));
+        assert_eq!(id2, status.current());
+    }
+
+    // Test creation and modification of a CountedState status
+    #[test]
+    fn countedstate() {
+        // Create a new countedstate
+        let id1 = ItemId::new_unchecked(10);
+        let id2 = ItemId::new_unchecked(11);
+        let id3 = ItemId::new_unchecked(12);
+        let id4 = ItemId::new_unchecked(13);
+        let valid_states = vec!(id1, id2, id3);
+        let mut status = CountedState {
+            current: id2,
+            trigger: id1,
+            anti_trigger: id2,
+            reset: id3,
+            count: 1,
+            default_count: 1,
+            no_change_silent: false,
+        };
+
+        // Check the current state
+        assert_eq!(id2, status.current());
+
+        // Check the allowed states
+        assert_eq!(valid_states, status.allowed());
+
+        // Check changing the state
+        assert_eq!(Some(id1), status.update(id1));
+        assert_eq!(id1, status.current());
+
+        // Check resetting the state
+        assert_eq!(Some(id2), status.update(id3));
+        assert_eq!(id2, status.current());
+
+        // Check changing the state to and from
+        assert_eq!(Some(id1), status.update(id1));
+        assert_eq!(Some(id2), status.update(id2));
+        assert_eq!(id2, status.current());
+
+        // Check changing the state to an invalid option
+        assert_eq!(None, status.update(id4));
+        assert_eq!(id2, status.current());
     }
 }

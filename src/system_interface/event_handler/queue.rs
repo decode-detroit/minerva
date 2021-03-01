@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Decode Detroit
+// Copyright (c) 2017-2021 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -21,7 +21,7 @@
 //! that events with a longer delay always arrive later than earlier events.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, EventDelay, ComingEvent, GeneralUpdate};
+use crate::definitions::{ItemId, EventDelay, ComingEvent, InternalSend};
 
 // Import other standard library features
 use std::time::Duration;
@@ -42,17 +42,17 @@ use tokio::time::sleep;
 #[derive(Clone)]
 struct ComingEvents {
     list: Arc<Mutex<Vec<ComingEvent>>>, // a threadsafe vector to hold the coming events
-    general_update: GeneralUpdate, // the general update line for passing current events back to the rest of the system
+    interface_send: InternalSend, // the general update line for passing current events back to the rest of the system
 }
 
 // Implement key features for the coming events
 impl ComingEvents {
     /// A function to create a new, empty ComingEvents structure.
     ///
-    fn new(general_update: GeneralUpdate) -> ComingEvents {
+    fn new(interface_send: InternalSend) -> ComingEvents {
         ComingEvents {
             list: Arc::new(Mutex::new(Vec::new())),
-            general_update,
+            interface_send,
         }
     }
 
@@ -65,7 +65,7 @@ impl ComingEvents {
             Ok(list) => list.clone(),
             _ => Vec::new(), // inelegant failure handling
         };
-        self.general_update.send_coming_events(list).await;
+        self.interface_send.send_coming_events(list).await;
     }
 
     /// A method to load an additional coming event.
@@ -273,7 +273,7 @@ impl ComingEvents {
 ///
 pub struct Queue {
     queue_load: mpsc::Sender<ComingEvent>, // the queue loading line that sends additional items to the daemon
-    general_update: GeneralUpdate, // the general update line for passing current events back to the rest of the system
+    interface_send: InternalSend, // the general update line for passing current events back to the rest of the system
     coming_events: ComingEvents, // the data queue to be modified by the background process and system handler process
 }
 
@@ -285,16 +285,16 @@ impl Queue {
     /// back up the reply_line. The new implementation of the queue launches a
     /// background thread to monitor updates.
     ///
-    pub fn new(general_update: GeneralUpdate) -> Queue {
+    pub fn new(interface_send: InternalSend) -> Queue {
         // Create a new channel pair to send updates to the background queue
         let (queue_load, queue_receive) = mpsc::channel(128);
 
         // Create the new queue data
-        let coming_events = ComingEvents::new(general_update.clone());
+        let coming_events = ComingEvents::new(interface_send.clone());
         let coming_clone = coming_events.clone();
 
         // Launch the background process with the queue data
-        let general_clone = general_update.clone();
+        let general_clone = interface_send.clone();
         Handle::current().spawn(async {
             // Run the queue background process indefinitely
             Queue::run_loop(general_clone, queue_receive, coming_clone).await;
@@ -303,7 +303,7 @@ impl Queue {
         // Return the Queue
         Queue {
             queue_load,
-            general_update,
+            interface_send,
             coming_events,
         }
     }
@@ -312,7 +312,7 @@ impl Queue {
     /// should be launched in a new background thread for the queue.
     ///
     async fn run_loop(
-        general_update: GeneralUpdate,
+        interface_send: InternalSend,
         mut queue_receive: mpsc::Receiver<ComingEvent>,
         mut coming_events: ComingEvents,
     ) {
@@ -346,7 +346,7 @@ impl Queue {
                             
                             // Send it if it matches what we expected. Otherwise, do nothing.
                             if let Some(event_now) = last_event {
-                                general_update.send_event(event_now.id(), true, true).await;
+                                interface_send.send_event(event_now.id(), true, true).await;
                             }
                         }
 
@@ -370,7 +370,7 @@ impl Queue {
                                     
                                     // Send it if it matches what we expected. Otherwise, do nothing.
                                     if let Some(event_now) = last_event {
-                                        general_update.send_event(event_now.id(), true, true).await;
+                                        interface_send.send_event(event_now.id(), true, true).await;
                                     }
                                     // Otherwise, do nothing.
                                 }
@@ -398,7 +398,7 @@ impl Queue {
             }
 
             // Immediately return any events that have no delay
-            None => self.general_update.send_event(event.id(), true, true).await,
+            None => self.interface_send.send_event(event.id(), true, true).await,
         }
     }
 
@@ -519,7 +519,7 @@ impl Queue {
         
         // Otherwise, raise an error that the queue has failed
         } else {
-            update!(err &self.general_update => "Internal Failure Of The Event Queue.");
+            update!(err &self.interface_send => "Internal Failure Of The Event Queue.");
         }
     }
 
@@ -579,50 +579,81 @@ mod tests {
     use super::*;
 
     // Simple test of running the queue module
-    #[test]
-    fn run_queue() {
+    #[tokio::test]
+    async fn queue_events() {
         // Import libraries for testing
-        use crate::definitions::{GeneralUpdate, GeneralUpdateType, SystemUpdate};
+        use crate::definitions::{InternalSend, InternalUpdate};
         use std::time::Duration;
+        use tokio::time::sleep;
 
         // Create a channel for receiving messages from the queue
-        let (tx, rx) = GeneralUpdate::new();
+        let (tx, mut rx) = InternalSend::new();
 
         // Create a new message queue
-        let queue = Queue::new(tx);
+        let mut queue = Queue::new(tx);
 
         // Load some events into the queue
         queue.add_event(EventDelay::new(
             Some(Duration::from_millis(20)),
             ItemId::new(20).unwrap(),
-        ));
+        )).await;
         queue.add_event(EventDelay::new(
             Some(Duration::from_millis(60)),
             ItemId::new(60).unwrap(),
-        ));
+        )).await;
         queue.add_event(EventDelay::new(
             Some(Duration::from_millis(40)),
             ItemId::new(40).unwrap(),
-        ));
+        )).await;
         queue.add_event(EventDelay::new(
             Some(Duration::from_millis(100)),
             ItemId::new(100).unwrap(),
-        ));
+        )).await;
         queue.add_event(EventDelay::new(
             Some(Duration::from_millis(80)),
             ItemId::new(80).unwrap(),
-        ));
+        )).await;
 
         // Create the test vector
-        let test = vec![
-            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(20), check_scene: true, broadcast: true }),
-            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(40), check_scene: true, broadcast: true }),
-            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(60), check_scene: true, broadcast: true }),
-            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(80), check_scene: true, broadcast: true }),
-            GeneralUpdateType::System(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(100), check_scene: true, broadcast: true }),
+        let reference = vec![
+            InternalUpdate::ProcessEvent{ event: ItemId::new_unchecked(20), check_scene: true, broadcast: true },
+            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(40), check_scene: true, broadcast: true },
+            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(60), check_scene: true, broadcast: true },
+            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(80), check_scene: true, broadcast: true },
+            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(100), check_scene: true, broadcast: true },
         ];
 
         // Print and check the messages received (wait at most half a second)
-        test_vec!(=rx, test);
+        let mut received = Vec::new();
+        loop {
+            tokio::select! {
+                // Try to find the test updates
+                Some(update) = rx.recv() => {
+                    // Log any new addition that is ProcessEvent type
+                    if let &InternalUpdate::ProcessEvent { .. } = &update {
+                        received.push(update);
+                    }
+                    
+                    // Check if the received vector matches the test vector
+                    if reference == received {
+                        return;
+                    }
+                }
+
+                // Only wait half a second
+                _ = sleep(Duration::from_millis(500)) => {
+                    break;
+                }
+            }
+        }
+
+        // Print debugging help if the script failed
+        println!(
+            "===================DEBUG==================\n\nEXPECTED\n{:?}\n\nOUTPUT\n{:?}",
+            reference, received
+        );
+
+        // If they were not found, fail the test
+        panic!("Failed test vector comparison.");
     }
 }

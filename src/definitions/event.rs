@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Decode Detroit
+// Copyright (c) 2017-2021 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -322,28 +322,28 @@ mod tests {
     use super::*;
 
     // Test the update! macro
-    #[test]
-    fn test_update() {
+    #[tokio::test]
+    async fn event_update() {
         // Import libraries for testing
-        use crate::definitions::{GeneralUpdate, GeneralUpdateType, Hidden};
+        use crate::definitions::{InternalSend, InternalUpdate, Hidden};
 
         // Create the receiving line
-        let (tx, rx) = GeneralUpdate::new();
+        let (tx, mut rx) = InternalSend::new();
 
         // Generate a few messages
         update!(err tx => "Test Error {}", 1);
         update!(warn tx => "Test Warning {}", 2);
-        update!(broadcast tx => ItemPair::new_unchecked(3, "Test Event 3", Hidden));
+        update!(broadcast tx => ItemPair::new_unchecked(3, "Test Event 3", Hidden), None);
         update!(now tx => ItemPair::new_unchecked(4, "Test Event 4", Hidden));
         update!(update tx => "Test Update {}", "5");
 
         // Create the test vector
         let test = vec![
-            GeneralUpdateType::Update(EventUpdate::Error("Test Error 1".to_string(), None)),
-            GeneralUpdateType::Update(EventUpdate::Warning("Test Warning 2".to_string(), None)),
-            GeneralUpdateType::Update(EventUpdate::Broadcast(ItemPair::new_unchecked(3, "Test Event 3", Hidden), None)),
-            GeneralUpdateType::Update(EventUpdate::Current(ItemPair::new_unchecked(4, "Test Event 4", Hidden))),
-            GeneralUpdateType::Update(EventUpdate::Update("Test Update 5".to_string())),
+            InternalUpdate::Update(EventUpdate::Error("Test Error 1".to_string(), None)),
+            InternalUpdate::Update(EventUpdate::Warning("Test Warning 2".to_string(), None)),
+            InternalUpdate::Update(EventUpdate::Broadcast(ItemPair::new_unchecked(3, "Test Event 3", Hidden), None)),
+            InternalUpdate::Update(EventUpdate::Current(ItemPair::new_unchecked(4, "Test Event 4", Hidden))),
+            InternalUpdate::Update(EventUpdate::Update("Test Update 5".to_string())),
         ];
 
         // Print and check the messages received (wait at most half a second)

@@ -22,7 +22,7 @@
 //! readable format and returned to higher-level modules.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{EventUpdate, GeneralUpdate, InterfaceUpdate, UpdateStatus, Notification};
+use crate::definitions::{EventUpdate, InternalSend, InterfaceUpdate, UpdateStatus, Notification};
 
 // Import standard library modules
 use std::fs::{File, OpenOptions};
@@ -42,7 +42,7 @@ pub struct Logger {
     game_log: Option<File>,                        // game log file for the program
     error_log: Option<File>,                       // error log file for the program
     old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
-    general_update: GeneralUpdate,        // broadcast channel for current events
+    internal_update: InternalSend,        // broadcast channel for current events
     interface_send: mpsc::Sender<InterfaceUpdate>, // an update line for passing updates to the user interface
 }
 
@@ -63,7 +63,7 @@ impl Logger {
     pub fn new(
         log_path: Option<PathBuf>,
         error_path: Option<PathBuf>,
-        general_update: GeneralUpdate,
+        internal_update: InternalSend,
         interface_send: mpsc::Sender<InterfaceUpdate>,
     ) -> Result<Logger, FailureError> {
         // Attempt to open the game log file
@@ -111,7 +111,7 @@ impl Logger {
             game_log,
             error_log,
             old_notifications: Vec::new(),
-            general_update,
+            internal_update,
             interface_send,
         })
     }
@@ -236,7 +236,7 @@ impl Logger {
             // Broadcast events and display them
             EventUpdate::Broadcast(id, data) => {
                 // Broadcast the event and data, if specified
-                self.general_update.send_broadcast(id.get_id(), data).await;
+                self.internal_update.send_broadcast(id.get_id(), data).await;
 
                 // Send a current update with the item pair
                 Notification::Current {

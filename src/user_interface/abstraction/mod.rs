@@ -28,6 +28,12 @@ mod operation_dialogs;
 mod timeline;
 
 // Import the relevant structures into the correct namespace
+use crate::definitions::{
+    DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair,
+    KeyMap, Notification, ReplyType, StatusDescription, SyncSystemSend, UpcomingEvent,
+};
+#[cfg(feature = "media-out")]
+use crate::definitions::VideoStream;
 use self::control::ControlAbstraction;
 use self::events::EventAbstraction;
 use self::operation_dialogs::{
@@ -36,12 +42,6 @@ use self::operation_dialogs::{
 #[cfg(feature = "media-out")]
 use self::operation_dialogs::VideoWindow;
 use self::timeline::TimelineAbstraction;
-use crate::definitions::{
-    DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair,
-    KeyMap, Notification, ReplyType, StatusDescription, SyncSystemSend, UpcomingEvent,
-};
-#[cfg(feature = "media-out")]
-use super::super::system_interface::VideoStream;
 use super::utils::clean_text;
 use edit_item::EditWindow;
 

@@ -18,13 +18,13 @@
 //! This module implements shared communication structures for communicating
 //! across the modules of the system.
 
-// Reexport the key structures and types
+// Import the relevant structures into the correct namespace
 use crate::definitions::{
     ItemId, ItemPair, EventDelay, Event, EventUpdate, UpcomingEvent, DescriptiveScene,
     FullStatus, KeyMap, Scene, Status
 };
 #[cfg(feature = "media-out")]
-pub use self::system_connection::VideoStream;
+use crate::definitions::VideoStream;
 
 // Import standard library features
 use std::path::PathBuf;
@@ -179,8 +179,8 @@ impl fmt::Display for Notification {
 /// An private enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.
 ///
-#[derive(Debug)]
-pub enum GeneralUpdateType {
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InternalUpdate {
     /// A variant that broadcasts an event with the given item id. This event id
     /// is not processed or otherwise checked for validity. If data is provided,
     /// it will be broadcast with the event.
@@ -198,70 +198,83 @@ pub enum GeneralUpdateType {
     #[cfg(feature = "media-out")]
     NewVideo(Option<VideoStream>),
 
-    /// A variant to notify the system of an update from the user interface
-    System(SystemUpdate),
+    /// A variant that processes a new event with the given item id. If the
+    /// check_scene flag is not set, the system will not check if the event is
+    /// listed in the current scene. If broadcast is set to true, the event
+    /// will be broadcast to the system
+    ProcessEvent {
+        event: ItemId,
+        check_scene: bool,
+        broadcast: bool,
+    },
+
+    /// A variant to trigger a refresh of the user interface
+    /// FIXME Reconsider this arrangement
+    RefreshInterface,
 
     /// A variant to notify the system of informational update
     Update(EventUpdate),
 }
 
-/// The public stucture and methods to send updates to the system interface.
+/// The stucture and methods to send internal updates to the system interface.
 ///
 #[derive(Clone, Debug)]
-pub struct GeneralUpdate {
-    general_send: mpsc::Sender<GeneralUpdateType>, // the mpsc sending line to pass updates to the system interface
+pub struct InternalSend {
+    internal_send: mpsc::Sender<InternalUpdate>, // the line to pass internal updates to the system interface
 }
 
-// Implement the key features of the general update struct
-impl GeneralUpdate {
-    /// A function to create the new General Update structure.
+// Implement the key features of the internal update
+impl InternalSend {
+    /// A function to create a new Internal Update
     ///
-    /// The function returns the the General Update structure and the general
+    /// The function returns the the Internal Update structure and the internal
     /// receive channel which will return the provided updates.
     ///
-    pub fn new() -> (GeneralUpdate, mpsc::Receiver<GeneralUpdateType>) {
+    pub fn new() -> (InternalSend, mpsc::Receiver<InternalUpdate>) {
         // Create the new channel
-        let (general_send, receive) = mpsc::channel(128);
+        let (internal_send, receive) = mpsc::channel(128);
 
         // Create and return both new items
-        (GeneralUpdate { general_send }, receive)
+        (InternalSend { internal_send }, receive)
     }
 
     /// A method to broadcast an event via the system interface (with data,
     /// if it is provided)
     ///
     pub async fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
-        self.general_send
-            .send(GeneralUpdateType::BroadcastEvent(event_id, data)).await
+        self.internal_send
+            .send(InternalUpdate::BroadcastEvent(event_id, data)).await
             .unwrap_or(());
     }
 
     /// A method to send new coming events to the system
     ///
     pub async fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
-        self.general_send
-            .send(GeneralUpdateType::ComingEvents(coming_events)).await
+        self.internal_send
+            .send(InternalUpdate::ComingEvents(coming_events)).await
             .unwrap_or(());
     }
 
-    /// A method to process a new event. If the check_scene flag is not set,
-    /// the system will not check if the event is in the current scene. If
-    /// broadcast is set to true, the event will be broadcast to the system.
-    ///
+    // A method to process a new event. If the check_scene flag is not set,
+    // the system will not check if the event is in the current scene. If
+    // broadcast is set to true, the event will be broadcast to the system.
+    //
     pub async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
-        self.send_system(SystemUpdate::ProcessEvent {
-            event,
-            check_scene,
-            broadcast,
-        }).await;
+        self.internal_send
+            .send(InternalUpdate::ProcessEvent {
+                event,
+                check_scene,
+                broadcast,
+            }).await
+            .unwrap_or(());
     }
 
     /// A method to request a string from the user FIXME make this more generic
     /// for other types of data
     ///
     pub async fn send_get_user_string(&self, event: ItemPair) {
-        self.general_send
-            .send(GeneralUpdateType::GetUserString(event)).await
+        self.internal_send
+            .send(InternalUpdate::GetUserString(event)).await
             .unwrap_or(());
     }
      
@@ -269,8 +282,8 @@ impl GeneralUpdate {
     ///
     #[cfg(feature = "media-out")]
     pub async fn send_new_video(&self, video_stream: VideoStream) {
-        self.general_send
-            .send(GeneralUpdateType::NewVideo(Some(video_stream))).await
+        self.internal_send
+            .send(InternalUpdate::NewVideo(Some(video_stream))).await
             .unwrap_or(());
     }
 
@@ -278,63 +291,61 @@ impl GeneralUpdate {
     ///
     #[cfg(feature = "media-out")]
     pub async fn send_clear_videos(&self) {
-        self.general_send
-            .send(GeneralUpdateType::NewVideo(None)).await
+        self.internal_send
+            .send(InternalUpdate::NewVideo(None)).await
             .unwrap_or(());
     }
 
-    /// A method to trigger a redraw of the current window
-    ///
-    pub async fn send_redraw(&self) {
-        self.send_system(SystemUpdate::Redraw).await;
-    }
-
-    /// A method to pass a system update to the system interface.
-    ///
-    pub async fn send_system(&self, update: SystemUpdate) {
-        self.general_send
-            .send(GeneralUpdateType::System(update)).await
+    // A method to trigger a refresh of the user interface
+    //
+    pub async fn send_refresh(&self) {
+        self.internal_send
+            .send(InternalUpdate::RefreshInterface).await
             .unwrap_or(());
     }
 
     /// A method to send an event update to the system interface.
     ///
     pub async fn send_update(&self, update: EventUpdate) {
-        self.general_send
-            .send(GeneralUpdateType::Update(update)).await
+        self.internal_send
+            .send(InternalUpdate::Update(update)).await
             .unwrap_or(());
     }
 }
 
-/// A special, public version of the general update which only allows for a
-/// system send (without other types of updates).
+/// The stucture and methods to send system updates to the system interface.
 ///
 #[derive(Clone, Debug)]
 pub struct SystemSend {
-    general_send: mpsc::Sender<GeneralUpdateType>, // the mpsc sending line to pass system updates to the interface
+    system_send: mpsc::Sender<SystemUpdate>, // the mpsc sending line to pass system updates to the interface
 }
 
 // Implement the key features of the system send struct
 impl SystemSend {
-    /// A function to create a new system send from a general update.
+    /// A function to create a new System Update
     ///
-    pub fn from_general(general_update: &GeneralUpdate) -> SystemSend {
-        SystemSend {
-            general_send: general_update.general_send.clone(),
-        }
+    /// The function returns the the System Update structure and the system
+    /// receive channel which will return the provided updates.
+    ///
+    pub fn new() -> (SystemSend, mpsc::Receiver<SystemUpdate>) {
+        // Create the new channel
+        let (system_send, receive) = mpsc::channel(128);
+
+        // Create and return both new items
+        (SystemSend { system_send }, receive)
     }
 
     /// A method to send a system update. This method fails silently.
     ///
     pub async fn send(&self, update: SystemUpdate) {
-        self.general_send.send(GeneralUpdateType::System(update)).await.unwrap_or(());
+        self.system_send.send(update).await.unwrap_or(());
     }
 
     /// A method to send a system update in a sync setting. This method fails
     /// silently.
     ///
     pub fn blocking_send(&self, update: SystemUpdate) {
-        self.general_send.blocking_send(GeneralUpdateType::System(update)).unwrap_or(());
+        self.system_send.blocking_send(update).unwrap_or(());
     }
 }
 

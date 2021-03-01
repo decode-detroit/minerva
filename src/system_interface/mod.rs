@@ -19,10 +19,6 @@
 //! This module links directly to the event handler and sends any updates
 //! to the application window.
 
-// Reexport the key structures and types
-#[cfg(feature = "media-out")]
-pub use self::system_connection::VideoStream;
-
 // Define private submodules
 mod logging;
 #[macro_use]
@@ -32,8 +28,8 @@ mod system_connection;
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
     DisplayControl, DisplayDebug, DisplayWith, ItemId, ItemPair, LabelControl,
-    GeneralUpdate, GeneralUpdateType, SystemSend, SystemUpdate, InterfaceUpdate,
-    WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply,
+    InternalSend, InternalUpdate, SystemSend, SystemUpdate, InterfaceUpdate,
+    WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply, LaunchWindow,
 };
 use self::event_handler::EventHandler;
 use self::system_connection::SystemConnection;
@@ -70,8 +66,9 @@ pub struct SystemInterface {
     logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
     interface_send: std_mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
-    general_receive: mpsc::Receiver<GeneralUpdateType>, // a receiving line for all system updates
-    general_update: GeneralUpdate, // a sending structure to pass new general updates
+    system_receive: mpsc::Receiver<SystemUpdate>, // a receiving line to receive system updates
+    internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
+    internal_send: InternalSend, // a sending line to pass internal updates
     is_debug_mode: bool,           // a flag to indicate debug mode
 }
 
@@ -83,7 +80,7 @@ impl SystemInterface {
         interface_send: std_mpsc::Sender<InterfaceUpdate>,
     ) -> Result<(SystemInterface, SystemSend), FailureError> {
         // Create the new general update structure and receive channel
-        let (general_update, general_receive) = GeneralUpdate::new();
+        let (internal_send, internal_receive) = InternalSend::new();
 
         // Try to load the default logging file
         let (log_folder, error_log) = match env::current_dir() {
@@ -108,15 +105,15 @@ impl SystemInterface {
         let logger = Logger::new(
             log_folder,
             error_log,
-            general_update.clone(),
+            internal_send.clone(),
             interface_send.clone(),
         )?;
 
         // Create a new system connection instance
-        let system_connection = SystemConnection::new(general_update.clone(), None).await;
+        let system_connection = SystemConnection::new(internal_send.clone(), None).await;
 
         // Create the sytem send for the user interface
-        let system_send = SystemSend::from_general(&general_update);
+        let (system_send, system_receive) = SystemSend::new();
 
         // Create the new system interface instance
         let mut sys_interface = SystemInterface {
@@ -124,8 +121,9 @@ impl SystemInterface {
             logger,
             system_connection,
             interface_send,
-            general_receive,
-            general_update: general_update,
+            system_receive,
+            internal_receive,
+            internal_send,
             is_debug_mode: false,
         };
 
@@ -156,69 +154,17 @@ impl SystemInterface {
     /// and underlying system of any event changes.
     ///
     async fn run_once(&mut self) -> bool {        
-        // Check for any of the updates
-        match self.general_receive.recv().await {
-            // Broadcast the event via the system connection
-            Some(GeneralUpdateType::BroadcastEvent(event_id, data)) => {
-                self.system_connection.broadcast(event_id, data).await;
+        // Check for updates on any line
+        tokio::select! {
+            // Updates from the Internal System
+            Some(update) = self.internal_receive.recv() => {
+                self.unpack_internal_update(update).await;
             }
 
-            // Update the timeline with the new list of coming events
-            Some(GeneralUpdateType::ComingEvents(events)) => {
-                // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
-                    // Repackage the coming events into upcoming events
-                    let upcoming_events = handler.repackage_events(events).await;
-
-                    // Send the new events to the interface
-                    self.interface_send
-                        .send(InterfaceUpdate::UpdateTimeline {
-                            events: upcoming_events,
-                        })
-                        .unwrap_or(());
-                }
-            }
-
-            // Solicit a string from the user
-            Some(GeneralUpdateType::GetUserString(event)) => {
-                // Request the information from the user interface
-                self.interface_send
-                    .send(InterfaceUpdate::LaunchWindow {
-                        window_type: WindowType::PromptString(event),
-                    })
-                    .unwrap_or(());
-            }
-            
-            // Pass a video stream to the user interface
-            #[cfg(feature = "media-out")]
-            Some(GeneralUpdateType::NewVideo(video_stream)) => {
-                // Pass the stream to the user interface
-                self.interface_send
-                    .send(LaunchWindow {
-                        window_type: WindowType::Video(video_stream),
-                    })
-                    .unwrap_or(());
-            }
-
-            // Process the system update
-            Some(GeneralUpdateType::System(update)) => {
-                // Return the result of the update
+            // Updates from the User Interface
+            Some(update) = self.system_receive.recv() => {
                 return self.unpack_system_update(update).await;
             }
-
-            // Pass the information update to the logger
-            Some(GeneralUpdateType::Update(event_update)) => {
-                // Find the most recent notifications
-                let notifications = self.logger.update(event_update).await;
-
-                // Send a notification update to the system
-                self.interface_send
-                    .send(InterfaceUpdate::UpdateNotifications { notifications })
-                    .unwrap_or(());
-            }
-
-            // Close on a communication error with the user interface thread
-            _ => return false,
         }
 
         // In most cases, indicate to continue normally
@@ -244,7 +190,118 @@ impl SystemInterface {
         drop(self);
     }
 
-    /// An internal method to unpack system updates from the main program thread.
+    /// A method to unpack internal updates from the main program thread.
+    ///
+    async fn unpack_internal_update(&mut self, update: InternalUpdate) {
+        // Unpack the different variant types
+        match update {
+            // Broadcast the event via the system connection
+            InternalUpdate::BroadcastEvent(event_id, data) => {
+                self.system_connection.broadcast(event_id, data).await;
+            }
+
+            // Update the timeline with the new list of coming events
+            InternalUpdate::ComingEvents(events) => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // Repackage the coming events into upcoming events
+                    let upcoming_events = handler.repackage_events(events).await;
+
+                    // Send the new events to the interface
+                    self.interface_send
+                        .send(InterfaceUpdate::UpdateTimeline {
+                            events: upcoming_events,
+                        })
+                        .unwrap_or(());
+                }
+            }
+
+            // Solicit a string from the user
+            InternalUpdate::GetUserString(event) => {
+                // Request the information from the user interface
+                self.interface_send
+                    .send(InterfaceUpdate::LaunchWindow {
+                        window_type: WindowType::PromptString(event),
+                    })
+                    .unwrap_or(());
+            }
+            
+            // Pass a video stream to the user interface
+            #[cfg(feature = "media-out")]
+            InternalUpdate::NewVideo(video_stream) => {
+                // Pass the stream to the user interface
+                self.interface_send
+                    .send(LaunchWindow {
+                        window_type: WindowType::Video(video_stream),
+                    })
+                    .unwrap_or(());
+            }
+
+            // Pass an event to the event_handler
+            InternalUpdate::ProcessEvent {
+                event,
+                check_scene,
+                broadcast,
+            } => {
+                // If the event handler exists
+                if let Some(mut handler) = self.event_handler.take() {
+                    // Try to process the event
+                    if handler.process_event(&event, check_scene, broadcast).await {
+                        // Notify the user interface of the event
+                        let description = handler.get_description(&event);
+                        self.interface_send
+                            .send(InterfaceUpdate::Notify {
+                                message: description.description,
+                            })
+                            .unwrap_or(());
+                    }
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
+
+                // Otherwise notify the user that a configuration faild to load
+                } else {
+                    update!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
+                }
+            }
+
+            // Refresh the interface
+            InternalUpdate::RefreshInterface => {
+                // Try to redraw the current window
+                if let Some(ref mut handler) = self.event_handler {
+                    // Compose the new event window and status items
+                    let (window, statuses) = SystemInterface::sort_items(
+                        handler.get_events(),
+                        handler,
+                        self.is_debug_mode,
+                    );
+
+                    // Send the update with the new event window
+                    self.interface_send
+                        .send(InterfaceUpdate::UpdateWindow {
+                            current_scene: handler.get_current_scene(),
+                            window,
+                            statuses,
+                            key_map: handler.get_key_map(),
+                        })
+                        .unwrap_or(());
+                }
+            }
+
+            // Pass the information update to the logger
+            InternalUpdate::Update(event_update) => {
+                // Find the most recent notifications
+                let notifications = self.logger.update(event_update).await;
+
+                // Send a notification update to the system
+                self.interface_send
+                    .send(InterfaceUpdate::UpdateNotifications { notifications })
+                    .unwrap_or(());
+            }
+        }
+    }
+
+    /// A method to unpack system updates from the main program thread.
     ///
     /// When the update is the Close variant, the function will return false,
     /// indicating that the thread should close.
@@ -278,10 +335,10 @@ impl SystemInterface {
                 }
 
                 // Send the all stop event via the logger
-                update!(broadcast &mut self.general_update => ItemPair::all_stop(), None);
+                update!(broadcast &mut self.internal_send => ItemPair::all_stop(), None);
 
                 // Place an error in the debug log
-                update!(err &mut self.general_update => "An All Stop was triggered by the operator.");
+                update!(err &mut self.internal_send => "An All Stop was triggered by the operator.");
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -296,7 +353,7 @@ impl SystemInterface {
             // GeneralUpdate::BroadcastEvent)
             SystemUpdate::BroadcastEvent { event, data } => {
                 // Broadcast the event via the logger
-                update!(broadcast &mut self.general_update => event.clone(), data);
+                update!(broadcast &mut self.internal_send => event.clone(), data);
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -331,6 +388,22 @@ impl SystemInterface {
                 if let Some(path) = filepath {
                     // If so, try to load it
                     self.load_config(path, true).await;
+                }
+            }
+
+            // Cue an event
+            SystemUpdate::CueEvent { event_delay } => {
+                // If the event handler exists
+                if let Some(mut handler) = self.event_handler.take() {
+                    // Cue the event
+                    handler.add_event(event_delay).await;
+                    
+                    // Put the handler back
+                    self.event_handler = Some(handler);
+
+                // Otherwise noity the user that a configuration faild to load
+                } else {
+                    update!(err &mut self.internal_send => "Event Could Not Be Added. No Active Configuration.");
                 }
             }
 
@@ -386,7 +459,7 @@ impl SystemInterface {
 
                 // Raise a warning that there is no active configuration
                 } else {
-                    update!(warn &mut self.general_update => "Change Not Saved: There Is No Active Configuration.");
+                    update!(warn &mut self.internal_send => "Change Not Saved: There Is No Active Configuration.");
                 }
             }
 
@@ -436,23 +509,7 @@ impl SystemInterface {
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
-                    update!(err &mut self.general_update => "Event Could Not Be Processed. No Active Configuration.");
-                }
-            }
-
-            // Cue an event
-            SystemUpdate::CueEvent { event_delay } => {
-                // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
-                    // Cue the event
-                    handler.add_event(event_delay).await;
-                    
-                    // Put the handler back
-                    self.event_handler = Some(handler);
-
-                // Otherwise noity the user that a configuration faild to load
-                } else {
-                    update!(err &mut self.general_update => "Event Could Not Be Added. No Active Configuration.");
+                    update!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
                 }
             }
 
@@ -563,7 +620,7 @@ impl SystemInterface {
 
                 // Otherwise noity the user that a configuration failed to load
                 } else {
-                    update!(warn &mut self.general_update => "Information Unavailable. No Active Configuration.");
+                    update!(warn &mut self.internal_send => "Information Unavailable. No Active Configuration.");
                 }
             }
 
@@ -632,7 +689,7 @@ impl SystemInterface {
     ///
     /// When the log failure flag is false, the function will not post an error
     /// about failing to locate the configuration file. Regardless of the flag,
-    /// all other types of errors will be logged on the general_send line.
+    /// all other types of errors will be logged.
     ///
     async fn load_config(&mut self, filepath: PathBuf, log_failure: bool) {
         // Clone the interface send
@@ -641,7 +698,7 @@ impl SystemInterface {
         // Create a new event handler
         let mut event_handler = match EventHandler::new(
             filepath,
-            self.general_update.clone(),
+            self.internal_send.clone(),
             interface_send,
             log_failure,
         ).await {
@@ -666,7 +723,7 @@ impl SystemInterface {
             .unwrap_or(());
 
         // Trigger a redraw of the system
-        self.general_update.send_redraw().await;
+        self.internal_send.send_refresh().await;
 
         // Update the event handler
         self.event_handler = Some(event_handler);

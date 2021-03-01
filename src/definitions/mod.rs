@@ -25,6 +25,7 @@ mod item;
 mod event;
 mod status;
 mod scene;
+mod connections;
 mod communication;
 
 // Reexport all the definitions from the submodules
@@ -32,4 +33,5 @@ pub use self::item::*;
 pub use self::event::*;
 pub use self::status::*;
 pub use self::scene::*;
+pub use self::connections::*;
 pub use self::communication::*;

@@ -26,7 +26,7 @@ use crate::definitions::{
     StatusDescription, SyncSystemSend, SystemUpdate,
 };
 #[cfg(feature = "media-out")]
-use super::super::super::system_interface::VideoStream;
+use crate::definitions::VideoStream;
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
 
@@ -929,6 +929,8 @@ impl VideoWindow {
     /// A method to add a new video to the video window
     ///
     pub fn add_new_video(&mut self, video_stream: VideoStream) {
+        println!("Made it two");
+
         // Create a new video area
         let video_area = gtk::DrawingArea::new();
         
