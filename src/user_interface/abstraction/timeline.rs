@@ -144,7 +144,7 @@ impl TimelineAdjustment {
     ///
     fn new_dialog(&self, window: &gtk::ApplicationWindow, unique_str: Option<String>) {
         // Create the new dialog
-        let dialog = gtk::Dialog::new_with_buttons(
+        let dialog = gtk::Dialog::with_buttons(
             Some("Adjust Timeline Event"),
             Some(window),
             gtk::DialogFlags::MODAL | gtk::DialogFlags::DESTROY_WITH_PARENT,
@@ -162,7 +162,7 @@ impl TimelineAdjustment {
         };
 
         // Chreate the cancel checkbox
-        let cancel_checkbox = gtk::CheckButton::new_with_label("Cancel Event");
+        let cancel_checkbox = gtk::CheckButton::with_label("Cancel Event");
 
         // Create the new spin buttons for minutes and seconds
         let minute_adjustment = gtk::Adjustment::new(0.0, 0.0, MINUTES_LIMIT, 1.0, 1.0, 1.0);
@@ -311,7 +311,9 @@ impl TimelineAdjustment {
             }
 
             // Close the window either way
-            modal.destroy();
+            unsafe {
+                modal.destroy();
+            }
         }));
 
         // Show the dialog and return it
@@ -367,10 +369,10 @@ impl TimelineAbstraction {
         }));
 
         // Create the duration buttons
-        let duration_twohours = gtk::Button::new_with_label("2 Hrs");
-        let duration_onehour = gtk::Button::new_with_label("60 Min");
-        let duration_tenmins = gtk::Button::new_with_label("10 Min");
-        let duration_onemin = gtk::Button::new_with_label("60 Secs");
+        let duration_twohours = gtk::Button::with_label("2 Hrs");
+        let duration_onehour = gtk::Button::with_label("60 Min");
+        let duration_tenmins = gtk::Button::with_label("10 Min");
+        let duration_onemin = gtk::Button::with_label("60 Secs");
 
         // Format the buttons
         duration_twohours.set_halign(gtk::Align::End);

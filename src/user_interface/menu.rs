@@ -30,6 +30,7 @@ use super::super::system_interface::{
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use std::process::Command;
 
 // Import GTK and GDK libraries
 use gdk_pixbuf;
@@ -37,12 +38,6 @@ use gio;
 use gtk;
 use gtk::prelude::*;
 use gio::prelude::*;
-
-// Import the Rust audio module
-#[cfg(feature = "audio")]
-use rodio;
-#[cfg(feature = "audio")]    
-use rodio::DeviceTrait;
 
 /// A structure to hold all the features of the default menu.
 ///
@@ -108,7 +103,6 @@ impl MenuAbstraction {
         modify_section.append(Some("New Scene"), Some("app.new_scene"));
         modify_section.append(Some("New Status"), Some("app.new_status"));
         modify_section.append(Some("New Event"), Some("app.new_event"));
-        #[cfg(feature = "audio")]
         modify_section.append(Some("List Audio Devices"), Some("app.list_audio"));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &edit_section));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &modify_section));
@@ -147,7 +141,9 @@ impl MenuAbstraction {
                 }
 
                 // Close the window either way
-                chooser.destroy();
+                unsafe {
+                    chooser.destroy();
+                }
             }));
 
             // Show the dialog
@@ -175,7 +171,9 @@ impl MenuAbstraction {
                 }
 
                 // Close the window either way
-                chooser.destroy();
+                unsafe {
+                    chooser.destroy();
+                }
             }));
 
             // Show the dialog
@@ -203,7 +201,9 @@ impl MenuAbstraction {
                 }
 
                 // Close the window either way
-                chooser.destroy();
+                unsafe {
+                    chooser.destroy();
+                }
             }));
 
             // Show the dialog
@@ -221,7 +221,9 @@ impl MenuAbstraction {
             thread::sleep(Duration::new(0, 1000));
 
             // Close the window for the program
-            window.destroy();
+            unsafe {
+                window.destroy();
+            }
         }));
 
         // Create the fullscreen action
@@ -380,7 +382,9 @@ impl MenuAbstraction {
                         }
 
                         // Close the window either way
-                        chooser.destroy();
+                        unsafe {
+                            chooser.destroy();
+                        }
                     }));
 
                     // Show the dialog
@@ -391,7 +395,7 @@ impl MenuAbstraction {
 
         // Create the new scene dialog action
         let new_scene = gio::SimpleAction::new("new_scene", None);
-        new_scene.connect_activate(clone!(interface_send, edit => move |_, _| {
+        new_scene.connect_activate(clone!(edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -408,7 +412,7 @@ impl MenuAbstraction {
 
         // Create the new status dialog action
         let new_status = gio::SimpleAction::new("new_status", None);
-        new_status.connect_activate(clone!(interface_send, edit => move |_, _| {
+        new_status.connect_activate(clone!(edit => move |_, _| {
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
                 // Get the current state of the checkbox
@@ -423,7 +427,7 @@ impl MenuAbstraction {
 
         // Create the new event dialog action
         let new_event = gio::SimpleAction::new("new_event", None);
-        new_event.connect_activate(clone!(interface_send, edit => move |_, _| {
+        new_event.connect_activate(clone!(edit => move |_, _| {
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
                 // Get the current state of the checkbox
@@ -437,30 +441,23 @@ impl MenuAbstraction {
         }));
         
         // Create the list audio devices action
-        #[cfg(feature = "audio")]
         let list_audio = gio::SimpleAction::new("list_audio", None);
-        #[cfg(feature = "audio")]
         list_audio.connect_activate(|_, _| {
-            // Extract the list of audio devices
-            let mut names = Vec::new();
-            if let Ok(devices) = rodio::devices() {
-                // Print the header
-                println!("Errors and warnings here are normal ...");
+            // Try to run the process
+            if let Ok(process) = Command::new("aplay").arg("-L").output() {
+                // Try to convert the output
+                if let Ok(output) = String::from_utf8(process.stdout) {
+                    // Print the result
+                    print!("{}", output);
                 
-                // Examine each found device
-                for device in devices {
-                    if let Ok(_) = device.supported_output_formats() {
-                        if let Ok(name) = device.name() {
-                            names.push(name);
-                        }
-                    }
+                // Otherwise, alert the user
+                } else {
+                    println!("Error: Invalid output from 'aplay'."); // FIXME Make this pretty
                 }
-            }
             
-            // Print the found device names
-            println!("\n\n ================ Valid Devices ================ ");
-            for name in names {
-                println!("{}", name);
+            // Otherwise, alert the user aplay must be installed
+            } else {
+                println!("Error: This feature requires 'aplay'.");
             }
         });
 
@@ -510,7 +507,7 @@ impl MenuAbstraction {
 
             // Create the dialog and set the parameters of the information
             let dialog = gtk::AboutDialog::new();
-            dialog.set_authors(&["Patton Doyle","and Team Decode"]);
+            dialog.set_authors(&["Patton Doyle","Peter Doyle","Jasmine Powell","and Team Decode"]);
             dialog.set_website_label(Some("www.ComedyElectronics.com"));
             dialog.set_website(Some("http://www.ComedyElectronics.com"));
             dialog.set_title("About Minerva");
@@ -520,7 +517,7 @@ impl MenuAbstraction {
             dialog.set_license_type(gtk::License::Gpl30);
 
             // Try to add the software logo
-            match gdk_pixbuf::Pixbuf::new_from_file(super::super::LOGO_WIDE) {
+            match gdk_pixbuf::Pixbuf::from_file(super::super::LOGO_WIDE) {
 
                 // Add the logo if successful
                Ok(ref pixbuf) => dialog.set_logo(Some(pixbuf)),
@@ -530,7 +527,9 @@ impl MenuAbstraction {
             // Set the closure and destroy parameters
             dialog.set_transient_for(Some(&window));
             dialog.run();
-            dialog.destroy();
+            unsafe {
+                dialog.destroy();
+            }
         }));
 
         // Add the actions to the application
@@ -543,7 +542,6 @@ impl MenuAbstraction {
         application.add_action(&font);
         application.add_action(&contrast);
         application.add_action(&edit);
-        #[cfg(feature = "audio")]
         application.add_action(&list_audio);
         application.add_action(&shortcuts);
         application.add_action(&jump);

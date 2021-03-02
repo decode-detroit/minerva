@@ -32,6 +32,7 @@ use std::u32::MAX as U32_MAX;
 // Import GTK library
 use gtk;
 use gtk::prelude::*;
+use glib;
 
 // Define module constants
 const FLASH_RATE: u32 = 700;
@@ -284,7 +285,7 @@ pub fn decorate_label(
                         let spotlight_update = clone!(label, markup, highlight_markup, expiration => move || {
                             spotlight_label(label.clone(), markup.clone(), highlight_markup.clone(), expiration.clone())
                         });
-                        gtk::timeout_add(FLASH_RATE, spotlight_update);
+                        glib::timeout_add_local(FLASH_RATE, spotlight_update);
                     }
                 }
             }

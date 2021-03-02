@@ -23,7 +23,8 @@
 
 // Reexport the key structures and types
 pub use self::config::{
-    DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
+    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, StatusDescription,
+    Status
 };
 pub use self::queue::ComingEvent;
 
@@ -41,8 +42,8 @@ mod queue;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::event::{
-    CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, GroupedEvent,
-    ModifyStatus, NewScene, QueueEvent, SaveData, SendData, UpcomingEvent,
+    CancelEvent, DataType, EventAction, EventDelay, Event, EventUpdate, SelectEvent,
+    ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
 };
 use self::item::{ItemDescription, ItemId, ItemPair};
 use self::queue::Queue;
@@ -167,7 +168,7 @@ impl EventHandler {
 
     /// A method to return the configured system connection type.
     ///
-    pub fn system_connection(&self) -> (ConnectionSet, ItemId) {
+    pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
         self.config.system_connection()
     }
 
@@ -617,7 +618,7 @@ impl EventHandler {
             }
 
             // If there is a queued event to load, load it into the queue
-            QueueEvent { event } => {
+            CueEvent { event } => {
                 // Add the event to the queue
                 self.queue.add_event(event);
             }
@@ -764,8 +765,8 @@ impl EventHandler {
                 }
             }
 
-            // If there is a grouped event, trigger the corresponding event
-            GroupedEvent {
+            // If there is a select event, trigger the selected event
+            SelectEvent {
                 status_id,
                 event_map,
             } => {
@@ -899,7 +900,7 @@ mod tests {
             EventUpdate::Current(
                 ItemPair::new(
                     6,
-                    "Load Events Or Save Data (Grouped Event)",
+                    "Load Events Or Save Data (Select Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
                         position: None,
@@ -918,7 +919,7 @@ mod tests {
             EventUpdate::Current(
                 ItemPair::new(
                     6,
-                    "Load Events Or Save Data (Grouped Event)",
+                    "Load Events Or Save Data (Select Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
                         position: None,
@@ -943,7 +944,7 @@ mod tests {
             EventUpdate::Current(
                 ItemPair::new(
                     6,
-                    "Load Events Or Save Data (Grouped Event)",
+                    "Load Events Or Save Data (Select Event)",
                     DisplayWith {
                         group_id: Some(ItemId::new(10).unwrap()),
                         position: None,

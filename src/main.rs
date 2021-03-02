@@ -26,10 +26,12 @@ extern crate serde;
 mod system_interface;
 #[macro_use]
 mod user_interface;
+mod web_interface;
 
 // Import the relevant structures into the correct namespace
-use self::system_interface::SystemInterface;
+use self::system_interface::{SystemInterface, ProcessEvent};
 use self::user_interface::UserInterface;
+use self::web_interface::{WebInterface, WebReply};
 
 // Import standard library features
 use std::env::args;
@@ -46,6 +48,9 @@ use gtk;
 use self::gtk::prelude::*;
 use self::gio::prelude::*;
 use self::gtk::SettingsExt;
+
+// Import tokio features
+use tokio::sync::mpsc as tokio_mpsc;
 
 // Define program constants
 const LOGO_SQUARE: &str = "logo_square.png";
@@ -70,6 +75,15 @@ impl Minerva {
             settings.set_property_gtk_font_name(Some(FONT));
         }
 
+        // Create a new web interface
+        let (web_send, mut web_receive) = tokio_mpsc::channel(128);
+        let (mut web_interface, handle) = WebInterface::new(&web_send); // FIXME Should .expect()
+
+        // Open the web interface in a new thread
+        thread::spawn(move || {
+            web_interface.run();
+        });
+
         // Launch the background thread to monitor and handle events
         let (interface_send, interface_receive) = mpsc::channel();
         let (system_interface, system_send) = SystemInterface::new(interface_send.clone())
@@ -78,6 +92,24 @@ impl Minerva {
         // Open the system interface in a new thread
         thread::spawn(move || {
             system_interface.run();
+        });
+
+        // Spawn a thread to manage the intersection of sync/async
+        let system_clone = system_send.clone();
+        thread::spawn(move || {
+            // Loop indefinitely
+            loop {
+                // Wait for something to come through
+                let (item_id, reply_line) = handle.block_on(async {
+                    web_receive.recv().await.unwrap()
+                });
+                
+                // Pass the message to the internal system
+                system_clone.send(ProcessEvent { event: item_id.clone(), check_scene: true, broadcast: true });
+                
+                // Indicate success on the reply line
+                reply_line.send(WebReply::success()).unwrap_or(());
+            }
         });
 
         // Create the application window

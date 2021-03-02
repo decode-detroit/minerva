@@ -23,29 +23,31 @@ use super::{EventConnection, ItemId, ReadResult};
 // Import standard library features
 use std::path::PathBuf;
 
-// Import the ZMQ C-bindings
-use zmq::{Context, Socket};
-
-// Import FNV HashMap
-use fnv::FnvHashMap;
-
 // Import the failure features
 use failure::Error;
 
+// Import the ZMQ C-bindings
+#[cfg(feature = "zmq-comm")]
+use zmq::{Context, Socket};
+
 // Import program constants
+#[cfg(feature = "zmq-comm")]
 use super::POLLING_RATE; // the polling rate for the system
 
 /// A structure to hold and manipulate the connection over zmq
 ///
 pub struct ZmqBind {
+    #[cfg(feature = "zmq-comm")]
     zmq_send: Socket, // the ZMQ send connection
+    #[cfg(feature = "zmq-comm")]
     zmq_recv: Socket, // the ZMQ receive connection
 }
 
-// Implement key functionality for the ZMQ structure
+// Implement key functionality for ZMQ Bind
 impl ZmqBind {
-    /// A function to create a new instance of the ZmqBind
+    /// A function to create a new instance of the ZmqBind, active version
     ///
+    #[cfg(feature = "zmq-comm")]
     pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqBind, Error> {
         // Create the new ZMQ sending socket
         let context = Context::new();
@@ -67,12 +69,20 @@ impl ZmqBind {
         // Return the new connection
         Ok(ZmqBind { zmq_send, zmq_recv })
     }
+    
+    /// A function to create a new instance of the ZmqBind, inactive version
+    ///
+    #[cfg(not(feature = "zmq-comm"))]
+    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqBind, Error> {
+        Ok(ZmqBind {})
+    }
 }
 
 // Implement the event connection trait for ZmqBind
 impl EventConnection for ZmqBind {
-    /// A method to receive new events from the zmq connection
+    /// A method to receive new events from the zmq connection, active version
     ///
+    #[cfg(feature = "zmq-comm")]
     fn read_events(&mut self) -> Vec<ReadResult> {
         // Read any events from the zmq connection
         let mut results = Vec::new();
@@ -84,14 +94,29 @@ impl EventConnection for ZmqBind {
         results
     }
 
-    /// A method to send a new event to the zmq connection
+    /// A method to receive new events from the zmq connection, inactive version
     ///
+    #[cfg(not(feature = "zmq-comm"))]
+    fn read_events(&mut self) -> Vec<ReadResult> {
+        Vec::new() // return an empty vector
+    }
+
+    /// A method to send a new event to the zmq connection, active version
+    ///
+    #[cfg(feature = "zmq-comm")]
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Send a multipart ZMQ message, formatted as strings
-        self.zmq_send.send_str(&id.id().to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data1.to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data2.to_string(), 0)?;
+        self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data2.to_string(), 0)?;
         Ok(())
+    }
+
+    /// A method to send a new event to the zmq connection, inactive version
+    ///
+    #[cfg(not(feature = "zmq-comm"))]
+    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
+        return Err(format_err!("Program compiled without ZMQ support. See documentation."));
     }
 
     /// A method to echo events back to the zmq connection. This method does
@@ -108,16 +133,21 @@ impl EventConnection for ZmqBind {
 /// connection.
 ///
 pub struct ZmqConnect {
+    #[cfg(feature = "zmq-comm")]
     zmq_send: Socket,                    // the ZMQ send connection
+    #[cfg(feature = "zmq-comm")]
     zmq_recv: Socket,                    // the ZMQ receive connection
+    #[cfg(feature = "zmq-comm")]
     filter_in: Vec<(ItemId, u32, u32)>,  // events to filter, incoming
+    #[cfg(feature = "zmq-comm")]
     filter_out: Vec<(ItemId, u32, u32)>, // events to filter, outgoing
 }
 
-// Implement key functionality for the ZMQ structure
+// Implement key functionality for ZMQ Connect
 impl ZmqConnect {
-    /// A function to create a new instance of the ZmqConnect
+    /// A function to create a new instance of the ZmqConnect, active version
     ///
+    #[cfg(feature = "zmq-comm")]
     pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqConnect, Error> {
         // Create the new ZMQ sending socket
         let context = Context::new();
@@ -144,12 +174,20 @@ impl ZmqConnect {
             filter_out: Vec::new(),
         })
     }
+    
+    /// A function to create a new instance of the ZmqConnect, inactive version
+    ///
+    #[cfg(not(feature = "zmq-comm"))]
+    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqConnect, Error> {
+        Ok(ZmqConnect {})
+    }
 }
 
-// Implement the event connection trait for ZmqToEcho
+// Implement the event connection trait for ZmqConnect
 impl EventConnection for ZmqConnect {
-    /// A method to receive a new event, empty for this connection type
+    /// A method to receive new events from the ZMQ connection, active version
     ///
+    #[cfg(feature = "zmq-comm")]
     fn read_events(&mut self) -> Vec<ReadResult> {
         // Read any results from the zmq connection
         let mut results = Vec::new();
@@ -191,14 +229,22 @@ impl EventConnection for ZmqConnect {
         // Return the list of results
         results
     }
-
-    /// A method to send a new event to the zmq connection
+    
+    /// A method to receive new events from the ZMQ connection, inactive version
     ///
+    #[cfg(not(feature = "zmq-comm"))]
+    fn read_events(&mut self) -> Vec<ReadResult> {
+        Vec::new() // return an empty vector
+    }
+
+    /// A method to send a new event to the ZMQ connection, active version
+    ///
+    #[cfg(feature = "zmq-comm")]
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Send a multipart ZMQ message, formatted as strings
-        self.zmq_send.send_str(&id.id().to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data1.to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send_str(&data2.to_string(), 0)?;
+        self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
+        self.zmq_send.send(&data2.to_string(), 0)?;
 
         // Add the event to the filter
         self.filter_out.push((id, data1, data2));
@@ -206,10 +252,17 @@ impl EventConnection for ZmqConnect {
         // Indicate success
         Ok(())
     }
+    
+    /// A method to send a new event to the ZMQ connection, inactive version
+    #[cfg(not(feature = "zmq-comm"))]
+    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
+        return Err(format_err!("Program compiled without ZMQ support. See documentation."));
+    }
 
-    /// A method to echo events back to the zmq connection. This method filters
-    /// out events that were received on the zmq connection.
+    /// A method to echo events back to the ZMQ connection, active version.
+    /// This method filters out events that were received on the ZMQ connection.
     ///
+    #[cfg(feature = "zmq-comm")]
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Filter each event before adding it to the list
         let mut count = 0;
@@ -234,9 +287,17 @@ impl EventConnection for ZmqConnect {
             return self.write_event(id, data1, data2);
         }
     }
+    
+    /// A method to echo events back to the ZMQ connection, inactive version.
+    ///
+    #[cfg(not(feature = "zmq-comm"))]
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+        self.write_event(id, data1, data2)
+    }
 }
 
 // A helper function to read a single event from the zmq connection
+#[cfg(feature = "zmq-comm")]
 fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
     // Read the first component of the message
     let id;
@@ -284,188 +345,4 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
     return Some(ReadResult::Normal(ItemId::new_unchecked(id), data1, data2));
 }
 
-/// A type to store a hashmap of event ids and strings
-///
-pub type EventToString = FnvHashMap<ItemId, String>;
-pub type StringToEvent = FnvHashMap<String, ItemId>;
 
-/// A structure to hold and manipulate the lookup connection over zmq
-///
-pub struct ZmqLookup {
-    zmq_send: Socket,            // the ZMQ send connection
-    zmq_recv: Socket,            // the ZMQ receive connection
-    event_string: EventToString, // the event -> string dictionary
-    string_event: StringToEvent, // the string -> event dictionary
-    pending_size: u32,           // the size of the new pending string
-    pending: Vec<u8>,            // a pending vector which may be converted to a string
-}
-
-// Implement key functionality for the ZMQ structure
-impl ZmqLookup {
-    /// A function to create a new instance of the ZmqBind
-    ///
-    pub fn new(
-        send_path: &PathBuf,
-        recv_path: &PathBuf,
-        event_string: EventToString,
-        string_event: StringToEvent,
-    ) -> Result<ZmqLookup, Error> {
-        // Create the new ZMQ sending socket
-        let context = Context::new();
-        let zmq_send = context.socket(zmq::PUB)?;
-
-        // Bind to a new ZMQ send path
-        zmq_send.bind(send_path.to_str().unwrap_or(""))?;
-
-        // Create the new ZMQ receiving socket
-        let zmq_recv = context.socket(zmq::SUB)?;
-
-        // Set the socket timeout and subscribe to all messages
-        zmq_recv.set_rcvtimeo(POLLING_RATE as i32)?;
-        zmq_recv.set_subscribe(&[])?;
-
-        // Bind to a new ZMQ receive path
-        zmq_recv.bind(recv_path.to_str().unwrap_or(""))?;
-
-        // Return the new connection
-        Ok(ZmqLookup {
-            zmq_send,
-            zmq_recv,
-            event_string,
-            string_event,
-            pending: Vec::new(),
-            pending_size: 0,
-        })
-    }
-}
-
-// Implement the event connection trait for ZmqBind
-impl EventConnection for ZmqLookup {
-    /// A method to receive new events from the zmq connection
-    ///
-    fn read_events(&mut self) -> Vec<ReadResult> {
-        // Collect any results
-        let mut results = Vec::new();
-
-        // Read any strings from the zmq connection
-        loop {
-            // Listen for an individual string
-            match self.zmq_recv.recv_string(0) {
-                // If a string is found
-                Ok(Ok(string)) => {
-                    // Try to translate the string (must be an exact match)
-                    if let Some(id) = self.string_event.get(&string) {
-                        // Add the event to the list
-                        results.push(ReadResult::Normal(id.clone(), 0, 0));
-                    }
-                }
-
-                // If a string is invalid, add a read error
-                Ok(_) => results.push(ReadResult::ReadError(format_err!("Unable to ZMQ Lookup Input as String."))),
-
-                // Otherwise, exit the loop
-                _ => break,
-            }
-        }
-
-        // Return the list of results
-        results
-    }
-
-    /// A method to send a new event to the zmq connection
-    ///
-    fn write_event(&mut self, id: ItemId, _data1: u32, data2: u32) -> Result<(), Error> {
-        // Try to translate the event to a string
-        if let Some(text) = self.event_string.get(&id) {
-            // Make a copy of the string
-            let mut string = text.clone();
-
-            // If the string ends with the time notation
-            if string.ends_with("%t") {
-                // Strip the ending from the string
-                string.pop();
-                string.pop();
-
-                // Convert data2 and append it to the string
-                let result = (((data2 / 60) * 100) + (data2 % 60)) as u32;
-                string.push_str(&format!("{:04}", result));
-
-            // If the string ends with the data notation
-            } else if string.ends_with("%d") {
-                // Strip the ending from the string
-                string.pop();
-                string.pop();
-
-                // Append the raw data2 to the string
-                string.push_str(&format!("{}", data2));
-
-            // If the string ends with the string notaion
-            } else if string.ends_with("%s") {
-                // If there isn't a pending string, save the length
-                if self.pending_size == 0 {
-                    self.pending_size = data2;
-                    return Ok(());
-
-                // Otherwise, decrease the pending length and append the bytes
-                } else {
-                    // Append the first byte and decrement
-                    self.pending.push((data2 >> 24) as u8);
-                    self.pending_size = self.pending_size - 1;
-
-                    // If there are still bytes pending
-                    if self.pending_size > 0 {
-                        // Append the second byte and decrement
-                        self.pending.push((data2 >> 16) as u8);
-                        self.pending_size = self.pending_size - 1;
-
-                        // If there are still bytes pending
-                        if self.pending_size > 0 {
-                            // Append the third byte and decrement
-                            self.pending.push((data2 >> 8) as u8);
-                            self.pending_size = self.pending_size - 1;
-
-                            // If there are still bytes pending
-                            if self.pending_size > 0 {
-                                // Append the fourth byte and decrement
-                                self.pending.push(data2 as u8);
-                                self.pending_size = self.pending_size - 1;
-                            }
-                        }
-                    }
-                }
-
-                // If there are no more pending, try to send the string
-                if self.pending_size == 0 {
-                    // Should always succeed
-                    if let Ok(new_string) = String::from_utf8(self.pending.drain(..).collect()) {
-                        // Strip the ending from the string
-                        string.pop();
-                        string.pop();
-
-                        // Append the new string to the existing one
-                        string.push_str(&new_string);
-                    }
-
-                // Otherwise, return
-                } else {
-                    return Ok(());
-                }
-            }
-
-            // Try to send the string
-            self.zmq_send.send_str(&string, 0)?;
-        }
-
-        // Indicate success
-        Ok(())
-    }
-
-    /// A method to echo events back to the zmq connection. This method does
-    /// not check for duplicate messages (as it isn't necessary for this
-    /// connection)
-    ///
-    fn echo_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
-        // Do not echo events
-        Ok(())
-    }
-}

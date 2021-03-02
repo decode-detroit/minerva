@@ -30,12 +30,13 @@ use self::status::{StatusHandler, StatusMap};
 use super::super::system_connection::ConnectionSet;
 use super::super::{ChangeSettings, DisplaySetting, GeneralUpdate, InterfaceUpdate};
 use super::event::{
-    CancelEvent, Event, EventUpdate, GroupedEvent, ModifyStatus, NewScene, QueueEvent,
+    CancelEvent, Event, EventUpdate, SelectEvent, ModifyStatus, NewScene, CueEvent,
     SaveData, SendData,
 };
 use super::item::{Hidden, ItemDescription, ItemId, ItemPair};
 
 // Import standard library features
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::io::Write;
@@ -58,7 +59,28 @@ use serde_yaml;
 // Define module constants
 const BACKGROUND_POLLING: u64 = 100; // the polling rate for the background process in ms
 
+/// Define the instance identifier. Instances with the same identifier will trigger
+/// events with one another; instances with different identifiers will not.
+/// If no identifier is specified, this instance will accept all events and
+/// produce events with the identifier 0.
+///
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct Identifier {
+  pub id: Option<u32>,  // An optionally-specified identifier for this instance
+}
+
+// Implement display for identifier
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self.id {
+            &Some(ref id) => write!(f, "{}", id),
+            _ => write!(f, "default"),
+        }
+    }
+}
+
 /// Define the itemid and itempair definition of a key map
+///
 type KeyMapId = FnvHashMap<u32, ItemId>;
 pub type KeyMap = FnvHashMap<u32, ItemPair>;
 
@@ -72,6 +94,7 @@ pub struct Scene {
 
 /// A structure to define the parameters of a scene, storing the ItemPairs
 /// as opposed to only ItemIds
+///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct DescriptiveScene {
     pub events: Vec<ItemPair>,     // a vector of the events and descriptions in this scene
@@ -215,7 +238,7 @@ impl Drop for BackgroundThread {
 #[derive(Serialize, Deserialize)]
 struct YamlConfig {
     version: String,    // a version tag to warn the user of incompatible versions
-    identifier: ItemId, // unique identifier for the program instance
+    identifier: Identifier, // unique identifier for the controller instance, if specified
     server_location: Option<String>, // the location of the backup server, if specified
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
@@ -232,7 +255,7 @@ struct YamlConfig {
 /// current active and modifyable scene of the program.
 ///
 pub struct Config {
-    identifier: ItemId,               // unique identifier for the program instance
+    identifier: Identifier,           // unique identifier for the controller instance
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     server_location: Option<String>,  // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
@@ -371,13 +394,13 @@ impl Config {
 
     /// A method to return the identifier for this program instance.
     ///
-    pub fn identifier(&self) -> ItemId {
+    pub fn identifier(&self) -> Identifier {
         self.identifier.clone()
     }
 
     /// A method to return a copy of the system connection type.
     ///
-    pub fn system_connection(&self) -> (ConnectionSet, ItemId) {
+    pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
         (self.system_connection.clone(), self.identifier())
     }
 
@@ -453,7 +476,7 @@ impl Config {
     pub fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
         // For every status in the status pairs, set the current value
         for (status_id, new_state) in status_pairs.drain(..) {
-            self.status_handler.modify_status(&status_id, &new_state);
+            self.status_handler.modify_status(&status_id, &new_state); // Ignore errors
 
             // Notify the system of the successful status change
             let status_pair =
@@ -718,8 +741,11 @@ impl Config {
     }
 
     /// A method to modify a status state within the current scene based
-    /// on the provided status id and new state. Return the new state, or
-    /// None if the state was not changed successfully.
+    /// on the provided status id and new state. Method returns the new state or
+    /// None. None is returned either because
+    ///  * the status was already in this state and the status has the
+    ///    no_change_silent flag set, or
+    ///  * if the state failed to change because one or both ids are invalid.
     ///
     /// # Errors
     ///
@@ -740,11 +766,11 @@ impl Config {
             let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
             update!(status &self.general_update => status_pair, state_pair.clone());
 
-            // Indicate success
+            // Indicate status change
             return Some(new_id);
         }
 
-        // Indicate failure
+        // Indicate no change
         None
     }
 
@@ -829,7 +855,7 @@ impl Config {
     
     /// A method to delete the item description within the lookup.
     ///
-    pub fn delete_description(&mut self, item_id: &ItemId) {
+    pub fn _delete_description(&mut self, item_id: &ItemId) {
         // Try to remove the item from the lookup
         if let Some(description) = self.lookup.remove(item_id) {
             // Notify the user that it was removed
@@ -1121,17 +1147,17 @@ impl Config {
                         & Config::verify_lookup(general_update, lookup, new_state);
                 }
 
-                // If there is an event to queue, verify that it exists
-                &QueueEvent { ref event } => {
+                // If there is an event to cue, verify that it exists
+                &CueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
                     if !scene.events.contains(&event.id()) {
-                        update!(warn general_update => "Event Contains Queue Event, But Not In Scene: {}", &event.id());
+                        update!(warn general_update => "Event Contains Cue Event, But Not In Scene: {}", &event.id());
                         // Do not flag as incorrect
                     }
 
                     // Return false if the event_id is incorrect
                     if !event_list.contains_key(&event.id()) {
-                        update!(warn general_update => "Event Contains Invalid Queue Event: {}", &event.id());
+                        update!(warn general_update => "Event Contains Invalid Cue Event: {}", &event.id());
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
@@ -1149,8 +1175,8 @@ impl Config {
                 &SaveData { .. } => (),
                 &SendData { .. } => (),
 
-                // If there is a grouped event, verify the components of the event
-                &GroupedEvent {
+                // If there is a select event, verify the components of the event
+                &SelectEvent {
                     ref status_id,
                     ref event_map,
                 } => {
@@ -1159,7 +1185,7 @@ impl Config {
                         // Verify that the allowed states vector isn't empty
                         let allowed = status.allowed();
                         if allowed.is_empty() {
-                            update!(warn general_update => "Event Contains Empty Grouped Event: {}", status_id);
+                            update!(warn general_update => "Event Contains Empty Select Event: {}", status_id);
                             return false;
                         }
 
@@ -1230,12 +1256,12 @@ mod tests {
         use std::time::Duration;
         use std::sync::mpsc;
 
-        // Write the example grouped event
-        let mut one_grouped_map = FnvHashMap::default();
-        one_grouped_map.insert(ItemId::new(31).unwrap(), ItemId::new(61).unwrap());
-        let one_grouped_event = GroupedEvent {
+        // Write the example select event
+        let mut one_select_map = FnvHashMap::default();
+        one_select_map.insert(ItemId::new(31).unwrap(), ItemId::new(61).unwrap());
+        let one_select_event = SelectEvent {
             group_id: ItemId::new(43).unwrap(),
-            status_map: one_grouped_map,
+            status_map: one_select_map,
         };
 
         // Write the example triggered event
@@ -1249,7 +1275,7 @@ mod tests {
         // Write the example scene
         let mut one_scene = scene::default();
         one_scene.insert(ItemId::new(12).unwrap(), SaveData { data: vec![12] });
-        one_scene.insert(ItemId::new(20).unwrap(), one_grouped_event);
+        one_scene.insert(ItemId::new(20).unwrap(), one_select_event);
         one_scene.insert(ItemId::new(22).unwrap(), trigger_event);
         let mut all_scenes = FnvHashMap::default();
         all_scenes.insert(ItemId::new(24).unwrap(), one_scene);

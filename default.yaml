@@ -1,0 +1,464 @@
+---
+# Constants for the Configuration
+version: "0.9.0"
+identifier:
+  id: 0
+server_location: ~
+background_process: ~
+system_connection:
+  - Media:
+      all_stop_media: []
+      media_map:
+        ? id: 502
+        : uri: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
+          channel: 1
+        ? id: 503
+        : uri: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
+          channel: 2
+        ? id: 504
+        : uri: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
+          channel: 3
+      channel_map:
+        ? 1
+        : video_window:
+            window_number: 1
+            top: 0
+            left: 0
+            height: 270
+            width: 512
+          loop_media: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
+        ? 2
+        : video_window:
+            window_number: 1
+            top: 300
+            left: 500
+            height: 270
+            width: 512
+        ? 3
+        : audio_device: ~ # Use the system default
+        
+default_scene:
+  id: 100
+
+# Scope Definitions
+all_scenes:
+
+  # Introduction Scene
+  ? id: 100
+  : events:
+      - id: 100
+      - id: 101
+    key_map:
+      ? 32
+      : id: 101
+
+  # Event Scene
+  ? id: 200
+  : events:
+      - id: 200
+      - id: 201
+      - id: 202
+      - id: 203
+      - id: 204
+      - id: 205
+      - id: 206
+    key_map:
+      ? 32
+      : id: 201
+
+  # Status Scene
+  ? id: 300
+  : events:
+      - id: 301
+      - id: 302
+      - id: 303
+      - id: 304
+      - id: 311
+      - id: 312
+      - id: 313
+      - id: 314
+      - id: 321
+      - id: 322
+      - id: 323
+      - id: 324
+    key_map:
+      ? 32
+      : id: 301
+
+  # Data Input, Output Scene
+  ? id: 400
+  : events:
+      - id: 400
+      - id: 401
+      - id: 402
+      - id: 403
+      - id: 404
+      - id: 410
+    key_map:
+      ? 32
+      : id: 401
+
+  # Media Scene
+  ? id: 500
+  : events:
+      - id: 500
+      - id: 501
+      - id: 502
+      - id: 503
+      - id: 504
+    key_map:
+      ? 32
+      : id: 501
+
+
+# Status Map
+status_map:
+  ? id: 310
+  : MultiState:
+      current: 
+        id: 312
+      allowed:
+        - id: 311
+        - id: 312
+      no_change_silent: false
+
+  ? id: 320
+  : MultiState:
+      current: 
+        id: 321
+      allowed:
+        - id: 321
+        - id: 322
+      no_change_silent: false
+
+
+# Event Set
+event_set:
+  # Introduction Scene
+  ? id: 100
+    description: Introduction
+    display: Hidden
+  : []
+  ? id: 101
+    description: Next Scene
+    display:
+      DisplayWith:
+        group_id:
+          id: 110
+        highlight: [100, 250, 0]
+        spotlight: 0
+  : - NewScene:
+        new_scene:
+          id: 200
+  ? id: 110
+    description: Click Below to Change Scenes
+    display: Hidden
+
+  # Event Scene
+  ? id: 200
+    description: Event Examples
+    display:
+      LabelHidden:
+        color: [115, 210, 22]
+  : []
+  ? id: 201
+    description: Next Scene
+    display:
+      DisplayWith:
+        group_id:
+          id: 210
+  : - NewScene:
+        new_scene:
+          id: 300
+  ? id: 202
+    description: Trigger Delayed Events
+    display:
+      DisplayWith:
+        group_id:
+          id: 210
+  : - CueEvent:
+        event:
+          delay:
+            secs: 10
+            nanos: 0
+          event_id:
+            id: 203
+    - CueEvent:
+        event:
+          delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 204
+    - CueEvent:
+        event:
+          delay:
+            secs: 20
+            nanos: 0
+          event_id:
+            id: 203
+    - CueEvent:
+        event:
+          delay:
+            secs: 30
+            nanos: 0
+          event_id:
+            id: 203
+    - CueEvent:
+        event:
+          delay:
+            secs: 40
+            nanos: 0
+          event_id:
+            id: 203
+    - CueEvent:
+        event:
+          delay:
+            secs: 50
+            nanos: 0
+          event_id:
+            id: 203
+  ? id: 203
+    description: An Event
+    display: Hidden
+  : []
+  ? id: 204
+    description: Cancel Upcoming Events
+    display:
+      DisplayWith:
+        group_id:
+          id: 210
+  : - CancelEvent:
+        event:
+          id: 203
+    - CancelEvent:
+        event:
+          id: 204
+  ? id: 205
+    description: This Event Does Nothing
+    display:
+      DisplayWith:
+        group_id:
+          id: 210
+  : []
+  ? id: 206
+    description: You Found Me! (Debug Only)
+    display:
+      DisplayDebug:
+        group_id:
+          id: 210
+        color: [238, 204, 68]
+  : []
+  ? id: 210
+    description: That's an Event! Try Again ...
+    display: Hidden
+
+  # Status Scene
+  ? id: 300
+    description: Status Examples
+    display:
+      LabelHidden:
+        color: [51, 161, 255]
+  : []
+  ? id: 301
+    description: Next Scene
+    display:
+      DisplayWith:
+        group_id:
+          id: 310
+  : - NewScene:
+        new_scene:
+          id: 400
+  ? id: 302
+    description: Variable Event
+    display: 
+      DisplayWith:
+        group_id:
+          id: 320
+  : - SelectEvent:
+        status_id:
+          id: 320
+        event_map:
+          ? id: 321
+          : id: 303
+          ? id: 322
+          : id: 304
+  ? id: 303
+    description: Add Delayed Events
+    display: Hidden
+  : - CueEvent:
+        event:
+          delay:
+            secs: 10
+            nanos: 0
+          event_id:
+            id: 304
+    - CueEvent:
+        event:
+          delay:
+            secs: 20
+            nanos: 0
+          event_id:
+            id: 304
+  ? id: 304
+    description: Empty Event
+    display: Hidden
+  : []
+  ? id: 310
+    description: "This Is A Status:"
+    display: Hidden
+  ? id: 311
+    description: "On"
+    display:
+      LabelHidden:
+        color: [0, 255, 100]
+  : []
+  ? id: 312
+    description: "Off"
+    display:
+      LabelHidden:
+        color: [255, 0, 0]
+  : []
+  ? id: 313
+    description: Turn On
+    display:
+      DisplayWith:
+        group_id:
+          id: 310
+        color: [0, 255, 100]
+  : - ModifyStatus:
+        status_id:
+          id: 310
+        new_state:
+          id: 311
+  ? id: 314
+    description: Turn Off
+    display:
+      DisplayWith:
+        group_id:
+          id: 310
+        color: [255, 0, 0]
+  : - ModifyStatus:
+        status_id:
+          id: 310
+        new_state:
+          id: 312
+  ? id: 320
+    description: Change The Event
+    display: Hidden
+  ? id: 321
+    description: Trigger Delayed Events
+    display:
+      LabelHidden:
+        color: [51, 161, 255]
+  : []
+  ? id: 322
+    description: Do Nothing
+    display:
+      LabelHidden:
+        color: [255, 161, 255]
+  : []
+  ? id: 323
+    description: Activate
+    display:
+      DisplayWith:
+        group_id:
+          id: 320
+        color: [51, 161, 255]
+  : - ModifyStatus:
+        status_id:
+          id: 320
+        new_state:
+          id: 321
+  ? id: 324
+    description: Deactivate
+    display:
+      DisplayWith:
+        group_id:
+          id: 320
+        color: [255, 161, 255]
+  : - ModifyStatus:
+        status_id:
+          id: 320
+        new_state:
+          id: 322
+
+  # Event Scene
+  ? id: 400
+    description: Data Examples
+    display:
+      LabelHidden:
+        color: [255, 161, 255]
+  : []
+  ? id: 401
+    description: Next Scene
+    display:
+      DisplayWith:
+        group_id:
+          id: 410
+  : - NewScene:
+        new_scene:
+          id: 500
+  ? id: 402
+    description: "Save 'Example String'"
+    display:
+      DisplayWith:
+        group_id:
+          id: 410
+  : - SaveData:
+        data:
+          StaticString:
+            string: "Example String"
+  ? id: 403
+    description: Send Custom String
+    display:
+      DisplayWith:
+        group_id:
+          id: 410
+  : - SendData:
+        data: UserString
+  ? id: 410
+    description: Save Data To Game Log
+    display: Hidden
+
+  # Media Scene
+  ? id: 500
+    description: Media Examples
+    display:
+      LabelHidden:
+        color: [255, 0, 0]
+  : []
+  ? id: 501
+    description: Back To Introduction
+    display: 
+      DisplayWith:
+        group_id:
+          id: 510
+  : - NewScene:
+        new_scene:
+          id: 100
+  ? id: 502
+    description: Play Video At Top Left
+    display:
+      DisplayWith:
+        group_id:
+          id: 510
+  : []
+  ? id: 503
+    description: Play A Second Video
+    display:
+      DisplayWith:
+        group_id:
+          id: 510
+  : []
+  ? id: 504
+    description: Play Background Audio
+    display:
+      DisplayWith:
+        group_id:
+          id: 510
+  : []
+  ? id: 510
+    description: You Can Play Media As Well
+    display: Hidden
+

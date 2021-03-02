@@ -43,7 +43,8 @@ use std::sync::mpsc;
 
 // Import GTK and GDK libraries
 use gtk;
-use self::gtk::prelude::*;
+use gtk::prelude::*;
+use glib;
 
 // Define user interface constants
 const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
@@ -99,7 +100,7 @@ impl UserInterface {
             user_interface.check_updates(&interface_receive);
             Continue(true) // continue looking for updates indefinitely
         });
-        gtk::timeout_add(REFRESH_RATE, update_interface); // triggers once every 100ms
+        glib::timeout_add_local(REFRESH_RATE, update_interface); // triggers once every 100ms
 
         // Return the new UserInterface
         user_interface
@@ -232,7 +233,7 @@ impl UserInterface {
                         WindowType::Trigger(event) => interface.launch_trigger(event),
 
                         // Launch the video window
-                        #[cfg(feature = "video")]
+                        #[cfg(feature = "media-out")]
                         WindowType::Video(video_stream) => {
                             // Switch based on if a video stream was provided
                             if let Some(stream) = video_stream {

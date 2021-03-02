@@ -112,7 +112,7 @@ pub enum EventAction {
     /// A variant that links to one event to add to the queue These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
-    QueueEvent { event: EventDelay },
+    CueEvent { event: EventDelay },
 
     /// A variant that links to one or more events to cancel. All upcoming
     /// events that match the specified id(s) will be cancelled.
@@ -126,9 +126,9 @@ pub enum EventAction {
     /// when broadcast to the system
     SendData { data: DataType },
 
-    /// A variant which indicates a grouped event. This event changes its
-    /// triggered event based on the state of the corresponding status.
-    GroupedEvent {
+    /// A variant which selects an event based on the state of the indicated
+    /// status.
+    SelectEvent {
         status_id: ItemId,
         event_map: FnvHashMap<ItemId, ItemId>,
     },
@@ -140,7 +140,7 @@ pub type Event = Vec<EventAction>;
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    CancelEvent, GroupedEvent, ModifyStatus, NewScene, QueueEvent, SaveData, SendData,
+    CancelEvent, SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
 };
 
 /// An enum for updating the rest of the system on changes to the scene and

@@ -248,7 +248,7 @@ pub enum DisplayType {
     /// yet been pressed. A value of zero implies indefinite flashing.
     ///
     DisplayDebug {
-        group: Option<ItemId>,
+        group_id: Option<ItemId>,
         position: Option<u32>,
         color: Option<(u8, u8, u8)>,
         highlight: Option<(u8, u8, u8)>,
@@ -456,6 +456,21 @@ impl ItemPair {
             id,
             description: description.to_string(),
             display,
+        }
+    }
+
+    /// A function to create an item id from u32 with blank fields for the other entries.
+    ///
+    /// This function does not verify that the new ItemPair complies with the
+    /// CAN limit and does not check that the new ItemId does not collide with
+    /// the all stop item id. This is useful when either (or both) of these
+    /// cases are possible and desired.
+    ///
+    pub fn new_blank(id: u32) -> ItemPair {
+        ItemPair {
+            id,
+            description: "New Item".to_string(),
+            display: DisplayType::Hidden,
         }
     }
 

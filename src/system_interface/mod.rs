@@ -31,7 +31,7 @@ pub use self::event_handler::{
     DescriptiveScene, FullStatus, KeyMap, Scene, StatusDescription, Status
 };
 pub use self::logging::{Current, Error, Logger, Notification, Update, Warning};
-#[cfg(feature = "video")]
+#[cfg(feature = "media-out")]
 pub use self::system_connection::VideoStream;
 
 // Define private submodules
@@ -58,7 +58,7 @@ use failure::Error as FailureError;
 
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
-const DEFAULT_FILE: &str = "default.mnv"; // the default configuration filename
+const DEFAULT_FILE: &str = "default"; // the default configuration filename
 const LOG_FOLDER: &str = "log/"; // the default log folder
 const ERROR_LOG: &str = "debug_log.txt"; // the default logging filename
 
@@ -74,7 +74,7 @@ pub struct SystemInterface {
     event_handler: Option<EventHandler>, // the event handler instance for the program, if it exists
     logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
-    interface_send: mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates to the main program
+    interface_send: mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
     general_receive: mpsc::Receiver<GeneralUpdateType>, // a receiving line for all system updates
     general_update: GeneralUpdate, // a sending structure to pass new general updates
     is_debug_mode: bool,           // a flag to indicate debug mode
@@ -136,8 +136,21 @@ impl SystemInterface {
 
         // Try to load a default configuration, if it exists
         if let Ok(mut path) = env::current_dir() {
-            path.push(DEFAULT_FILE); // append the default filename
-            sys_interface.load_config(path, false);
+            // Add the default filename
+            path.push(DEFAULT_FILE);
+
+            // Add the mnv filetype
+            path.set_extension("mnv");
+
+            // Try the file, if it exists
+            if path.exists() {
+                sys_interface.load_config(path, false);
+            
+            // Otherwise, try the yaml path
+            } else {
+                path.set_extension("yaml");
+                sys_interface.load_config(path, false);
+            }
         }
 
         // Regardless, return the new SystemInterface and general send line
@@ -182,7 +195,7 @@ impl SystemInterface {
             }
             
             // Pass a video stream to the user interface
-            #[cfg(feature = "video")]
+            #[cfg(feature = "media-out")]
             Ok(GeneralUpdateType::NewVideo(video_stream)) => {
                 // Pass the stream to the user interface
                 self.interface_send
@@ -417,11 +430,11 @@ impl SystemInterface {
                 }
             }
 
-            // Pass an event to the queue
-            QueueEvent { event_delay } => {
+            // Cue an event
+            CueEvent { event_delay } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
-                    // add the event to the queue
+                    // Cue the event
                     handler.add_event(event_delay);
 
                 // Otherwise noity the user that a configuration faild to load
@@ -638,11 +651,11 @@ impl SystemInterface {
                 }
 
                 // Add display debug events to the matching event group
-                DisplayDebug { group, .. } => {
+                DisplayDebug { group_id, .. } => {
                     // If the system is in debug mode
                     if is_debug_mode {
                         // If a group id is specified, add it to the correct group
-                        if let Some(id) = group {
+                        if let Some(id) = group_id {
                             let group_pair =
                                 ItemPair::from_item(id, event_handler.get_description(&id));
                             SystemInterface::sort_groups(&mut groups, group_pair, item);
@@ -719,7 +732,7 @@ enum GeneralUpdateType {
     GetUserString(ItemPair),
     
     /// A variant to pass a new video stream to the user interface
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     NewVideo(Option<VideoStream>),
 
     /// A variant to notify the system of an update from the user interface
@@ -791,7 +804,7 @@ impl GeneralUpdate {
      
     /// A method to pass a new video stream to the user interface
     ///
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     fn send_new_video(&self, video_stream: VideoStream) {
         self.general_send
             .send(GeneralUpdateType::NewVideo(Some(video_stream)))
@@ -800,7 +813,7 @@ impl GeneralUpdate {
 
     /// A method to clear all video streams from the user interface
     ///
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     fn send_clear_videos(&self) {
         self.general_send
             .send(GeneralUpdateType::NewVideo(None))
@@ -918,8 +931,8 @@ pub enum EditActionElement {
     /// A variant for the edit modify status
     EditModifyStatus { is_status: bool },
 
-    /// A variant for the edit queue event
-    EditQueueEvent,
+    /// A variant for the edit cue event
+    EditCueEvent,
 
     /// A variant for the edit cancel event
     EditCancelEvent,
@@ -930,11 +943,11 @@ pub enum EditActionElement {
     /// A variant for the edit send data
     EditSendData,
 
-    /// A variant for the grouped event status description
-    GroupedEventDescription { position: Option<usize>, is_event: bool },
+    /// A variant for the select event status description
+    SelectEventDescription { position: Option<usize>, is_event: bool },
 
-    /// A variant for the grouped event states
-    GroupedEventStates,
+    /// A variant for the select event states
+    SelectEventStates,
 }
 
 /// An enum to specify which Edit Item subcomponent has requested the information
@@ -1041,7 +1054,7 @@ pub enum SystemUpdate {
 
     /// A variant that queues a new event with the given item id. The event
     /// will trigger after the specified delay has passed.
-    QueueEvent { event_delay: EventDelay },
+    CueEvent { event_delay: EventDelay },
 
     /// A variant that triggers a redraw of the user interface window
     Redraw,
@@ -1067,7 +1080,7 @@ pub enum SystemUpdate {
 // Reexport the system update type variants
 pub use self::SystemUpdate::{
     AllEventChange, AllStop, BroadcastEvent, ClearQueue, Close, ConfigFile, DebugMode, Edit,
-    ErrorLog, EventChange, GameLog, ProcessEvent, QueueEvent, Redraw, Request, SaveConfig,
+    ErrorLog, EventChange, GameLog, ProcessEvent, CueEvent, Redraw, Request, SaveConfig,
     SceneChange, StatusChange,
 };
 
@@ -1105,18 +1118,21 @@ pub enum WindowType {
     Trigger(Option<ItemPair>),
     
     /// A variant to launch a video window with a source from the video system connection
-    #[cfg(feature = "video")]
+    #[cfg(feature = "media-out")]
     Video(Option<VideoStream>),
 }
 
 /// An enum to change one of the display settings of the user interface
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum DisplaySetting {
     /// A variant to change the fullscreen mode of the display
     FullScreen(bool),
 
     /// A variant to change the debug mode of the display
     DebugMode(bool),
+
+    /// A variant to change the edit mode of the display
+    // FIXME EditMode(bool),
 
     /// A variant to change the font size of the display
     LargeFont(bool),
