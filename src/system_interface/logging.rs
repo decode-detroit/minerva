@@ -28,7 +28,7 @@ use crate::definitions::{EventUpdate, InternalSend, InterfaceUpdate, UpdateStatu
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::mpsc as std_mpsc;
 
 // Import the chrono library
 use chrono::{Local, Duration};
@@ -42,8 +42,8 @@ pub struct Logger {
     game_log: Option<File>,                        // game log file for the program
     error_log: Option<File>,                       // error log file for the program
     old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
-    internal_update: InternalSend,        // broadcast channel for current events
-    interface_send: mpsc::Sender<InterfaceUpdate>, // an update line for passing updates to the user interface
+    internal_send: InternalSend,        // broadcast channel for current events
+    interface_send: std_mpsc::Sender<InterfaceUpdate>, // an update line for passing updates to the user interface
 }
 
 // Implement key Logger struct features
@@ -63,8 +63,8 @@ impl Logger {
     pub fn new(
         log_path: Option<PathBuf>,
         error_path: Option<PathBuf>,
-        internal_update: InternalSend,
-        interface_send: mpsc::Sender<InterfaceUpdate>,
+        internal_send: InternalSend,
+        interface_send: std_mpsc::Sender<InterfaceUpdate>,
     ) -> Result<Logger, FailureError> {
         // Attempt to open the game log file
         let game_log = match log_path {
@@ -111,7 +111,7 @@ impl Logger {
             game_log,
             error_log,
             old_notifications: Vec::new(),
-            internal_update,
+            internal_send,
             interface_send,
         })
     }
@@ -236,7 +236,7 @@ impl Logger {
             // Broadcast events and display them
             EventUpdate::Broadcast(id, data) => {
                 // Broadcast the event and data, if specified
-                self.internal_update.send_broadcast(id.get_id(), data).await;
+                self.internal_send.send_broadcast(id.get_id(), data).await;
 
                 // Send a current update with the item pair
                 Notification::Current {
@@ -321,36 +321,38 @@ mod tests {
     use super::*;
 
     // Test the logging module
-    /*#[test]
-    fn test_logging() {
+    #[tokio::test]
+    async fn logging() {
         // Import libraries for testing
-        use super::super::super::GeneralUpdate;
-        use super::super::super::GeneralUpdateType;
+        use crate::definitions::{InternalSend, EventUpdate, ItemPair, Hidden};
 
-        // Create the output lines
-        let (gen_tx, gen_rx) = GeneralUpdate::new();
-        let (int_tx, int_rx) = mpsc::channel();
+        // Create the communication lines
+        let (internal_send, _internal_recv) = InternalSend::new();
+        let (interface_send, _interface_recv) = std_mpsc::channel();
 
-        // Create an empty logger instance
-        Logger::new(None, None,
+        // Create a new logger instance
+        let mut logger = Logger::new(None, None, internal_send, interface_send).unwrap();
 
-        // Generate a few messages
-        update!(err tx => "Test Error {}", 1);
-        update!(warn tx => "Test Warning {}", 2);
-        update!(broadcast tx => ItemPair::new(3, "Test Event 3", Hidden).unwrap());
-        update!(now tx => ItemPair::new(4, "Test Event 4", Hidden).unwrap());
-        update!(update tx => "Test Update {}", "5");
-
-        // Create the test vector
-        let test = vec![
-            GeneralUpdateType::Update(Error("Test Error 1".to_string())),
-            GeneralUpdateType::Update(Warning("Test Warning 2".to_string())),
-            GeneralUpdateType::Update(Broadcast(ItemPair::new(3, "Test Event 3", Hidden).unwrap())),
-            GeneralUpdateType::Update(Current(ItemPair::new(4, "Test Event 4", Hidden).unwrap())),
-            GeneralUpdateType::Update(Update("Test Update 5".to_string())),
-        ];
-
-        // Print and check the messages received (wait at most half a second)
-        test_vec!(=rx, test);
-    }*/
+        // Pass a series of updates to the logger and verify the output
+        let mut result = logger.update(EventUpdate::Error("Test Error".to_string(), None)).await;
+        assert_eq!(result[0].message(), "No Active Error Log.".to_string()); // because no error log was specified
+        result = logger.update(EventUpdate::Warning("Test Warning".to_string(), None)).await;
+        assert_eq!(result[0].message(), "Test Warning".to_string());
+        assert_eq!(result[1].message(), "No Active Error Log.".to_string());
+        result = logger.update(EventUpdate::Broadcast(ItemPair::new_unchecked(3, "Test Broadcast", Hidden), None)).await;
+        assert_eq!(result[0].message(), "Test Broadcast (3)".to_string());
+        assert_eq!(result[1].message(), "Test Warning".to_string());
+        assert_eq!(result[2].message(), "No Active Error Log.".to_string());
+        result = logger.update(EventUpdate::Current(ItemPair::new_unchecked(4, "Test Event", Hidden))).await;
+        assert_eq!(result[0].message(), "Test Event (4)".to_string());
+        assert_eq!(result[1].message(), "Test Broadcast (3)".to_string());
+        assert_eq!(result[2].message(), "Test Warning".to_string());
+        assert_eq!(result[3].message(), "No Active Error Log.".to_string());
+        result = logger.update(EventUpdate::Update("Test Update".to_string())).await;
+        assert_eq!(result[0].message(), "Test Update".to_string());
+        assert_eq!(result[1].message(), "Test Event (4)".to_string());
+        assert_eq!(result[2].message(), "Test Broadcast (3)".to_string());
+        assert_eq!(result[3].message(), "Test Warning".to_string());
+        assert_eq!(result[4].message(), "No Active Error Log.".to_string());
+    }
 }

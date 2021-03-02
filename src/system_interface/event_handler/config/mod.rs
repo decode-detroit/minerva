@@ -1204,7 +1204,14 @@ impl Config {
 // Tests of the scene module
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
+
+    // FIXME Define tests of this module
+    #[test]
+    fn missing_tests() {
+        // FIXME: Implement this
+        unimplemented!();
+    }
 
     // FIXME Reimplement these out of date tests
     // Write an example configuration

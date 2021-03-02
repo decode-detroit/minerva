@@ -19,7 +19,7 @@
 //!
 //! # Note
 //!
-//! This module is currently limited to Enttec DMX USB Pro compatible hardware.
+//! This module is currently limited to Enttec DMX USB Pro-compatible hardware.
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::ItemId;
@@ -29,10 +29,12 @@ use super::{EventConnection, ReadResult};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::thread;
 use std::time::{Duration, Instant};
 
-// Import the serial module
+// Import Tokio features
+use tokio::task;
+
+// Import the serial features
 use serial;
 use serial::prelude::*;
 
@@ -111,8 +113,8 @@ impl DmxOut {
         let (load_fade, receive_fade) = mpsc::channel();
         let mut dmx_queue = DmxQueue::new(port, receive_fade);
 
-        // Start the queue thread
-        thread::spawn(move || {
+        // Start the dmx queue thread
+        task::spawn_blocking(move || {
             dmx_queue.run_loop();
         });
 
@@ -247,7 +249,7 @@ impl DmxQueue {
     ///
     /// This function returns a new dmx queue which will send segments of a fade
     /// (at time resolution RESOLUTION) to the specified port. This
-    /// implementation of the queue launches a background thread to send
+    /// implementation of the queue launches a background thread to manage
     /// updates.
     ///
     pub fn new(port: serial::SystemPort, queue_receive: mpsc::Receiver<DmxFade>) -> DmxQueue {
@@ -379,7 +381,14 @@ impl DmxQueue {
 // Tests of the DMXOut module
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
+
+    // FIXME Define tests of this module
+    #[test]
+    fn missing_tests() {
+        // FIXME: Implement this
+        unimplemented!();
+    }
 
     // FIXME Rewrite this test to use the new infrastructure
     /*

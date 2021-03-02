@@ -42,8 +42,10 @@ use super::system_connection::ConnectionSet;
 use std::fs::File;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::thread;
 use std::time::{Duration, Instant};
+
+// Import Tokio features
+use tokio::time::sleep;
 
 // Import the failure features
 use failure::Error;
@@ -131,7 +133,7 @@ impl EventHandler {
             }
 
             // Wait 10 nanoseconds for the queued events to process
-            thread::sleep(Duration::new(0, 20));
+            sleep(Duration::new(0, 20)).await;
 
             // Trigger a redraw of the window and timeline
             internal_send.send_refresh().await;
@@ -793,7 +795,14 @@ enum UnpackResult {
 // Tests of the event handler module
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
+
+    // FIXME Define tests of this module
+    #[test]
+    fn missing_tests() {
+        // FIXME: Implement this
+        unimplemented!();
+    }
 
     // FIXME Repair these tests
     // Simple test of running the queue module

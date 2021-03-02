@@ -29,8 +29,10 @@ mod system_connection;
 use crate::definitions::{
     DisplayControl, DisplayDebug, DisplayWith, ItemId, ItemPair, LabelControl,
     InternalSend, InternalUpdate, SystemSend, SystemUpdate, InterfaceUpdate,
-    WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply, LaunchWindow,
+    WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply,
 };
+#[cfg(feature = "media-out")]
+use crate::definitions::LaunchWindow;
 use self::event_handler::EventHandler;
 use self::system_connection::SystemConnection;
 use self::logging::Logger;
@@ -821,11 +823,11 @@ impl SystemInterface {
 // Tests of the system_interface module
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
     // FIXME Define tests of this module
     #[test]
-    fn test_system_interface() {
+    fn missing_tests() {
         // FIXME: Implement this
         unimplemented!();
     }

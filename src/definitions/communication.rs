@@ -115,6 +115,20 @@ pub use self::Notification::{Current, Error, Update, Warning};
 
 // Implement key features for the Notification type
 impl Notification {
+    /// A function to return a copy of the message inside the notification,
+    /// regardless of variant.
+    ///
+    #[allow(dead_code)]
+    pub fn message(&self) -> String {
+        match self {
+            // For every variant type, return a copy of the message
+            &Error { ref message, .. } => message.clone(),
+            &Warning { ref message, .. } => message.clone(),
+            &Current { ref message, .. } => message.clone(),
+            &Update { ref message, .. } => message.clone(),
+        }
+    }
+
     /// A function to return a copy of the time inside the notification,
     /// regardless of variant.
     ///
@@ -723,16 +737,3 @@ pub use self::InterfaceUpdate::{
     ChangeSettings, EditMode, LaunchWindow, Notify, Reply, UpdateConfig, UpdateNotifications,
     UpdateStatus, UpdateTimeline, UpdateWindow,
 };
-
-// Tests of the system_interface module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_system_interface() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
-}

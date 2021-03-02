@@ -281,8 +281,7 @@ impl MediaOut {
                     allocation,
                     video_overlay,
                 };
-                tokio::spawn(async move { // FIXME currently broken
-                    println!("Made it one");
+                tokio::spawn(async move {
                     general_clone.send_new_video(video_stream).await;
                 });
             } // Otherwise, any window creation (if needed) is left to gstreamer
@@ -398,7 +397,7 @@ impl EventConnection for MediaOut {
     ///
     #[cfg(not(feature = "media-out"))]
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
-        // Check to see if the event is in the map
+        // Show an error if compiled without the media module
         if let Some(_) = self.media_map.get(&id) {
             return Err(format_err!("Program compiled without media support. See documentation."));
         } else {
@@ -434,20 +433,5 @@ impl Drop for MediaOut {
                 bus.remove_watch().unwrap_or(());
             }   
         }
-    }
-}   
-
-// Tests of the MediaOut module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Import the library items for the testing function
-    use std::thread;
-    use std::time::{Duration, Instant};
-
-    // Test the function by
-    fn main() {
-        unimplemented!();
     }
 }

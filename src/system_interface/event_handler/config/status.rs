@@ -224,11 +224,11 @@ impl StatusHandler {
 // Tests of the status module
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
     // FIXME Define tests of this module
     #[test]
-    fn test_status() {
+    fn missing_tests() {
         // FIXME: Implement this
         unimplemented!();
     }

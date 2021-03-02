@@ -38,11 +38,10 @@ use self::media_out::{MediaOut, MediaCue, MediaMap, ChannelMap};
 // Import standard library modules and traits
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::thread;
 use std::time::{Duration, Instant};
 
-// Import tokio features
-use tokio::runtime::Handle;
+// Import Tokio features
+use tokio::time::sleep;
 
 // Import the failure features
 use failure::Error;
@@ -359,7 +358,7 @@ impl SystemConnection {
             // Spin a new thread with the connection(s)
             let (conn_send, conn_recv) = mpsc::channel();
             let internal_send = self.internal_send.clone();
-            Handle::current().spawn(async move {
+            tokio::spawn(async move {
                 // Loop indefinitely
                 SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier).await;
             });
@@ -474,7 +473,7 @@ impl SystemConnection {
                             update!(err &internal_send => "Communication Error: {}", error1);
                             
                             // Wait a little bit and try again
-                            thread::sleep(Duration::from_millis(POLLING_RATE));
+                            sleep(Duration::from_millis(POLLING_RATE)).await;
                             if let Err(error2) = connection.write_event(id, game_id, data2) {
                                 // If failed twice in a row, notify the system
                                 update!(err &internal_send => "Persistent Communication Error: {}", error2);
@@ -493,7 +492,7 @@ impl SystemConnection {
 
             // Make sure that some time elapses in each loop
             if Duration::from_millis(POLLING_RATE) > loop_start.elapsed() {
-                thread::sleep(Duration::from_millis(POLLING_RATE));
+                sleep(Duration::from_millis(POLLING_RATE)).await;
             }
         }
     }
@@ -513,17 +512,4 @@ trait EventConnection {
 
     /// The echo event method (checks for duplicates from recently read events)
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;
-}
-
-// Tests of the system connection module
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // FIXME Define tests of this module
-    #[test]
-    fn test_system_connection() {
-        // FIXME: Implement this
-        unimplemented!();
-    }
 }

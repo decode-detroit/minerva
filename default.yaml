@@ -69,6 +69,7 @@ all_scenes:
   # Status Scene
   ? id: 300
   : events:
+      - id: 300
       - id: 301
       - id: 302
       - id: 303
@@ -92,8 +93,6 @@ all_scenes:
       - id: 401
       - id: 402
       - id: 403
-      - id: 404
-      - id: 410
     key_map:
       ? 32
       : id: 401
@@ -418,7 +417,7 @@ event_set:
   : - SendData:
         data: UserString
   ? id: 410
-    description: Save Data To Game Log
+    description: Send & Save Data
     display: Hidden
 
   # Media Scene

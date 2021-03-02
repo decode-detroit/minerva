@@ -929,8 +929,6 @@ impl VideoWindow {
     /// A method to add a new video to the video window
     ///
     pub fn add_new_video(&mut self, video_stream: VideoStream) {
-        println!("Made it two");
-
         // Create a new video area
         let video_area = gtk::DrawingArea::new();
         

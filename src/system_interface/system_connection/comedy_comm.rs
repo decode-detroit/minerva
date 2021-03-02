@@ -416,7 +416,7 @@ mod tests {
             cc.write_event(id_ref, data1_ref, data2_ref).unwrap_or(());
 
             // Wait for a response
-            thread::sleep(Duration::from_secs(1));
+            thread::sleep(Duration::from_millis(500));
 
             // Read a response
             for result in cc.read_events() {

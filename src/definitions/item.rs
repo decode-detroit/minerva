@@ -288,9 +288,10 @@ impl ItemDescription {
         }
     }
 
-    /// A function to create an blank item description.
+    /// A function to create a default item description.
     ///
-    pub fn new_blank() -> ItemDescription {
+    #[allow(dead_code)]
+    pub fn new_default() -> ItemDescription {
         ItemDescription {
             description: "No Description.".to_string(),
             display: DisplayType::Hidden,
@@ -428,11 +429,7 @@ impl ItemPair {
     /// cases are possible and desired or if it was checked elsewhere.
     ///
     pub fn new_default(id: u32) -> ItemPair {
-        ItemPair {
-            id,
-            description: "No Description.".to_string(),
-            display: DisplayType::Hidden,
-        }
+        ItemPair::from_item(ItemId::new_unchecked(id), ItemDescription::new_default())
     }
 
     /// A function to create an item pair from ItemId and ItemDescription.
