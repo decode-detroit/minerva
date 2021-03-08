@@ -10,10 +10,10 @@ system_connection:
       all_stop_media: []
       media_map:
         ? id: 502
-        : uri: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
+        : uri: "https://archive.org/download/springblenderopenmoviedownloadlagump3.com/Spring%20-%20Blender%20Open%20Movie%20%28download-lagu-mp3.com%29.mp4"
           channel: 1
         ? id: 503
-        : uri: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
+        : uri: "https://archive.org/download/never-gonna-give-you-up-4-k/Never%20Gonna%20Give%20You%20Up%204K.ia.mp4"
           channel: 2
         ? id: 504
         : uri: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
@@ -24,16 +24,16 @@ system_connection:
             window_number: 1
             top: 0
             left: 0
-            height: 270
-            width: 512
+            height: 1080
+            width: 1920
           loop_media: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
         ? 2
         : video_window:
             window_number: 1
             top: 300
             left: 500
-            height: 270
-            width: 512
+            height: 300
+            width: 400
         ? 3
         : audio_device: ~ # Use the system default
         
@@ -437,7 +437,7 @@ event_set:
         new_scene:
           id: 100
   ? id: 502
-    description: Play Video At Top Left
+    description: Play A Large Video
     display:
       DisplayWith:
         group_id:

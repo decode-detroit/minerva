@@ -61,7 +61,7 @@ If you run into issues with glib-2.0 or gdk-3.0, you can run these commands on a
 
 glib2.0 issue: 
 ```
-sudo apt install libgtk2.0
+sudo apt install libgtk2.0-dev
 ```
 
 gdk-3.0 issue:
@@ -100,7 +100,12 @@ Enable audio and video playback by compiling with the "media-out" feature.
 cargo build --features "media-out"
 ```
 
-To meet the media playback dependancies, you will need to follow the playform-specific instructions for GStreamer-rs: https://gitlab.freedesktop.org/gstreamer/gstreamer-rs
+To meet the media playback dependancies, you will need to follow the platform-specific instructions for GStreamer-rs: https://gitlab.freedesktop.org/gstreamer/gstreamer-rs
+
+On a Debian-like system, install gstreamer dependencies with
+```
+sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav libgstrtspserver-1.0-dev libges-1.0-dev
+```
 
 This replaces the separate audio and video features in previous versions and syncronizes the options available to both.
 
@@ -109,6 +114,12 @@ Audio output supports Alsa and Pulse Audio. Each output has its advantages - doc
 ### Redis for Instant Recovery
 
 The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
+
+### DMX For Lighting/Effects Control
+
+The DMX connection doesn't require any additional software or libraries to run and is included by default.
+
+All DMX channels default to 0. This can cause confusion when the channel isn't explicitly set by the user, but is nonetheless necessary for the device to function. For example, the main dimmer channel on a light fixture needs to be manually set to 255.
 
 ### Make It Pretty
 
