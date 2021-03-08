@@ -86,7 +86,7 @@ cargo build --features "zmq-comm"
 
 You can install ZMQ bindings on a Debian-like system with
 ```
-apt install libzmq3-dev
+sudo apt install libzmq3-dev
 ```
 
 Currently, rust-zmq requires ZeroMQ 4.1. If your operating system does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
@@ -141,14 +141,18 @@ sudo dpkg add-architecture armhf
 And add these sources to the end of /etc/apt/sources.list.
 ```
 deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted+
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal universe
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates universe
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates multiverse
 ```
 Make sure to add `[arch=amd64]` to the other sources while you're at it.
 
 Install the gtk dev packages for the new architecture.
 ```
 sudo apt update
-sudo apt install libgtk-3-dev:armhf
+sudo apt install libgtk-3-dev:armhf libzmq3-dev:armhf libgstreamer1.0-dev:armhf libgstreamer-plugins-base1.0-dev:armhf gstreamer1.0-plugins-base:armhf gstreamer1.0-plugins-good:armhf gstreamer1.0-plugins-bad:armhf gstreamer1.0-plugins-ugly:armhf gstreamer1.0-libav:armhf libgstrtspserver-1.0-dev:armhf libges-1.0-dev:armhf libges-1.0-0:armhf
 ```
 
 When you compile, pass several environment variables to the compilation.
