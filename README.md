@@ -53,8 +53,6 @@ cargo build --release
 
 The completed binary will be located in the automatically generated "target/release" folder with the name "minerva".
 
-Note: This procedure should work on all systems. If you run into an error or bug, let us know!
-
 ### Issues Compiling
 
 If you run into issues with glib-2.0 or gdk-3.0, you can run these commands on a Debian-like system:
@@ -126,6 +124,37 @@ All DMX channels default to 0. This can cause confusion when the channel isn't e
 GTK can be easily re-themed. We recommend the Materia Dark theme for Minerva which will automatically load if you install the Materia theme package (See here: https://github.com/nana-4/materia-theme). On a GNU/Linux system, simply install the materia-gtk-theme package.
 
 We are migrating to a web interface, so this will not be necessary in the long term.
+
+## Cross-Compiling To Raspberry Pi-like Systems (ARM)
+
+Note: These instructions are written for Ubuntu 20.04.
+
+To cross-compile, install the correct rust target (armv7 for Raspberry Pi 4) and install the linker.
+```
+rustup target add armv7-unknown-linux-gnueabihf)
+sudo apt install gcc-arm-linux-gnueabihf
+```
+You'll also need to add the armhf architecture to dpkg.
+```
+sudo dpkg add-architecture armhf
+```
+And add these sources to the end of /etc/apt/sources.list.
+```
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted
+```
+Make sure to add `[arch=amd64]` to the other sources while you're at it.
+
+Install the gtk dev packages for the new architecture.
+```
+sudo apt update
+sudo apt install libgtk-3-dev:armhf
+```
+
+When you compile, pass several environment variables to the compilation.
+```
+env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig/ cargo build_arm
+```
 
 ## Contributing
 
