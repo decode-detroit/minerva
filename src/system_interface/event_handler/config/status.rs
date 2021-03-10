@@ -224,12 +224,42 @@ impl StatusHandler {
 // Tests of the status module
 #[cfg(test)]
 mod tests {
-    //use super::*;
+    use super::*;
 
-    // FIXME Define tests of this module
-    #[test]
-    fn missing_tests() {
-        // FIXME: Implement this
-        unimplemented!();
+    // Test getting and modifying a status
+    #[tokio::test]
+    async fn change_status() {
+        // Import libraries for testing
+        use crate::definitions::InternalSend;
+
+        // Create the receiving line
+        let (internal_send, _rx) = InternalSend::new();
+
+        // Create placeholder ids
+        let status1 = ItemId::new_unchecked(1);
+        let status2 = ItemId::new_unchecked(2);
+        let state1 = ItemId::new_unchecked(10);
+        let state2 = ItemId::new_unchecked(11);
+        let invalid_state = ItemId::new_unchecked(12);
+
+        // Create the status map
+        let mut status_map = StatusMap::default();
+        status_map.insert(status1, Status::MultiState { current: state1, allowed: vec!(state1, state2), no_change_silent: false });
+        status_map.insert(status2, Status::MultiState { current: state1, allowed: vec!(state1, state2), no_change_silent: false });
+
+        // Create a new status handler
+        let mut status_handler = StatusHandler::new(internal_send, status_map);
+
+        // Check the current state
+        assert_eq!(Some(state1), status_handler.get_state(&status1).await);
+        assert_eq!(Some(state1), status_handler.get_state(&status2).await);
+
+        // Modify both statuses and check the new state
+        assert_eq!(Some(state2), status_handler.modify_status(&status1, &state2).await);
+        assert_eq!(None, status_handler.modify_status(&status2, &invalid_state).await); // invalid change
+
+        // Check the changed states
+        assert_eq!(Some(state2), status_handler.get_state(&status1).await);
+        assert_eq!(Some(state1), status_handler.get_state(&status2).await);
     }
 }
