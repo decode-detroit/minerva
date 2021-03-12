@@ -25,6 +25,7 @@ extern crate serde;
 // Define program modules
 #[macro_use]
 mod definitions;
+mod item_index;
 mod system_interface;
 #[macro_use]
 mod user_interface;
@@ -32,6 +33,7 @@ mod web_interface;
 
 // Import the relevant structures into the correct namespace
 use self::definitions::SyncSystemSend;
+use self::item_index::ItemIndex;
 use self::system_interface::SystemInterface;
 use self::user_interface::UserInterface;
 use self::web_interface::WebInterface;
@@ -81,6 +83,9 @@ impl Minerva {
         // Create the tokio runtime
         let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
         
+        // Launch the item index to process item description requests
+        let (index_send, item_index) = ItemIndex::new();
+
         // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();
         let (system_interface, system_send) = runtime.block_on(async {

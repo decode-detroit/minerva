@@ -20,8 +20,8 @@
 
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
-    ItemId, ItemPair, EventDelay, Event, EventUpdate, UpcomingEvent, DescriptiveScene,
-    FullStatus, KeyMap, Scene, Status
+    ItemId, ItemDescription, ItemPair, EventDelay, Event, EventUpdate, UpcomingEvent,
+    DescriptiveScene, FullStatus, KeyMap, Scene, Status, DescriptionMap,
 };
 #[cfg(feature = "media-out")]
 use crate::definitions::VideoStream;
@@ -36,6 +36,56 @@ use tokio::sync::{mpsc, oneshot};
 
 // Import Chrono features
 use chrono::NaiveDateTime;
+
+/// An enum to provide and receive updates from the item index
+///
+#[derive(Debug)]
+pub enum IndexUpdate {
+    /// A variant to pass a new index the item index
+    NewIndex { new_index: DescriptionMap },
+    
+    /// A variant to receive a description from the item index
+    GetDescription { item_id: ItemId, reply_line: oneshot::Sender<ItemDescription> },
+}
+
+/// The stucture and methods to send requests to the item index.
+///
+#[derive(Clone, Debug)]
+pub struct IndexSend {
+    index_send: mpsc::Sender<IndexUpdate>, // the line to pass internal updates to the system interface
+}
+
+// Implement the key features of the index update
+impl IndexSend {
+    /// A function to create a new Index Update
+    ///
+    /// The function returns the Index Update structure and the index
+    /// receive channel which will return the provided updates.
+    ///
+    pub fn new() -> (IndexSend, mpsc::Receiver<IndexUpdate>) {
+        // Create the new channel
+        let (index_send, receive) = mpsc::channel(256);
+
+        // Create and return both new items
+        (IndexSend { index_send }, receive)
+    }
+
+    /// A method to send a new index to the item index
+    ///
+    pub async fn send_index(&self, new_index: DescriptionMap) {
+        self.index_send
+            .send(IndexUpdate::NewIndex { new_index }).await
+            .unwrap_or(());
+    }
+
+    /// A method to send a description request to the item index
+    ///
+    pub async fn send_request(&self, item_id: ItemId, reply_line: oneshot::Sender<ItemDescription>) {
+        self.index_send
+            .send(IndexUpdate::GetDescription { item_id, reply_line }).await
+            .unwrap_or(());
+    }
+}
 
 /// A struct to allow easier manipulation of coming events.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -190,7 +240,7 @@ impl fmt::Display for Notification {
     }
 }
 
-/// An private enum to provide and receive updates from the various internal
+/// An enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.
 ///
 #[derive(Clone, Debug, PartialEq, Eq)]

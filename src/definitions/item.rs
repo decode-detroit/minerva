@@ -24,6 +24,9 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash;
 
+// Import FNV HashMap
+use fnv::FnvHashMap;
+
 /// Define the All Stop command (a.k.a. emergency stop)
 const ALL_STOP: u32 = 0;
 
@@ -552,6 +555,10 @@ impl fmt::Display for ItemPair {
         write!(f, "{} ({})", self.description, self.id)
     }
 }
+
+/// A type to store a hashmap of item ids and item descriptions
+///
+pub type DescriptionMap = FnvHashMap<ItemId, ItemDescription>; // a hash map of item ids and item descriptions
 
 // Tests of the item module
 #[cfg(test)]

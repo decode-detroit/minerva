@@ -23,7 +23,7 @@
 // Import the relevant structures into the correct namespace
 use crate::definitions::{ItemId, EventDelay, ComingEvent, InternalSend};
 
-// Import other standard library features
+// Import standard library features
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
 

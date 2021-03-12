@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Decode Detroit
+// Copyright (c) 2019-21 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Decode Detroit
+// Copyright (c) 2019-21 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -19,7 +19,7 @@
 //! machine. This module handles any changes to the current state of the
 //! program.
 
-// Reexport the key structures and types
+// Import the relevant structures into the correct namespace
 use crate::definitions::{Hidden, ItemDescription, ItemId, ItemPair, CancelEvent, Event,
     SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
     FullStatus, StatusMap, StatusDescription, Status, ChangeSettings, DisplaySetting,
@@ -46,7 +46,7 @@ use tokio::runtime::Handle;
 // Import the failure crate
 use failure::Error;
 
-// Import FNV HashMap and HashSet
+// Import FNV HashMap
 use fnv::FnvHashMap;
 
 // Import YAML processing library
@@ -198,12 +198,11 @@ pub struct Config {
     current_scene: ItemId,            // identifier for the current scene
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_handler: StatusHandler,    // status handler for the current game status
-    lookup: FnvHashMap<ItemId, ItemDescription>, // hash map of all the item descriptions
     events: FnvHashMap<ItemId, Event>, // hash map of all the events
     internal_send: InternalSend,    // line to provide updates to the higher-level system
 }
 
-// Implement the Config functions
+// Implement key features for the configuration
 impl Config {
     /// A function to create a new config from a configuration file
     ///
@@ -345,30 +344,7 @@ impl Config {
         self.server_location.clone()
     }
 
-    /// A method to return the description of a particular item from the lookup.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error if the provided id was not found in
-    /// lookup. This usually indicates that the provided id was incorrect or
-    /// that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription.
-    ///
-    pub fn get_description(&self, item_id: &ItemId) -> ItemDescription {
-        // Return an item description based on the provided item id
-        match self.lookup.get(item_id) {
-            // If the item is in the lookup, return the description
-            Some(description) => description.clone(),
 
-            // Otherwise, return the default
-            None => {
-                ItemDescription::new("No Description.", Hidden)
-            }
-        }
-    }
 
     /// A method to return a status from the status handler.
     ///

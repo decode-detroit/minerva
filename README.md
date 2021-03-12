@@ -125,13 +125,75 @@ GTK can be easily re-themed. We recommend the Materia Dark theme for Minerva whi
 
 We are migrating to a web interface, so this will not be necessary in the long term.
 
-## Cross-Compiling To Raspberry Pi-like Systems (ARM)
+## Raspberry Pi-like Systems (ARM)
 
-Note: These instructions are written for Ubuntu 20.04.
+It's possible to run Minerva on less-capible systems! For example, a Raspberry Pi 4 can manage most of the tasks of a full computer (video is a bit touchy - working on it).
 
-To cross-compile, install the correct rust target (armv7 for Raspberry Pi 4) and install the linker.
+Take careful notes of the steps to
+* cross-compile Minerva, and
+* setup your Raspberry Pi host to run Minerva
+
+Note: These instructions are written for *compiling* the software on Ubuntu 20.04.
+
+### Cross-Compiling To Ubuntu (arm64, 64bit)
+
+To cross-compile, install the correct rust target and install the linker.
 ```
-rustup target add armv7-unknown-linux-gnueabihf)
+rustup target add aarch64-unknown-linux-gnu
+sudo apt install gcc-aarch64-linux-gnu
+```
+You'll also need to add the arm64 architecture to dpkg.
+```
+sudo dpkg add-architecture arm64
+```
+And add these sources to the end of /etc/apt/sources.list.
+```
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted+
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal universe
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates universe
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal multiverse
+deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates multiverse
+```
+Make sure to add `[arch=amd64]` to the other sources while you're at it.
+
+Install the GTK, ZMQ and GStreamer dev packages for the new architecture.
+```
+sudo apt update
+sudo apt install libgtk-3-dev:arm64 libzmq3-dev:arm64 libgstreamer1.0-dev:arm64 libgstreamer-plugins-base1.0-dev:arm64 gstreamer1.0-plugins-base:arm64 gstreamer1.0-plugins-good:arm64 gstreamer1.0-plugins-bad:arm64 gstreamer1.0-plugins-ugly:arm64 gstreamer1.0-libav:arm64 libgstrtspserver-1.0-dev:arm64 libges-1.0-dev:arm64 libges-1.0-0:arm64
+```
+
+When you compile, pass several environment variables to the compilation.
+```
+env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/aarch-linux-gnu/pkgconfig/ cargo build_arm64
+```
+
+#### Prepare Your Raspberry Pi
+
+In addition to all the packages above (e.g. ZMQ, GStreamer), you need to load the correct device tree overlay to enable video playback on a Raspberry Pi 4,
+
+Add this to /boot/firmware/config.txt (it may tell you to put it in usercfg.txt instead)
+```
+dtoverlay=vc4-fkms-v3d
+max_framebuffers=2
+gpu_mem=256
+hdmi_enable_4kp60=1
+```
+
+And add this to /boot/cmdline.txt
+```
+cma=256M
+```
+
+Reboot, and voila!
+
+### Cross-Compiling To Raspbian (armhf, 32bit)
+
+Note: Several settings here will conflict with the instructions for arm64 - you likely can't have both on the same system.
+
+To cross-compile, install the correct rust target and install the linker.
+```
+rustup target add armv7-unknown-linux-gnueabihf
 sudo apt install gcc-arm-linux-gnueabihf
 ```
 You'll also need to add the armhf architecture to dpkg.
@@ -157,8 +219,10 @@ sudo apt install libgtk-3-dev:armhf libzmq3-dev:armhf libgstreamer1.0-dev:armhf 
 
 When you compile, pass several environment variables to the compilation.
 ```
-env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig/ cargo build_arm
+env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig/ cargo build_armhf
 ```
+
+Unfortunately, video doesn't seem to work out of the box. If you have success with armhf and video playback, let us know how you pulled it off!
 
 ## Contributing
 
