@@ -182,15 +182,15 @@ mod tests {
 
     // Test the item index
     #[tokio::test]
-    async fn item_index() {
+    async fn call_index() {
         // Import libraries for testing
         use crate::definitions::{Hidden};
 
         // Launch the item index
-        let (item_index, index_access) = ItemIndex::new();
+        let (mut item_index, index_access) = ItemIndex::new();
         
         // Spawn a new thread for the index
-        tokio::spawn(async {
+        tokio::spawn(async move {
             item_index.run().await;
         });
 
@@ -199,14 +199,14 @@ mod tests {
         let id2 = ItemId::new_unchecked(11);
         let desc1 = ItemDescription::new("Description 1", Hidden);
         let desc2 = ItemDescription::new("Description 2", Hidden);
-        let pair1 = ItemPair::from_item(id1, desc1);
-        let pair2 = ItemPair::from_item(id2, desc2);
+        let pair1 = ItemPair::from_item(id1, desc1.clone());
+        let pair2 = ItemPair::from_item(id2, desc2.clone());
 
         // Add a new description map to the index
-        let new_index = DescriptionMap::default();
+        let mut new_index = DescriptionMap::default();
         new_index.insert(id1.clone(), desc1.clone());
         new_index.insert(id2.clone(), desc2.clone());
-        index_access.send_index(new_index);
+        index_access.send_index(new_index).await;
 
         // Verify the description and item pair from the index
         assert_eq!(desc1, index_access.get_description(&id1).await);
@@ -215,11 +215,11 @@ mod tests {
         assert_eq!(pair2, index_access.get_pair(&id2).await);
 
         // Change one of the descriptions and verify the change
-        assert_eq!(false, index_access.update_description(&id1, desc2).await);
+        assert_eq!(false, index_access.update_description(id1, desc2.clone()).await);
         assert_eq!(desc2, index_access.get_description(&id1).await);
 
         // Delete a description and verify the change
-        assert_eq!(true, index_access.remove_item(&id1).await);
+        assert_eq!(true, index_access._remove_item(id1).await);
         assert_eq!(ItemDescription::new_default(), index_access.get_description(&id1).await);
         assert_eq!(vec!(pair2)[0], index_access.get_all().await[0]);
     }
