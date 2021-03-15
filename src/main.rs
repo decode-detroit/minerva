@@ -83,13 +83,18 @@ impl Minerva {
         // Create the tokio runtime
         let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
         
-        // Launch the item index to process item description requests
-        let (index_send, item_index) = ItemIndex::new();
+        // Create the item index to process item description requests
+        let (mut item_index, index_access) = ItemIndex::new();
+
+        // Run the item index in a new thread (needed here to allow the system interface to load)
+        runtime.spawn(async move {
+            item_index.run().await;
+        });
 
         // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();
         let (system_interface, system_send) = runtime.block_on(async {
-            SystemInterface::new(interface_send.clone()).await
+            SystemInterface::new(index_access.clone(), interface_send.clone()).await
         }).expect("Unable To Create System Interface.");
 
         // Create a new web interface
@@ -97,7 +102,7 @@ impl Minerva {
 
         // Spin the runtime into a native thread
         thread::spawn(move || {
-            // Open the system interface in a new thread
+            // Run the system interface in a new thread
             runtime.spawn(async move {
                 system_interface.run().await;
             });

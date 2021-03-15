@@ -28,7 +28,7 @@ mod system_connection;
 // Import the relevant structures into the correct namespace
 use crate::definitions::{
     DisplayControl, DisplayDebug, DisplayWith, ItemId, ItemPair, LabelControl,
-    InternalSend, InternalUpdate, SystemSend, SystemUpdate, InterfaceUpdate,
+    IndexAccess, InternalSend, InternalUpdate, SystemSend, SystemUpdate, InterfaceUpdate,
     WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply,
 };
 #[cfg(feature = "media-out")]
@@ -67,6 +67,7 @@ pub struct SystemInterface {
     event_handler: Option<EventHandler>, // the event handler instance for the program, if it exists
     logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
+    index_access: IndexAccess,           // the access point for the item index
     interface_send: std_mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
     system_receive: mpsc::Receiver<SystemUpdate>, // a receiving line to receive system updates
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
@@ -79,6 +80,7 @@ impl SystemInterface {
     /// A function to create a new, blank instance of the system interface.
     ///
     pub async fn new(
+        index_access: IndexAccess,
         interface_send: std_mpsc::Sender<InterfaceUpdate>,
     ) -> Result<(SystemInterface, SystemSend), FailureError> {
         // Create the new general update structure and receive channel
@@ -122,6 +124,7 @@ impl SystemInterface {
             event_handler: None,
             logger,
             system_connection,
+            index_access,
             interface_send,
             system_receive,
             internal_receive,
@@ -250,7 +253,7 @@ impl SystemInterface {
                     // Try to process the event
                     if handler.process_event(&event, check_scene, broadcast).await {
                         // Notify the user interface of the event
-                        let description = handler.get_description(&event);
+                        let description = self.index_access.get_description(&event).await;
                         self.interface_send
                             .send(InterfaceUpdate::Notify {
                                 message: description.description,
@@ -273,18 +276,22 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events(),
-                        handler,
+                        handler.get_events().await,
+                        self.index_access.clone(),
                         self.is_debug_mode,
-                    );
+                    ).await;
+
+                    // Get the current scene and key map
+                    let current_scene = handler.get_current_scene().await;
+                    let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
                     self.interface_send
                         .send(InterfaceUpdate::UpdateWindow {
-                            current_scene: handler.get_current_scene(),
+                            current_scene,
                             window,
                             statuses,
-                            key_map: handler.get_key_map(),
+                            key_map,
                         })
                         .unwrap_or(());
                 }
@@ -427,7 +434,14 @@ impl SystemInterface {
                             Modification::ModifyItem {
                                 item_pair,
                             } => {
-                                handler.edit_item(item_pair).await;
+                                // Pass the update and see if it's a new item
+                                if self.index_access.update_description(item_pair.get_id(), item_pair.get_description()).await {
+                                    update!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
+                                
+                                // If not, notify that the item was updated
+                                } else {
+                                    update!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
+                                }
                             }
 
                             // Add or modify the event
@@ -498,7 +512,7 @@ impl SystemInterface {
                     // Try to process the event
                     if handler.process_event(&event, check_scene, broadcast).await {
                         // Notify the user interface of the event
-                        let description = handler.get_description(&event);
+                        let description = self.index_access.get_description(&event).await;
                         self.interface_send
                             .send(InterfaceUpdate::Notify {
                                 message: description.description,
@@ -521,18 +535,22 @@ impl SystemInterface {
                 if let Some(ref mut handler) = self.event_handler {
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events(),
-                        handler,
+                        handler.get_events().await,
+                        self.index_access.clone(),
                         self.is_debug_mode,
-                    );
+                    ).await;
+
+                    // Get the current scene and key map
+                    let current_scene = handler.get_current_scene().await;
+                    let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
                     self.interface_send
                         .send(InterfaceUpdate::UpdateWindow {
-                            current_scene: handler.get_current_scene(),
+                            current_scene,
                             window,
                             statuses,
-                            key_map: handler.get_key_map(),
+                            key_map,
                         })
                         .unwrap_or(());
                 }
@@ -547,7 +565,7 @@ impl SystemInterface {
                         // Reply to a request for the item description
                         RequestType::Description { item_id } => {
                             // Collect the description of the item
-                            let description = handler.get_description(&item_id);
+                            let description = self.index_access.get_description(&item_id).await;
 
                             // Create the item pair
                             let item_pair = ItemPair::from_item(item_id, description);
@@ -578,7 +596,7 @@ impl SystemInterface {
                         // Reply to a request for all the configuration items
                         RequestType::Items => {
                             // Collect all the items from the configuration
-                            let items = handler.get_items();
+                            let items = self.index_access.get_all().await;
 
                             // Send it back to the user interface
                             self.interface_send
@@ -592,7 +610,7 @@ impl SystemInterface {
                         // Reply to a request for all the events in a scene
                         RequestType::Scene { item_id } => {
                             // Collect all the items from the configuration
-                            let scene = handler.get_scene(item_id);
+                            let scene = handler.get_scene(item_id).await;
 
                             // Send it back to the user interface
                             self.interface_send
@@ -700,6 +718,7 @@ impl SystemInterface {
         // Create a new event handler
         let mut event_handler = match EventHandler::new(
             filepath,
+            self.index_access.clone(),
             self.internal_send.clone(),
             interface_send,
             log_failure,
@@ -716,11 +735,15 @@ impl SystemInterface {
             return;
         }
 
+        // Get the scenes and full status
+        let scenes = event_handler.get_scenes().await;
+        let full_status = event_handler.get_full_status().await;
+
         // Send the newly available scenes and full status to the user interface
         self.interface_send
             .send(InterfaceUpdate::UpdateConfig {
-                scenes: event_handler.get_scenes(),
-                full_status: event_handler.get_full_status(),
+                scenes,
+                full_status,
             })
             .unwrap_or(());
 
@@ -734,9 +757,9 @@ impl SystemInterface {
     /// An internal to sort the available events in this current scene
     /// into an Event Window.
     ///
-    fn sort_items(
+    async fn sort_items(
         mut items: Vec<ItemPair>,
-        event_handler: &mut EventHandler,
+        index_access: IndexAccess,
         is_debug_mode: bool,
     ) -> (EventWindow, Vec<ItemPair>) {
         // Iterate through the items and group them
@@ -751,8 +774,7 @@ impl SystemInterface {
 
                 // Add display with events to the matching event group
                 DisplayWith { group_id, .. } => {
-                    let group_pair =
-                        ItemPair::from_item(group_id, event_handler.get_description(&group_id));
+                    let group_pair = index_access.get_pair(&group_id).await;
                     SystemInterface::sort_groups(&mut groups, group_pair, item);
                 }
 
@@ -762,8 +784,7 @@ impl SystemInterface {
                     if is_debug_mode {
                         // If a group id is specified, add it to the correct group
                         if let Some(id) = group_id {
-                            let group_pair =
-                                ItemPair::from_item(id, event_handler.get_description(&id));
+                            let group_pair = index_access.get_pair(&id).await;
                             SystemInterface::sort_groups(&mut groups, group_pair, item);
 
                         // Otherwise add it to the general group

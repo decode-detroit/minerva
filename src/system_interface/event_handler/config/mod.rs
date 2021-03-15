@@ -20,10 +20,12 @@
 //! program.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{Hidden, ItemDescription, ItemId, ItemPair, CancelEvent, Event,
-    SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
+use crate::definitions::{ItemDescription, ItemId, ItemPair, CancelEvent, Event,
+    SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData, IndexAccess,
     FullStatus, StatusMap, StatusDescription, Status, ChangeSettings, DisplaySetting,
-    InternalSend, InterfaceUpdate, DescriptiveScene, Scene, KeyMap, Identifier};
+    InternalSend, InterfaceUpdate, DescriptiveScene, Scene, KeyMap, Identifier,
+    DescriptionMap,
+};
 
 // Define private submodules
 mod status;
@@ -199,6 +201,7 @@ pub struct Config {
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_handler: StatusHandler,    // status handler for the current game status
     events: FnvHashMap<ItemId, Event>, // hash map of all the events
+    index_access: IndexAccess,      // access point to the item index
     internal_send: InternalSend,    // line to provide updates to the higher-level system
 }
 
@@ -226,6 +229,7 @@ impl Config {
     /// None.
     ///
     pub async fn from_config(
+        index_access: IndexAccess,
         internal_send: InternalSend,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         mut config_file: &File,
@@ -255,12 +259,12 @@ impl Config {
             update!(warn internal_send => "Version Of Configuration ({}) Does Not Match Software Version ({})", &yaml_config.version, version);
         }
 
-        // Turn the ItemPairs in to the lookup and event set
-        let mut lookup = FnvHashMap::default();
+        // Turn the ItemPairs in to the item index and event set
+        let mut item_index = DescriptionMap::default();
         let mut events = FnvHashMap::default();
         for (item_pair, possible_event) in yaml_config.event_set.iter() {
             // Insert the event description into the lookup
-            match lookup.insert(item_pair.get_id(), item_pair.get_description()) {
+            match item_index.insert(item_pair.get_id(), item_pair.get_description()) {
                 // Warn of events defined multiple times
                 Some(_) => update!(warn internal_send => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id()),
                 None => (),
@@ -280,7 +284,10 @@ impl Config {
         // Verify the configuration is defined correctly
         let all_scenes = yaml_config.all_scenes;
         let status_map = yaml_config.status_map;
-        Config::verify_config(&internal_send, &all_scenes, &status_map, &lookup, &events).await;
+        Config::verify_config(&internal_send, &all_scenes, &status_map, &item_index, &events).await;
+
+        // Load the item index
+        index_access.send_index(item_index).await;
 
         // Create the new status handler
         let status_handler = StatusHandler::new(internal_send.clone(), status_map);
@@ -321,8 +328,8 @@ impl Config {
             current_scene,
             all_scenes,
             status_handler,
-            lookup,
             events,
+            index_access,
             internal_send,
         })
     }
@@ -390,10 +397,8 @@ impl Config {
             self.status_handler.modify_status(&status_id, &new_state).await;
 
             // Notify the system of the successful status change
-            let status_pair =
-                ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
-            let state_pair =
-                ItemPair::from_item(new_state.clone(), self.get_description(&new_state));
+            let status_pair = self.index_access.get_pair(&status_id).await;
+            let state_pair = self.index_access.get_pair(&new_state).await;
             update!(status &self.internal_send => status_pair, state_pair);
         }
     }
@@ -413,7 +418,7 @@ impl Config {
     /// # FIXME This conversion should not be necessary. The UI should pull
     /// id descriptions as needed.
     ///
-    pub fn get_full_status(&self) -> FullStatus {
+    pub async fn get_full_status(&self) -> FullStatus {
         // Get the partial status from the status map
         let mut partial_status = self.status_handler.get_partial_status();
         
@@ -423,15 +428,15 @@ impl Config {
         // For each status id and status
         for (status_id, mut status) in partial_status.drain() {
             // Create a new status pair from the status id
-            let status_pair = ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
+            let status_pair = self.index_access.get_pair(&status_id).await;
             
             // Create the new current pair from the status description
-            let current = ItemPair::from_item(status.current.clone(), self.get_description(&status.current));
+            let current = self.index_access.get_pair(&status.current).await;
             
             // Repackage the allowed states
             let mut allowed = Vec::new();
             for state in status.allowed.drain(..) {
-                allowed.push(ItemPair::from_item(state.clone(), self.get_description(&state)));
+                allowed.push(self.index_access.get_pair(&state).await);
             }
             
             // Add the new key/value to the full status
@@ -455,7 +460,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that scene.
     ///
-    pub fn get_scenes(&self) -> Vec<ItemPair> {
+    pub async fn get_scenes(&self) -> Vec<ItemPair> {
         // Compile a list of the available scenes
         let mut id_vec = Vec::new();
         for scene_id in self.all_scenes.keys() {
@@ -466,8 +471,7 @@ impl Config {
         id_vec.sort_unstable();
         let mut scenes = Vec::new();
         for scene_id in id_vec {
-            let description = self.get_description(scene_id);
-            scenes.push(ItemPair::from_item(scene_id.clone(), description));
+            scenes.push(self.index_access.get_pair(scene_id).await);
         }
 
         // Return the result
@@ -478,7 +482,7 @@ impl Config {
     /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
     /// the method returns the scene. Otherwise, it returns None.
     ///
-    pub fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+    pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
         // Check if the given item id corresponds to a scene
         match self.all_scenes.get(&item_id) {
             // If it doesn't correspond to a scene, return none
@@ -489,7 +493,7 @@ impl Config {
                 // Compile a list of the events as item pairs
                 let mut events = Vec::new();
                 for item_id in scene.events.iter() {
-                    events.push(ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
+                    events.push(self.index_access.get_pair(&item_id).await);
                 }
 
                 // Sort the items in order
@@ -505,7 +509,7 @@ impl Config {
                         // Iterate through the key map for this scene
                         for (key, item_id) in key_map.iter() {
                             // Combine the item pair and key value
-                            map.insert(key.clone(), ItemPair::from_item(item_id.clone(), self.get_description(&item_id)));
+                            map.insert(key.clone(), self.index_access.get_pair(&item_id).await);
                         }
                         // Return the Scene with the reversed key map
                         Some(DescriptiveScene { events, key_map: Some(map) })
@@ -516,22 +520,6 @@ impl Config {
                 }
             }
         }
-    }
-
-    /// A method to return an itempair of all items available in the lookup.
-    ///
-    pub fn get_items(&self) -> Vec<ItemPair> {
-        // Create an empty items vector
-        let mut items = Vec::new();
-        for (item, description) in self.lookup.iter() {
-            items.push(ItemPair::from_item(item.clone(), description.clone()));
-        }
-        
-        // Sort the items by item id
-        items.sort_unstable();
-
-        // Return the result
-        items
     }
 
     /// A method to return an itempair of all available events and statuses
@@ -545,7 +533,7 @@ impl Config {
     /// This method will raise an error if one of the item ids was not found in
     /// lookup. This indicates that the configuration file is incomplete.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
+    pub async fn get_events(&self) -> Vec<ItemPair> {
         // Create an empty events vector
         let mut items = Vec::new();
 
@@ -560,11 +548,8 @@ impl Config {
             // Sort them in order and then pair them with their descriptions
             id_vec.sort_unstable();
             for item_id in id_vec {
-                // Get the item description
-                let description = self.get_description(&item_id);
-
-                // Combine the item id and description
-                items.push(ItemPair::from_item(item_id.clone(), description));
+                // Combine the item pair
+                items.push(self.index_access.get_pair(&item_id).await);
             }
         }
 
@@ -584,7 +569,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_key_map(&self) -> KeyMap {
+    pub async fn get_key_map(&self) -> KeyMap {
         // Create an empty key map
         let mut map = FnvHashMap::default();
 
@@ -594,11 +579,8 @@ impl Config {
             if let Some(key_map) = &scene.key_map {
                 // Iterate through the key map for this scene
                 for (key, id) in key_map.iter() {
-                    // Get the item description
-                    let description = self.get_description(&id);
-
-                    // Combine the item id and description
-                    map.insert(key.clone(), ItemPair::from_item(id.clone(), description));
+                    // Get the item pair
+                    map.insert(key.clone(), self.index_access.get_pair(&id).await);
                 }
             }
         }
@@ -635,12 +617,9 @@ impl Config {
     /// gracefully by notifying of errors on the status line and returning an
     /// ItemPair with an empty description.
     ///
-    pub fn get_current_scene(&self) -> ItemPair {
+    pub async fn get_current_scene(&self) -> ItemPair {
         // Compose an item pair for the current scene
-        ItemPair::from_item(
-            self.current_scene.clone(),
-            self.get_description(&self.current_scene),
-        )
+        self.index_access.get_pair(&self.current_scene).await
     }
 
     /// A method to select a scene map from existing configuration based on the
@@ -698,9 +677,8 @@ impl Config {
         // Try to update the underlying status
         if let Some(new_id) = self.status_handler.modify_status(&status_id, &new_state).await {
             // Notify the system of the successful status change
-            let status_pair =
-                ItemPair::from_item(status_id.clone(), self.get_description(&status_id));
-            let state_pair = ItemPair::from_item(new_id.clone(), self.get_description(&new_id));
+            let status_pair = self.index_access.get_pair(&status_id).await;
+            let state_pair = self.index_access.get_pair(&new_id).await;
             update!(status &self.internal_send => status_pair, state_pair.clone());
 
             // Indicate status change
@@ -709,23 +687,6 @@ impl Config {
 
         // Indicate no change
         None
-    }
-
-    /// A method to modify or add an item with provided item pair
-    ///
-    pub async fn edit_item(&mut self, item_pair: ItemPair) {
-        // If the item is in the lookup, update the description
-        if let Some(description) = self.lookup.get_mut(&item_pair.get_id()) {
-            // Update the description and notify the system
-            *description = item_pair.get_description();
-            update!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
-            return;
-        }
-
-        // Otherwise create a new item in the lookup
-        self.lookup
-            .insert(item_pair.get_id(), item_pair.get_description());
-        update!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
     }
 
     /// A method to modify or add an event with provided event id and new event.
@@ -737,11 +698,11 @@ impl Config {
             if let Some(event) = self.events.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
-                update!(update &self.internal_send => "Event Updated: {}", self.get_description(&event_id));
+                update!(update &self.internal_send => "Event Updated: {}", self.index_access.get_description(&event_id).await);
             
             // Otherwise, add the event
             } else {
-                update!(update &self.internal_send => "Event Added: {}", self.get_description(&event_id));
+                update!(update &self.internal_send => "Event Added: {}", self.index_access.get_description(&event_id).await);
                 self.events.insert(event_id, new_event);
             }
         
@@ -750,7 +711,7 @@ impl Config {
             // If the event is in the event list, remove it
             if let Some(_) = self.events.remove(&event_id) {
                 // Notify the user that it was removed
-                update!(update &self.internal_send => "Event Removed: {}", self.get_description(&event_id));
+                update!(update &self.internal_send => "Event Removed: {}", self.index_access.get_description(&event_id).await);
             }
         }
     }
@@ -759,7 +720,7 @@ impl Config {
     ///
     pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
         // Get the item description and then pass the change to the status handler
-        let description = self.get_description(&status_id).description;
+        let description = self.index_access.get_description(&status_id).await.description;
         self.status_handler.edit_status(status_id, new_status, description).await;
     }
 
@@ -772,11 +733,11 @@ impl Config {
             if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
                 // Update the scene and notify the system
                 *scene = new_scene;
-                update!(update &self.internal_send => "Scene Updated: {}", self.get_description(&scene_id));
+                update!(update &self.internal_send => "Scene Updated: {}", self.index_access.get_description(&scene_id).await);
             
             // Otherwise, add the scene
             } else {
-                update!(update &self.internal_send => "Scene Added: {}", self.get_description(&scene_id));
+                update!(update &self.internal_send => "Scene Added: {}", self.index_access.get_description(&scene_id).await);
                 self.all_scenes.insert(scene_id, new_scene);
             }
         
@@ -785,18 +746,8 @@ impl Config {
             // If the scene is in the scene list, remove it
             if let Some(_) = self.all_scenes.remove(&scene_id) {
                 // Notify the user that it was removed
-                update!(update &self.internal_send => "Scene Removed: {}", self.get_description(&scene_id));
+                update!(update &self.internal_send => "Scene Removed: {}", self.index_access.get_description(&scene_id).await);
             }
-        }
-    }
-    
-    /// A method to delete the item description within the lookup.
-    ///
-    pub async fn _delete_description(&mut self, item_id: &ItemId) {
-        // Try to remove the item from the lookup
-        if let Some(description) = self.lookup.remove(item_id) {
-            // Notify the user that it was removed
-            update!(update &self.internal_send => "Item Description Removed: {}", description);
         }
     }
 
@@ -820,7 +771,7 @@ impl Config {
                 // Check to see if the event is listed in the current scene
                 if !scene.events.contains(id) {
                     // If the event is not listed in the current scene, notify
-                    update!(warnevent &self.internal_send => ItemPair::from_item(id.clone(), self.get_description(&id))  => "Event Not In Current Scene.");
+                    update!(warnevent &self.internal_send => ItemPair::from_item(id.clone(), self.index_access.get_description(&id).await)  => "Event Not In Current Scene.");
                     return None;
                 }
             // Warn that there isn't a current scene
@@ -838,7 +789,7 @@ impl Config {
             // Return None if the id doesn't exist
             None => {
                 // Notify of an invalid event
-                update!(errevent &self.internal_send => ItemPair::from_item(id.clone(), self.get_description(&id)) => "Event Not Found.");
+                update!(errevent &self.internal_send => ItemPair::from_item(id.clone(), self.index_access.get_description(&id).await) => "Event Not Found.");
 
                 // Return None
                 None
@@ -859,14 +810,13 @@ impl Config {
     /// modifications to the file.
     ///
     pub async fn to_config(&self, mut config_file: &File) {
-        // Assemble the event set from the events and lookup
+        // Assemble the event set from the item index and events
+        let mut item_index = self.index_access.get_all().await;
         let mut event_set = FnvHashMap::default();
-        for (item_id, description) in self.lookup.iter() {
-            // Compose the item pair
-            let item_pair = ItemPair::from_item(item_id.clone(), description.clone());
-
+        // Look through the item index
+        for item_pair in item_index.drain(..) {
             // Add the event if found
-            match self.events.get(item_id) {
+            match self.events.get(&item_pair.get_id()) {
                 // Include the event, when found
                 Some(event) => {
                     event_set.insert(item_pair, Some(event.clone()));

@@ -31,7 +31,7 @@ use crate::definitions::{
     ItemId, CancelEvent, DataType, EventAction, EventDelay, Event, SelectEvent,
     ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
     DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, ItemPair,
-    Status, InternalSend, InterfaceUpdate, ItemDescription, ComingEvent,
+    Status, IndexAccess, InternalSend, InterfaceUpdate, ComingEvent,
 };
 use self::backup::BackupHandler;
 use self::config::Config;
@@ -55,10 +55,11 @@ use failure::Error;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    internal_send: InternalSend, // sending line for event updates and timed events
-    queue: Queue,                  // current event queue
-    config: Config,                // current configuration
-    backup: BackupHandler,         // current backup server
+    index_access: IndexAccess,      // access point to the item index
+    internal_send: InternalSend,    // sending line for event updates and timed events
+    queue: Queue,                   // current event queue
+    config: Config,                 // current configuration
+    backup: BackupHandler,          // current backup server
 }
 
 // Implement the event handler functions
@@ -86,6 +87,7 @@ impl EventHandler {
     ///
     pub async fn new(
         config_path: PathBuf,
+        index_access: IndexAccess,
         internal_send: InternalSend,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         log_failure: bool,
@@ -103,7 +105,7 @@ impl EventHandler {
         };
 
         // Attempt to process the configuration file
-        let mut config = Config::from_config(internal_send.clone(), interface_send, &config_file).await?;
+        let mut config = Config::from_config(index_access.clone(), internal_send.clone(), interface_send, &config_file).await?;
 
         // Attempt to create the backup handler
         let mut backup = BackupHandler::new(
@@ -140,14 +142,15 @@ impl EventHandler {
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
-            queue.add_event(EventDelay::new(None, config.get_current_scene().get_id())).await;
+            queue.add_event(EventDelay::new(None, config.get_current_scene().await.get_id())).await;
         }
 
         // Load the current scene into the backup (to detect any crash after this point)
-        backup.backup_current_scene(&config.get_current_scene().get_id()).await;
+        backup.backup_current_scene(&config.get_current_scene().await.get_id()).await;
 
         // Return the completed EventHandler with a new queue
         Ok(EventHandler {
+            index_access,
             internal_send: internal_send,
             queue,
             config,
@@ -196,7 +199,7 @@ impl EventHandler {
             upcoming_events.push(UpcomingEvent {
                 start_time: event.start_time,
                 delay: event.delay,
-                event: ItemPair::from_item(event.id(), self.get_description(&event.id())),
+                event: self.index_access.get_pair(&event.id()).await,
             });
         }
 
@@ -218,23 +221,6 @@ impl EventHandler {
     pub async fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
         // Try to retrieve the event
         self.config.try_event(event_id, false).await // do not check the scene
-    }
-
-    /// A method to return a copy of the description of the provided id.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error if the provided id was not found in
-    /// lookup. This usually indicates that the provided id was incorrect or
-    /// that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription.
-    ///
-    pub fn get_description(&self, item_id: &ItemId) -> ItemDescription {
-        // Return a new copy of the event description
-        self.config.get_description(item_id)
     }
 
     /// A method to return a copy of the status detail of the provided item id.
@@ -265,9 +251,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that status.
     ///
-    pub fn get_full_status(&mut self) -> FullStatus {
+    pub async fn get_full_status(&mut self) -> FullStatus {
         // Compile a hashmap of the full status
-        self.config.get_full_status()
+        self.config.get_full_status().await
     }
 
     /// A method to return an itempair of all available scenes in this
@@ -283,23 +269,16 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that scene.
     ///
-    pub fn get_scenes(&self) -> Vec<ItemPair> {
+    pub async fn get_scenes(&self) -> Vec<ItemPair> {
         // Return a list of available scenes
-        self.config.get_scenes()
+        self.config.get_scenes().await
     }
 
     /// A method to return a scene with available events and optional keymap, given
     /// an item id
-    pub fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+    pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
         // Return a scene corresponding to the id, or None if none
-        self.config.get_scene(item_id)
-    }
-
-    /// A method to return an itempair of all available items in the configuration.
-    ///
-    pub fn get_items(&self) -> Vec<ItemPair> {
-        // Return a list of available items in the current scene
-        self.config.get_items()
+        self.config.get_scene(item_id).await
     }
 
     /// A method to return an itempair of all available events in the current
@@ -315,9 +294,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_events(&self) -> Vec<ItemPair> {
+    pub async fn get_events(&self) -> Vec<ItemPair> {
         // Return a list of available items in the current scene
-        self.config.get_events()
+        self.config.get_events().await
     }
 
     /// A method to return an key map for the current scene, with all items
@@ -332,9 +311,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the update line and returning an
     /// empty ItemDescription for that item.
     ///
-    pub fn get_key_map(&self) -> KeyMap {
+    pub async fn get_key_map(&self) -> KeyMap {
         // Return the key mapping for this scene
-        self.config.get_key_map()
+        self.config.get_key_map().await
     }
 
     /// A method to return the current scene.
@@ -348,9 +327,9 @@ impl EventHandler {
     /// gracefully by notifying of errors on the status line and returning an
     /// ItemPair with an empty description.
     ///
-    pub fn get_current_scene(&self) -> ItemPair {
+    pub async fn get_current_scene(&self) -> ItemPair {
         // Return an item pair for the current scene
-        self.config.get_current_scene()
+        self.config.get_current_scene().await
     }
 
     /// A method to change the selected status within the current configuration.
@@ -374,12 +353,6 @@ impl EventHandler {
             // Run the change event for the new state (no backup necessary)
             self.queue.add_event(EventDelay::new(None, new_id)).await;
         }
-    }
-
-    /// A method to add or modify an item within the current configuration.
-    ///
-    pub async fn edit_item(&mut self, item_id: ItemPair) {
-        self.config.edit_item(item_id).await;
     }
 
     /// A method to add or modify an event within the current configuration.
@@ -529,7 +502,7 @@ impl EventHandler {
         };
 
         // Compose the item into an item pair
-        let pair = ItemPair::from_item(event_id.clone(), self.get_description(&event_id));
+        let pair = self.index_access.get_pair(&event_id).await;
 
         // Unpack and process each action of the event
         let mut was_broadcast = false;
