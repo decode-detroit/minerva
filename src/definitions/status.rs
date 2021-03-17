@@ -28,7 +28,7 @@ use fnv::FnvHashMap;
 ///
 pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and status pairs
 
-/// A type to store a vector of status ids and status descriptions
+/// A type to store a hashmap of status ids and status descriptions
 /// 
 /// # FIXME
 /// This intermediary should be eliminated and the UI should call for this

@@ -163,8 +163,8 @@ pub enum EventUpdate {
     /// A variant that notifies the system logger to log data to the game log
     Save(String), // the data to save, formatted as a string
 
-    /// A variant that notifies the rest of the system of the new status of a group
-    Status(ItemPair, ItemPair), // first field is the status id, second is the new state
+    /// A variant that notifies the rest of the system of the new state of the status
+    Status(ItemId, ItemId), // first field is the status id, second is the new state
 
     /// A variant which can send any other type of update to the system.
     Update(String),
@@ -190,7 +190,7 @@ impl fmt::Display for EventUpdate {
             &EventUpdate::Save(ref data) => write!(f, "Got Data: {:?}", data),
 
             // If there is a status change, copy it
-            &EventUpdate::Status(ref group_id, ref status) => write!(f, "Status: {} Now {}", group_id, status),
+            &EventUpdate::Status(ref status_id, ref state) => write!(f, "Status: {} Now {}", status_id, state),
 
             // If there is a system update, simply write the string
             &EventUpdate::Update(ref update) => write!(f, "Update: {}", update),

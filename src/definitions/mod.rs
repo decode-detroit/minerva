@@ -29,6 +29,7 @@ mod connections;
 mod communication;
 
 // Reexport all the definitions from the submodules
+pub use self::test::*;
 pub use self::item::*;
 pub use self::event::*;
 pub use self::status::*;

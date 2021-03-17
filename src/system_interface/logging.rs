@@ -22,7 +22,7 @@
 //! readable format and returned to higher-level modules.
 
 // Import the relevant structures into the correct namespace
-use crate::definitions::{EventUpdate, InternalSend, InterfaceUpdate, UpdateStatus, Notification};
+use crate::definitions::{EventUpdate, IndexAccess, InternalSend, InterfaceUpdate, UpdateStatus, Notification};
 
 // Import standard library modules
 use std::fs::{File, OpenOptions};
@@ -39,10 +39,11 @@ use failure::Error as FailureError;
 /// A structure to handle all logging and update processing for the program.
 ///
 pub struct Logger {
-    game_log: Option<File>,                        // game log file for the program
-    error_log: Option<File>,                       // error log file for the program
-    old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
-    internal_send: InternalSend,        // broadcast channel for current events
+    game_log: Option<File>,                 // game log file for the program
+    error_log: Option<File>,                // error log file for the program
+    old_notifications: Vec<Notification>,   // internal list of notifications less than 1 minute old
+    index_access: IndexAccess,               // the item index access point
+    internal_send: InternalSend,            // broadcast channel for current events
     interface_send: std_mpsc::Sender<InterfaceUpdate>, // an update line for passing updates to the user interface
 }
 
@@ -63,6 +64,7 @@ impl Logger {
     pub fn new(
         log_path: Option<PathBuf>,
         error_path: Option<PathBuf>,
+        index_access: IndexAccess,
         internal_send: InternalSend,
         interface_send: std_mpsc::Sender<InterfaceUpdate>,
     ) -> Result<Logger, FailureError> {
@@ -111,6 +113,7 @@ impl Logger {
             game_log,
             error_log,
             old_notifications: Vec::new(),
+            index_access,
             internal_send,
             interface_send,
         })
@@ -256,11 +259,15 @@ impl Logger {
 
             // Update the state of a status
             EventUpdate::Status(status_id, new_state) => {
+                // Get the item pairs for the status and state
+                let status_pair = self.index_access.get_pair(&status_id).await;
+                let state_pair = self.index_access.get_pair(&new_state).await;
+                
                 // Send the change to the interface
                 self.interface_send
                     .send(UpdateStatus {
-                        status_id: status_id.clone(),
-                        new_state: new_state.clone(),
+                        status_id: status_pair.clone(),
+                        new_state: state_pair.clone(),
                     })
                     .unwrap_or(());
 
@@ -268,7 +275,7 @@ impl Logger {
                 Notification::Update {
                     message: format!(
                         "Changing {} To {}.",
-                        status_id.description, new_state.description
+                        status_pair.description, state_pair.description
                     ),
                     time: now,
                 }
@@ -324,14 +331,23 @@ mod tests {
     #[tokio::test]
     async fn logging() {
         // Import libraries for testing
-        use crate::definitions::{InternalSend, EventUpdate, ItemPair, Hidden};
+        use crate::definitions::{DescriptionMap, IndexAccess, InternalSend, EventUpdate, ItemId,
+            ItemPair, ItemDescription, Hidden,
+        };
 
         // Create the communication lines
         let (internal_send, _internal_recv) = InternalSend::new();
         let (interface_send, _interface_recv) = std_mpsc::channel();
 
+        // Create a test index access and load the index
+        let (index_access, _rx) = IndexAccess::new();
+        let mut index = DescriptionMap::default();
+        index.insert(ItemId::new_unchecked(3), ItemDescription::new("Test Broadcast", Hidden));
+        index.insert(ItemId::new_unchecked(4), ItemDescription::new("Test Event", Hidden));
+        index_access.send_index(index).await;
+
         // Create a new logger instance
-        let mut logger = Logger::new(None, None, internal_send, interface_send).unwrap();
+        let mut logger = Logger::new(None, None, index_access, internal_send, interface_send).unwrap();
 
         // Pass a series of updates to the logger and verify the output
         let mut result = logger.update(EventUpdate::Error("Test Error".to_string(), None)).await;

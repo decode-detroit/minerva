@@ -30,6 +30,7 @@ use crate::definitions::{
     DisplayControl, DisplayDebug, DisplayWith, ItemId, ItemPair, LabelControl,
     IndexAccess, InternalSend, InternalUpdate, SystemSend, SystemUpdate, InterfaceUpdate,
     WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply,
+    FullStatus, StatusDescription,
 };
 #[cfg(feature = "media-out")]
 use crate::definitions::LaunchWindow;
@@ -109,6 +110,7 @@ impl SystemInterface {
         let logger = Logger::new(
             log_folder,
             error_log,
+            index_access.clone(),
             internal_send.clone(),
             interface_send.clone(),
         )?;
@@ -274,15 +276,24 @@ impl SystemInterface {
             InternalUpdate::RefreshInterface => {
                 // Try to redraw the current window
                 if let Some(ref mut handler) = self.event_handler {
+                    // Repackage the items in the current scene
+                    // FIXME The user interface should get this information separately
+                    let item_ids = handler.get_current_items();
+                    let mut current_items = Vec::new();
+                    for item_id in item_ids {
+                        // Combine the item pair
+                        current_items.push(self.index_access.get_pair(&item_id).await);
+                    }
+
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events().await,
+                        current_items,
                         self.index_access.clone(),
                         self.is_debug_mode,
                     ).await;
 
                     // Get the current scene and key map
-                    let current_scene = handler.get_current_scene().await;
+                    let current_scene = self.index_access.get_pair(&handler.get_current_scene()).await;
                     let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
@@ -533,15 +544,24 @@ impl SystemInterface {
             SystemUpdate::Redraw => {
                 // Try to redraw the current window
                 if let Some(ref mut handler) = self.event_handler {
+                    // Repackage the items in the current scene
+                    // FIXME The user interface should get this information separately
+                    let item_ids = handler.get_current_items();
+                    let mut current_items = Vec::new();
+                    for item_id in item_ids {
+                        // Combine the item pair
+                        current_items.push(self.index_access.get_pair(&item_id).await);
+                    }
+
                     // Compose the new event window and status items
                     let (window, statuses) = SystemInterface::sort_items(
-                        handler.get_events().await,
+                        current_items,
                         self.index_access.clone(),
                         self.is_debug_mode,
                     ).await;
 
                     // Get the current scene and key map
-                    let current_scene = handler.get_current_scene().await;
+                    let current_scene = self.index_access.get_pair(&handler.get_current_scene()).await;
                     let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
@@ -736,8 +756,37 @@ impl SystemInterface {
         }
 
         // Get the scenes and full status
-        let scenes = event_handler.get_scenes().await;
-        let full_status = event_handler.get_full_status().await;
+        let scene_ids = event_handler.get_scenes();
+        let mut partial_status = event_handler.get_statuses();
+
+        // Repackage the scenes with their descriptions
+        // FIXME Should be pulled separately by the user interface
+        let mut scenes = Vec::new();
+        for scene_id in scene_ids {
+            scenes.push(self.index_access.get_pair(&scene_id).await);
+        }
+
+        // Repackage the statuses with their descriptions
+        // FIXME Should be pulled separately by the user interface
+        let mut full_status = FullStatus::default();
+
+        // For each status id and status
+        for (status_id, mut status) in partial_status.drain() {
+            // Create a new status pair from the status id
+            let status_pair = self.index_access.get_pair(&status_id).await;
+            
+            // Create the new current pair from the status description
+            let current = self.index_access.get_pair(&status.current).await;
+            
+            // Repackage the allowed states
+            let mut allowed = Vec::new();
+            for state in status.allowed.drain(..) {
+                allowed.push(self.index_access.get_pair(&state).await);
+            }
+            
+            // Add the new key/value to the full status
+            full_status.insert(status_pair, StatusDescription { current, allowed });
+        }
 
         // Send the newly available scenes and full status to the user interface
         self.interface_send

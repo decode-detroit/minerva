@@ -176,16 +176,10 @@ Add this to /boot/firmware/config.txt (it may tell you to put it in usercfg.txt 
 ```
 dtoverlay=vc4-fkms-v3d
 max_framebuffers=2
-gpu_mem=256
-hdmi_enable_4kp60=1
+gpu_mem=512
 ```
 
-And add this to /boot/cmdline.txt
-```
-cma=256M
-```
-
-Reboot, and voila!
+Reboot, and voila! Still working out the bugs, but hardware decoding works well for smaller videos (>720p).
 
 ### Cross-Compiling To Raspbian (armhf, 32bit)
 

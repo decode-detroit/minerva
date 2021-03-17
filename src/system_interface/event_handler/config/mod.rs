@@ -22,7 +22,7 @@
 // Import the relevant structures into the correct namespace
 use crate::definitions::{ItemDescription, ItemId, ItemPair, CancelEvent, Event,
     SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData, IndexAccess,
-    FullStatus, StatusMap, StatusDescription, Status, ChangeSettings, DisplaySetting,
+    PartialStatus, StatusMap, Status, ChangeSettings, DisplaySetting,
     InternalSend, InterfaceUpdate, DescriptiveScene, Scene, KeyMap, Identifier,
     DescriptionMap,
 };
@@ -351,8 +351,6 @@ impl Config {
         self.server_location.clone()
     }
 
-
-
     /// A method to return a status from the status handler.
     ///
     /// # Errors
@@ -388,91 +386,38 @@ impl Config {
     /// in the status map. This indicates that the configuration file is
     /// incomplete or that one of the provided pairs was was incorrect.
     ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line.
-    ///
     pub async fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
         // For every status in the status pairs, set the current value
         for (status_id, new_state) in status_pairs.drain(..) {
             self.status_handler.modify_status(&status_id, &new_state).await;
 
             // Notify the system of the successful status change
-            let status_pair = self.index_access.get_pair(&status_id).await;
-            let state_pair = self.index_access.get_pair(&new_state).await;
-            update!(status &self.internal_send => status_pair, state_pair);
+            update!(status &self.internal_send => status_id, new_state);
         }
     }
 
-    /// A method to return a hashmap of the full status available in this
+    /// A method to return a hashmap of the statuses available in this
     /// configuration.
     ///
-    /// # Errors
     ///
-    /// This method will raise an error if one of the status ids was not found in
-    /// the status map. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that status.
-    ///
-    /// # FIXME This conversion should not be necessary. The UI should pull
-    /// id descriptions as needed.
-    ///
-    pub async fn get_full_status(&self) -> FullStatus {
-        // Get the partial status from the status map
-        let mut partial_status = self.status_handler.get_partial_status();
-        
-        // Create an empty full status
-        let mut full_status = FullStatus::default();
-        
-        // For each status id and status
-        for (status_id, mut status) in partial_status.drain() {
-            // Create a new status pair from the status id
-            let status_pair = self.index_access.get_pair(&status_id).await;
-            
-            // Create the new current pair from the status description
-            let current = self.index_access.get_pair(&status.current).await;
-            
-            // Repackage the allowed states
-            let mut allowed = Vec::new();
-            for state in status.allowed.drain(..) {
-                allowed.push(self.index_access.get_pair(&state).await);
-            }
-            
-            // Add the new key/value to the full status
-            full_status.insert(status_pair, StatusDescription { current, allowed });
-        }
-
-        // Return the result
-        full_status
+    pub fn get_statuses(&self) -> PartialStatus {
+        // Get the statuses from the status handler
+        self.status_handler.get_partial_status()
     }
 
-    /// A method to return an itempair of all available scenes in this
+    /// A method to return a list of all available scenes in this
     /// configuration. This method will always return the scenes from lowest to
-    /// highest id.
+    /// highest id. 
     ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the scene ids was not found in
-    /// lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that scene.
-    ///
-    pub async fn get_scenes(&self) -> Vec<ItemPair> {
+    pub fn get_scenes(&self) -> Vec<ItemId> {
         // Compile a list of the available scenes
-        let mut id_vec = Vec::new();
+        let mut scenes = Vec::new();
         for scene_id in self.all_scenes.keys() {
-            id_vec.push(scene_id);
+            scenes.push(scene_id.clone());
         }
 
         // Sort them in order and then pair them with their descriptions
-        id_vec.sort_unstable();
-        let mut scenes = Vec::new();
-        for scene_id in id_vec {
-            scenes.push(self.index_access.get_pair(scene_id).await);
-        }
+        scenes.sort_unstable();
 
         // Return the result
         scenes
@@ -522,35 +467,22 @@ impl Config {
         }
     }
 
-    /// A method to return an itempair of all available events and statuses
-    /// in a scene. The method takes in an option for the scene id. If None,
-    /// the method will return the itempairs for the current scene.
-    /// This method will always return the items from
-    /// lowest to highest id.
+    /// A method to return a list of all available items in the current scene.
+    /// This method will always return the items from lowest to highest id.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the item ids was not found in
-    /// lookup. This indicates that the configuration file is incomplete.
-    ///
-    pub async fn get_events(&self) -> Vec<ItemPair> {
-        // Create an empty events vector
+    pub fn get_current_items(&self) -> Vec<ItemId> {
+        // Create an empty item vector
         let mut items = Vec::new();
 
         // Try to open the current scene
         if let Some(scene) = self.all_scenes.get(&self.current_scene) {
-            // Compile a list of the available items
-            let mut id_vec = Vec::new();
+            // Compile the list of the available items
             for item_id in scene.events.iter() {
-                id_vec.push(item_id);
+                items.push(item_id.clone());
             }
 
             // Sort them in order and then pair them with their descriptions
-            id_vec.sort_unstable();
-            for item_id in id_vec {
-                // Combine the item pair
-                items.push(self.index_access.get_pair(&item_id).await);
-            }
+            items.sort_unstable();
         }
 
         // Return the result
@@ -559,15 +491,6 @@ impl Config {
 
     /// A method to return an key map for the current scene, with all items
     /// as an itempair.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the item ids was not found in
-    /// lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that item.
     ///
     pub async fn get_key_map(&self) -> KeyMap {
         // Create an empty key map
@@ -594,12 +517,8 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// This method will raise an error the provided status id was not found in
-    /// lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that scene.
+    /// This method will raise an error the provided status id was not found.
+    /// This indicates that the configuration file is incomplete.
     ///
     pub async fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Return the internal state of the status handler
@@ -608,18 +527,8 @@ impl Config {
 
     /// A method to return the current scene.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an warning if the current scene is not described
-    /// in the lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the status line and returning an
-    /// ItemPair with an empty description.
-    ///
-    pub async fn get_current_scene(&self) -> ItemPair {
-        // Compose an item pair for the current scene
-        self.index_access.get_pair(&self.current_scene).await
+    pub fn get_current_scene(&self) -> ItemId {
+        self.current_scene.clone()
     }
 
     /// A method to select a scene map from existing configuration based on the
@@ -628,13 +537,9 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// This function will raise an error if the provided id was not found in
+    /// This method will raise an error if the provided id was not found in
     /// the configuration. This usually indicates a problem with the underlying
     /// configuration file.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and making no
-    /// modifications to the current scene.
     ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) -> Result<(), ()> {
         // Check to see if the scene_id is valid
@@ -665,21 +570,15 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// This function will raise an error if the provided id was not found in
+    /// This method will raise an error if the provided id was not found in
     /// the configuration. This usually indicates a problem with the underlying
     /// configuration file.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and making no
-    /// modifications to the current scene.
     ///
     pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
         // Try to update the underlying status
         if let Some(new_id) = self.status_handler.modify_status(&status_id, &new_state).await {
             // Notify the system of the successful status change
-            let status_pair = self.index_access.get_pair(&status_id).await;
-            let state_pair = self.index_access.get_pair(&new_id).await;
-            update!(status &self.internal_send => status_pair, state_pair.clone());
+            update!(status &self.internal_send => status_id.clone(), new_state.clone());
 
             // Indicate status change
             return Some(new_id);
@@ -758,10 +657,6 @@ impl Config {
     /// This function will raise an error if the provided id was not found in
     /// the configuration. This usually indicates a problem with the underlying
     /// configuration file.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning
-    /// None.
     ///
     pub async fn try_event(&mut self, id: &ItemId, checkscene: bool) -> Option<Event> {
         // If the checkscene flag is set

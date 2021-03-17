@@ -30,7 +30,7 @@ mod queue;
 use crate::definitions::{
     ItemId, CancelEvent, DataType, EventAction, EventDelay, Event, SelectEvent,
     ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
-    DescriptiveScene, Identifier, FullStatus, KeyMap, Scene, ItemPair,
+    DescriptiveScene, Identifier, PartialStatus, KeyMap, Scene,
     Status, IndexAccess, InternalSend, InterfaceUpdate, ComingEvent,
 };
 use self::backup::BackupHandler;
@@ -142,11 +142,11 @@ impl EventHandler {
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
-            queue.add_event(EventDelay::new(None, config.get_current_scene().await.get_id())).await;
+            queue.add_event(EventDelay::new(None, config.get_current_scene())).await;
         }
 
         // Load the current scene into the backup (to detect any crash after this point)
-        backup.backup_current_scene(&config.get_current_scene().await.get_id()).await;
+        backup.backup_current_scene(&config.get_current_scene()).await;
 
         // Return the completed EventHandler with a new queue
         Ok(EventHandler {
@@ -213,10 +213,7 @@ impl EventHandler {
     ///
     /// This method will raise an error if the provided id was not found in
     /// configuration. This usually indicates that the provided id was incorrect
-    ///  or that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning None.
+    /// or that the configuration file is incomplete.
     ///
     pub async fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
         // Try to retrieve the event
@@ -231,47 +228,26 @@ impl EventHandler {
     /// configuration. This usually indicates that the provided id was incorrect
     ///  or that the configuration file is incomplete.
     ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning None.
-    ///
     pub fn get_status(&mut self, item_id: &ItemId) -> Option<Status> {
         // Try to retrieve the status
         self.config.get_status(item_id)
     }
 
-    /// A method to return a hashmap of the full status available in this
+    /// A method to return a hashmap of the statuses available in this
     /// configuration.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the status ids was not found in
-    /// the lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that status.
-    ///
-    pub async fn get_full_status(&mut self) -> FullStatus {
-        // Compile a hashmap of the full status
-        self.config.get_full_status().await
+    pub fn get_statuses(&mut self) -> PartialStatus {
+        // Compile a hashmap of the statuses
+        self.config.get_statuses()
     }
 
-    /// A method to return an itempair of all available scenes in this
+    /// A method to return a list of all available scenes in this
     /// configuration. This method will always return the scenes from lowest to
     /// highest id.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the scene ids was not found in
-    /// lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that scene.
-    ///
-    pub async fn get_scenes(&self) -> Vec<ItemPair> {
+    pub fn get_scenes(&self) -> Vec<ItemId> {
         // Return a list of available scenes
-        self.config.get_scenes().await
+        self.config.get_scenes()
     }
 
     /// A method to return a scene with available events and optional keymap, given
@@ -281,22 +257,12 @@ impl EventHandler {
         self.config.get_scene(item_id).await
     }
 
-    /// A method to return an itempair of all available events in the current
-    /// scene. This method will always return the items from lowest to
-    /// highest id.
+    /// A method to return a list of all available items in the current scene.
+    /// This method will always return the items from lowest to highest id.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the item ids was not found in
-    /// lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that item.
-    ///
-    pub async fn get_events(&self) -> Vec<ItemPair> {
+    pub fn get_current_items(&self) -> Vec<ItemId> {
         // Return a list of available items in the current scene
-        self.config.get_events().await
+        self.config.get_current_items()
     }
 
     /// A method to return an key map for the current scene, with all items
@@ -318,18 +284,9 @@ impl EventHandler {
 
     /// A method to return the current scene.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an warning if the current scene is not described
-    /// in the lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the status line and returning an
-    /// ItemPair with an empty description.
-    ///
-    pub async fn get_current_scene(&self) -> ItemPair {
+    pub fn get_current_scene(&self) -> ItemId {
         // Return an item pair for the current scene
-        self.config.get_current_scene().await
+        self.config.get_current_scene()
     }
 
     /// A method to change the selected status within the current configuration.

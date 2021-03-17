@@ -59,16 +59,18 @@ pub enum IndexUpdate {
 
 /// The stucture and methods to send requests to the item index.
 ///
+#[cfg(not(test))]
 #[derive(Clone, Debug)]
 pub struct IndexAccess {
     index_send: mpsc::Sender<IndexUpdate>, // the line to pass internal updates to the system interface
 }
 
-// Implement the key features of the index update
+// Implement the key features of the index access
+#[cfg(not(test))]
 impl IndexAccess {
-    /// A function to create a new Index Update
+    /// A function to create a new Index Access
     ///
-    /// The function returns the Index Update structure and the index
+    /// The function returns the Index Access structure and the index
     /// receive channel which will return the provided updates.
     ///
     pub fn new() -> (IndexAccess, mpsc::Receiver<IndexUpdate>) {

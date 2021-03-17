@@ -68,3 +68,163 @@ macro_rules! test_vec {
         panic!("Failed test vector comparison.");
     }};
 }
+
+
+// Imports for the test structure below
+#[cfg(test)]
+use crate::definitions::{DescriptionMap, ItemId, ItemDescription, ItemPair, IndexUpdate};
+#[cfg(test)]
+use std::sync::{Mutex, MutexGuard};
+#[cfg(test)]
+use tokio::sync::mpsc;
+
+/// A helper structure to easily test modules that need index access
+///
+#[cfg(test)]
+pub struct IndexAccess {
+    index: Mutex<DescriptionMap>,  // a database of ItemId/ItemDescription pairs
+}
+
+// Create a panic version of clone for this test module
+#[cfg(test)]
+impl Clone for IndexAccess {
+    fn clone(&self) -> Self {
+        panic!("Test index access cannot be cloned!")
+    }
+}
+
+// Implement the key features of the test index access
+#[cfg(test)]
+impl IndexAccess {
+    /// A function to create a new test Index Access
+    ///
+    /// The function returns the test Index Access structure which will
+    /// process updates like a real index, but locally.
+    ///
+    pub fn new() -> (IndexAccess, mpsc::Receiver<IndexUpdate>) {
+        // Create the fake channel
+        let (_tx, receive) = mpsc::channel(8);
+        
+        // Return the new test access point
+        (IndexAccess { index: Mutex::new(DescriptionMap::default()) }, receive)
+    }
+
+    /// A method to send a new index to the item index
+    ///
+    pub async fn send_index(&self, new_index: DescriptionMap) {
+        // Lock access and swap the index
+        if let Ok(mut index) = self.index.lock() {
+            *index = new_index;
+        }
+    }
+
+    /// A method to remove an item from the index
+    /// Returns true if the item was found and false otherwise.
+    /// 
+    pub async fn _remove_item(&self, item_id: ItemId) -> bool {
+        // Lock access
+        if let Ok(index) = self.index.lock() {
+            return IndexAccess::modify_item(index, item_id, None)
+        }
+
+        // Fallback
+        false
+    }
+
+    /// A method to add or update the description in the item index
+    /// Returns true if the item was not previously defined and false otherwise.
+    /// 
+    pub async fn update_description(&self, item_id: ItemId, new_description: ItemDescription) -> bool {
+        // Lock access
+        if let Ok(index) = self.index.lock() {
+            return IndexAccess::modify_item(index, item_id, Some(new_description))
+        }
+
+        // Fallback
+        false
+    }
+
+    /// A method to get the description from the item index
+    ///
+    pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
+        // Lock access
+        if let Ok(index) = self.index.lock() {
+            // Return an item description based on the provided item id
+            if let Some(description) = index.get(&item_id) {
+                // Return the description
+                return description.clone();
+            }
+        }
+
+        // Otherwise, return the default
+        ItemDescription::new_default()
+    }
+
+    /// A method to get the item pair from the item index
+    ///
+    pub async fn get_pair(&self, item_id: &ItemId) -> ItemPair {
+        // Lock access
+        if let Ok(index) = self.index.lock() {
+            // Return an item description based on the provided item id
+            if let Some(description) = index.get(&item_id) {
+                // Return the pair
+                return ItemPair::from_item(item_id.clone(), description.clone());
+            }
+        }
+
+        // Otherwise, return the default
+        ItemPair::new_default(item_id.id())
+    }
+
+    /// A method to get all pairs from the item index
+    ///
+    pub async fn get_all(&self) -> Vec<ItemPair> {
+        // Create an empty items vector
+        let mut items = Vec::new();
+
+        // Lock access
+        if let Ok(index) = self.index.lock() {
+            for (item, description) in index.iter() {
+                items.push(ItemPair::from_item(item.clone(), description.clone()));
+            }
+        }
+
+        // Sort the items by item id
+        items.sort_unstable();
+
+        // Return the result
+        items
+    }
+
+    /// A method to add, update, or remove an item and description.
+    ///
+    /// # Note
+    ///
+    /// If the item was not already in the index, this method will
+    /// return false.
+    ///
+    fn modify_item(mut index: MutexGuard<DescriptionMap>, item_id: ItemId, possible_description: Option<ItemDescription>) -> bool {
+        // If the request is to modify the description
+        if let Some(new_description) = possible_description {
+            // If the item is already in the index, update the description
+            if let Some(description) = index.get_mut(&item_id) {
+                // Update the description and notify the system
+                *description = new_description;
+                return false;
+            }
+
+            // Otherwise create a new item in the lookup
+            index.insert(item_id, new_description);
+            return true;
+        }
+        
+        // Otherwise, try to remove the item
+        if let Some(_) = index.remove(&item_id) {
+            // If the item exists
+            return true;
+        }
+        
+        // Otherwise, return false
+        false
+    }
+}
