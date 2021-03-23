@@ -20,8 +20,8 @@
 //! module has been repaired since the original version and _should_ guarantee
 //! that events with a longer delay always arrive later than earlier events.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, EventDelay, ComingEvent, InternalSend};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library features
 use std::time::Duration;

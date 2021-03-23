@@ -26,13 +26,10 @@ mod backup;
 mod config;
 mod queue;
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    ItemId, CancelEvent, DataType, EventAction, EventDelay, Event, SelectEvent,
-    ModifyStatus, NewScene, CueEvent, SaveData, SendData, UpcomingEvent,
-    DescriptiveScene, Identifier, PartialStatus, KeyMap, Scene,
-    Status, IndexAccess, InternalSend, InterfaceUpdate, ComingEvent,
-};
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::queue::Queue;
@@ -458,9 +455,6 @@ impl EventHandler {
             None => return false,
         };
 
-        // Compose the item into an item pair
-        let pair = self.index_access.get_pair(&event_id).await;
-
         // Unpack and process each action of the event
         let mut was_broadcast = false;
         for action in event {
@@ -478,12 +472,12 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            update!(broadcast &self.internal_send => pair.clone(), Some(number));
+                            update!(broadcast &self.internal_send => event_id.clone(), Some(number));
                         }
 
                     // Otherwise just update the system about the event
                     } else {
-                        update!(now &self.internal_send => pair.clone());
+                        update!(now &self.internal_send => event_id.clone());
                     }
                 }
 
@@ -493,7 +487,7 @@ impl EventHandler {
                     was_broadcast = true;
 
                     // Solicit a string
-                    self.internal_send.send_get_user_string(pair.clone()).await;
+                    self.internal_send.send_get_user_string(self.index_access.get_pair(&event_id).await).await;
                 }
             }
         }
@@ -503,11 +497,11 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                update!(broadcast &self.internal_send => pair.clone(), None);
+                update!(broadcast &self.internal_send => event_id.clone(), None);
 
             // Otherwise just update the system about the event
             } else {
-                update!(now &self.internal_send => pair.clone());
+                update!(now &self.internal_send => event_id.clone());
             }
         }
 

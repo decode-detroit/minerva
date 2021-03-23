@@ -18,11 +18,8 @@
 //! A module to create a macro and several functions that simplify the steps of
 //! creating and updating the user interface.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    DisplayControl, DisplayDebug, DisplayType, DisplayWith, FullStatus, Hidden, ItemDescription,
-    ItemPair, LabelControl, LabelHidden, StatusDescription,
-};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library features
 use std::cell::RefCell;

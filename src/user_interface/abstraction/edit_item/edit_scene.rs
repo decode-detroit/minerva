@@ -19,10 +19,8 @@
 //! the user interface. These additional dialog windows are typically launched
 //! from the edit screen.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    DescriptiveScene, ItemId, ItemPair, Scene,
-};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library features
 use std::mem;

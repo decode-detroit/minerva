@@ -21,8 +21,10 @@
 //!
 //! This module is currently limited to Enttec DMX USB Pro-compatible hardware.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::ItemId;
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use super::{EventConnection, ReadResult};
 
 // Import standard library features

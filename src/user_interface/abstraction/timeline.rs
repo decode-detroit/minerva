@@ -20,11 +20,10 @@
 //! This module links indirectly to the system interface and sends any updates
 //! to the application window through gtk widgets.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    DisplayControl, DisplayDebug, DisplayWith, ItemPair, LabelControl,
-    LabelHidden, SyncSystemSend, UpcomingEvent, SystemUpdate,
-};
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use super::super::super::FONT;
 use super::super::utils::clean_text;
 use super::{LARGE_FONT, NORMAL_FONT};

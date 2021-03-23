@@ -17,22 +17,31 @@
 
 //! This module defines all structures and types used across modules.
 
-// Define submodules
+// Define testing submodule
+#[cfg(test)]
 #[macro_use]
 mod test;
+
+// Define submodules
 mod item;
 #[macro_use]
 mod event;
 mod status;
 mod scene;
+#[macro_use]
+mod update;
 mod connections;
 mod communication;
 
 // Reexport all the definitions from the submodules
-pub use self::test::*;
 pub use self::item::*;
 pub use self::event::*;
 pub use self::status::*;
 pub use self::scene::*;
+pub use self::update::*;
 pub use self::connections::*;
 pub use self::communication::*;
+
+// Reexport the testing module and definitions
+#[cfg(test)]
+pub use self::test::*;

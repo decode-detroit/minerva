@@ -27,14 +27,12 @@ pub mod utils;
 mod abstraction;
 mod menu;
 
-// Import the relevant structures into the correct namespace
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use self::abstraction::InterfaceAbstraction;
 use self::menu::MenuAbstraction;
-use crate::definitions::{
-    ChangeSettings, DisplayComponent, DisplaySetting, EditMode, InterfaceUpdate,
-    LaunchWindow, Notify, Reply, SyncSystemSend, SystemUpdate, UpdateConfig,
-    UpdateNotifications, UpdateStatus, UpdateTimeline, UpdateWindow, WindowType,
-};
 
 // Import standard library features
 use std::cell::RefCell;

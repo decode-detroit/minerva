@@ -17,8 +17,10 @@
 
 //! A module to communicate using a ZMQ connection
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::ItemId;
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use super::{EventConnection, ReadResult};
 
 // Import standard library features

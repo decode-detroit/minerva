@@ -19,11 +19,8 @@
 //! the user interface. These additional dialog windows are typically launched
 //! from the edit screen.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    DataType, DisplayComponent, EditActionElement, EventAction, Event, EventDelay,
-    ItemId, ItemPair, RequestType, Status, SyncSystemSend, SystemUpdate,
-};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library features
 use std::cell::RefCell;

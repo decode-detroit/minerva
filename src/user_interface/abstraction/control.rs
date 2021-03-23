@@ -20,11 +20,10 @@
 //! system interface. This module links indirectly to the system interface and
 //! sends any updates to the application window through gtk widgets.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    Current, Error, InterfaceUpdate, LaunchWindow, Notification, SyncSystemSend, Update,
-    Warning, WindowType, SystemUpdate,
-};
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use super::super::utils::clean_text;
 use super::{LARGE_FONT, SMALL_FONT};
 

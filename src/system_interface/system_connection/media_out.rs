@@ -17,8 +17,10 @@
 
 //! A module to load and play video and audio files on this device
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, InternalSend};
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use super::{EventConnection, ReadResult};
 #[cfg(feature = "media-out")]
 use crate::definitions::VideoStream;

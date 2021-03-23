@@ -18,8 +18,8 @@
 //! A module to deliver asyncronous access to the index of item ids,
 //! including item descriptions and formatting.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, ItemDescription, ItemPair, DescriptionMap, IndexAccess, IndexUpdate};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import Tokio features
 use tokio::sync::mpsc;

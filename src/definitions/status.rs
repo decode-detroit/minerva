@@ -18,8 +18,8 @@
 //! This module also implements low level status structs and enums to store
 //! the current status and consistently update the status.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, ItemPair};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import FNV HashMap
 use fnv::FnvHashMap;

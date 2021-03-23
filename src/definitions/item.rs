@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//! This module implements a basic identifier system (ItemId, ItemDescription,
-//! and ItemPair) to allow simple and future-proof identification of all events,
+//! This module defines a basic identifier system (ItemId, ItemDescription,
+//! and ItemPair) to allow robust identification of all events,
 //! scenes, and other items in the program.
 
 // Import standard library modules
@@ -510,7 +510,7 @@ impl ItemPair {
     /// A function to return a new all stop item pair. This is a reserved id for
     /// halting all active processes and returning operations to a static state.
     ///
-    pub fn all_stop() -> ItemPair {
+    pub fn _all_stop() -> ItemPair {
         ItemPair {
             id: ALL_STOP,
             description: "ALL STOP".to_string(),

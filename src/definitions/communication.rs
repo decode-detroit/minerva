@@ -18,13 +18,8 @@
 //! This module implements shared communication structures for communicating
 //! across the modules of the system.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    ItemId, ItemDescription, ItemPair, EventDelay, Event, EventUpdate, UpcomingEvent,
-    DescriptiveScene, FullStatus, KeyMap, Scene, Status, DescriptionMap,
-};
-#[cfg(feature = "media-out")]
-use crate::definitions::VideoStream;
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library features
 use std::path::PathBuf;
@@ -351,8 +346,8 @@ pub enum InternalUpdate {
     /// FIXME Reconsider this arrangement
     RefreshInterface,
 
-    /// A variant to notify the system of informational update
-    Update(EventUpdate),
+    /// A variant to log updates
+    Update(LogUpdate),
 }
 
 /// The stucture and methods to send internal updates to the system interface.
@@ -445,7 +440,7 @@ impl InternalSend {
 
     /// A method to send an event update to the system interface.
     ///
-    pub async fn send_update(&self, update: EventUpdate) {
+    pub async fn send_update(&self, update: LogUpdate) {
         self.internal_send
             .send(InternalUpdate::Update(update)).await
             .unwrap_or(());

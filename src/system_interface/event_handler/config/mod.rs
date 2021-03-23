@@ -19,13 +19,8 @@
 //! machine. This module handles any changes to the current state of the
 //! program.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemDescription, ItemId, ItemPair, CancelEvent, Event,
-    SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData, IndexAccess,
-    PartialStatus, StatusMap, Status, ChangeSettings, DisplaySetting,
-    InternalSend, InterfaceUpdate, DescriptiveScene, Scene, KeyMap, Identifier,
-    DescriptionMap,
-};
+// Import crate definitions
+use crate::definitions::*;
 
 // Define private submodules
 mod status;
@@ -666,7 +661,7 @@ impl Config {
                 // Check to see if the event is listed in the current scene
                 if !scene.events.contains(id) {
                     // If the event is not listed in the current scene, notify
-                    update!(warnevent &self.internal_send => ItemPair::from_item(id.clone(), self.index_access.get_description(&id).await)  => "Event Not In Current Scene.");
+                    update!(warnevent &self.internal_send => id.clone() => "Event Not In Current Scene.");
                     return None;
                 }
             // Warn that there isn't a current scene
@@ -684,7 +679,7 @@ impl Config {
             // Return None if the id doesn't exist
             None => {
                 // Notify of an invalid event
-                update!(errevent &self.internal_send => ItemPair::from_item(id.clone(), self.index_access.get_description(&id).await) => "Event Not Found.");
+                update!(errevent &self.internal_send => id.clone() => "Event Not Found.");
 
                 // Return None
                 None

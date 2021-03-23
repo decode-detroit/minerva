@@ -24,8 +24,10 @@
 //! CmdMessenger library, this protocol is not guaranteed to be compatible and
 //! may become completely incompatible in the furture.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::ItemId;
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use super::{EventConnection, ReadResult};
 
 // Import standard library modules and traits

@@ -20,11 +20,8 @@
 //! links directly to the rest of the user interface and sends any updates to
 //! the application window through gtk widgets.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    ChangeSettings, DisplaySetting, EditMode, SystemUpdate,
-    InterfaceUpdate, LaunchWindow, SyncSystemSend, WindowType,
-};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library features
 use std::sync::mpsc;

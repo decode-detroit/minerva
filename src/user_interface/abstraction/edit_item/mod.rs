@@ -25,16 +25,13 @@ mod edit_event;
 mod edit_scene;
 mod edit_status;
 
-// Import the relevant structures into the correct namespace
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use self::edit_event::EditEvent;
 use self::edit_scene::EditScene;
 use self::edit_status::EditStatus;
-use crate::definitions::{
-    DisplayComponent, DisplayControl, DisplayDebug, DisplayWith, EditItemElement,
-    Hidden, InterfaceUpdate, ItemDescription, ItemId, ItemPair,
-    LabelControl, LabelHidden, Modification, ReplyType, RequestType, Status,
-    SyncSystemSend, SystemUpdate,
-};
 use super::super::utils::{clean_text, color_label};
 
 // Import standard library features

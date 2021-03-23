@@ -28,8 +28,10 @@ mod dmx_out;
 mod media_out;
 mod zmq_comm;
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, Identifier, InternalSend};
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use self::comedy_comm::ComedyComm;
 use self::dmx_out::{DmxOut, DmxFade, DmxMap};
 use self::zmq_comm::{ZmqBind, ZmqConnect};

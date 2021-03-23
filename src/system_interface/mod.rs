@@ -25,18 +25,15 @@ mod logging;
 mod event_handler;
 mod system_connection;
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    DisplayControl, DisplayDebug, DisplayWith, ItemId, ItemPair, LabelControl,
-    IndexAccess, InternalSend, InternalUpdate, SystemSend, SystemUpdate, InterfaceUpdate,
-    WindowType, EventWindow, EventGroup, Modification, RequestType, ReplyType, Reply,
-    FullStatus, StatusDescription,
-};
-#[cfg(feature = "media-out")]
-use crate::definitions::LaunchWindow;
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 use self::event_handler::EventHandler;
 use self::system_connection::SystemConnection;
 use self::logging::Logger;
+#[cfg(feature = "media-out")]
+use crate::definitions::LaunchWindow;
 
 // Import standard library features
 use std::env;
@@ -355,7 +352,7 @@ impl SystemInterface {
                 }
 
                 // Send the all stop event via the logger
-                update!(broadcast &mut self.internal_send => ItemPair::all_stop(), None);
+                update!(broadcast &mut self.internal_send => ItemId::all_stop(), None);
 
                 // Place an error in the debug log
                 update!(err &mut self.internal_send => "An All Stop was triggered by the operator.");
@@ -373,7 +370,7 @@ impl SystemInterface {
             // GeneralUpdate::BroadcastEvent)
             SystemUpdate::BroadcastEvent { event, data } => {
                 // Broadcast the event via the logger
-                update!(broadcast &mut self.internal_send => event.clone(), data);
+                update!(broadcast &mut self.internal_send => event.get_id(), data);
 
                 // Notify the user interface of the event
                 self.interface_send

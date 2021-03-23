@@ -22,8 +22,8 @@
 //!
 //! WARNING: This module assumes no authorized systems/operators are compromised.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ComingEvent, ItemId, Identifier, InternalSend};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library features
 use std::time::Duration;

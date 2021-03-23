@@ -27,11 +27,10 @@ mod events;
 mod operation_dialogs;
 mod timeline;
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    DisplayComponent, EventWindow, FullStatus, Hidden, InterfaceUpdate, ItemPair,
-    KeyMap, Notification, ReplyType, StatusDescription, SyncSystemSend, UpcomingEvent,
-};
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other definitions
 #[cfg(feature = "media-out")]
 use crate::definitions::VideoStream;
 use self::control::ControlAbstraction;

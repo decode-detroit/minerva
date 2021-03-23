@@ -18,13 +18,10 @@
 //! A module to create, hold, and handle special windows for the user interface.
 //! These additional dialog windows are typically launched from the system menu.
 
+// Import crate definitions
+use crate::definitions::*;
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{
-    DisplayComponent, EventDelay, FullStatus, Hidden, ItemId,
-    ItemPair, KeyMap, ReplyType, RequestType,
-    StatusDescription, SyncSystemSend, SystemUpdate,
-};
+// Import other definitions
 #[cfg(feature = "media-out")]
 use crate::definitions::VideoStream;
 use super::super::utils::{clean_text, decorate_label};

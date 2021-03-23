@@ -21,8 +21,8 @@
 //! are logged to the provided log file. Other updates are converted to a human
 //! readable format and returned to higher-level modules.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{EventUpdate, IndexAccess, InternalSend, InterfaceUpdate, UpdateStatus, Notification};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import standard library modules
 use std::fs::{File, OpenOptions};
@@ -154,7 +154,7 @@ impl Logger {
     /// from this method are the newest notifications as well as notifications
     /// from the last minute of operation.
     ///
-    pub async fn update(&mut self, update: EventUpdate) -> Vec<Notification> {
+    pub async fn update(&mut self, update: LogUpdate) -> Vec<Notification> {
         // Unpack the new update into a notification
         let mut notifications = vec![self.unpack_update(update).await];
 
@@ -180,14 +180,14 @@ impl Logger {
     /// errors.
     ///
     ///
-    async fn unpack_update(&mut self, update: EventUpdate) -> Notification {
+    async fn unpack_update(&mut self, update: LogUpdate) -> Notification {
         // Note the current time
         let now = Local::now().naive_local();
         
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
-            EventUpdate::Error(error, event) => {
+            LogUpdate::Error(error, event) => {
                 // Try to write it to the file
                 if let Some(ref mut file) = self.error_log {
                     // Try to write to the file
@@ -218,47 +218,69 @@ impl Logger {
                 }
 
                 // Return the error either way
-                Notification::Error {
-                    message: error,
-                    time: now,
-                    event,
+                if let Some(id) = event {
+                    // Switch based on the presence of an event
+                    Notification::Error {
+                        message: error,
+                        time: now,
+                        event: Some(self.index_access.get_pair(&id).await),
+                    }
+                } else {
+                    Notification::Error {
+                        message: error,
+                        time: now,
+                        event: None,
+                    }
                 }
             }
 
-            // Simply display warnings and updates
-            EventUpdate::Warning(warning, event) => Notification::Warning {
-                message: warning,
-                time: now,
-                event,
+            // Display warnings with or without the event
+            LogUpdate::Warning(warning, event) => {
+                // Switch based on the presence of an event
+                if let Some(id) = event {
+                    Notification::Warning {
+                        message: warning,
+                        time: now,
+                        event: Some(self.index_access.get_pair(&id).await),
+                    }
+                } else {
+                    Notification::Warning {
+                        message: warning,
+                        time: now,
+                        event: None,
+                    }
+                }
             },
-            EventUpdate::Update(update) => Notification::Update {
+
+            // Simple display updates
+            LogUpdate::Update(update) => Notification::Update {
                 message: update,
                 time: now,
             },
 
             // Broadcast events and display them
-            EventUpdate::Broadcast(id, data) => {
+            LogUpdate::Broadcast(id, data) => {
                 // Broadcast the event and data, if specified
-                self.internal_send.send_broadcast(id.get_id(), data).await;
+                self.internal_send.send_broadcast(id, data).await;
 
                 // Send a current update with the item pair
                 Notification::Current {
-                    message: format!("{}", id),
+                    message: format!("{}", self.index_access.get_pair(&id).await),
                     time: now,
                 }
             }
 
             // Notify of current events and display them
-            EventUpdate::Current(id) => {
+            LogUpdate::Current(id) => {
                 // Send a current update with the item pair
                 Notification::Current {
-                    message: format!("{}", id),
+                    message: format!("{}", self.index_access.get_pair(&id).await),
                     time: now,
                 }
             }
 
             // Update the state of a status
-            EventUpdate::Status(status_id, new_state) => {
+            LogUpdate::Status(status_id, new_state) => {
                 // Get the item pairs for the status and state
                 let status_pair = self.index_access.get_pair(&status_id).await;
                 let state_pair = self.index_access.get_pair(&new_state).await;
@@ -282,7 +304,7 @@ impl Logger {
             }
 
             // Save data to the system
-            EventUpdate::Save(data) => {
+            LogUpdate::Save(data) => {
                 // Try to write the data to the game log
                 if let Some(ref mut file) = self.game_log {
                     // Try to write to the file
@@ -330,10 +352,8 @@ mod tests {
     // Test the logging module
     #[tokio::test]
     async fn logging() {
-        // Import libraries for testing
-        use crate::definitions::{DescriptionMap, IndexAccess, InternalSend, EventUpdate, ItemId,
-            ItemPair, ItemDescription, Hidden,
-        };
+        // Import crate definitions
+        use crate::definitions::*;
 
         // Create the communication lines
         let (internal_send, _internal_recv) = InternalSend::new();
@@ -350,21 +370,21 @@ mod tests {
         let mut logger = Logger::new(None, None, index_access, internal_send, interface_send).unwrap();
 
         // Pass a series of updates to the logger and verify the output
-        let mut result = logger.update(EventUpdate::Error("Test Error".to_string(), None)).await;
+        let mut result = logger.update(LogUpdate::Error("Test Error".to_string(), None)).await;
         assert_eq!(result[0].message(), "No Active Error Log.".to_string()); // because no error log was specified
-        result = logger.update(EventUpdate::Warning("Test Warning".to_string(), None)).await;
+        result = logger.update(LogUpdate::Warning("Test Warning".to_string(), None)).await;
         assert_eq!(result[0].message(), "Test Warning".to_string());
         assert_eq!(result[1].message(), "No Active Error Log.".to_string());
-        result = logger.update(EventUpdate::Broadcast(ItemPair::new_unchecked(3, "Test Broadcast", Hidden), None)).await;
+        result = logger.update(LogUpdate::Broadcast(ItemId::new_unchecked(3), None)).await;
         assert_eq!(result[0].message(), "Test Broadcast (3)".to_string());
         assert_eq!(result[1].message(), "Test Warning".to_string());
         assert_eq!(result[2].message(), "No Active Error Log.".to_string());
-        result = logger.update(EventUpdate::Current(ItemPair::new_unchecked(4, "Test Event", Hidden))).await;
+        result = logger.update(LogUpdate::Current(ItemId::new_unchecked(4))).await;
         assert_eq!(result[0].message(), "Test Event (4)".to_string());
         assert_eq!(result[1].message(), "Test Broadcast (3)".to_string());
         assert_eq!(result[2].message(), "Test Warning".to_string());
         assert_eq!(result[3].message(), "No Active Error Log.".to_string());
-        result = logger.update(EventUpdate::Update("Test Update".to_string())).await;
+        result = logger.update(LogUpdate::Update("Test Update".to_string())).await;
         assert_eq!(result[0].message(), "Test Update".to_string());
         assert_eq!(result[1].message(), "Test Event (4)".to_string());
         assert_eq!(result[2].message(), "Test Broadcast (3)".to_string());

@@ -17,8 +17,8 @@
 
 //! This module implements the scene structure for grouping events.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, ItemPair};
+// Import crate definitions
+use crate::definitions::*;
 
 // Import FNV HashMap and HashSet
 use fnv::{FnvHashMap, FnvHashSet};

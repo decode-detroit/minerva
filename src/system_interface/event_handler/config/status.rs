@@ -22,8 +22,8 @@
 //! This module also implements low level status structs and enums which
 //! facilitate the storage of the status and the current state of that status.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{InternalSend, ItemId, Status, StatusMap, PartialStatus, StatusPartialDescription};
+// Import crate definitions
+use crate::definitions::*;
 
 /// A structure which holds the local status and manages any state changes.
 ///
