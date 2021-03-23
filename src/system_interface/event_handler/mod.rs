@@ -52,7 +52,6 @@ use failure::Error;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    index_access: IndexAccess,      // access point to the item index
     internal_send: InternalSend,    // sending line for event updates and timed events
     queue: Queue,                   // current event queue
     config: Config,                 // current configuration
@@ -102,7 +101,7 @@ impl EventHandler {
         };
 
         // Attempt to process the configuration file
-        let mut config = Config::from_config(index_access.clone(), internal_send.clone(), interface_send, &config_file).await?;
+        let mut config = Config::from_config(index_access, internal_send.clone(), interface_send, &config_file).await?;
 
         // Attempt to create the backup handler
         let mut backup = BackupHandler::new(
@@ -147,7 +146,6 @@ impl EventHandler {
 
         // Return the completed EventHandler with a new queue
         Ok(EventHandler {
-            index_access,
             internal_send: internal_send,
             queue,
             config,
@@ -177,31 +175,11 @@ impl EventHandler {
         self.queue.clear().await;
     }
 
-    /// A method to repackage a list of coming events as upcoming events.
+    /// A method to backup a list of coming events.
     ///
-    /// # Notes
-    ///
-    /// The order of the provided list does correspond to the order the events
-    /// will occur (last event first). The coming events are backed up (if
-    /// the backup feature is active).
-    ///
-    pub async fn repackage_events(&mut self, mut events: Vec<ComingEvent>) -> Vec<UpcomingEvent> {
+    pub async fn backup_events(&mut self, events: Vec<ComingEvent>) {
         // Backup the coming events
-        self.backup.backup_events(events.clone()).await;
-
-        // Repackage the list as upcoming events
-        let mut upcoming_events = Vec::new();
-        for event in events.drain(..) {
-            // Find the description and add it
-            upcoming_events.push(UpcomingEvent {
-                start_time: event.start_time,
-                delay: event.delay,
-                event: self.index_access.get_pair(&event.id()).await,
-            });
-        }
-
-        // Return the completed list
-        upcoming_events
+        self.backup.backup_events(events).await;
     }
 
     /// A method to return a copy of the event for the provided id.
@@ -265,15 +243,6 @@ impl EventHandler {
     /// A method to return an key map for the current scene, with all items
     /// as an itempair.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the item ids was not found in
-    /// lookup. This indicates that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning an
-    /// empty ItemDescription for that item.
-    ///
     pub async fn get_key_map(&self) -> KeyMap {
         // Return the key mapping for this scene
         self.config.get_key_map().await
@@ -293,10 +262,6 @@ impl EventHandler {
     /// This method will raise an error if the provided id was not found as
     /// a status in the configuration. This usually indicates that the provided
     /// id was incorrect or that the configuration file is incorrect.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and leaving the
-    /// current configuration unmodified.
     ///
     pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // Try to modify the underlying status
@@ -335,10 +300,6 @@ impl EventHandler {
     /// available scene. This usually indicates that the provided id was
     /// incorrect or that the configuration file is incorrect.
     ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the general line and leaving the
-    /// current configuration unmodified.
-    ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) {
         // Send an update to the rest of the system (will preceed error if there is one)
         update!(update &self.internal_send => "Changing Current Scene ...");
@@ -361,10 +322,7 @@ impl EventHandler {
     /// This method will fail silently if the provided id was not found in the
     /// queue. This usually indicates that the event has been triggered and that
     /// the user tried to modify an event just a few moments before the time
-    /// expired
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by ignoring this failure.
+    /// expired.
     ///
     pub async fn adjust_event(&mut self, event_id: ItemId, start_time: Instant, new_delay: Option<Duration>) {
         // Check to see if a delay was specified
@@ -400,9 +358,6 @@ impl EventHandler {
     /// than the last event in the queue, this function is equivalent to
     /// clearing the queue (none of the events will be triggered).
     ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by ignoring this failure.
-    ///
     pub async fn adjust_all_events(&mut self, adjustment: Duration, is_negative: bool) {
         // Modify the remaining delay for all events in the queue
         self.queue.adjust_all(adjustment, is_negative).await;
@@ -415,9 +370,6 @@ impl EventHandler {
     /// This method will fail silently if it was unable to create the desired
     /// file. This usually indicates that there is an underlying file system
     /// error.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying the user.
     ///
     pub async fn save_config(&mut self, config_path: PathBuf) {
         // Attempt to open the new configuration file
@@ -441,9 +393,6 @@ impl EventHandler {
     /// This method will not raise any errors. If the module encounters an
     /// inconsistency when trying to process an event, it will raise a warning
     /// and otherwise continue processing events.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line.
     ///
     pub async fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) -> bool {
         // Try to retrieve the event and unpack the event
@@ -487,7 +436,7 @@ impl EventHandler {
                     was_broadcast = true;
 
                     // Solicit a string
-                    self.internal_send.send_get_user_string(self.index_access.get_pair(&event_id).await).await;
+                    self.internal_send.send_get_user_string(event_id.clone()).await;
                 }
             }
         }

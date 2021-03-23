@@ -205,27 +205,39 @@ impl SystemInterface {
             }
 
             // Update the timeline with the new list of coming events
-            InternalUpdate::ComingEvents(events) => {
+            InternalUpdate::ComingEvents(mut events) => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
-                    // Repackage the coming events into upcoming events
-                    let upcoming_events = handler.repackage_events(events).await;
-
-                    // Send the new events to the interface
-                    self.interface_send
-                        .send(InterfaceUpdate::UpdateTimeline {
-                            events: upcoming_events,
-                        })
-                        .unwrap_or(());
+                    // Backup the coming events
+                    handler.backup_events(events.clone()).await;
                 }
+
+                // Repackage the list as upcoming events
+                let mut upcoming_events = Vec::new();
+                for event in events.drain(..) {
+                    // Find the description and add it
+                    upcoming_events.push(UpcomingEvent {
+                        start_time: event.start_time,
+                        delay: event.delay,
+                        event: self.index_access.get_pair(&event.id()).await,
+                    });
+                }
+
+                // Send the upcoming events to the interface
+                self.interface_send.send(InterfaceUpdate::UpdateTimeline {
+                    events: upcoming_events,
+                }).unwrap_or(());
             }
 
             // Solicit a string from the user
             InternalUpdate::GetUserString(event) => {
+                // Get the item pair for the event
+                let pair = self.index_access.get_pair(&event).await;
+                
                 // Request the information from the user interface
                 self.interface_send
                     .send(InterfaceUpdate::LaunchWindow {
-                        window_type: WindowType::PromptString(event),
+                        window_type: WindowType::PromptString(pair),
                     })
                     .unwrap_or(());
             }
@@ -306,9 +318,9 @@ impl SystemInterface {
             }
 
             // Pass the information update to the logger
-            InternalUpdate::Update(event_update) => {
+            InternalUpdate::Update(log_update) => {
                 // Find the most recent notifications
-                let notifications = self.logger.update(event_update).await;
+                let notifications = self.logger.update(log_update).await;
 
                 // Send a notification update to the system
                 self.interface_send

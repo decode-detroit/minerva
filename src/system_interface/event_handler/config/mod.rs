@@ -420,7 +420,7 @@ impl Config {
 
 
     /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
-    /// the method returns the scene. Otherwise, it returns None.
+    /// the method returns the scene. Otherwise, it returns None. FIXME Replace with ItemId version
     ///
     pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
         // Check if the given item id corresponds to a scene
@@ -485,7 +485,7 @@ impl Config {
     }
 
     /// A method to return an key map for the current scene, with all items
-    /// as an itempair.
+    /// as an itempair. FIXME Replace with ItemId version
     ///
     pub async fn get_key_map(&self) -> KeyMap {
         // Create an empty key map
