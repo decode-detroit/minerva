@@ -135,55 +135,9 @@ Take careful notes of the steps to
 
 Note: These instructions are written for *compiling* the software on Ubuntu 20.04.
 
-### Cross-Compiling To Ubuntu (arm64, 64bit)
-
-To cross-compile, install the correct rust target and install the linker.
-```
-rustup target add aarch64-unknown-linux-gnu
-sudo apt install gcc-aarch64-linux-gnu
-```
-You'll also need to add the arm64 architecture to dpkg.
-```
-sudo dpkg add-architecture arm64
-```
-And add these sources to the end of /etc/apt/sources.list.
-```
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted+
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal universe
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates universe
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ focal-updates multiverse
-```
-Make sure to add `[arch=amd64]` to the other sources while you're at it.
-
-Install the GTK, ZMQ and GStreamer dev packages for the new architecture.
-```
-sudo apt update
-sudo apt install libgtk-3-dev:arm64 libzmq3-dev:arm64 libgstreamer1.0-dev:arm64 libgstreamer-plugins-base1.0-dev:arm64 gstreamer1.0-plugins-base:arm64 gstreamer1.0-plugins-good:arm64 gstreamer1.0-plugins-bad:arm64 gstreamer1.0-plugins-ugly:arm64 gstreamer1.0-libav:arm64 libgstrtspserver-1.0-dev:arm64 libges-1.0-dev:arm64 libges-1.0-0:arm64
-```
-
-When you compile, pass several environment variables to the compilation.
-```
-env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/aarch-linux-gnu/pkgconfig/ cargo build_arm64
-```
-
-#### Prepare Your Raspberry Pi
-
-In addition to all the packages above (e.g. ZMQ, GStreamer), you need to load the correct device tree overlay to enable video playback on a Raspberry Pi 4,
-
-Add this to /boot/firmware/config.txt (it may tell you to put it in usercfg.txt instead)
-```
-dtoverlay=vc4-fkms-v3d
-max_framebuffers=2
-gpu_mem=512
-```
-
-Reboot, and voila! Still working out the bugs, but hardware decoding works well for smaller videos (>720p).
-
 ### Cross-Compiling To Raspbian (armhf, 32bit)
 
-Note: Several settings here will conflict with the instructions for arm64 - you likely can't have both on the same system.
+Note: These settings are largely the same for arm64, but the 64-bit version hasn't been tested.
 
 To cross-compile, install the correct rust target and install the linker.
 ```
@@ -192,7 +146,7 @@ sudo apt install gcc-arm-linux-gnueabihf
 ```
 You'll also need to add the armhf architecture to dpkg.
 ```
-sudo dpkg add-architecture armhf
+sudo dpkg --add-architecture armhf
 ```
 And add these sources to the end of /etc/apt/sources.list.
 ```
@@ -217,6 +171,12 @@ env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgcon
 ```
 
 Unfortunately, video doesn't seem to work out of the box. If you have success with armhf and video playback, let us know how you pulled it off!
+
+#### Prepare Your Raspberry Pi
+
+In addition to all the packages above (e.g. ZMQ, GStreamer), you need to enable the Fake KMS graphics library and set the graphics memory to 512MB to allow for reliable playback of videos. Use raspi-config to change the settings.
+
+Hardware decoding works well for videos up to 1080p at 30 fps.
 
 ## Contributing
 
