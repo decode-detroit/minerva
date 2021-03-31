@@ -226,7 +226,7 @@ pub enum Notification {
     /// A current event type of notification
     Current { message: String, time: NaiveDateTime },
 
-    /// Any other type of system update
+    /// Any other type of internal update
     Update { message: String, time: NaiveDateTime },
 }
 
@@ -447,73 +447,92 @@ impl InternalSend {
     }
 }
 
-/// The stucture and methods to send system updates to the system interface.
+/// The stucture and methods to send GtkRequests to the system interface
 ///
 #[derive(Clone, Debug)]
-pub struct SystemSend {
-    system_send: mpsc::Sender<SystemUpdate>, // the mpsc sending line to pass system updates to the interface
+pub struct GtkSend {
+    gtk_send: mpsc::Sender<GtkRequest>, // the mpsc sending line to pass gtk requests
 }
 
-// Implement the key features of the system send struct
-impl SystemSend {
-    /// A function to create a new System Update
+// Implement the key features of the gtk send struct
+impl GtkSend {
+    /// A function to create a new GtkSend
     ///
-    /// The function returns the the System Update structure and the system
-    /// receive channel which will return the provided updates.
+    /// The function returns the the GtkSend structure and the system
+    /// receive channel which will return the requests.
     ///
-    pub fn new() -> (SystemSend, mpsc::Receiver<SystemUpdate>) {
+    pub fn new() -> (Self, mpsc::Receiver<GtkRequest>) {
         // Create the new channel
-        let (system_send, receive) = mpsc::channel(128);
+        let (gtk_send, receive) = mpsc::channel(128);
 
         // Create and return both new items
-        (SystemSend { system_send }, receive)
+        (GtkSend { gtk_send }, receive)
     }
 
-    /// A method to send a system update. This method fails silently.
-    ///
-    pub async fn send(&self, update: SystemUpdate) {
-        self.system_send.send(update).await.unwrap_or(());
-    }
-
-    /// A method to send a system update in a sync setting. This method fails
+    /// A method to send a gtk request in a sync setting. This method fails
     /// silently.
     ///
-    pub fn blocking_send(&self, update: SystemUpdate) {
-        self.system_send.blocking_send(update).unwrap_or(());
+    pub fn send(&self, request: UserRequest) {
+        self.gtk_send.blocking_send(request.into()).unwrap_or(());
     }
 }
 
-/// A special, public version of the general update which only allows for a
-/// system send (without other types of updates).
+/// A structure for carrying requests from the gtk interface
 ///
-/// # Note
-///
-/// This version is depreciated. It should not be perpetuated.
-///
-#[derive(Clone, Debug)]
-pub struct SyncSystemSend {
-    system_send: SystemSend, // the mpsc sending line to pass system updates to the interface
+pub struct GtkRequest {
+    request: UserRequest,
 }
 
-// Implement the key features of the system send struct
-impl SyncSystemSend {
-    /// A function to create a new sync system send from a system send
-    ///
-    pub fn from_async(system_send: &SystemSend) -> SyncSystemSend {
-        // Return the completed SyncSystemSend
-        SyncSystemSend {
-            system_send: system_send.clone(),
+/// Implement from and to UserRequest for GtkRequest 
+impl From<UserRequest> for GtkRequest {
+    fn from(request: UserRequest) -> Self {
+        GtkRequest {
+            request,
         }
     }
-
-    /// A method to send a system update. This version of the method fails
-    /// silently.
-    ///
-    pub fn send(&self, update: SystemUpdate) {
-        // Use a blocking send
-        self.system_send.blocking_send(update);
+}
+impl From<GtkRequest> for UserRequest {
+    fn from(gtk_request: GtkRequest) -> Self {
+        gtk_request.request
     }
 }
+
+/// The stucture and methods to send WebRequests to the system interface
+///
+#[derive(Clone, Debug)]
+pub struct WebSend {
+    web_send: mpsc::Sender<WebRequest>, // the mpsc sending line to pass web requests
+}
+
+// Implement the key features of the web send struct
+impl WebSend {
+    /// A function to create a new WebSend
+    ///
+    /// The function returns the the Web Sent structure and the system
+    /// receive channel which will return the provided updates.
+    ///
+    pub fn new() -> (Self, mpsc::Receiver<WebRequest>) {
+        // Create the new channel
+        let (web_send, receive) = mpsc::channel(128);
+
+        // Create and return both new items
+        (WebSend { web_send }, receive)
+    }
+
+    /// A method to send a web request. This method fails silently.
+    ///
+    pub async fn send(&self, reply_to: oneshot::Sender<WebReply>, request: UserRequest) {
+        self.web_send.send(WebRequest { reply_to, request }).await.unwrap_or(());
+    }
+}
+
+/// A structure for carrying requests from the web interface
+/// 
+pub struct WebRequest {
+    pub reply_to: oneshot::Sender<WebReply>,    // the handle for replying to the reqeust
+    pub request: UserRequest,                   // the request
+}
+
 
 /// An enum to execute one modification to the configuration
 ///
@@ -635,10 +654,10 @@ pub enum DisplayComponent {
     TriggerDialog,
 }
 
-/// An enum to provide updates from the main thread to the system interface.
+/// An enum to carry requests from the user
 ///
-#[derive(Debug)]
-pub enum SystemUpdate {
+#[derive(Debug, Clone)]
+pub enum UserRequest {
     /// A variant to adjust all the events in the timeline
     /// NOTE: after the adjustment, events that would have already happened are discarded
     AllEventChange {
@@ -653,7 +672,7 @@ pub enum SystemUpdate {
     /// A variant that broadcasts an event with the given item id. This event id
     /// is not processed or otherwise checked for validity. If data is provided
     /// it will be broadcast with the event.
-    BroadcastEvent { event: ItemPair, data: Option<u32> },
+    BroadcastEvent { event_id: ItemId, data: Option<u32> },
 
     /// A variant to trigger all the queued events to clear
     ClearQueue,
@@ -664,6 +683,10 @@ pub enum SystemUpdate {
     /// A variant that provides a new configuration file for the system interface.
     /// If None is provided as the filepath, no configuration will be loaded.
     ConfigFile { filepath: Option<PathBuf> },
+
+    /// A variant that cues a new event with the given item id. The event
+    /// will trigger after the specified delay has passed.
+    CueEvent { event_delay: EventDelay },
 
     /// A special variant to switch to or from debug mode for the program.
     DebugMode(bool),
@@ -695,10 +718,6 @@ pub enum SystemUpdate {
         broadcast: bool,
     },
 
-    /// A variant that queues a new event with the given item id. The event
-    /// will trigger after the specified delay has passed.
-    CueEvent { event_delay: EventDelay },
-
     /// A variant that triggers a redraw of the user interface window
     Redraw,
 
@@ -718,54 +737,6 @@ pub enum SystemUpdate {
 
     /// A variant to change the state of the indicated status.
     StatusChange { status_id: ItemId, state: ItemId },
-    
-    /// A variant for web requests
-    Web { reply_to: oneshot::Sender<WebReply>, request: WebRequest },
-}
-
-/// A type to cover all web requests
-/// 
-#[derive(Clone, Debug)]
-pub enum WebRequest {
-    // A variant to cue an event
-    CueEvent {
-        event_id: ItemId,
-    },
-
-    // A variant to get item details
-    GetItem {
-        item_id: ItemId,
-    },
-
-    // A variant that contains the complete item list
-    /*AllItems {
-        is_valid: bool, // a flag to indicate the result of the request
-        all_items: Option<Vec<ItemPair>>, // the list of all items, if found
-    },
-
-    // A variant that contains scene detail
-    Scene {
-        is_valid: bool, // a flag to indicate the result of the request
-        scene: Option<DescriptiveScene>, // the scene detail, if found
-    },
-
-    // A variant that contains status detail
-    Status {
-        is_valid: bool, // a flag to indicate the result of the request
-        status: Option<Status>, // the status detail, if found
-    },
-
-    // A variant that contains event detail
-    Event {
-        is_valid: bool, // a flag to indicate the result of the request
-        event: Option<Event>, // the event detail, if found
-    },
-
-    // A variant that contains item detail
-    Item {
-        is_valid: bool, // a flag to indicate the result of the request
-        item_pair: Option<ItemPair>, // the item pair, if found
-    },*/
 }
 
 /// A type to cover all web replies
@@ -806,7 +777,7 @@ pub enum WebReply {
     // A variant that contains item detail
     Item {
         is_valid: bool, // a flag to indicate the result of the request
-        item_pair: Option<ItemPair>, // the item pair, if found
+        item_pair: ItemPair, // the item pair
     },
 }
 

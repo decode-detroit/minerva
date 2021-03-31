@@ -28,14 +28,13 @@ mod definitions;
 mod item_index;
 mod system_interface;
 #[macro_use]
-mod user_interface;
+mod gtk_interface;
 mod web_interface;
 
 // Import the relevant structures into the correct namespace
-use self::definitions::SyncSystemSend;
 use self::item_index::ItemIndex;
 use self::system_interface::SystemInterface;
-use self::user_interface::UserInterface;
+use self::gtk_interface::GtkInterface;
 use self::web_interface::WebInterface;
 
 // Import standard library features
@@ -93,12 +92,12 @@ impl Minerva {
 
         // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();
-        let (system_interface, system_send) = runtime.block_on(async {
+        let (system_interface, gtk_send, web_send) = runtime.block_on(async {
             SystemInterface::new(index_access.clone(), interface_send.clone()).await
         }).expect("Unable To Create System Interface.");
 
         // Create a new web interface
-        let mut web_interface = WebInterface::new(index_access.clone(), system_send.clone());
+        let mut web_interface = WebInterface::new(index_access.clone(), web_send);
 
         // Spin the runtime into a native thread
         thread::spawn(move || {
@@ -112,18 +111,15 @@ impl Minerva {
                 web_interface.run().await;
             });
         });
-
-        // Create the new sync system send to work with the user interface
-        let sync_send = SyncSystemSend::from_async(&system_send);
         
         // Create the application window
         let window = gtk::ApplicationWindow::new(application);
 
         // Create the user interface structure to handle user interface updates
-        UserInterface::new(
+        GtkInterface::new(
             application,
             &window,
-            sync_send,
+            gtk_send,
             interface_send,
             interface_receive,
         );

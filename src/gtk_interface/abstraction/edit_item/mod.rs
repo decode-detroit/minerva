@@ -63,7 +63,7 @@ const ITEM_START: u32 = 1000; // starting number for new items
 #[derive(Clone, Debug)]
 pub struct EditWindow {
     scroll_window: gtk::ScrolledWindow,            // the scroll window to hold the underlying elements
-    system_send: SyncSystemSend,              // a copy of the system send line
+    gtk_send: GtkSend,              // a copy of the system send line
     item_list: ItemList,                  // the list of all possible items
     edit_item_left: EditItemAbstraction,   // the left overview to edit an item
     edit_item_right: EditItemAbstraction, // the right overview to edit an item
@@ -77,7 +77,7 @@ impl EditWindow {
     ///
     pub fn new(
         window: &gtk::ApplicationWindow,
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) -> EditWindow {
         // Create the control grid for holding all the universal controls
@@ -108,12 +108,12 @@ impl EditWindow {
         scroll_window.add(&grid);
 
         // Create the item list that holds the buttons with all item data
-        let item_list = ItemList::new(system_send);
+        let item_list = ItemList::new(gtk_send);
 
         // Create an EditItemAbstraction copy for the left side
         let edit_item_left = EditItemAbstraction::new(
             window,
-            system_send,
+            gtk_send,
             interface_send,
             true // left side
         );
@@ -121,7 +121,7 @@ impl EditWindow {
         // Create an EditItemAbstraction copy for the right side
         let edit_item_right = EditItemAbstraction::new(
             window,
-            system_send,
+            gtk_send,
             interface_send,
             false // right side
         );
@@ -136,7 +136,7 @@ impl EditWindow {
         // Return a copy of the Edit window
         EditWindow {
             scroll_window,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             item_list,
             edit_item_left,
             edit_item_right,
@@ -154,7 +154,7 @@ impl EditWindow {
     //
     pub fn refresh_all(&self) {
         // Refresh the available items
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::ItemList,
             request: RequestType::Items,
         });
@@ -164,7 +164,7 @@ impl EditWindow {
             // If a current id is specified
             if let Some(ref id) = *current_id {
                // Refresh the current item
-               EditItemAbstraction::refresh_item(id.clone(), true, &self.system_send);
+               EditItemAbstraction::refresh_item(id.clone(), true, &self.gtk_send);
             }
         }
 
@@ -173,7 +173,7 @@ impl EditWindow {
             // If a current id is specified
             if let Some(ref id) = *current_id {
                // Refresh the current item
-               EditItemAbstraction::refresh_item(id.clone(), false, &self.system_send);
+               EditItemAbstraction::refresh_item(id.clone(), false, &self.gtk_send);
             }
         }
     }
@@ -246,7 +246,7 @@ impl EditWindow {
 #[derive(Clone, Debug)]
 pub struct EditItemAbstraction {
     grid: gtk::Grid,                               // the grid to hold underlying elements
-    system_send: SyncSystemSend,                   // a copy of the system send line
+    gtk_send: GtkSend,                   // a copy of the system send line
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
     current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
     is_left: bool,                                 // whether the element is on the left or right
@@ -265,7 +265,7 @@ impl EditItemAbstraction {
     ///
     pub fn new(
         window: &gtk::ApplicationWindow,
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
         is_left: bool,
     ) -> EditItemAbstraction {
@@ -297,7 +297,7 @@ impl EditItemAbstraction {
 
         // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
-        edit_title.connect_drag_data_received(clone!(system_send, current_id, is_left => move |_, _, _, _, selection_data, _, _| {
+        edit_title.connect_drag_data_received(clone!(gtk_send, current_id, is_left => move |_, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -312,7 +312,7 @@ impl EditItemAbstraction {
                 }
 
                 // Refresh the current data
-                EditItemAbstraction::refresh_item(item_pair.get_id(), is_left, &system_send)
+                EditItemAbstraction::refresh_item(item_pair.get_id(), is_left, &gtk_send)
             }
         }));
 
@@ -335,13 +335,13 @@ impl EditItemAbstraction {
         edit_window.set_valign(gtk::Align::Fill);
 
         // Create the edit overview
-        let edit_overview = EditOverview::new(system_send, is_left);
+        let edit_overview = EditOverview::new(gtk_send, is_left);
 
         // Create the edit event
-        let edit_event = EditEvent::new(system_send, is_left);
+        let edit_event = EditEvent::new(gtk_send, is_left);
 
         // Create the edit status
-        let edit_status = EditStatus::new(system_send, is_left);
+        let edit_status = EditStatus::new(gtk_send, is_left);
 
         // Create the save button
         let save = gtk::Button::with_label("  Save Changes  ");
@@ -376,7 +376,7 @@ impl EditItemAbstraction {
         let edit_scene = Rc::new(RefCell::new(edit_scene));
         let edit_status = Rc::new(RefCell::new(edit_status));
         save.connect_clicked(clone!(
-            system_send,
+            gtk_send,
             current_id,
             item_description,
             edit_overview,
@@ -447,16 +447,16 @@ impl EditItemAbstraction {
             });
 
             // Save the edit to the configuration
-            system_send.send(SystemUpdate::Edit { modifications });
+            gtk_send.send(UserRequest::Edit { modifications });
 
             // Refresh the item list
-            system_send.send(SystemUpdate::Request {
+            gtk_send.send(UserRequest::Request {
                 reply_to: DisplayComponent::ItemList,
                 request: RequestType::Items,
             });
 
             // Refresh the item
-            EditItemAbstraction::refresh_item(item_id, is_left, &system_send);
+            EditItemAbstraction::refresh_item(item_id, is_left, &gtk_send);
         }));
 
         // Add some space on all the sides and show the components
@@ -470,7 +470,7 @@ impl EditItemAbstraction {
         // Return the new Control Abstraction
         EditItemAbstraction {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             interface_send: interface_send.clone(),
             current_id,
             is_left,
@@ -500,27 +500,27 @@ impl EditItemAbstraction {
 
         // Refresh all the item components
         if let Some(item_id) = id {
-            EditItemAbstraction::refresh_item(item_id, self.is_left, &self.system_send);
+            EditItemAbstraction::refresh_item(item_id, self.is_left, &self.gtk_send);
         }
     }
 
     // A function to refresh the components of the current item
     //
-    fn refresh_item(item_id: ItemId, is_left: bool, system_send: &SyncSystemSend) {
+    fn refresh_item(item_id: ItemId, is_left: bool, gtk_send: &GtkSend) {
         // Request new data for each component
-        system_send.send(SystemUpdate::Request {
+        gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::ItemDescription },
             request: RequestType::Description { item_id },
         });
-        system_send.send(SystemUpdate::Request {
+        gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Event { item_id },
         });
-        system_send.send(SystemUpdate::Request {
+        gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Scene { item_id, },
         });
-        system_send.send(SystemUpdate::Request {
+        gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
             request: RequestType::Status { item_id, },
         });
@@ -655,7 +655,7 @@ struct ItemList {
 impl ItemList {
     /// A function to create a new ItemList
     ///
-    fn new(system_send: &SyncSystemSend) -> ItemList {
+    fn new(gtk_send: &GtkSend) -> ItemList {
         // Add the top-level grid
         let grid = gtk::Grid::new();
         grid.set_row_spacing(10); // add some internal space
@@ -674,7 +674,7 @@ impl ItemList {
 
         // Connect the new item button
         new.connect_clicked(clone!(
-            system_send,
+            gtk_send,
             next_item,
             id_list
         => move |_| {
@@ -705,10 +705,10 @@ impl ItemList {
             let modifications = vec!(Modification::ModifyItem { item_pair });
 
             // Save the new id to the configuration
-            system_send.send(SystemUpdate::Edit { modifications });
+            gtk_send.send(UserRequest::Edit { modifications });
 
             // Refresh the item list
-            system_send.send(SystemUpdate::Request {
+            gtk_send.send(UserRequest::Request {
                 reply_to: DisplayComponent::ItemList,
                 request: RequestType::Items,
             });
@@ -816,7 +816,7 @@ impl ItemList {
 #[derive(Clone, Debug)]
 struct EditOverview {
     grid: gtk::Grid,                      // the main grid for this element
-    system_send: SyncSystemSend,          // a copy of the system send line
+    gtk_send: GtkSend,          // a copy of the system send line
     display_type: gtk::ComboBoxText,      // the display type selection for the event
     group_checkbox: gtk::CheckButton,     // the checkbox for group id
     group_description: gtk::Label,        // the description of the group
@@ -840,7 +840,7 @@ struct EditOverview {
 impl EditOverview {
     /// A function to create a new edit overview
     ///
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditOverview {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditOverview {
         // Add the display type dropdown
         let display_settings_label = gtk::Label::new(Some("Display Settings"));
         let display_type_label = gtk::Label::new(Some("Where to Display Item:"));
@@ -1014,7 +1014,7 @@ impl EditOverview {
         highstate_status_button.connect_drag_data_received(clone!(
             highstate_status_data,
             highstate_status_description,
-            system_send,
+            gtk_send,
             is_left
         => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
@@ -1034,7 +1034,7 @@ impl EditOverview {
                 }
 
                 // Request the allowed states
-                system_send.send(SystemUpdate::Request {
+                gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditItemOverview {
                         is_left,
                         variant: EditItemElement::Status { state: None },
@@ -1279,7 +1279,7 @@ impl EditOverview {
         // Create and return the edit overview
         EditOverview {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             display_type,
             group_checkbox,
             group_description,
@@ -1438,7 +1438,7 @@ impl EditOverview {
                         }
 
                         // Send a request to update the group description
-                        self.system_send.send(SystemUpdate::Request {
+                        self.gtk_send.send(UserRequest::Request {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Group,
@@ -1497,7 +1497,7 @@ impl EditOverview {
                             *status_data = new_status.clone();
                         }
                         // Send a request to update the status description
-                        self.system_send.send(SystemUpdate::Request {
+                        self.gtk_send.send(UserRequest::Request {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Status { state: None },
@@ -1506,7 +1506,7 @@ impl EditOverview {
                         });
 
                         // Send a request to get the states associated with the status
-                        self.system_send.send(SystemUpdate::Request {
+                        self.gtk_send.send(UserRequest::Request {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Status { state: Some(new_state.clone()) },
@@ -1552,7 +1552,7 @@ impl EditOverview {
         if let Some(status) = status {
             // Go through each allowed state and request its description
             for state_id in status.allowed().drain(..) {
-                self.system_send.send(SystemUpdate::Request {
+                self.gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditItemOverview {
                         is_left: self.is_left,
                         variant: EditItemElement::State,

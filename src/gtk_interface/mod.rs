@@ -51,15 +51,15 @@ const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
 /// to the interface.
 ///
 #[derive(Clone)]
-pub struct UserInterface {
+pub struct GtkInterface {
     interface_abstraction: Rc<RefCell<InterfaceAbstraction>>, // the interface abstraction instance for the program, wrapped in a refcell and rc for multi-referencing
-    system_send: SyncSystemSend, // the system update sender for the system interface, included here for easy access from the menu and other closures
+    gtk_send: GtkSend, // the gtk request sender for the system interface, included here for easy access from the menu and other closures
     menu_abstraction: Rc<RefCell<MenuAbstraction>>, // the program menu abstraction, wrapped in a refcell and rc for multi-referencing
     window: gtk::ApplicationWindow,                 // the gtk application window
 }
 
-// Implement key UserInterface functionality
-impl UserInterface {
+// Implement key GtkInterface functionality
+impl GtkInterface {
     /// A function to create a new, blank instance of the user interface. The
     /// window provided to the function should be the top-level window for the
     /// program.
@@ -67,28 +67,28 @@ impl UserInterface {
     pub fn new(
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
-        system_send: SyncSystemSend,
+        gtk_send: GtkSend,
         interface_send: mpsc::Sender<InterfaceUpdate>,
         interface_receive: mpsc::Receiver<InterfaceUpdate>,
-    ) -> UserInterface {
+    ) -> Self {
         // Create a new interface abstraction and add the top element to the window
         let interface_abstraction =
-            InterfaceAbstraction::new(&system_send, &interface_send, window);
+            InterfaceAbstraction::new(&gtk_send, &interface_send, window);
         window.add(interface_abstraction.get_top_element());
 
         // Wrap the interface abstraction in a rc and refcell
         let interface_abstraction = Rc::new(RefCell::new(interface_abstraction));
 
         // Create the menu bar for the window
-        let menu = MenuAbstraction::build_menu(application, window, &system_send, &interface_send);
+        let menu = MenuAbstraction::build_menu(application, window, &gtk_send, &interface_send);
 
         // Wrap the menu abstraction in a rc and refcell
         let menu_abstraction = Rc::new(RefCell::new(menu));
 
         // Create the User Interface with the abstraction reference
-        let user_interface = UserInterface {
+        let user_interface = GtkInterface {
             interface_abstraction,
-            system_send,
+            gtk_send,
             menu_abstraction,
             window: window.clone(),
         };
@@ -100,7 +100,7 @@ impl UserInterface {
         });
         glib::timeout_add_local(REFRESH_RATE, update_interface); // triggers once every 100ms
 
-        // Return the new UserInterface
+        // Return the new GtkInterface
         user_interface
     }
 
@@ -164,8 +164,8 @@ impl UserInterface {
 
                             // Update the interface and trigger a redraw.
                             interface.select_debug(is_debug);
-                            self.system_send.send(SystemUpdate::DebugMode(is_debug));
-                            self.system_send.send(SystemUpdate::Redraw);
+                            self.gtk_send.send(UserRequest::DebugMode(is_debug));
+                            self.gtk_send.send(UserRequest::Redraw);
                         }
 
                         // Change the font size of the display
@@ -175,7 +175,7 @@ impl UserInterface {
 
                             // Update the interface and trigger a redraw
                             interface.select_font(is_large);
-                            self.system_send.send(SystemUpdate::Redraw);
+                            self.gtk_send.send(UserRequest::Redraw);
                         }
 
                         // Change the color mode of the display
@@ -185,7 +185,7 @@ impl UserInterface {
 
                             // Update the interface and trigger a redraw
                             interface.select_contrast(is_hc);
-                            self.system_send.send(SystemUpdate::Redraw);
+                            self.gtk_send.send(UserRequest::Redraw);
                         }
                     }
                 }

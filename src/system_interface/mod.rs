@@ -67,7 +67,8 @@ pub struct SystemInterface {
     system_connection: SystemConnection, // the system connection instance for the program
     index_access: IndexAccess,           // the access point for the item index
     interface_send: std_mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
-    system_receive: mpsc::Receiver<SystemUpdate>, // a receiving line to receive system updates
+    gtk_receive: mpsc::Receiver<GtkRequest>, // the receiving line for gtk requests
+    web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
     internal_send: InternalSend, // a sending line to pass internal updates
     is_debug_mode: bool,           // a flag to indicate debug mode
@@ -80,7 +81,7 @@ impl SystemInterface {
     pub async fn new(
         index_access: IndexAccess,
         interface_send: std_mpsc::Sender<InterfaceUpdate>,
-    ) -> Result<(Self, SystemSend), FailureError> {
+    ) -> Result<(Self, GtkSend, WebSend), FailureError> {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
 
@@ -115,8 +116,11 @@ impl SystemInterface {
         // Create a new system connection instance
         let system_connection = SystemConnection::new(internal_send.clone(), None).await;
 
-        // Create the sytem send for the user interface
-        let (system_send, system_receive) = SystemSend::new();
+        // Create the gtk send for the gtk interface
+        let (gtk_send, gtk_receive) = GtkSend::new();
+
+        // Create the web send for the web interface
+        let (web_send, web_receive) = WebSend::new();
 
         // Create the new system interface instance
         let mut sys_interface = SystemInterface {
@@ -125,7 +129,8 @@ impl SystemInterface {
             system_connection,
             index_access,
             interface_send,
-            system_receive,
+            gtk_receive,
+            web_receive,
             internal_receive,
             internal_send,
             is_debug_mode: false,
@@ -151,7 +156,7 @@ impl SystemInterface {
         }
 
         // Regardless, return the new SystemInterface and general send line
-        Ok((sys_interface, system_send))
+        Ok((sys_interface, gtk_send, web_send))
     }
 
     /// A method to run one iteration of the system interface to update the user
@@ -165,9 +170,17 @@ impl SystemInterface {
                 self.unpack_internal_update(update).await;
             }
 
+            // Requests from the Gtk Interface
+            Some(request) = self.gtk_receive.recv() => {
+                return self.unpack_request(request.into()).await;
+            }
+
             // Updates from the User Interface
-            Some(update) = self.system_receive.recv() => {
-                return self.unpack_system_update(update).await;
+            Some(request) = self.web_receive.recv() => {
+                // Notify the user of success FIXME should depend on whether the request was successful
+                request.reply_to.send(WebReply::success()).unwrap_or(());
+                
+                return self.unpack_request(request.request).await;
             }
         }
 
@@ -330,16 +343,16 @@ impl SystemInterface {
         }
     }
 
-    /// A method to unpack system updates from the main program thread.
+    /// A method to unpack user requests from the main program thread.
     ///
     /// When the update is the Close variant, the function will return false,
     /// indicating that the thread should close.
     ///
-    async fn unpack_system_update(&mut self, update: SystemUpdate) -> bool {
+    async fn unpack_request(&mut self, request: UserRequest) -> bool {
         // Unpack the different variant types
-        match update {
+        match request {
             // Change the delay for all events in the queue
-            SystemUpdate::AllEventChange {
+            UserRequest::AllEventChange {
                 adjustment,
                 is_negative,
             } => {
@@ -354,7 +367,7 @@ impl SystemInterface {
             }
 
             // Handle the All Stop command which clears the queue and sends the "all stop" (a.k.a. emergency stop) command.
-            SystemUpdate::AllStop => {
+            UserRequest::AllStop => {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
@@ -380,20 +393,23 @@ impl SystemInterface {
             // Pass a broadcast event to the system connection (used only by
             // the user interface, not for internal messaging. See
             // GeneralUpdate::BroadcastEvent)
-            SystemUpdate::BroadcastEvent { event, data } => {
+            UserRequest::BroadcastEvent { event_id, data } => {
                 // Broadcast the event via the logger
-                update!(broadcast &mut self.internal_send => event.get_id(), data);
+                update!(broadcast &mut self.internal_send => event_id, data);
+
+                // Get the event description
+                let message = self.index_access.get_description(&event_id).await.description;
 
                 // Notify the user interface of the event
                 self.interface_send
                     .send(InterfaceUpdate::Notify {
-                        message: event.description,
+                        message,
                     })
                     .unwrap_or(());
             }
 
             // Clear the events currently in the queue
-            SystemUpdate::ClearQueue => {
+            UserRequest::ClearQueue => {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
@@ -404,10 +420,10 @@ impl SystemInterface {
             }
 
             // Close the system interface thread.
-            SystemUpdate::Close => return false,
+            UserRequest::Close => return false,
 
             // Update the configuration provided to the underlying system
-            SystemUpdate::ConfigFile { filepath } => {
+            UserRequest::ConfigFile { filepath } => {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
@@ -421,7 +437,7 @@ impl SystemInterface {
             }
 
             // Cue an event
-            SystemUpdate::CueEvent { event_delay } => {
+            UserRequest::CueEvent { event_delay } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Cue the event
@@ -437,13 +453,13 @@ impl SystemInterface {
             }
 
             // Swtich between normal mode and debug mode
-            SystemUpdate::DebugMode(mode) => {
+            UserRequest::DebugMode(mode) => {
                 // Switch the mode (redraw triggered by the user interface)
                 self.is_debug_mode = mode;
             }
 
             // Modify the underlying configuration
-            SystemUpdate::Edit { mut modifications } => {
+            UserRequest::Edit { mut modifications } => {
                 // Check to see if there is an active configuration
                 if let Some(mut handler) = self.event_handler.take() {
                     // Process each modification in order
@@ -500,7 +516,7 @@ impl SystemInterface {
             }
 
             // Change the remaining delay for an existing event in the queue
-            SystemUpdate::EventChange {
+            UserRequest::EventChange {
                 event_id,
                 start_time,
                 new_delay,
@@ -516,13 +532,13 @@ impl SystemInterface {
             }
 
             // Update the system log provided to the underlying system
-            SystemUpdate::ErrorLog { filepath } => self.logger.set_error_log(filepath),
+            UserRequest::ErrorLog { filepath } => self.logger.set_error_log(filepath),
 
             // Update the game log provided to the underlying system
-            SystemUpdate::GameLog { filepath } => self.logger.set_game_log(filepath),
+            UserRequest::GameLog { filepath } => self.logger.set_game_log(filepath),
 
             // Pass an event to the event_handler
-            SystemUpdate::ProcessEvent {
+            UserRequest::ProcessEvent {
                 event,
                 check_scene,
                 broadcast,
@@ -550,7 +566,7 @@ impl SystemInterface {
             }
 
             // Redraw the current window
-            SystemUpdate::Redraw => {
+            UserRequest::Redraw => {
                 // Try to redraw the current window
                 if let Some(ref mut handler) = self.event_handler {
                     // Repackage the items in the current scene
@@ -586,7 +602,7 @@ impl SystemInterface {
             }
 
             // Reply to the request for information
-            SystemUpdate::Request { reply_to, request } => {
+            UserRequest::Request { reply_to, request } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Match the type of information request
@@ -674,7 +690,7 @@ impl SystemInterface {
             }
 
             // Save the current configuration to the provided file
-            SystemUpdate::SaveConfig { filepath } => {
+            UserRequest::SaveConfig { filepath } => {
                 // Extract the current event handler (if it exists)
                 if let Some(mut handler) = self.event_handler.take() {
                     // Save the current configuration
@@ -686,7 +702,7 @@ impl SystemInterface {
             }
 
             // Change the current scene based on the provided id and get a list of available events
-            SystemUpdate::SceneChange { scene } => {
+            UserRequest::SceneChange { scene } => {
                 // Change the current scene, if event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Change the current scene (automatically triggers a redraw)
@@ -698,7 +714,7 @@ impl SystemInterface {
             }
 
             // Change the state of a particular status
-            SystemUpdate::StatusChange { status_id, state } => {
+            UserRequest::StatusChange { status_id, state } => {
                 // Change the status, if event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Change the state of the indicated status
@@ -710,7 +726,7 @@ impl SystemInterface {
             }
             
             // Trigger and event from the web FIXME mostly a duplicate of process event
-            SystemUpdate::Web { reply_to, request } => {
+            /*UserRequest::Web { reply_to, request } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Match the request type
@@ -719,8 +735,7 @@ impl SystemInterface {
                         WebRequest::CueEvent { event_id } => {
                             // Try to process the event
                             if handler.process_event(&event_id, true, true).await {
-                                // Notify the user of success
-                                reply_to.send(WebReply::success()).unwrap_or(());
+                                
 
                             // Note if there was a failure
                             } else {
@@ -741,7 +756,7 @@ impl SystemInterface {
                 } else {
                     reply_to.send(WebReply::failure("No active configuration.")).unwrap_or(());
                 }
-            }
+            }*/
         }
         true // indicate to continue
     }

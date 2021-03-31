@@ -100,17 +100,10 @@ impl FromStr for GetItem {
 }
 
 // Implement from for the helper data types
-impl From<CueEvent> for WebRequest {
+impl From<CueEvent> for UserRequest {
     fn from(cue_event: CueEvent) -> Self {
-        WebRequest::CueEvent {
-            event_id: ItemId::new_unchecked(cue_event.id),
-        }
-    }
-}
-impl From<GetItem> for WebRequest {
-    fn from(get_item: GetItem) -> Self {
-        WebRequest::GetItem {
-            item_id: ItemId::new_unchecked(get_item.id),
+        UserRequest::CueEvent {
+            event_delay: EventDelay::new(None, ItemId::new_unchecked(cue_event.id)), // FIXME allow optional delay
         }
     }
 }
@@ -134,7 +127,7 @@ impl From<EntryId> for Request {
 ///
 pub struct WebInterface {
     index_access: IndexAccess, // access point for the item index
-    system_send: SystemSend, // send line to the system interface
+    web_send: WebSend, // send line to the system interface
 }
 
 // Implement key Web Interface functionality
@@ -142,11 +135,11 @@ impl WebInterface {
     /// A function to create a new web interface. The send channel should
     /// connect directly to the system interface.
     ///
-    pub fn new(index_access: IndexAccess, system_send: SystemSend) -> Self {
+    pub fn new(index_access: IndexAccess, web_send: WebSend) -> Self {
         // Return the new web interface and runtime handle
         WebInterface {
             index_access,
-            system_send,
+            web_send,
         }
     }
 
@@ -161,7 +154,7 @@ impl WebInterface {
         // Create the trigger event filter
         let cue_event = warp::post()
             .and(warp::path("cueEvent"))
-            .and(WebInterface::with_sender(self.system_send.clone()))
+            .and(WebInterface::with_sender(self.web_send.clone()))
             .and(warp::path::param::<CueEvent>())
             .and(warp::path::end())
             .and_then(WebInterface::handle_request);
@@ -169,10 +162,10 @@ impl WebInterface {
         // Create the item information filter
         let get_item = warp::get()
             .and(warp::path("getItem"))
-            .and(WebInterface::with_sender(self.system_send.clone()))
+            .and(WebInterface::with_index(self.index_access.clone()))
             .and(warp::path::param::<GetItem>())
             .and(warp::path::end())
-            .and_then(WebInterface::handle_request);
+            .and_then(WebInterface::handle_get_item);
 
         // Combine the filters
         let routes = readme.or(cue_event).or(get_item);
@@ -184,15 +177,12 @@ impl WebInterface {
     }
 
     /// A function to handle incoming requests
-    async fn handle_request<R>(system_send: SystemSend, request: R) -> Result<impl warp::Reply, warp::Rejection>
-        where R: Into<WebRequest>
+    async fn handle_request<R>(web_send: WebSend, request: R) -> Result<impl warp::Reply, warp::Rejection>
+        where R: Into<UserRequest>
     {       
         // Send the message and wait for the reply
         let (reply_to, rx) = oneshot::channel();
-        system_send.send(SystemUpdate::Web {
-            reply_to,
-            request: request.into(),
-        }).await;
+        web_send.send(reply_to, request.into()).await;
         
         // Wait for the reply
         if let Ok(reply) = rx.await {
@@ -220,19 +210,36 @@ impl WebInterface {
         }
     }
 
+    /// A function to handle get item requests (processed by the index)
+    async fn handle_get_item(index_access: IndexAccess, get_item: GetItem) -> Result<impl warp::Reply, warp::Rejection> {       
+        // Get the item pair from the index
+        let item_pair = index_access.get_pair(&ItemId::new_unchecked(get_item.id)).await;
+        
+        // Return the item pair (even if it is the default)
+        return Ok(warp::reply::with_status(
+            warp::reply::json(&WebReply::Item { is_valid: true, item_pair }),
+            http::StatusCode::OK,
+        ));
+    }
+
     /// A function to extract the json body
     pub fn json_body() -> impl Filter<Extract = (ItemId,), Error = warp::Rejection> + Clone {
         // When accepting a body, we want a JSON body (reject huge payloads)
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
 
-    // A function to add the system send to the filter
-    pub fn with_sender(system_send: SystemSend) -> impl Filter<Extract = (SystemSend,), Error = std::convert::Infallible> + Clone {
-        warp::any().map(move || system_send.clone())
+    // A function to add the web send to the filter
+    pub fn with_sender(web_send: WebSend) -> impl Filter<Extract = (WebSend,), Error = std::convert::Infallible> + Clone {
+        warp::any().map(move || web_send.clone())
+    }
+
+    // A function to add the index access  to the filter
+    pub fn with_index(index_access: IndexAccess) -> impl Filter<Extract = (IndexAccess,), Error = std::convert::Infallible> + Clone {
+        warp::any().map(move || index_access.clone())
     }
 
     /// A function to add a specific request type to the filter
-    pub fn with_request(request: WebRequest) -> impl Filter<Extract = (WebRequest,), Error = std::convert::Infallible> + Clone {
+    pub fn with_request(request: UserRequest) -> impl Filter<Extract = (UserRequest,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || request.clone())
     }
 }

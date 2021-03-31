@@ -55,7 +55,7 @@ impl MenuAbstraction {
     pub fn build_menu(
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) -> MenuAbstraction {
         // Create the menu bar and the different submenus
@@ -119,7 +119,7 @@ impl MenuAbstraction {
 
         // Create the config dialog action
         let config = gio::SimpleAction::new("config", None);
-        config.connect_activate(clone!(window, system_send => move |_, _| {
+        config.connect_activate(clone!(window, gtk_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Configuration"), Some(&window), gtk::FileChooserAction::Open);
@@ -128,12 +128,12 @@ impl MenuAbstraction {
             // Connect the close event for when the dialog is complete
             dialog.add_button("Cancel", gtk::ResponseType::Cancel);
             dialog.add_button("Confirm", gtk::ResponseType::Ok);
-            dialog.connect_response(clone!(system_send => move |chooser, id| {
+            dialog.connect_response(clone!(gtk_send => move |chooser, id| {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        system_send.send(SystemUpdate::ConfigFile { filepath: Some(filepath), });
+                        gtk_send.send(UserRequest::ConfigFile { filepath: Some(filepath), });
                     }
                 }
 
@@ -149,7 +149,7 @@ impl MenuAbstraction {
 
         // Create the game log dialog action
         let game_log = gio::SimpleAction::new("game_log", None);
-        game_log.connect_activate(clone!(window, system_send => move |_, _| {
+        game_log.connect_activate(clone!(window, gtk_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Game Log File"), Some(&window), gtk::FileChooserAction::Save);
@@ -158,12 +158,12 @@ impl MenuAbstraction {
             // Connect the close event for when the dialog is complete
             dialog.add_button("Cancel", gtk::ResponseType::Cancel);
             dialog.add_button("Confirm", gtk::ResponseType::Ok);
-            dialog.connect_response(clone!(system_send => move |chooser, id| {
+            dialog.connect_response(clone!(gtk_send => move |chooser, id| {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        system_send.send(SystemUpdate::GameLog { filepath, });
+                        gtk_send.send(UserRequest::GameLog { filepath, });
                     }
                 }
 
@@ -179,7 +179,7 @@ impl MenuAbstraction {
 
         // Create the error log dialog action
         let error_log = gio::SimpleAction::new("error_log", None);
-        error_log.connect_activate(clone!(window, system_send => move |_, _| {
+        error_log.connect_activate(clone!(window, gtk_send => move |_, _| {
 
             // Creaate and launch a new config chooser dialog
             let dialog = gtk::FileChooserDialog::new(Some("Choose Error Log File"), Some(&window), gtk::FileChooserAction::Save);
@@ -188,12 +188,12 @@ impl MenuAbstraction {
             // Connect the close event for when the dialog is complete
             dialog.add_button("Cancel", gtk::ResponseType::Cancel);
             dialog.add_button("Confirm", gtk::ResponseType::Ok);
-            dialog.connect_response(clone!(system_send => move |chooser, id| {
+            dialog.connect_response(clone!(gtk_send => move |chooser, id| {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
                     if let Some(filepath) = chooser.get_filename() {
-                        system_send.send(SystemUpdate::ErrorLog { filepath, });
+                        gtk_send.send(UserRequest::ErrorLog { filepath, });
                     }
                 }
 
@@ -209,10 +209,10 @@ impl MenuAbstraction {
 
         // Create the quit action
         let quit = gio::SimpleAction::new("quit", None);
-        quit.connect_activate(clone!(system_send, window => move |_, _| {
+        quit.connect_activate(clone!(gtk_send, window => move |_, _| {
 
             // Tell the system interface to close
-            system_send.send(SystemUpdate::Close);
+            gtk_send.send(UserRequest::Close);
 
             // Wait 1000 nanoseconds for the process to complete
             thread::sleep(Duration::new(0, 1000));
@@ -331,9 +331,9 @@ impl MenuAbstraction {
 
         // Create the clear timeline action
         let clear = gio::SimpleAction::new("clear", None);
-        clear.connect_activate(clone!(system_send => move |_, _| {
+        clear.connect_activate(clone!(gtk_send => move |_, _| {
             // Launch the trigger event dialog
-            system_send.send(SystemUpdate::ClearQueue);
+            gtk_send.send(UserRequest::ClearQueue);
         }));
 
         // Create the trigger event to dialog action
@@ -353,7 +353,7 @@ impl MenuAbstraction {
 
         // Create the save game configuration action
         let save_config = gio::SimpleAction::new("save_config", None);
-        save_config.connect_activate(clone!(window, system_send, edit => move |_, _| {
+        save_config.connect_activate(clone!(window, gtk_send, edit => move |_, _| {
 
             // Check if we're in edit mode
             if let Some(state) = edit.get_state() {
@@ -369,12 +369,12 @@ impl MenuAbstraction {
                     // Connect the close event for when the dialog is complete
                     dialog.add_button("Cancel", gtk::ResponseType::Cancel);
                     dialog.add_button("Confirm", gtk::ResponseType::Ok);
-                    dialog.connect_response(clone!(system_send => move |chooser, id| {
+                    dialog.connect_response(clone!(gtk_send => move |chooser, id| {
 
                         // Notify the system of the new configuration file
                         if id == gtk::ResponseType::Ok {
                             if let Some(filepath) = chooser.get_filename() {
-                                system_send.send(SystemUpdate::SaveConfig { filepath, });
+                                gtk_send.send(UserRequest::SaveConfig { filepath, });
                             }
                         }
 

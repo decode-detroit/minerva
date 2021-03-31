@@ -68,7 +68,7 @@ const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 /// interaction between the interface and the underlying program.
 ///
 pub struct InterfaceAbstraction {
-    system_send: SyncSystemSend, // a copy of system send held in the interface abstraction
+    system_send: GtkSend, // a copy of system send held in the interface abstraction
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
     top_element: gtk::Stack, // the stack that contains the operations and edit grids
     full_status: Rc<RefCell<FullStatus>>, // a copy of the current full status of the system
@@ -99,7 +99,7 @@ impl InterfaceAbstraction {
     /// clarity).
     ///
     pub fn new(
-        system_send: &SyncSystemSend,
+        system_send: &GtkSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
         window: &gtk::ApplicationWindow,
     ) -> InterfaceAbstraction {

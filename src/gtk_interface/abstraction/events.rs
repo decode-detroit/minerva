@@ -219,7 +219,7 @@ impl EventAbstraction {
         mut statuses: Vec<ItemPair>,
         mut window: EventWindow,
         full_status: &FullStatus,
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) {
         // Empty the old event grid
@@ -245,7 +245,7 @@ impl EventAbstraction {
             // Try to load the group into a group abstraction
             if let Some(grp_abstraction) = EventGroupAbstraction::new(
                 group,
-                system_send,
+                gtk_send,
                 interface_send,
                 full_status,
                 font_size,
@@ -456,7 +456,7 @@ impl EventGroupAbstraction {
     ///
     fn new(
         event_group: EventGroup,
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
         full_status: &FullStatus,
         font_size: u32,
@@ -584,9 +584,9 @@ impl EventGroupAbstraction {
                 spotlight_button.insert(event.get_id(), expiration.clone());
 
                 // Create the new button action and connect it
-                button.connect_clicked(clone!(system_send => move |_| {
+                button.connect_clicked(clone!(gtk_send => move |_| {
                     // Send the event trigger to the underlying system
-                    system_send.send(SystemUpdate::ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
+                    gtk_send.send(UserRequest::ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
 
                     // Stop the button from flashing, if it is
                     if let Ok(mut count) = expiration.try_borrow_mut() {
@@ -597,9 +597,9 @@ impl EventGroupAbstraction {
             // Otherwise, just set the button click normally
             } else {
                 // Create the new button action and connect it
-                button.connect_clicked(clone!(system_send => move |_| {
+                button.connect_clicked(clone!(gtk_send => move |_| {
                     // Send the event trigger to the underlying system
-                    system_send.send(SystemUpdate::ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
+                    gtk_send.send(UserRequest::ProcessEvent { event: event.get_id(), check_scene: true, broadcast: true});
                 }));
             }
 

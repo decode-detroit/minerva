@@ -52,7 +52,7 @@ pub struct ItemDisplay {
 #[derive(Clone, Debug)]
 pub struct EditStatus {
     grid: gtk::Grid,                     // a grid to hold the events
-    system_send: SyncSystemSend,             // a copy of the system send
+    gtk_send: GtkSend,             // a copy of the system send
     status_checkbox: gtk::CheckButton,   // the button that toggles whether the item is a scene
     status_selection: gtk::ComboBoxText, // the dropdown that toggles the status type
     edit_multistate: EditMultiState,     // the edit multi state
@@ -63,7 +63,7 @@ pub struct EditStatus {
 impl EditStatus {
     // A function to create a new Edit Status
     //
-    pub fn new(system_send: &SyncSystemSend, is_left: bool) -> EditStatus {
+    pub fn new(gtk_send: &GtkSend, is_left: bool) -> EditStatus {
         // Create the top-level grid
         let grid = gtk::Grid::new();
 
@@ -91,8 +91,8 @@ impl EditStatus {
         status_selection.append(Some("countedstate"), "Counted State Status");
 
         // Create the different edit windows for the status types
-        let edit_multistate = EditMultiState::new(system_send, is_left);
-        let edit_countedstate = EditCountedState::new(system_send, is_left);
+        let edit_multistate = EditMultiState::new(gtk_send, is_left);
+        let edit_countedstate = EditCountedState::new(gtk_send, is_left);
 
         // Create the status stack
         let status_stack = gtk::Stack::new();
@@ -126,7 +126,7 @@ impl EditStatus {
         // Return the EditStatus struct
         EditStatus {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             status_checkbox,
             status_selection,
             edit_multistate,
@@ -148,7 +148,7 @@ impl EditStatus {
                     self.status_selection.set_active_id(Some("multistate"));
 
                     // Load the data into the Edit MultiState
-                    self.edit_multistate.load_multistate(&self.system_send, &current, allowed)
+                    self.edit_multistate.load_multistate(&self.gtk_send, &current, allowed)
                 }
                 Status::CountedState { current, trigger, anti_trigger, reset, default_count, .. } => {
                     // Change the dropdown
@@ -228,7 +228,7 @@ struct EditMultiState {
 impl EditMultiState {
     // A function to create a multistate status variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditMultiState {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditMultiState {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
@@ -282,7 +282,7 @@ impl EditMultiState {
         drag!(dest states_list);
 
         // Set the callback function when data is received
-        states_list.connect_drag_data_received(clone!(states_data, next_state, system_send => move |widget, _, _, _, selection_data, _, _| {
+        states_list.connect_drag_data_received(clone!(states_data, next_state, gtk_send => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -293,7 +293,7 @@ impl EditMultiState {
 
                 // Add the status to the user interface and database
                 EditMultiState::add_state(
-                    &system_send,
+                    &gtk_send,
                     is_left,
                     &widget,
                     &states_data,
@@ -339,7 +339,7 @@ impl EditMultiState {
     }
 
     // A method to load in info for a multistate status
-    pub fn load_multistate(&mut self, system_send: &SyncSystemSend, current: &ItemId, mut allowed: Vec<ItemId>) {
+    pub fn load_multistate(&mut self, gtk_send: &GtkSend, current: &ItemId, mut allowed: Vec<ItemId>) {
         // Clear the previous data
         self.clear();
 
@@ -349,7 +349,7 @@ impl EditMultiState {
         }
 
         // Request the description associated with the current id
-        system_send.send(SystemUpdate::Request {
+        gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditMultiStateStatus{ is_left: self.is_left, position: None },
             request: RequestType::Description { item_id: current.clone() },
         });
@@ -358,7 +358,7 @@ impl EditMultiState {
         // Add the states to the user interface and database
         for state_id in allowed.drain(..) {
             EditMultiState::add_state(
-                system_send,
+                gtk_send,
                 self.is_left,
                 &self.states_list,
                 &self.states_data,
@@ -414,7 +414,7 @@ impl EditMultiState {
     /// A helper function to add an event to the events list and database
     ///
     fn add_state(
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         is_left: bool,
         states_list: &gtk::ListBox,
         states_data: &Rc<RefCell<FnvHashMap<usize, ItemDisplay>>>,
@@ -451,7 +451,7 @@ impl EditMultiState {
         }
 
         // Request the description associated with the id
-        system_send.send(SystemUpdate::Request {
+        gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditMultiStateStatus{ is_left, position: Some(position) },
             request: RequestType::Description { item_id: state_id.clone() },
         });
@@ -532,7 +532,7 @@ impl EditMultiState {
 #[derive(Clone, Debug)]
 struct EditCountedState {
     grid: gtk::Grid,                    // the main grid for this element
-    system_send: SyncSystemSend,            // a copy of the system send line
+    gtk_send: GtkSend,            // a copy of the system send line
     is_left: bool,                      // whether this element is on the left or right
     status_data: Rc<RefCell<FnvHashMap<String, ItemId>>>,   // a database for the data associated with the status
     current_label: gtk::Button,          // the button to display the current state
@@ -546,7 +546,7 @@ struct EditCountedState {
 impl EditCountedState {
     // A function to create a multistate status variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditCountedState {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditCountedState {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
@@ -710,7 +710,7 @@ impl EditCountedState {
 
         EditCountedState{
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             is_left,
             status_data,
             current_label,
@@ -733,7 +733,7 @@ impl EditCountedState {
         }
 
         // Request the current id description
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("current")
@@ -742,7 +742,7 @@ impl EditCountedState {
         });
 
         // Request the trigger id description
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("trigger")
@@ -751,7 +751,7 @@ impl EditCountedState {
         });
 
         // Request the antitrigger id description
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("antitrigger")
@@ -760,7 +760,7 @@ impl EditCountedState {
         });
 
         // Request the reset id description
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("reset")

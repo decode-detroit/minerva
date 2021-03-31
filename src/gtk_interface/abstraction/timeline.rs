@@ -132,7 +132,7 @@ impl TimelineEvent {
 ///
 #[derive(Clone, Debug)]
 struct TimelineAdjustment {
-    system_send: SyncSystemSend, // the reply line for the interface
+    gtk_send: GtkSend, // the reply line for the interface
     timeline_events: Rc<RefCell<FnvHashMap<String, TimelineEvent>>>, // the hashmap of timeline events to modify with the adjust button
 }
 
@@ -255,7 +255,7 @@ impl TimelineAdjustment {
 
         // Connect the close event for when the dialog is complete
         let timeline_events = self.timeline_events.clone();
-        let system_send = self.system_send.clone();
+        let gtk_send = self.gtk_send.clone();
         dialog.connect_response(clone!(selection, minutes, seconds, cancel_checkbox => move |modal, reply| {
 
             // Notify the system of the event change
@@ -276,7 +276,7 @@ impl TimelineAdjustment {
                         let adjustment = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
 
                         // Send an all event update to the system
-                        system_send.send(SystemUpdate::AllEventChange {
+                        gtk_send.send(UserRequest::AllEventChange {
                             adjustment,
                             is_negative: cancel_checkbox.get_active(),
                         });
@@ -286,7 +286,7 @@ impl TimelineAdjustment {
                         // If the event was selected to be canceled
                         if cancel_checkbox.get_active() {
                             // Send an event update to the system
-                            system_send.send(SystemUpdate::EventChange {
+                            gtk_send.send(UserRequest::EventChange {
                                 event_id: event.event.get_id(),
                                 start_time: event.start_time.clone(),
                                 new_delay: None,
@@ -299,7 +299,7 @@ impl TimelineAdjustment {
                             new_delay += event.start_time.elapsed();
 
                             // Send an event update to the system
-                            system_send.send(SystemUpdate::EventChange {
+                            gtk_send.send(UserRequest::EventChange {
                                 event_id: event.event.get_id(),
                                 start_time: event.start_time.clone(),
                                 new_delay: Some(new_delay),
@@ -349,7 +349,7 @@ impl TimelineAbstraction {
     /// all the default widgets into the interface and returns a new copy to
     /// allow insertion into higher levels.
     ///
-    pub fn new(system_send: &SyncSystemSend, window: &gtk::ApplicationWindow) -> TimelineAbstraction {
+    pub fn new(gtk_send: &GtkSend, window: &gtk::ApplicationWindow) -> TimelineAbstraction {
         // Create the timeline title
         let timeline_title = gtk::Label::new(None);
         timeline_title.set_markup("<span color='#338DD6' size='16000'>Timeline</span>");
@@ -419,7 +419,7 @@ impl TimelineAbstraction {
         // Create the timeline adjustment
         let adjustment = TimelineAdjustment {
             timeline_events: timeline_events.clone(),
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
         };
 
         // Connect the button press events to the timeline area

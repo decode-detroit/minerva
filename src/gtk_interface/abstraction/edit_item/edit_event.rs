@@ -70,7 +70,7 @@ pub struct EditEvent {
 impl EditEvent {
     // A function to create a new Edit Detail
     //
-    pub fn new(system_send: &SyncSystemSend, is_left: bool) -> EditEvent {
+    pub fn new(gtk_send: &GtkSend, is_left: bool) -> EditEvent {
         // Create the grid
         let grid = gtk::Grid::new();
 
@@ -88,7 +88,7 @@ impl EditEvent {
         action_list.set_selection_mode(gtk::SelectionMode::None);
 
         // Create a new edit action dialog
-        let tmp_edit_action = EditAction::new(system_send, &event_actions, is_left);
+        let tmp_edit_action = EditAction::new(gtk_send, &event_actions, is_left);
         let edit_action_window = tmp_edit_action.get_top_element().clone();
         let edit_action = Rc::new(RefCell::new(tmp_edit_action));
 
@@ -377,7 +377,7 @@ impl EditAction {
     /// A function to create a new instance of the EditAction
     ///
     fn new(
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         event_actions: &Rc<RefCell<FnvHashMap<usize, EventAction>>>,
         is_left: bool,
     ) -> EditAction {
@@ -394,13 +394,13 @@ impl EditAction {
         action_selection.append(Some("selectevent"), "Select Event");
 
         // Create the different edit windows for the action types
-        let edit_new_scene = EditNewScene::new(system_send, is_left);
-        let edit_modify_status = EditModifyStatus::new(system_send, is_left);
-        let edit_cue_event = EditCueEvent::new(system_send, is_left);
-        let edit_cancel_event = EditCancelEvent::new(system_send, is_left);
-        let edit_save_data = EditSaveData::new(system_send, is_left);
-        let edit_send_data = EditSendData::new(system_send, is_left);
-        let edit_select_event = EditSelectEvent::new(system_send, is_left);
+        let edit_new_scene = EditNewScene::new(gtk_send, is_left);
+        let edit_modify_status = EditModifyStatus::new(gtk_send, is_left);
+        let edit_cue_event = EditCueEvent::new(gtk_send, is_left);
+        let edit_cancel_event = EditCancelEvent::new(gtk_send, is_left);
+        let edit_save_data = EditSaveData::new(gtk_send, is_left);
+        let edit_send_data = EditSendData::new(gtk_send, is_left);
+        let edit_select_event = EditSelectEvent::new(gtk_send, is_left);
 
         // Create the action stack
         let action_stack = gtk::Stack::new();
@@ -806,7 +806,7 @@ impl EditAction {
 #[derive(Clone, Debug)]
 struct EditNewScene {
     grid: gtk::Grid,                      // the main grid for this element
-    system_send: SyncSystemSend,              // a copy of the system send line
+    gtk_send: GtkSend,              // a copy of the system send line
     description: gtk::Button,             // the description of the scene
     scene: Rc<RefCell<ItemId>>,           // the wrapped data associated with the scene
     is_left: bool,                        // whether the edit element is left or right
@@ -816,7 +816,7 @@ struct EditNewScene {
 impl EditNewScene {
     // A function to create a new scene variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditNewScene {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditNewScene {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
@@ -866,7 +866,7 @@ impl EditNewScene {
         grid.show_all();
         EditNewScene {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             description,
             scene,
             is_left
@@ -888,7 +888,7 @@ impl EditNewScene {
         }
 
         // Request the description associated with the id
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement { is_left: self.is_left, variant: EditActionElement::EditNewScene },
             request: RequestType::Description { item_id: new_scene.clone() },
         });
@@ -919,7 +919,7 @@ impl EditNewScene {
 #[derive(Clone, Debug)]
 struct EditModifyStatus {
     grid: gtk::Grid,                              // the main grid for this element
-    system_send: SyncSystemSend,                      // a copy of the system send line
+    gtk_send: GtkSend,                      // a copy of the system send line
     status_description: gtk::Button,              // the status description display
     status_data: Rc<RefCell<ItemId>>,             // the wrapped status data
     state_dropdown: gtk::ComboBoxText,            // the state description dropdown
@@ -931,7 +931,7 @@ struct EditModifyStatus {
 impl EditModifyStatus {
     // A function to ceate a modify status variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditModifyStatus {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditModifyStatus {
         // Create the grid for the modify status variant
         let grid = gtk::Grid::new();
 
@@ -950,7 +950,7 @@ impl EditModifyStatus {
         drag!(dest status_description);
 
         // Set the callback function when data is received
-        status_description.connect_drag_data_received(clone!(status_data, system_send, is_left => move |widget, _, _, _, selection_data, _, _| {
+        status_description.connect_drag_data_received(clone!(status_data, gtk_send, is_left => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
                 // Convert the selection data to an ItemPair
@@ -968,7 +968,7 @@ impl EditModifyStatus {
                 }
 
                 // Request the state data associated with the status
-                system_send.send(SystemUpdate::Request {
+                gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left,
                         variant: EditActionElement::EditModifyStatus { is_status: false }
@@ -1013,7 +1013,7 @@ impl EditModifyStatus {
         grid.show_all();
         EditModifyStatus {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             status_description,
             status_data,
             state_dropdown,
@@ -1046,7 +1046,7 @@ impl EditModifyStatus {
         }
 
         // Request the description associated with the status
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditModifyStatus { is_status: true }
@@ -1055,7 +1055,7 @@ impl EditModifyStatus {
         });
 
         // Request the state data associated with the status
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditModifyStatus { is_status: false }
@@ -1071,7 +1071,7 @@ impl EditModifyStatus {
         if let Some(status) = status {
             // Go through each allowed state and request its description
             for state_id in status.allowed().drain(..) {
-                self.system_send.send(SystemUpdate::Request {
+                self.gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditModifyStatus { is_status: false }
@@ -1142,7 +1142,7 @@ impl EditModifyStatus {
 #[derive(Clone, Debug)]
 struct EditCueEvent {
     grid: gtk::Grid,                  // the main grid for this element
-    system_send: SyncSystemSend,          // a copy of the system send line
+    gtk_send: GtkSend,          // a copy of the system send line
     event_description: gtk::Button,   // the event description display
     event_data: Rc<RefCell<ItemId>>,  // the data associated with the event
     minutes_spin: gtk::SpinButton,    // the minutes spin button
@@ -1153,7 +1153,7 @@ struct EditCueEvent {
 impl EditCueEvent {
     // A function to ceate a cue event variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditCueEvent {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditCueEvent {
         // Create the top-level grid
         let grid = gtk::Grid::new();
 
@@ -1212,7 +1212,7 @@ impl EditCueEvent {
         grid.show_all();
         EditCueEvent {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             event_description,
             event_data,
             minutes_spin,
@@ -1236,7 +1236,7 @@ impl EditCueEvent {
         }
 
         // Request the description associated with the event id
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditCueEvent,
@@ -1302,7 +1302,7 @@ impl EditCueEvent {
 #[derive(Clone, Debug)]
 struct EditCancelEvent {
     grid: gtk::Grid,                  // the main grid for this element
-    system_send: SyncSystemSend,          // a copy of the system send line
+    gtk_send: GtkSend,          // a copy of the system send line
     event_description: gtk::Button,   // the event description
     event_data: Rc<RefCell<ItemId>>,  // the data associated with the event
     is_left: bool                     // whether the element is on the left or right
@@ -1311,7 +1311,7 @@ struct EditCancelEvent {
 impl EditCancelEvent {
     // A function to ceate a cancel event variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditCancelEvent {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditCancelEvent {
         // Create the top level grid
         let grid = gtk::Grid::new();
 
@@ -1362,7 +1362,7 @@ impl EditCancelEvent {
         grid.show_all();
         EditCancelEvent {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             event_description,
             event_data,
             is_left,
@@ -1384,7 +1384,7 @@ impl EditCancelEvent {
         }
 
         // Request the description associated with the id
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditCancelEvent
@@ -1421,7 +1421,7 @@ impl EditCancelEvent {
 #[derive(Clone, Debug)]
 struct EditSaveData {
     grid: gtk::Grid,                 // the main grid for this element
-    system_send: SyncSystemSend,         // a copy of the system send line
+    gtk_send: GtkSend,         // a copy of the system send line
     data_type: gtk::ComboBoxText,    // the data type dropdown
     event_description: gtk::Button,  // the event description
     event_data: Rc<RefCell<ItemId>>, // the data associated with the event
@@ -1434,7 +1434,7 @@ struct EditSaveData {
 impl EditSaveData {
     // A function to ceate a save data variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditSaveData {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditSaveData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
 
@@ -1568,7 +1568,7 @@ impl EditSaveData {
         grid.show_all();
         EditSaveData {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             data_type,
             event_description,
             event_data,
@@ -1601,7 +1601,7 @@ impl EditSaveData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(SystemUpdate::Request {
+                self.gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSaveData
@@ -1624,7 +1624,7 @@ impl EditSaveData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(SystemUpdate::Request {
+                self.gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSaveData
@@ -1739,7 +1739,7 @@ impl EditSaveData {
 #[derive(Clone, Debug)]
 struct EditSendData {
     grid: gtk::Grid,               // the main grid for this element
-    system_send: SyncSystemSend,       // a copy of the system send line
+    gtk_send: GtkSend,       // a copy of the system send line
     data_type: gtk::ComboBoxText,  // the data type dropdown
     event_description: gtk::Button,// the event description display
     event_data: Rc<RefCell<ItemId>>, // the wrapped event data
@@ -1752,7 +1752,7 @@ struct EditSendData {
 impl EditSendData {
     // A function to ceate a send data variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditSendData {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditSendData {
         // Create the dropdown selection for the data type
         let data_type = gtk::ComboBoxText::new();
 
@@ -1887,7 +1887,7 @@ impl EditSendData {
         grid.show_all();
         EditSendData {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             data_type,
             event_description,
             event_data,
@@ -1921,7 +1921,7 @@ impl EditSendData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(SystemUpdate::Request {
+                self.gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSendData
@@ -1944,7 +1944,7 @@ impl EditSendData {
                 }
 
                 // Request the description associated with the id
-                self.system_send.send(SystemUpdate::Request {
+                self.gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSendData
@@ -2056,7 +2056,7 @@ impl EditSendData {
 #[derive(Clone, Debug)]
 struct EditSelectEvent {
     grid: gtk::Grid,                                         // the main grid for this element
-    system_send: SyncSystemSend,                            // a copy of the system send line
+    gtk_send: GtkSend,                            // a copy of the system send line
     select_event_list: gtk::ListBox,                        // the list for events in this variant
     select_events: Rc<RefCell<FnvHashMap<usize, EventGrouping>>>, // a database for the select events
     next_event: Rc<RefCell<usize>>,                          // the next available event location
@@ -2068,7 +2068,7 @@ struct EditSelectEvent {
 impl EditSelectEvent {
     // A function to create a select event variant
     //
-    fn new(system_send: &SyncSystemSend, is_left: bool) -> EditSelectEvent {
+    fn new(gtk_send: &GtkSend, is_left: bool) -> EditSelectEvent {
         // Create the list for the trigger events variant
         let select_event_list = gtk::ListBox::new();
         select_event_list.set_selection_mode(gtk::SelectionMode::None);
@@ -2082,7 +2082,7 @@ impl EditSelectEvent {
         drag!(dest status_description);
 
         // Set the callback function when data is received
-        status_description.connect_drag_data_received(clone!(system_send, is_left, status_data
+        status_description.connect_drag_data_received(clone!(gtk_send, is_left, status_data
         => move |widget, _, _, _, selection_data, _, _| {
             // Try to extract the selection data
             if let Some(string) = selection_data.get_text() {
@@ -2108,7 +2108,7 @@ impl EditSelectEvent {
                 }));
 
                 // Send a request to get the data associated with the status
-                system_send.send(SystemUpdate::Request {
+                gtk_send.send(UserRequest::Request {
                     reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::SelectEventStates },
                     request: RequestType::Status { item_id: item_pair.get_id(), },
                 });
@@ -2140,7 +2140,7 @@ impl EditSelectEvent {
         grid.show_all();
         EditSelectEvent {
             grid,
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             select_event_list,
             select_events: Rc::new(RefCell::new(FnvHashMap::default())),
             next_event: Rc::new(RefCell::new(0)),
@@ -2162,7 +2162,7 @@ impl EditSelectEvent {
         self.clear();
 
         // Send the request to update the status description
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription { position: None, is_event: false } },
@@ -2262,7 +2262,7 @@ impl EditSelectEvent {
         }
 
         // Request the event description
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription{
@@ -2274,7 +2274,7 @@ impl EditSelectEvent {
         });
 
         // Request the state description
-        self.system_send.send(SystemUpdate::Request {
+        self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription{

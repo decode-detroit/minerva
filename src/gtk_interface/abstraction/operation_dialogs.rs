@@ -82,7 +82,7 @@ impl StatusDialog {
     /// A method to launch the new status dialog with the current state of
     /// all of the statuses in the current configuration.
     ///
-    pub fn launch(&self, system_send: &SyncSystemSend, status: Option<ItemPair>) {
+    pub fn launch(&self, gtk_send: &GtkSend, status: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some("Modify Status"),
@@ -217,7 +217,7 @@ impl StatusDialog {
         grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(system_send =>
+        dialog.connect_response(clone!(gtk_send =>
         move |modal, id| {
 
             // Try to get a mutable copy of the event
@@ -252,7 +252,7 @@ impl StatusDialog {
                             }
 
                             // Send the new state update to the system
-                            system_send.send(SystemUpdate::StatusChange { status_id, state });
+                            gtk_send.send(UserRequest::StatusChange { status_id, state });
                         }
                     }
                 }
@@ -291,7 +291,7 @@ impl JumpDialog {
     /// A method to launch the new jump dialog with the current list of available
     /// scenes in the configuration.
     ///
-    pub fn launch(&self, system_send: &SyncSystemSend, scene: Option<ItemPair>) {
+    pub fn launch(&self, gtk_send: &GtkSend, scene: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some("Jump To ..."),
@@ -338,7 +338,7 @@ impl JumpDialog {
         grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(scene_selection, system_send => move |modal, id| {
+        dialog.connect_response(clone!(scene_selection, gtk_send => move |modal, id| {
 
             // Notify the system of the event change
             if id == gtk::ResponseType::Ok {
@@ -353,7 +353,7 @@ impl JumpDialog {
                         if let Some(scene) = ItemId::new(scene_number) {
 
                             // Send the new state update to the system
-                            system_send.send(SystemUpdate::SceneChange { scene });
+                            gtk_send.send(UserRequest::SceneChange { scene });
                         }
                     }
                 }
@@ -381,7 +381,7 @@ impl JumpDialog {
 pub struct ShortcutsDialog {
     key_press_handler: Option<glib::signal::SignalHandlerId>, // the active handler
     key_map: KeyMap,                                          // the map of key codes to event ids
-    system_send: SyncSystemSend,                                  // a copy of system send
+    gtk_send: GtkSend,                                  // a copy of system send
     window: gtk::ApplicationWindow,                           // a copy of the primary window
 }
 
@@ -390,11 +390,11 @@ impl ShortcutsDialog {
     /// A function to create a new shortcuts dialog structure with the ability
     /// to bind and display keyboard shortcuts
     ///
-    pub fn new(system_send: &SyncSystemSend, window: &gtk::ApplicationWindow) -> ShortcutsDialog {
+    pub fn new(gtk_send: &GtkSend, window: &gtk::ApplicationWindow) -> ShortcutsDialog {
         ShortcutsDialog {
             key_press_handler: None,
             key_map: KeyMap::default(),
-            system_send: system_send.clone(),
+            gtk_send: gtk_send.clone(),
             window: window.clone(),
         }
     }
@@ -502,13 +502,13 @@ impl ShortcutsDialog {
         if are_enabled {
             // Create a new handler (prevents any errant key presses if empty)
             let key_clone = self.key_map.clone();
-            let send_clone = self.system_send.clone();
+            let send_clone = self.gtk_send.clone();
             self.key_press_handler = Some(
                 // Attach the handler
                 self.window.connect_key_press_event(move |_, key_press| {
                     // Check to see if it matches one of our events
                     if let Some(id) = key_clone.get(&key_press.get_keyval()) {
-                        send_clone.send(SystemUpdate::ProcessEvent {
+                        send_clone.send(UserRequest::ProcessEvent {
                             event: id.get_id(),
                             check_scene: true,
                             broadcast: true,
@@ -543,7 +543,7 @@ impl TriggerDialog {
 
     /// A method to launch the new trigger dialog
     ///
-    pub fn launch(&mut self, system_send: &SyncSystemSend, event: Option<ItemPair>) {
+    pub fn launch(&mut self, gtk_send: &GtkSend, event: Option<ItemPair>) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some("Manually Trigger Event"),
@@ -599,9 +599,9 @@ impl TriggerDialog {
         self.description_label = Some(event_description.clone());
 
         // Connect the update description function to the spin button
-        event_spin.connect_property_value_notify(clone!(system_send => move |spin| {
+        event_spin.connect_property_value_notify(clone!(gtk_send => move |spin| {
             // Request a new description from the system
-            system_send.send(SystemUpdate::Request {
+            gtk_send.send(UserRequest::Request {
                 reply_to: DisplayComponent::TriggerDialog,
                 request: RequestType::Description {
                     item_id: ItemId::new_unchecked(spin.get_value() as u32),
@@ -701,7 +701,7 @@ impl TriggerDialog {
         }));
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(system_send, event_spin, now_checkbox, broadcast_checkbox, scene_checkbox, minutes_spin, seconds_spin => move |modal, id| {
+        dialog.connect_response(clone!(gtk_send, event_spin, now_checkbox, broadcast_checkbox, scene_checkbox, minutes_spin, seconds_spin => move |modal, id| {
             // Notify the system of the event change
             if id == gtk::ResponseType::Ok {
                 // If trigger now is not selected, send a delayed event
@@ -717,14 +717,14 @@ impl TriggerDialog {
                     }
 
                     // Send the new event
-                    system_send.send(SystemUpdate::CueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
+                    gtk_send.send(UserRequest::CueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
 
                 // If broadcast is selected, send a broadcast event
                 } else if broadcast_checkbox.get_active() {
-                    system_send.send(SystemUpdate::BroadcastEvent { event: ItemPair::new_unchecked(event_spin.get_value() as u32, "", Hidden), data: None});
+                    gtk_send.send(UserRequest::BroadcastEvent { event_id: ItemId::new_unchecked(event_spin.get_value() as u32), data: None});
 
                 // Otherwise, send the event to be processed by the system
-                } else { system_send.send(SystemUpdate::ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
+                } else { gtk_send.send(UserRequest::ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
                 }
             }
 
@@ -776,7 +776,7 @@ impl PromptStringDialog {
 
     /// A method to launch the new prompt string dialog
     ///
-    pub fn launch(&self, system_send: &SyncSystemSend, event: ItemPair) {
+    pub fn launch(&self, gtk_send: &GtkSend, event: ItemPair) {
         // Create the new dialog
         let dialog = gtk::Dialog::with_buttons(
             Some(&clean_text(
@@ -821,7 +821,7 @@ impl PromptStringDialog {
         grid.set_margin_end(10);
 
         // Connect the close event for when the dialog is complete
-        dialog.connect_response(clone!(system_send, buffer => move |modal, id| {
+        dialog.connect_response(clone!(gtk_send, buffer => move |modal, id| {
 
             // Notify the system of the event change
             if id == gtk::ResponseType::Ok {
@@ -861,7 +861,7 @@ impl PromptStringDialog {
 
                     // Send each bit of data to the system
                     for num in data.drain(..) {
-                        system_send.send(SystemUpdate::BroadcastEvent { event: event.clone(), data: Some(num)});
+                        gtk_send.send(UserRequest::BroadcastEvent { event_id: event.get_id(), data: Some(num)});
                     }
                 }
             }

@@ -60,7 +60,7 @@ impl ControlAbstraction {
     /// a new copy to allow insertion into higher-level elements.
     ///
     pub fn new(
-        system_send: &SyncSystemSend,
+        gtk_send: &GtkSend,
         interface_send: &mpsc::Sender<InterfaceUpdate>,
     ) -> ControlAbstraction {
         // Create the control grid for holding all the universal controls
@@ -155,10 +155,10 @@ impl ControlAbstraction {
         all_stop_cancel.set_vexpand(false);
 
         // Connect the confirmation hide
-        all_stop_confirm.connect_clicked(clone!(system_send, stop_stack => move |_| {
+        all_stop_confirm.connect_clicked(clone!(gtk_send, stop_stack => move |_| {
 
             // Send the all stop and close the confirmation
-            system_send.send(SystemUpdate::AllStop);
+            gtk_send.send(UserRequest::AllStop);
             stop_stack.set_visible_child_full("button", gtk::StackTransitionType::SlideDown);
         }));
 
