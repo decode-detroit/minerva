@@ -80,7 +80,7 @@ impl SystemInterface {
     pub async fn new(
         index_access: IndexAccess,
         interface_send: std_mpsc::Sender<InterfaceUpdate>,
-    ) -> Result<(SystemInterface, SystemSend), FailureError> {
+    ) -> Result<(Self, SystemSend), FailureError> {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
 
@@ -710,21 +710,36 @@ impl SystemInterface {
             }
             
             // Trigger and event from the web FIXME mostly a duplicate of process event
-            SystemUpdate::WebRequest { item_id, reply_line } => {
+            SystemUpdate::Web { reply_to, request } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
-                    // Try to process the event
-                    if handler.process_event(&item_id, true, true).await {
-                        // Notify the user of success
-                        reply_line.send(item_id).unwrap_or(());
+                    // Match the request type
+                    match request {
+                        // Cue an event
+                        WebRequest::CueEvent { event_id } => {
+                            // Try to process the event
+                            if handler.process_event(&event_id, true, true).await {
+                                // Notify the user of success
+                                reply_to.send(WebReply::success()).unwrap_or(());
+
+                            // Note if there was a failure
+                            } else {
+                                reply_to.send(WebReply::failure("Unable to cue the event.")).unwrap_or(());
+                            }
+                        }
+
+                        // Ignore other cases
+                        _ => {
+                            reply_to.send(WebReply::failure("Other requests have not been implemented.")).unwrap_or(());
+                        }
                     }
                     
                     // Put the handler back
                     self.event_handler = Some(handler);
 
-                // Otherwise, notify the user of the failure FIXME better reply format
+                // Otherwise, notify the user of the failure
                 } else {
-                    reply_line.send(ItemId::all_stop()).unwrap_or(());
+                    reply_to.send(WebReply::failure("No active configuration.")).unwrap_or(());
                 }
             }
         }

@@ -26,21 +26,15 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
     <script>
     async function updateText() {
-        let data = {
-            id: 9,
-        };
+        let event = 101;
         
         document.getElementById("info").innerHTML = `Waiting ...`;
-        const response = await fetch('/triggerEvent', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data),
+        const response = await fetch(`/cueEvent/${event}`, {
+            method: 'POST'
         });
-        const myJson = await response.json(); //extract JSON from the http response
-        console.log(myJson);
-        document.getElementById("info").innerHTML = `Got Id: ${myJson.id}<br><br>`;
+        const json = await response.json(); //extract JSON from the http response
+        console.log(json);
+        document.getElementById("info").innerHTML = `Got Id: ${json.generic.message}<br><br>`;
     }
     </script>
 </head>

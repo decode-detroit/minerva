@@ -20,9 +20,9 @@
 //! scenes, and other items in the program.
 
 // Import standard library modules
-use std::cmp::Ordering;
 use std::fmt;
 use std::hash;
+use std::cmp::Ordering;
 
 // Import FNV HashMap
 use fnv::FnvHashMap;

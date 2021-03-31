@@ -98,7 +98,7 @@ impl Minerva {
         }).expect("Unable To Create System Interface.");
 
         // Create a new web interface
-        let mut web_interface = WebInterface::new(&system_send);
+        let mut web_interface = WebInterface::new(index_access.clone(), system_send.clone());
 
         // Spin the runtime into a native thread
         thread::spawn(move || {

@@ -26,7 +26,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use std::fmt;
 
-// Import Tokio features
+// Import Tokio and warp features
 use tokio::sync::{mpsc, oneshot};
 
 // Import Chrono features
@@ -635,8 +635,7 @@ pub enum DisplayComponent {
     TriggerDialog,
 }
 
-/// An enum to provide updates from the main thread to the system interface,
-/// listed in order of increasing usage.
+/// An enum to provide updates from the main thread to the system interface.
 ///
 #[derive(Debug)]
 pub enum SystemUpdate {
@@ -720,8 +719,131 @@ pub enum SystemUpdate {
     /// A variant to change the state of the indicated status.
     StatusChange { status_id: ItemId, state: ItemId },
     
-    /// A variant for web requests FIXME standardize this
-    WebRequest { item_id: ItemId, reply_line: oneshot::Sender<ItemId> },
+    /// A variant for web requests
+    Web { reply_to: oneshot::Sender<WebReply>, request: WebRequest },
+}
+
+/// A type to cover all web requests
+/// 
+#[derive(Clone, Debug)]
+pub enum WebRequest {
+    // A variant to cue an event
+    CueEvent {
+        event_id: ItemId,
+    },
+
+    // A variant to get item details
+    GetItem {
+        item_id: ItemId,
+    },
+
+    // A variant that contains the complete item list
+    /*AllItems {
+        is_valid: bool, // a flag to indicate the result of the request
+        all_items: Option<Vec<ItemPair>>, // the list of all items, if found
+    },
+
+    // A variant that contains scene detail
+    Scene {
+        is_valid: bool, // a flag to indicate the result of the request
+        scene: Option<DescriptiveScene>, // the scene detail, if found
+    },
+
+    // A variant that contains status detail
+    Status {
+        is_valid: bool, // a flag to indicate the result of the request
+        status: Option<Status>, // the status detail, if found
+    },
+
+    // A variant that contains event detail
+    Event {
+        is_valid: bool, // a flag to indicate the result of the request
+        event: Option<Event>, // the event detail, if found
+    },
+
+    // A variant that contains item detail
+    Item {
+        is_valid: bool, // a flag to indicate the result of the request
+        item_pair: Option<ItemPair>, // the item pair, if found
+    },*/
+}
+
+/// A type to cover all web replies
+/// 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WebReply {
+    // A variant for replies with no specific content
+    Generic {
+        is_valid: bool, // a flag to indicate the result of the request
+        message: String, // a message describing the success or failure
+    },
+    
+    // A variant that contains the complete item list
+    AllItems {
+        is_valid: bool, // a flag to indicate the result of the request
+        all_items: Option<Vec<ItemPair>>, // the list of all items, if found
+    },
+
+    // A variant that contains scene detail
+    Scene {
+        is_valid: bool, // a flag to indicate the result of the request
+        scene: Option<DescriptiveScene>, // the scene detail, if found
+    },
+
+    // A variant that contains status detail
+    Status {
+        is_valid: bool, // a flag to indicate the result of the request
+        status: Option<Status>, // the status detail, if found
+    },
+
+    // A variant that contains event detail
+    Event {
+        is_valid: bool, // a flag to indicate the result of the request
+        event: Option<Event>, // the event detail, if found
+    },
+
+    // A variant that contains item detail
+    Item {
+        is_valid: bool, // a flag to indicate the result of the request
+        item_pair: Option<ItemPair>, // the item pair, if found
+    },
+}
+
+// Implement key features of the web reply
+impl WebReply {
+    /// A function to return a new, successful web reply
+    ///
+    pub fn success() -> WebReply {
+        WebReply::Generic {
+            is_valid: true,
+            message: "Request completed.".to_string(),
+        }
+    }
+    
+    /// A function to return a new, failed web reply
+    ///
+    pub fn failure<S>(reason: S) -> WebReply
+        where S: Into<String>
+    {
+        WebReply::Generic {
+            is_valid: false,
+            message: reason.into(),
+        }
+    }
+
+    /// A method to check if the reply is a success
+    /// 
+    pub fn is_success(&self) -> bool {
+        match self {
+            &WebReply::Generic { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::AllItems { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Scene { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Status { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Event { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Item { ref is_valid, .. } => is_valid.clone(),
+        }
+    }
 }
 
 /// A structure to list a series of event buttons that are associated with one

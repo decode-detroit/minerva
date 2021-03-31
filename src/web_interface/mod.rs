@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Decode Detroit
+// Copyright (c) 2020-2021 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -15,82 +15,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A module to create the web interface to interact with the underlying
-//! system interface. This module links directly to the system interface.
+//! A module to create the web interface to interface to connect the web UI
+//! and endpoints to the program.
 
-// Import the relevant structures into the correct namespace
-use crate::definitions::{ItemId, ItemPair, DescriptiveScene, Status, Event, DisplaySetting, WindowType, Notification, UpcomingEvent, SystemSend, SystemUpdate};
+// Import crate definitions
+use crate::definitions::*;
+
+// Import standard library features
+use std::str::FromStr;
+use std::num::ParseIntError;
 
 // Import tokio and warp modules
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 use warp::{http, Filter};
 
-/// A type to cover all web api replies
-/// 
-#[derive(Clone, Serialize, Deserialize)]
-pub enum WebReply {
-    // A variant for replies with no specific content
-    Generic {
-        is_valid: bool, // a flag to indicate the result of the request
-        message: String, // a message describing the success or failure
-    },
-    
-    // A variant that contains the complete item list
-    AllItems {
-        is_valid: bool, // a flag to indicate the result of the request
-        all_items: Option<Vec<ItemPair>>, // the list of all items, if found
-    },
-
-    // A variant that contains scene detail
-    Scene {
-        is_valid: bool, // a flag to indicate the result of the request
-        scene: Option<DescriptiveScene>, // the scene detail, if found
-    },
-
-    // A variant that contains status detail
-    Status {
-        is_valid: bool, // a flag to indicate the result of the request
-        status: Option<Status>, // the status detail, if found
-    },
-
-    // A variant that contains event detail
-    Event {
-        is_valid: bool, // a flag to indicate the result of the request
-        event: Option<Event>, // the event detail, if found
-    },
-
-    // A variant that contains item detail
-    Item {
-        is_valid: bool, // a flag to indicate the result of the request
-        item_pair: Option<ItemPair>, // the item pair, if found
-    },
-}
-
-// Implement key features of the web reply
-impl WebReply {
-    /// A function to return a new, successful web reply
-    ///
-    pub fn success() -> WebReply {
-        WebReply::Generic {
-            is_valid: true,
-            message: "Request completed.".to_string(),
-        }
-    }
-    
-    /// A function to return a new, failed web reply
-    ///
-    pub fn failure<S>(reason: S) -> WebReply
-        where S: Into<String>
-    {
-    
-        WebReply::Generic {
-            is_valid: false,
-            message: reason.into(),
-        }
-    }
-}
-
-/// A structure to pass server-side updates to the user interface
+/*/// A structure to pass server-side updates to the user interface
 /// 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WebUpdate {// FIXME change to an enum
@@ -118,12 +57,83 @@ pub struct WebUpdate {// FIXME change to an enum
 }
 
 /// A helper type definition for the web_sender
-type WebSend = mpsc::Sender<(ItemId, oneshot::Sender<WebReply>)>;
+type WebSend = mpsc::Sender<(ItemId, oneshot::Sender<WebReply>)>;*/
+
+/// Helper data types to formalize request structure
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct CueEvent {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct GetItem {
+    id: u32,
+}
+/*#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct PlaceStone {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+struct EntryId {
+    id: u32,
+}*/
+
+// Implement FromStr for helper data types
+impl FromStr for CueEvent {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(CueEvent { id })
+    }
+}
+impl FromStr for GetItem {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(GetItem { id })
+    }
+}
+
+// Implement from for the helper data types
+impl From<CueEvent> for WebRequest {
+    fn from(cue_event: CueEvent) -> Self {
+        WebRequest::CueEvent {
+            event_id: ItemId::new_unchecked(cue_event.id),
+        }
+    }
+}
+impl From<GetItem> for WebRequest {
+    fn from(get_item: GetItem) -> Self {
+        WebRequest::GetItem {
+            item_id: ItemId::new_unchecked(get_item.id),
+        }
+    }
+}
+/*impl From<PlaceStone> for Request {
+    fn from(place_stone: PlaceStone) -> Self {
+        Request::Place {
+            id: place_stone.id,
+        }
+    }
+}
+impl From<EntryId> for Request {
+    fn from(entry_id: EntryId) -> Self {
+        Request::Entry {
+            id: entry_id.id,
+        }
+    }
+}*/
 
 /// A structure to contain the web interface and handle all updates to the
 /// to the interface.
 ///
 pub struct WebInterface {
+    index_access: IndexAccess, // access point for the item index
     system_send: SystemSend, // send line to the system interface
 }
 
@@ -132,65 +142,97 @@ impl WebInterface {
     /// A function to create a new web interface. The send channel should
     /// connect directly to the system interface.
     ///
-    pub fn new(system_send: &SystemSend) -> WebInterface {
+    pub fn new(index_access: IndexAccess, system_send: SystemSend) -> Self {
         // Return the new web interface and runtime handle
         WebInterface {
-          system_send: system_send.clone(),
+            index_access,
+            system_send,
         }
     }
 
     /// A method to listen for connections from the internet
     ///
     pub async fn run(&mut self) {
-        // FIXME For testing
-        let hi = warp::path("hi").map(|| "Hello, World!");
-        
         // Create the index filter
         let readme = warp::get()
             .and(warp::path::end())
             .and(warp::fs::file("./index.html"));
 
         // Create the trigger event filter
-        let trigger_event = warp::post()
-            .and(warp::path("triggerEvent"))
-            .and(warp::path::end())
+        let cue_event = warp::post()
+            .and(warp::path("cueEvent"))
             .and(WebInterface::with_sender(self.system_send.clone()))
-            .and(WebInterface::json_body())
-            .and_then(WebInterface::send_message);
+            .and(warp::path::param::<CueEvent>())
+            .and(warp::path::end())
+            .and_then(WebInterface::handle_request);
+
+        // Create the item information filter
+        let get_item = warp::get()
+            .and(warp::path("getItem"))
+            .and(WebInterface::with_sender(self.system_send.clone()))
+            .and(warp::path::param::<GetItem>())
+            .and(warp::path::end())
+            .and_then(WebInterface::handle_request);
 
         // Combine the filters
-        let routes = hi.or(readme).or(trigger_event);
+        let routes = readme.or(cue_event).or(get_item);
         
         // Handle incoming requests
         warp::serve(routes)
             .run(([127, 0, 0, 1], 64637))
             .await;
     }
-    
+
+    /// A function to handle incoming requests
+    async fn handle_request<R>(system_send: SystemSend, request: R) -> Result<impl warp::Reply, warp::Rejection>
+        where R: Into<WebRequest>
+    {       
+        // Send the message and wait for the reply
+        let (reply_to, rx) = oneshot::channel();
+        system_send.send(SystemUpdate::Web {
+            reply_to,
+            request: request.into(),
+        }).await;
+        
+        // Wait for the reply
+        if let Ok(reply) = rx.await {
+            // If the reply is a success
+            if reply.is_success() {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::OK,
+                ));
+            
+            // Otherwise, note the error
+            } else {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::BAD_REQUEST,
+                ));
+            }
+        
+        // Otherwise, note the error
+        } else {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&WebReply::failure("Unable to process request.")),
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        }
+    }
+
     /// A function to extract the json body
-    fn json_body() -> impl Filter<Extract = (ItemId,), Error = warp::Rejection> + Clone {
+    pub fn json_body() -> impl Filter<Extract = (ItemId,), Error = warp::Rejection> + Clone {
         // When accepting a body, we want a JSON body (reject huge payloads)
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
 
-    fn with_sender(system_send: SystemSend) -> impl Filter<Extract = (SystemSend,), Error = std::convert::Infallible> + Clone {
+    // A function to add the system send to the filter
+    pub fn with_sender(system_send: SystemSend) -> impl Filter<Extract = (SystemSend,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || system_send.clone())
     }
 
-    /// A helper function to send a message to the system thread
-    async fn send_message(system_send: SystemSend, item_id: ItemId) -> Result<impl warp::Reply, warp::Rejection> {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        system_send.send(SystemUpdate::WebRequest {
-            item_id,
-            reply_line,
-        }).await;
-        
-        // Wait for the reply
-        let new_item = rx.await.unwrap_or(ItemId::all_stop()); // FIXME Not a great fallback
-        Ok(warp::reply::with_status(
-            warp::reply::json(&new_item),
-            http::StatusCode::CREATED,
-        ))
+    /// A function to add a specific request type to the filter
+    pub fn with_request(request: WebRequest) -> impl Filter<Extract = (WebRequest,), Error = std::convert::Infallible> + Clone {
+        warp::any().map(move || request.clone())
     }
 }
