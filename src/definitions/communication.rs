@@ -745,36 +745,42 @@ pub enum UserRequest {
 #[serde(rename_all = "camelCase")]
 pub enum WebReply {
     // A variant for replies with no specific content
+    #[serde(rename_all = "camelCase")]
     Generic {
         is_valid: bool, // a flag to indicate the result of the request
         message: String, // a message describing the success or failure
     },
     
     // A variant that contains the complete item list
+    #[serde(rename_all = "camelCase")]
     AllItems {
         is_valid: bool, // a flag to indicate the result of the request
         all_items: Option<Vec<ItemPair>>, // the list of all items, if found
     },
 
     // A variant that contains scene detail
+    #[serde(rename_all = "camelCase")]
     Scene {
         is_valid: bool, // a flag to indicate the result of the request
         scene: Option<DescriptiveScene>, // the scene detail, if found
     },
 
     // A variant that contains status detail
+    #[serde(rename_all = "camelCase")]
     Status {
         is_valid: bool, // a flag to indicate the result of the request
         status: Option<Status>, // the status detail, if found
     },
 
     // A variant that contains event detail
+    #[serde(rename_all = "camelCase")]
     Event {
         is_valid: bool, // a flag to indicate the result of the request
         event: Option<Event>, // the event detail, if found
     },
 
     // A variant that contains item detail
+    #[serde(rename_all = "camelCase")]
     Item {
         is_valid: bool, // a flag to indicate the result of the request
         item_pair: ItemPair, // the item pair

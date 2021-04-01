@@ -24,6 +24,7 @@ use crate::definitions::*;
 // Import standard library features
 use std::str::FromStr;
 use std::num::ParseIntError;
+use std::time::Duration;
 
 // Import tokio and warp modules
 use tokio::sync::oneshot;
@@ -54,40 +55,36 @@ pub struct WebUpdate {// FIXME change to an enum
         new_state: ItemPair, // the new state of the group
     },
     */
-}
-
-/// A helper type definition for the web_sender
-type WebSend = mpsc::Sender<(ItemId, oneshot::Sender<WebReply>)>;*/
+}*/
 
 /// Helper data types to formalize request structure
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct CueEvent {
-    id: u32,
+#[serde(rename_all = "camelCase")]
+struct AllEventChange {
+    adjustment_secs: u64,
+    adjustment_nanos: u64,
+    is_negative: bool,
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BroadcastEvent {
+    id: u32,
+    data: Option<u32>,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CueEvent {
+    id: u32,
+    secs: u64,
+    nanos: u64,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GetItem {
     id: u32,
 }
-/*#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct PlaceStone {
-    id: u32,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-struct EntryId {
-    id: u32,
-}*/
 
 // Implement FromStr for helper data types
-impl FromStr for CueEvent {
-    // Interpret errors as ParseIntError
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Parse as a u32 and return the result
-        let id = s.parse::<u32>()?;
-        Ok(CueEvent { id })
-    }
-}
 impl FromStr for GetItem {
     // Interpret errors as ParseIntError
     type Err = ParseIntError;
@@ -100,27 +97,42 @@ impl FromStr for GetItem {
 }
 
 // Implement from for the helper data types
+impl From<AllEventChange> for UserRequest {
+    fn from(all_event_change: AllEventChange) -> Self {
+        // Create the duration
+        let adjustment = Duration::from_secs(all_event_change.adjustment_secs) + Duration::from_nanos(all_event_change.adjustment_nanos);
+
+        // Return the request
+        UserRequest::AllEventChange {
+            adjustment,
+            is_negative: all_event_change.is_negative,
+        }
+    }
+}
+impl From<BroadcastEvent> for UserRequest {
+    fn from(broadcast_event: BroadcastEvent) -> Self {
+        UserRequest::BroadcastEvent {
+            event_id: ItemId::new_unchecked(broadcast_event.id),
+            data: broadcast_event.data,
+        }
+    }
+}
 impl From<CueEvent> for UserRequest {
     fn from(cue_event: CueEvent) -> Self {
+        // Create the duration
+        let delay;
+        if cue_event.secs != 0 || cue_event.nanos != 0 {
+            delay = Some(Duration::from_secs(cue_event.secs) + Duration::from_nanos(cue_event.nanos));
+        } else {
+            delay = None;
+        }
+
+        // Return the request
         UserRequest::CueEvent {
-            event_delay: EventDelay::new(None, ItemId::new_unchecked(cue_event.id)), // FIXME allow optional delay
+            event_delay: EventDelay::new(delay, ItemId::new_unchecked(cue_event.id)),
         }
     }
 }
-/*impl From<PlaceStone> for Request {
-    fn from(place_stone: PlaceStone) -> Self {
-        Request::Place {
-            id: place_stone.id,
-        }
-    }
-}
-impl From<EntryId> for Request {
-    fn from(entry_id: EntryId) -> Self {
-        Request::Entry {
-            id: entry_id.id,
-        }
-    }
-}*/
 
 /// A structure to contain the web interface and handle all updates to the
 /// to the interface.
@@ -151,12 +163,50 @@ impl WebInterface {
             .and(warp::path::end())
             .and(warp::fs::file("./index.html"));
 
-        // Create the trigger event filter
+        // Create the all event change filter
+        let all_event_change = warp::post()
+            .and(warp::path("allEventChange"))
+            .and(warp::path::end())
+            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_all_event_change())
+            .and_then(WebInterface::handle_request);
+
+        // Create the all stop filter
+        let all_stop = warp::path("allStop")
+            .and(warp::path::end())
+            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_request(UserRequest::AllStop))
+            .and_then(WebInterface::handle_request);
+
+        // Create the broadcast event filter
+        let broadcast_event = warp::path("broadcastEvent")
+            .and(warp::path::end())
+            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_broadcast_event())
+            .and_then(WebInterface::handle_request);
+
+        // Create the clear queue filter
+        let clear_queue = warp::post()
+            .and(warp::path("clearQueue"))
+            .and(warp::path::end())
+            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_request(UserRequest::ClearQueue))
+            .and_then(WebInterface::handle_request);
+
+        // Create the close filter
+        let close = warp::post()
+            .and(warp::path("close"))
+            .and(warp::path::end())
+            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_request(UserRequest::Close))
+            .and_then(WebInterface::handle_request);
+
+        // Create the cue event filter
         let cue_event = warp::post()
             .and(warp::path("cueEvent"))
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(warp::path::param::<CueEvent>())
             .and(warp::path::end())
+            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_cue_event())
             .and_then(WebInterface::handle_request);
 
         // Create the item information filter
@@ -168,7 +218,7 @@ impl WebInterface {
             .and_then(WebInterface::handle_get_item);
 
         // Combine the filters
-        let routes = readme.or(cue_event).or(get_item);
+        let routes = readme.or(all_event_change).or(all_stop).or(broadcast_event).or(clear_queue).or(close).or(cue_event).or(get_item);
         
         // Handle incoming requests
         warp::serve(routes)
@@ -222,24 +272,36 @@ impl WebInterface {
         ));
     }
 
-    /// A function to extract the json body
-    pub fn json_body() -> impl Filter<Extract = (ItemId,), Error = warp::Rejection> + Clone {
+    /// A function to extract an all event change from the body of the message
+    fn with_all_event_change() -> impl Filter<Extract = (AllEventChange,), Error = warp::Rejection> + Clone {
+        // When accepting a body, we want a JSON body (reject huge payloads)
+        warp::body::content_length_limit(1024 * 16).and(warp::body::json())
+    }
+
+    /// A function to extract a broadcast event from the body of the message
+    fn with_broadcast_event() -> impl Filter<Extract = (BroadcastEvent,), Error = warp::Rejection> + Clone {
+        // When accepting a body, we want a JSON body (reject huge payloads)
+        warp::body::content_length_limit(1024 * 16).and(warp::body::json())
+    }
+
+    /// A function to extract a cue event from the body of the message
+    fn with_cue_event() -> impl Filter<Extract = (CueEvent,), Error = warp::Rejection> + Clone {
         // When accepting a body, we want a JSON body (reject huge payloads)
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
 
     // A function to add the web send to the filter
-    pub fn with_sender(web_send: WebSend) -> impl Filter<Extract = (WebSend,), Error = std::convert::Infallible> + Clone {
+    fn with_sender(web_send: WebSend) -> impl Filter<Extract = (WebSend,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || web_send.clone())
     }
 
     // A function to add the index access  to the filter
-    pub fn with_index(index_access: IndexAccess) -> impl Filter<Extract = (IndexAccess,), Error = std::convert::Infallible> + Clone {
+    fn with_index(index_access: IndexAccess) -> impl Filter<Extract = (IndexAccess,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || index_access.clone())
     }
 
     /// A function to add a specific request type to the filter
-    pub fn with_request(request: UserRequest) -> impl Filter<Extract = (UserRequest,), Error = std::convert::Infallible> + Clone {
+    fn with_request(request: UserRequest) -> impl Filter<Extract = (UserRequest,), Error = std::convert::Infallible> + Clone {
         warp::any().map(move || request.clone())
     }
 }

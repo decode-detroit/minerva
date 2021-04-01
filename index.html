@@ -26,15 +26,32 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">
     <script>
     async function updateText() {
-        let event = 101;
+        let event_delay = {
+            id: 101,
+            secs: 3,
+            nanos: 0
+        };
         
         document.getElementById("info").innerHTML = `Waiting ...`;
-        const response = await fetch(`/cueEvent/${event}`, {
-            method: 'POST'
+        const response = await fetch(`/cueEvent`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(event_delay),
         });
         const json = await response.json(); //extract JSON from the http response
         console.log(json);
         document.getElementById("info").innerHTML = `Got Id: ${json.generic.message}<br><br>`;
+    }
+    async function closeProgram() {
+        document.getElementById("info").innerHTML = `Waiting ...`;
+        const response = await fetch(`/close`, {
+            method: 'POST',
+        });
+        const json = await response.json(); //extract JSON from the http response
+        console.log(json);
+        document.getElementById("info").innerHTML = `Program Closed<br><br>`;
     }
     </script>
 </head>
@@ -42,6 +59,7 @@
 <div id="contentBox">
     <button onclick="updateText()">Test Button</button>
     <div id="info">Press the button.<br>
+    <button onclick="closeProgram()">Close Program</button>
 </div>
 </body>
 </html>

@@ -172,15 +172,42 @@ impl SystemInterface {
 
             // Requests from the Gtk Interface
             Some(request) = self.gtk_receive.recv() => {
-                return self.unpack_request(request.into()).await;
+                // If the program should close
+                if let UnpackResult::Close = self.unpack_request(request.into()).await {
+                    return false;
+                }
             }
 
-            // Updates from the User Interface
+            // Updates from the Web Interface
             Some(request) = self.web_receive.recv() => {
-                // Notify the user of success FIXME should depend on whether the request was successful
-                request.reply_to.send(WebReply::success()).unwrap_or(());
-                
-                return self.unpack_request(request.request).await;
+                // Unpack the request
+                match self.unpack_request(request.request).await {
+                    // The unpacking was a success
+                    UnpackResult::Success => {
+                        request.reply_to.send(WebReply::success()).unwrap_or(());
+                    }
+
+                    // The unpacking was a failure
+                    UnpackResult::Failure(reason) => {
+                        request.reply_to.send(WebReply::failure(&reason)).unwrap_or(());
+                    }
+
+                    // The unpacking indicated the program should close
+                    UnpackResult::Close => {
+                        request.reply_to.send(WebReply::success()).unwrap_or(());
+                        return false;
+                    }
+
+                    /*
+                                "Unable to cue the event."
+
+
+                        // Ignore other cases
+                        _ => {
+                            reply_to.send(WebReply::failure("Other requests have not been implemented.")).unwrap_or(());
+                        }
+                    reply_to.send(WebReply::failure("No active configuration.")).unwrap_or(());*/
+                }
             }
         }
 
@@ -197,7 +224,7 @@ impl SystemInterface {
     pub async fn run(mut self) {
         // Loop the structure indefinitely
         loop {
-            // Repeat endlessly until run_once fails.
+            // Repeat endlessly until run_once reaches close
             if !self.run_once().await {
                 break;
             }
@@ -348,7 +375,7 @@ impl SystemInterface {
     /// When the update is the Close variant, the function will return false,
     /// indicating that the thread should close.
     ///
-    async fn unpack_request(&mut self, request: UserRequest) -> bool {
+    async fn unpack_request(&mut self, request: UserRequest) -> UnpackResult {
         // Unpack the different variant types
         match request {
             // Change the delay for all events in the queue
@@ -363,6 +390,10 @@ impl SystemInterface {
                     
                     // Put the handler back
                     self.event_handler = Some(handler);
+                
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
@@ -416,11 +447,15 @@ impl SystemInterface {
                     
                     // Put the handler back
                     self.event_handler = Some(handler);
+                
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
             // Close the system interface thread.
-            UserRequest::Close => return false,
+            UserRequest::Close => return UnpackResult::Close, // FIXME doesn't work when selected from the web interface
 
             // Update the configuration provided to the underlying system
             UserRequest::ConfigFile { filepath } => {
@@ -446,9 +481,10 @@ impl SystemInterface {
                     // Put the handler back
                     self.event_handler = Some(handler);
 
-                // Otherwise noity the user that a configuration faild to load
+                // Otherwise noity the user that a configuration failed to load
                 } else {
-                    update!(err &mut self.internal_send => "Event Could Not Be Added. No Active Configuration.");
+                    update!(err &mut self.internal_send => "Event couldn't be cued. No active configuration.");
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
@@ -724,41 +760,8 @@ impl SystemInterface {
                     self.event_handler = Some(handler);
                 }
             }
-            
-            // Trigger and event from the web FIXME mostly a duplicate of process event
-            /*UserRequest::Web { reply_to, request } => {
-                // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
-                    // Match the request type
-                    match request {
-                        // Cue an event
-                        WebRequest::CueEvent { event_id } => {
-                            // Try to process the event
-                            if handler.process_event(&event_id, true, true).await {
-                                
-
-                            // Note if there was a failure
-                            } else {
-                                reply_to.send(WebReply::failure("Unable to cue the event.")).unwrap_or(());
-                            }
-                        }
-
-                        // Ignore other cases
-                        _ => {
-                            reply_to.send(WebReply::failure("Other requests have not been implemented.")).unwrap_or(());
-                        }
-                    }
-                    
-                    // Put the handler back
-                    self.event_handler = Some(handler);
-
-                // Otherwise, notify the user of the failure
-                } else {
-                    reply_to.send(WebReply::failure("No active configuration.")).unwrap_or(());
-                }
-            }*/
         }
-        true // indicate to continue
+        UnpackResult::Success // indicate to continue and no errors
     }
 
     /// An internal method to try to load the provided configuration into the
@@ -928,6 +931,17 @@ impl SystemInterface {
     }
 }
 
+// A helper enum to indicate the result of unpacking a request
+enum UnpackResult {
+    // A variant for successful unpacking
+    Success,
+
+    // A variant for unsuccessful unpacking
+    Failure(String),
+
+    // A variant to indicate the program should close
+    Close,
+}
 
 // Tests of the system_interface module
 #[cfg(test)]

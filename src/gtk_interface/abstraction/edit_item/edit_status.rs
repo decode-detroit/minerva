@@ -143,7 +143,7 @@ impl EditStatus {
 
             // Check which status variant it is
             match status.clone() {
-                Status::MultiState { current, allowed, no_change_silent } => {
+                Status::MultiState { current, allowed, no_change_silent: _ } => { // FIXME should use this field
                     // Change the dropdown
                     self.status_selection.set_active_id(Some("multistate"));
 
