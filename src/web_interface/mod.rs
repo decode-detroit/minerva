@@ -31,33 +31,6 @@ use std::num::ParseIntError;
 use tokio::sync::oneshot;
 use warp::{http, Filter};
 
-/*/// A structure to pass server-side updates to the user interface
-///
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WebUpdate {// FIXME change to an enum
-    display_setting: Option<DisplaySetting>, // variable for to changes the display settings
-    //launch_window: Option<WindowType>, // launch a special window
-    notice: Option<String>, // a notice to post briefly
-    // FIXME notifications: Option<Vec<Notification>>, // formatted system notifications
-    // FIXME upcoming_events: Option<Vec<UpcomingEvent>>, // a list of upcoming events for the timeline
-    /*
-    UpdateConfig {
-        scenes: Vec<ItemPair>,
-        full_status: FullStatus,
-    },
-    UpdateWindow {
-        current_scene: ItemPair,
-        statuses: Vec<ItemPair>,
-        window: EventWindow,
-        key_map: KeyMap,
-    },
-    UpdateStatus {
-        status_id: ItemPair, // the group to update
-        new_state: ItemPair, // the new state of the group
-    },
-    */
-}*/
-
 /// Helper data types to formalize request structure
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

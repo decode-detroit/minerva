@@ -111,7 +111,12 @@ Audio output supports Alsa and Pulse Audio. Each output has its advantages - doc
 
 ### Redis for Instant Recovery
 
-The most up-to-date instructions for installing Redis can be found here: https://redis.io/. You'll also need to copy the [redis server configuration](examples/redis.conf) into the Redis configuration folder.
+The most up-to-date instructions for installing Redis can be found here: https://redis.io/.
+
+The default configuration should work just fine for most purposes. For super high reliabilty, you'll want to make sure every change is written to the disk (add to redis.conf):
+```
+save 60 1
+```
 
 ### DMX For Lighting/Effects Control
 
@@ -137,7 +142,7 @@ Note: These instructions are written for *compiling* the software on Ubuntu 20.0
 
 ### Cross-Compiling To Raspbian (armhf, 32bit)
 
-Note: These settings are largely the same for arm64, but the 64-bit version hasn't been tested.
+Note: These settings are largely analogous for arm64, but the 64-bit version hasn't been tested.
 
 To cross-compile, install the correct rust target and install the linker.
 ```
@@ -186,4 +191,4 @@ Please join us in the pursuit of free and open source software for the arts! Ema
 
 This project is licensed under the GNU GPL Version 3 - see the [LICENSE](LICENSE) file for details
 
-Thanks to all the wonderful free and open source people out there who have made this project possible, especially Mozilla et al. for creating such a beautiful language, the folks at Arduino for creating the ubiquitous microcontroller platform, and the team at Adafruit for their tireless committment to open source hardware.
+Thanks to all the wonderful free and open source people out there who have made this project possible, especially Mozilla et al. for a beautiful language, the folks at Arduino for the ubiquitous microcontroller platform, and the team at Adafruit for their tireless committment to open source hardware.
