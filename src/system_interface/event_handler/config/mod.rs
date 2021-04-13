@@ -74,7 +74,7 @@ impl BackgroundThread {
         // Check to see if the file is valid
         if let Ok(path) = background_process.process.canonicalize() {
             // Notify that the background process is starting
-            update!(update internal_send => "Starting Background Process ...");
+            log!(update internal_send => "Starting Background Process ...");
 
             // Create the child process
             let mut child = match Command::new(path.clone())
@@ -87,7 +87,7 @@ impl BackgroundThread {
 
                 // Otherwise, warn of the error and return
                 _ => {
-                    update!(err internal_send => "Unable To Start Background Process.");
+                    log!(err internal_send => "Unable To Start Background Process.");
                     return None;
                 }
             };
@@ -106,17 +106,17 @@ impl BackgroundThread {
                         Ok(status) => {
                             // Notify that the process was a success and restart
                             if status.success() {
-                                update!(update internal_send => "Background Process Finished Normally.");
+                                log!(update internal_send => "Background Process Finished Normally.");
 
                             // Otherwise, notify of a failed process
                             } else {
-                                update!(err internal_send => "Background Process Finished Abnormally.");
+                                log!(err internal_send => "Background Process Finished Abnormally.");
                             }
                         }
 
                         // If the process failed to run
                         _ => {
-                            update!(err internal_send => "Unable To Run Background Process.");
+                            log!(err internal_send => "Unable To Run Background Process.");
                             break;
                         }
                     }
@@ -124,7 +124,7 @@ impl BackgroundThread {
                     // If the process has finished, and we want to keep it alive
                     if keepalive {
                         // Notify that the background process is restarting
-                        update!(update internal_send => "Restarting Background Process ...");
+                        log!(update internal_send => "Restarting Background Process ...");
 
                         // Start the process again
                         child = match Command::new(path.clone()).args(arguments.clone()).spawn()
@@ -134,7 +134,7 @@ impl BackgroundThread {
 
                             // Otherwise, warn of the error and end the thread
                             _ => {
-                                update!(err internal_send => "Unable To Run Background Process.");
+                                log!(err internal_send => "Unable To Run Background Process.");
                                 break;
                             }
                         };
@@ -151,7 +151,7 @@ impl BackgroundThread {
 
         // Warn that the process wasn't found
         } else {
-            update!(err internal_send => "Unable To Find Background Process.");
+            log!(err internal_send => "Unable To Find Background Process.");
             None
         }
     }
@@ -232,7 +232,7 @@ impl Config {
         match config_file.read_to_string(&mut config_string) {
             Ok(_) => (),
             Err(error) => {
-                update!(err internal_send => "Invalid Configuration File: {}", error);
+                log!(err internal_send => "Invalid Configuration File: {}", error);
                 return Err(format_err!("Invalid configuration file: {}", error));
             }
         }
@@ -241,7 +241,7 @@ impl Config {
         let yaml_config: YamlConfig = match serde_yaml::from_str(config_string.as_str()) {
             Ok(config) => config,
             Err(error) => {
-                update!(err internal_send => "Unable To Parse Configuration File: {}", error);
+                log!(err internal_send => "Unable To Parse Configuration File: {}", error);
                 return Err(format_err!("Unable to parse configuration file: {}", error));
             }
         };
@@ -249,7 +249,7 @@ impl Config {
         // Check the version id and warn the user if they differ
         let version = env!("CARGO_PKG_VERSION");
         if &yaml_config.version != version {
-            update!(warn internal_send => "Version Of Configuration ({}) Does Not Match Software Version ({})", &yaml_config.version, version);
+            log!(warn internal_send => "Version Of Configuration ({}) Does Not Match Software Version ({})", &yaml_config.version, version);
         }
 
         // Turn the ItemPairs in to the item index and event set
@@ -260,7 +260,7 @@ impl Config {
             match item_index.insert(item_pair.get_id(), item_pair.get_description()) {
                 // Warn of events defined multiple times
                 Some(_) => {
-                    update!(warn internal_send => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id())
+                    log!(warn internal_send => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id())
                 }
                 None => (),
             }
@@ -271,7 +271,7 @@ impl Config {
                 match events.insert(item_pair.get_id(), event.clone()) {
                     // Warn of an event defined multiple times
                     Some(_) => {
-                        update!(warn internal_send => "Item {} Has Multiple Definitions In Event List.", &item_pair.id())
+                        log!(warn internal_send => "Item {} Has Multiple Definitions In Event List.", &item_pair.id())
                     }
                     None => (),
                 }
@@ -304,7 +304,7 @@ impl Config {
                 // Update the current scene id
                 current_scene = scene_id;
             } else {
-                update!(warn internal_send => "Current Scene Is Not Defined.")
+                log!(warn internal_send => "Current Scene Is Not Defined.")
             }
         }
 
@@ -318,7 +318,7 @@ impl Config {
         // Adjust fullscreen, if specified
         if let Some(fullscreen) = yaml_config.fullscreen {
             interface_send
-                .send(ChangeSettings {
+                .send(InterfaceUpdate::ChangeSettings {
                     display_setting: DisplaySetting::FullScreen(fullscreen),
                 })
                 .unwrap_or(());
@@ -399,7 +399,7 @@ impl Config {
                 .await;
 
             // Notify the system of the successful status change
-            update!(status &self.internal_send => status_id, new_state);
+            log!(status &self.internal_send => status_id, new_state);
         }
     }
 
@@ -568,7 +568,7 @@ impl Config {
         // Warn the system that the selected id doesn't exist
         } else {
             // Warn of the error and indicate failure
-            update!(warn &self.internal_send => "Scene ID Not Found In Config: {}", scene_id);
+            log!(warn &self.internal_send => "Scene ID Not Found In Config: {}", scene_id);
             return Err(());
         }
     }
@@ -598,7 +598,7 @@ impl Config {
             .await
         {
             // Notify the system of the successful status change
-            update!(status &self.internal_send => status_id.clone(), new_state.clone());
+            log!(status &self.internal_send => status_id.clone(), new_state.clone());
 
             // Indicate status change
             return Some(new_id);
@@ -617,11 +617,11 @@ impl Config {
             if let Some(event) = self.events.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
-                update!(update &self.internal_send => "Event Updated: {}", self.index_access.get_description(&event_id).await);
+                log!(update &self.internal_send => "Event Updated: {}", self.index_access.get_description(&event_id).await);
 
             // Otherwise, add the event
             } else {
-                update!(update &self.internal_send => "Event Added: {}", self.index_access.get_description(&event_id).await);
+                log!(update &self.internal_send => "Event Added: {}", self.index_access.get_description(&event_id).await);
                 self.events.insert(event_id, new_event);
             }
 
@@ -630,7 +630,7 @@ impl Config {
             // If the event is in the event list, remove it
             if let Some(_) = self.events.remove(&event_id) {
                 // Notify the user that it was removed
-                update!(update &self.internal_send => "Event Removed: {}", self.index_access.get_description(&event_id).await);
+                log!(update &self.internal_send => "Event Removed: {}", self.index_access.get_description(&event_id).await);
             }
         }
     }
@@ -658,11 +658,11 @@ impl Config {
             if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
                 // Update the scene and notify the system
                 *scene = new_scene;
-                update!(update &self.internal_send => "Scene Updated: {}", self.index_access.get_description(&scene_id).await);
+                log!(update &self.internal_send => "Scene Updated: {}", self.index_access.get_description(&scene_id).await);
 
             // Otherwise, add the scene
             } else {
-                update!(update &self.internal_send => "Scene Added: {}", self.index_access.get_description(&scene_id).await);
+                log!(update &self.internal_send => "Scene Added: {}", self.index_access.get_description(&scene_id).await);
                 self.all_scenes.insert(scene_id, new_scene);
             }
 
@@ -671,7 +671,7 @@ impl Config {
             // If the scene is in the scene list, remove it
             if let Some(_) = self.all_scenes.remove(&scene_id) {
                 // Notify the user that it was removed
-                update!(update &self.internal_send => "Scene Removed: {}", self.index_access.get_description(&scene_id).await);
+                log!(update &self.internal_send => "Scene Removed: {}", self.index_access.get_description(&scene_id).await);
             }
         }
     }
@@ -692,12 +692,12 @@ impl Config {
                 // Check to see if the event is listed in the current scene
                 if !scene.events.contains(id) {
                     // If the event is not listed in the current scene, notify
-                    update!(warnevent &self.internal_send => id.clone() => "Event Not In Current Scene.");
+                    log!(warnevent &self.internal_send => id.clone() => "Event Not In Current Scene.");
                     return None;
                 }
             // Warn that there isn't a current scene
             } else {
-                update!(err &self.internal_send => "Current Scene Not Found.");
+                log!(err &self.internal_send => "Current Scene Not Found.");
                 return None;
             }
         }
@@ -710,7 +710,7 @@ impl Config {
             // Return None if the id doesn't exist
             None => {
                 // Notify of an invalid event
-                update!(errevent &self.internal_send => id.clone() => "Event Not Found.");
+                log!(errevent &self.internal_send => id.clone() => "Event Not Found.");
 
                 // Return None
                 None
@@ -774,7 +774,7 @@ impl Config {
         let config_string = match serde_yaml::to_string(&yaml_config) {
             Ok(config_string) => config_string,
             Err(error) => {
-                update!(err &self.internal_send => "Unable To Parse Current Configuration: {}", error);
+                log!(err &self.internal_send => "Unable To Parse Current Configuration: {}", error);
                 return;
             }
         };
@@ -783,7 +783,7 @@ impl Config {
         match config_file.write_all(config_string.as_bytes()) {
             Ok(_) => (),
             Err(error) => {
-                update!(err &self.internal_send => "Unable To Write Configuration To File: {}", error)
+                log!(err &self.internal_send => "Unable To Write Configuration To File: {}", error)
             }
         }
     }
@@ -811,12 +811,12 @@ impl Config {
             if !Config::verify_scene(internal_send, scene, all_scenes, status_map, lookup, events)
                 .await
             {
-                update!(warn internal_send => "Broken Scene Definition: {}", id);
+                log!(warn internal_send => "Broken Scene Definition: {}", id);
             }
 
             // Verify that the scene is described in the lookup
             if !lookup.contains_key(&id) {
-                update!(warn internal_send => "Scene Not Described In Lookup: {}", id);
+                log!(warn internal_send => "Scene Not Described In Lookup: {}", id);
             }
         }
     }
@@ -857,14 +857,14 @@ impl Config {
                 )
                 .await
                 {
-                    update!(warn internal_send => "Invalid Event: {}", id);
+                    log!(warn internal_send => "Invalid Event: {}", id);
                     test = false;
                 }
 
             // Otherwise verify that the item id corresponds to a status
             } else if let None = status_map.get(id) {
                 // Warn that an invalid event or status was listed in the scene
-                update!(warn internal_send => "Item Listed In Scene, But Not Found: {}", id);
+                log!(warn internal_send => "Item Listed In Scene, But Not Found: {}", id);
                 test = false;
             }
 
@@ -878,7 +878,7 @@ impl Config {
             for (_, id) in key_map.iter() {
                 // Make sure the event is listed in the scene
                 if !scene.events.contains(id) {
-                    update!(warn internal_send => "Event In Shortcuts, But Not In Scene: {}", id);
+                    log!(warn internal_send => "Event In Shortcuts, But Not In Scene: {}", id);
                     test = false;
                 } // Events in the scene have already been tested for other validity
             }
@@ -917,14 +917,14 @@ impl Config {
                     if all_scenes.contains_key(new_scene) {
                         // Verify that the newscene event exists in the new scene
                         if !event_list.contains_key(new_scene) {
-                            update!(warn internal_send => "Reset Scene Event Missing From Scene: {}", new_scene);
+                            log!(warn internal_send => "Reset Scene Event Missing From Scene: {}", new_scene);
                             return false;
                         }
 
                     // If the desired scene does not exist
                     } else {
                         // Warn the system and indicate failure
-                        update!(warn internal_send => "Event Contains Invalid Scene: {}", new_scene);
+                        log!(warn internal_send => "Event Contains Invalid Scene: {}", new_scene);
                         return false;
                     }
 
@@ -941,11 +941,11 @@ impl Config {
                     if let Some(status) = status_map.get(status_id) {
                         // Also verify the new state
                         if !status.is_allowed(new_state) {
-                            update!(warn internal_send => "Event Contains Invalid New State: {}", &new_state);
+                            log!(warn internal_send => "Event Contains Invalid New State: {}", &new_state);
                             return false;
                         }
                     } else {
-                        update!(warn internal_send => "Event Contains Invalid Status Id: {}", &status_id);
+                        log!(warn internal_send => "Event Contains Invalid Status Id: {}", &status_id);
                         return false;
                     }
 
@@ -958,13 +958,13 @@ impl Config {
                 &CueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
                     if !scene.events.contains(&event.id()) {
-                        update!(warn internal_send => "Event Contains Cue Event, But Not In Scene: {}", &event.id());
+                        log!(warn internal_send => "Event Contains Cue Event, But Not In Scene: {}", &event.id());
                         // Do not flag as incorrect
                     }
 
                     // Return false if the event_id is incorrect
                     if !event_list.contains_key(&event.id()) {
-                        update!(warn internal_send => "Event Contains Invalid Cue Event: {}", &event.id());
+                        log!(warn internal_send => "Event Contains Invalid Cue Event: {}", &event.id());
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
@@ -973,7 +973,7 @@ impl Config {
                 &CancelEvent { ref event } => {
                     // Return false if the event doesn't exist
                     if !event_list.contains_key(&event) {
-                        update!(warn internal_send => "Event Contains Invalid Cancelled Events: {}", &event);
+                        log!(warn internal_send => "Event Contains Invalid Cancelled Events: {}", &event);
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked. Don't need to check scene validity because cancelled events are not necessarily in the same scene.
                 }
@@ -992,7 +992,7 @@ impl Config {
                         // Verify that the allowed states vector isn't empty
                         let allowed = status.allowed();
                         if allowed.is_empty() {
-                            update!(warn internal_send => "Event Contains Empty Select Event: {}", status_id);
+                            log!(warn internal_send => "Event Contains Empty Select Event: {}", status_id);
                             return false;
                         }
 
@@ -1002,13 +1002,13 @@ impl Config {
                             if let Some(target_event) = event_map.get(state) {
                                 // Verify that the event is listed in the current scene
                                 if !scene.events.contains(&target_event) {
-                                    update!(warn internal_send => "Event Group Contains Event, But It Is Not Listed In Scene: {}", &target_event);
+                                    log!(warn internal_send => "Event Group Contains Event, But It Is Not Listed In Scene: {}", &target_event);
                                     // Do not flag as incorrect
                                 }
 
                                 // Verify that the event exists
                                 if !event_list.contains_key(&target_event) {
-                                    update!(warn internal_send => "Event Group Contains Invalid Target Event: {}", &target_event);
+                                    log!(warn internal_send => "Event Group Contains Invalid Target Event: {}", &target_event);
                                     return false;
                                 }
 
@@ -1018,7 +1018,7 @@ impl Config {
 
                     // If the status doesn't exist, raise a warning
                     } else {
-                        update!(warn internal_send => "Event Contains Invalid Status: {}", status_id);
+                        log!(warn internal_send => "Event Contains Invalid Status: {}", status_id);
                         return false;
                     }
                 }
@@ -1040,7 +1040,7 @@ impl Config {
     ) -> bool {
         // Check to see if the id is available in the lookup
         if !lookup.contains_key(&id) {
-            update!(warn internal_send => "Item Not Described In Lookup: {}", id);
+            log!(warn internal_send => "Item Not Described In Lookup: {}", id);
             return false;
         }
         true // Otherwise indicate success

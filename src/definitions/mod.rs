@@ -23,24 +23,28 @@
 mod test;
 
 // Define submodules
-mod item;
+mod connections;
 #[macro_use]
 mod event;
+mod index;
+mod interface;
+mod item;
+#[macro_use]
+mod log;
 mod scene;
 mod status;
-#[macro_use]
-mod update;
-mod communication;
-mod connections;
+mod system;
 
 // Reexport all the definitions from the submodules
-pub use self::communication::*;
 pub use self::connections::*;
 pub use self::event::*;
+pub use self::index::*;
+pub use self::interface::*;
 pub use self::item::*;
+pub use self::log::*;
 pub use self::scene::*;
 pub use self::status::*;
-pub use self::update::*;
+pub use self::system::*;
 
 // Reexport the testing module and definitions
 #[cfg(test)]

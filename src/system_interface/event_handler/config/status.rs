@@ -78,7 +78,7 @@ impl StatusHandler {
 
         // Warn that there is an error with the provided status id
         } else {
-            update!(err &self.update_line => "Unable To Locate Current State Of Status: {}.", &status_id);
+            log!(err &self.update_line => "Unable To Locate Current State Of Status: {}.", &status_id);
             return None;
         }
     }
@@ -107,11 +107,11 @@ impl StatusHandler {
             if let Some(status) = self.status_map.get_mut(&status_id) {
                 // Update the status and notify the system
                 *status = new_status;
-                update!(update &self.update_line => "Status Updated: {}", description);
+                log!(update &self.update_line => "Status Updated: {}", description);
 
             // Otherwise, add the status
             } else {
-                update!(update &self.update_line => "Status Added: {}", description);
+                log!(update &self.update_line => "Status Added: {}", description);
                 self.status_map.insert(status_id, new_status);
             }
 
@@ -120,7 +120,7 @@ impl StatusHandler {
             // If the status is in the status map, remove it
             if let Some(_) = self.status_map.remove(&status_id) {
                 // Notify the user that it was removed
-                update!(update &self.update_line => "Status Removed: {}", description);
+                log!(update &self.update_line => "Status Removed: {}", description);
             }
         }
     }
@@ -153,7 +153,7 @@ impl StatusHandler {
 
         // Warn the system that this is not a valid id
         } else {
-            update!(warn &self.update_line => "Status ID Not Found In Config: {}", status_id);
+            log!(warn &self.update_line => "Status ID Not Found In Config: {}", status_id);
             None
         }
     }

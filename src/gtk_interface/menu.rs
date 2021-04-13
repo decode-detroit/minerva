@@ -235,7 +235,7 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(ChangeSettings {
+                    .send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::FullScreen(!is_fullscreen),
                     })
                     .unwrap_or(());
@@ -252,7 +252,7 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(ChangeSettings {
+                    .send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::DebugMode(!is_debug),
                     })
                     .unwrap_or(());
@@ -269,7 +269,7 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(ChangeSettings {
+                    .send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::LargeFont(!is_large),
                     })
                     .unwrap_or(());
@@ -286,7 +286,7 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(ChangeSettings {
+                    .send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::HighContrast(!is_hc),
                     })
                     .unwrap_or(());
@@ -299,7 +299,7 @@ impl MenuAbstraction {
         shortcuts.connect_activate(move |_, _| {
             // Launch the shortcuts dialog
             interface_clone
-                .send(LaunchWindow {
+                .send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Shortcuts,
                 })
                 .unwrap_or(());
@@ -311,7 +311,7 @@ impl MenuAbstraction {
         jump.connect_activate(move |_, _| {
             // Launch the jump dialog
             interface_clone
-                .send(LaunchWindow {
+                .send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Jump(None),
                 })
                 .unwrap_or(());
@@ -323,7 +323,7 @@ impl MenuAbstraction {
         status.connect_activate(move |_, _| {
             // Launch the status modification dialog
             interface_clone
-                .send(LaunchWindow {
+                .send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Status(None),
                 })
                 .unwrap_or(());
@@ -342,7 +342,7 @@ impl MenuAbstraction {
         trigger.connect_activate(move |_, _| {
             // Launch the trigger event dialog
             interface_clone
-                .send(LaunchWindow {
+                .send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Trigger(None),
                 })
                 .unwrap_or(());
@@ -468,7 +468,7 @@ impl MenuAbstraction {
                 let is_edit = !state.get().unwrap_or(true);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                interface_send.send(EditMode(is_edit)).unwrap_or(());
+                interface_send.send(InterfaceUpdate::EditMode(is_edit)).unwrap_or(());
 
                 // Swap the checkbox state
                 checkbox.change_state(&(is_edit).to_variant());

@@ -319,7 +319,7 @@ impl SystemInterface {
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
-                    update!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
+                    log!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
                 }
             }
 
@@ -414,10 +414,10 @@ impl SystemInterface {
                 }
 
                 // Send the all stop event via the logger
-                update!(broadcast &mut self.internal_send => ItemId::all_stop(), None);
+                log!(broadcast &mut self.internal_send => ItemId::all_stop(), None);
 
                 // Place an error in the debug log
-                update!(err &mut self.internal_send => "An All Stop was triggered by the operator.");
+                log!(err &mut self.internal_send => "An All Stop was triggered by the operator.");
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -432,7 +432,7 @@ impl SystemInterface {
             // GeneralUpdate::BroadcastEvent)
             UserRequest::BroadcastEvent { event_id, data } => {
                 // Broadcast the event via the logger
-                update!(broadcast &mut self.internal_send => event_id, data);
+                log!(broadcast &mut self.internal_send => event_id, data);
 
                 // Get the event description
                 let message = self
@@ -491,7 +491,7 @@ impl SystemInterface {
 
                 // Otherwise noity the user that a configuration failed to load
                 } else {
-                    update!(err &mut self.internal_send => "Event couldn't be cued. No active configuration.");
+                    log!(err &mut self.internal_send => "Event couldn't be cued. No active configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
                 }
             }
@@ -521,11 +521,11 @@ impl SystemInterface {
                                     )
                                     .await
                                 {
-                                    update!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
+                                    log!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
 
                                 // If not, notify that the item was updated
                                 } else {
-                                    update!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
+                                    log!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
                                 }
                             }
 
@@ -551,7 +551,7 @@ impl SystemInterface {
 
                 // Raise a warning that there is no active configuration
                 } else {
-                    update!(warn &mut self.internal_send => "Change Not Saved: There Is No Active Configuration.");
+                    log!(warn &mut self.internal_send => "Change Not Saved: There Is No Active Configuration.");
                 }
             }
 
@@ -601,7 +601,7 @@ impl SystemInterface {
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
-                    update!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
+                    log!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
                 }
             }
 
@@ -661,7 +661,7 @@ impl SystemInterface {
 
                             // Send it back to the user interface
                             self.interface_send
-                                .send(Reply {
+                                .send(InterfaceUpdate::Reply {
                                     reply_to, // echo to display component
                                     reply: ReplyType::Description {
                                         description: item_pair,
@@ -677,7 +677,7 @@ impl SystemInterface {
 
                             // Send an update with the event (or None)
                             self.interface_send
-                                .send(Reply {
+                                .send(InterfaceUpdate::Reply {
                                     reply_to, // echo the display component
                                     reply: ReplyType::Event { event },
                                 })
@@ -691,7 +691,7 @@ impl SystemInterface {
 
                             // Send it back to the user interface
                             self.interface_send
-                                .send(Reply {
+                                .send(InterfaceUpdate::Reply {
                                     reply_to,
                                     reply: ReplyType::Items { items },
                                 })
@@ -705,7 +705,7 @@ impl SystemInterface {
 
                             // Send it back to the user interface
                             self.interface_send
-                                .send(Reply {
+                                .send(InterfaceUpdate::Reply {
                                     reply_to,
                                     reply: ReplyType::Scene { scene },
                                 })
@@ -718,7 +718,7 @@ impl SystemInterface {
 
                             // Send an update with the status (or None)
                             self.interface_send
-                                .send(Reply {
+                                .send(InterfaceUpdate::Reply {
                                     reply_to, // echo the display component
                                     reply: ReplyType::Status { status },
                                 })
@@ -731,7 +731,7 @@ impl SystemInterface {
 
                 // Otherwise noity the user that a configuration failed to load
                 } else {
-                    update!(warn &mut self.internal_send => "Information Unavailable. No Active Configuration.");
+                    log!(warn &mut self.internal_send => "Information Unavailable. No Active Configuration.");
                 }
             }
 

@@ -97,12 +97,12 @@ impl BackupHandler {
 
                 // Indicate that there was a failure to connect to the server
                 } else {
-                    update!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
+                    log!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
                 }
 
             // Indicate that there was a failure to connect to the server
             } else {
-                update!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
+                log!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
             }
 
             // Indicate failure
@@ -145,7 +145,7 @@ impl BackupHandler {
             // Unpack the result from the operation
             if let Err(..) = result {
                 // Warn that it wasn't possible to update the current scene
-                update!(err self.internal_send => "Unable To Backup Current Scene Onto Backup Server.");
+                log!(err self.internal_send => "Unable To Backup Current Scene Onto Backup Server.");
             }
 
             // Put the connection back
@@ -182,7 +182,7 @@ impl BackupHandler {
 
             // Warn that the particular status was not set
             if let Err(..) = result {
-                update!(warn &self.internal_send => "Unable To Backup Status Onto Backup Server: {}.", status_id);
+                log!(warn &self.internal_send => "Unable To Backup Status Onto Backup Server: {}.", status_id);
 
             // Otherwise, add the id to the backup items
             } else {
@@ -230,7 +230,7 @@ impl BackupHandler {
             let event_string = match serde_yaml::to_string(&queued_events) {
                 Ok(string) => string,
                 Err(error) => {
-                    update!(err &self.internal_send => "Unable To Parse Coming Events: {}", error);
+                    log!(err &self.internal_send => "Unable To Parse Coming Events: {}", error);
 
                     // Put the connection back
                     self.connection = Some(connection);
@@ -244,7 +244,7 @@ impl BackupHandler {
 
             // Warn that the event queue was not set
             if let Err(..) = result {
-                update!(warn &self.internal_send => "Unable To Backup Events Onto Backup Server.");
+                log!(warn &self.internal_send => "Unable To Backup Events Onto Backup Server.");
             }
 
             // Put the connection back

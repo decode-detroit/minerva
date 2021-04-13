@@ -284,7 +284,7 @@ impl Logger {
 
                 // Send the change to the interface
                 self.interface_send
-                    .send(UpdateStatus {
+                    .send(InterfaceUpdate::UpdateStatus {
                         status_id: status_pair.clone(),
                         new_state: state_pair.clone(),
                     })

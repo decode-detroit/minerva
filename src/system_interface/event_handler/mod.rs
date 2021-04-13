@@ -97,7 +97,7 @@ impl EventHandler {
             Err(_) => {
                 // Only log failure if the flag is set
                 if log_failure {
-                    update!(err &internal_send => "Unable To Open Configuration File.");
+                    log!(err &internal_send => "Unable To Open Configuration File.");
                 }
                 return Err(format_err!("Unable to open configuration file."));
             }
@@ -127,7 +127,7 @@ impl EventHandler {
         let possible_backup = backup.reload_backup(config.get_status_ids());
         if let Some((current_scene, status_pairs, queued_events)) = possible_backup {
             // Notify that existing data was found
-            update!(err &internal_send => "Detected Lingering Backup Data. Reloading ...");
+            log!(err &internal_send => "Detected Lingering Backup Data. Reloading ...");
 
             // Change the current scene silently (i.e. do not trigger the reset event)
             config.choose_scene(current_scene).await.unwrap_or(());
@@ -318,7 +318,7 @@ impl EventHandler {
     ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) {
         // Send an update to the rest of the system (will preceed error if there is one)
-        update!(update &self.internal_send => "Changing Current Scene ...");
+        log!(update &self.internal_send => "Changing Current Scene ...");
 
         // Try to change the underlying scene
         if self.config.choose_scene(scene_id).await.is_ok() {
@@ -401,7 +401,7 @@ impl EventHandler {
         let config_file = match File::create(config_path) {
             Ok(file) => file,
             Err(_) => {
-                update!(err &self.internal_send => "Unable To Open Configuration File.");
+                log!(err &self.internal_send => "Unable To Open Configuration File.");
                 return;
             }
         };
@@ -451,12 +451,12 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            update!(broadcast &self.internal_send => event_id.clone(), Some(number));
+                            log!(broadcast &self.internal_send => event_id.clone(), Some(number));
                         }
 
                     // Otherwise just update the system about the event
                     } else {
-                        update!(now &self.internal_send => event_id.clone());
+                        log!(now &self.internal_send => event_id.clone());
                     }
                 }
 
@@ -478,11 +478,11 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                update!(broadcast &self.internal_send => event_id.clone(), None);
+                log!(broadcast &self.internal_send => event_id.clone(), None);
 
             // Otherwise just update the system about the event
             } else {
-                update!(now &self.internal_send => event_id.clone());
+                log!(now &self.internal_send => event_id.clone());
             }
         }
 
@@ -539,7 +539,7 @@ impl EventHandler {
                             let data_string = format!("Time {}:{}", minutes, seconds);
 
                             // Save the data to the game log
-                            update!(save &self.internal_send => data_string);
+                            log!(save &self.internal_send => data_string);
                         }
                     }
 
@@ -560,7 +560,7 @@ impl EventHandler {
                                 let data_string = format!("Time {}:{}", minutes, seconds);
 
                                 // Save the data to the game log
-                                update!(save &self.internal_send => data_string);
+                                log!(save &self.internal_send => data_string);
                             }
                         }
                     }
@@ -568,13 +568,13 @@ impl EventHandler {
                     // Send the static string to the event
                     DataType::StaticString { string } => {
                         // Save the string to the game log
-                        update!(save &self.internal_send => string);
+                        log!(save &self.internal_send => string);
                     }
 
                     // Solicit a string from the user
                     DataType::UserString => {
                         // Error that this is not yet implemented
-                        update!(err &self.internal_send => "Saving a User String is not yet implemented.");
+                        log!(err &self.internal_send => "Saving a User String is not yet implemented.");
                     }
                 }
             }

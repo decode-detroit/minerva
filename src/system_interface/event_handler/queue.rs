@@ -521,7 +521,7 @@ impl Queue {
 
         // Otherwise, raise an error that the queue has failed
         } else {
-            update!(err &self.interface_send => "Internal Failure Of The Event Queue.");
+            log!(err &self.interface_send => "Internal Failure Of The Event Queue.");
         }
     }
 

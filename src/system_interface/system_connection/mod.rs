@@ -353,7 +353,7 @@ impl SystemConnection {
 
                     // If it fails, warn the user
                     Err(e) => {
-                        update!(err self.internal_send => "System Connection Error: {}", e);
+                        log!(err self.internal_send => "System Connection Error: {}", e);
                         return false;
                     }
                 };
@@ -385,7 +385,7 @@ impl SystemConnection {
             // Send the new event
             let result = conn.send(ConnectionUpdate::Broadcast(new_event, data));
             if let Err(e) = result {
-                update!(err &self.internal_send => "Unable To Connect: {}", e);
+                log!(err &self.internal_send => "Unable To Connect: {}", e);
             }
         }
     }
@@ -433,7 +433,7 @@ impl SystemConnection {
 
                             // Otherwise send a notification of an incorrect game number
                             } else {
-                                update!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
+                                log!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
                             }
 
                         // Otherwise, send the event to the program
@@ -444,12 +444,12 @@ impl SystemConnection {
 
                     // For a write error, notify the system
                     ReadResult::WriteError(error) => {
-                        update!(err &internal_send => "Communication Write Error: {}", error);
+                        log!(err &internal_send => "Communication Write Error: {}", error);
                     }
 
                     // For a read error, notify the system
                     ReadResult::ReadError(error) => {
-                        update!(err &internal_send => "Communication Read Error: {}", error);
+                        log!(err &internal_send => "Communication Read Error: {}", error);
                     }
                 }
             }
@@ -476,13 +476,13 @@ impl SystemConnection {
                         // Catch any write errors
                         if let Err(error1) = connection.write_event(id, game_id, data2) {
                             // Throw the error
-                            update!(err &internal_send => "Communication Error: {}", error1);
+                            log!(err &internal_send => "Communication Error: {}", error1);
 
                             // Wait a little bit and try again
                             sleep(Duration::from_millis(POLLING_RATE)).await;
                             if let Err(error2) = connection.write_event(id, game_id, data2) {
                                 // If failed twice in a row, notify the system
-                                update!(err &internal_send => "Persistent Communication Error: {}", error2);
+                                log!(err &internal_send => "Persistent Communication Error: {}", error2);
                             }
                         }
                     }

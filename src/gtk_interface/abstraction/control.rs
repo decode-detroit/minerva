@@ -234,12 +234,12 @@ impl ControlAbstraction {
             while index != notifications.len() {
                 match notifications[index] {
                     // Ignore Warning messages
-                    Warning { .. } => {
+                    Notification::Warning { .. } => {
                         notifications.remove(index);
                     }
 
                     // Ignore Current notifications
-                    Current { .. } => {
+                    Notification::Current { .. } => {
                         notifications.remove(index);
                     }
 
@@ -331,7 +331,7 @@ impl ControlAbstraction {
         // Unpack the notification based on its variant
         match notification {
             // Highlight the error variant in bold with red
-            Error {
+            Notification::Error {
                 message,
                 time,
                 event,
@@ -359,7 +359,7 @@ impl ControlAbstraction {
                         let interface_clone = self.interface_send.clone();
                         new_button.connect_clicked(clone!(event_pair => move |_| {
                             interface_clone
-                                .send(LaunchWindow {
+                                .send(InterfaceUpdate::LaunchWindow {
                                     window_type: WindowType::Trigger(Some(event_pair.clone())),
                                 })
                                 .unwrap_or(());
@@ -394,7 +394,7 @@ impl ControlAbstraction {
             }
 
             // Highlight the warning variant with yellow
-            Warning {
+            Notification::Warning {
                 message,
                 time,
                 event,
@@ -424,7 +424,7 @@ impl ControlAbstraction {
                         let interface_clone = self.interface_send.clone();
                         new_button.connect_clicked(clone!(event_pair => move |_| {
                             interface_clone
-                                .send(LaunchWindow {
+                                .send(InterfaceUpdate::LaunchWindow {
                                     window_type: WindowType::Trigger(Some(event_pair.clone())),
                                 })
                                 .unwrap_or(());
@@ -457,7 +457,7 @@ impl ControlAbstraction {
             }
 
             // Add a prefix to the current variant and highlight with blue
-            Current { message, time } => {
+            Notification::Current { message, time } => {
                 // Format the time appropriately
                 let timestr = time.format("%a %T");
 
@@ -474,7 +474,7 @@ impl ControlAbstraction {
             }
 
             // Leave the other update unformatted
-            Update { message, time } => {
+            Notification::Update { message, time } => {
                 // Format the time appropriately
                 let timestr = time.format("%a %T");
 

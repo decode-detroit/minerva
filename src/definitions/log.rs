@@ -16,13 +16,16 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //! This module implements the internal send communication for the system
-//! interface and the update! macro for easy logging and notifications.
+//! interface and the log! macro for easy logging and notifications.
 
 // Import crate definitions
 use crate::definitions::*;
 
 // Import standard library modules
 use std::fmt;
+
+// Import Chrono features
+use chrono::NaiveDateTime;
 
 // Import Tokio features
 use tokio::sync::mpsc;
@@ -235,7 +238,7 @@ impl fmt::Display for LogUpdate {
 /// A macro that allows the user to quickly and easily send status updates over
 /// the update line to the rest of the system.
 ///
-macro_rules! update {
+macro_rules! log {
 
     // Take a mpsc line and error type of LogUpdate
     (err $line:expr => $($arg:tt)*) => ({
@@ -347,14 +350,108 @@ macro_rules! update {
     });
 }
 
+/// An enum to contain system notifications in different types.
+///
+/// This notification type mirrors the log update type, but is only allowed
+/// to contain strings for display to the user and the system time of the
+/// notification (no other types, as in event update). This type also omits
+/// several of the variants described in the event update as they should not
+/// be displayed to the user.
+///
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum Notification {
+    /// An error type of notification
+    Error {
+        message: String,
+        time: NaiveDateTime,
+        event: Option<ItemPair>,
+    },
+
+    /// A warning type of notification
+    Warning {
+        message: String,
+        time: NaiveDateTime,
+        event: Option<ItemPair>,
+    },
+
+    /// A current event type of notification
+    Current {
+        message: String,
+        time: NaiveDateTime,
+    },
+
+    /// Any other type of internal update
+    Update {
+        message: String,
+        time: NaiveDateTime,
+    },
+}
+
+// Implement key features for the Notification type
+impl Notification {
+    /// A function to return a copy of the message inside the notification,
+    /// regardless of variant.
+    ///
+    #[allow(dead_code)]
+    pub fn message(&self) -> String {
+        match self {
+            // For every variant type, return a copy of the message
+            &Notification::Error { ref message, .. } => message.clone(),
+            &Notification::Warning { ref message, .. } => message.clone(),
+            &Notification::Current { ref message, .. } => message.clone(),
+            &Notification::Update { ref message, .. } => message.clone(),
+        }
+    }
+
+    /// A function to return a copy of the time inside the notification,
+    /// regardless of variant.
+    ///
+    pub fn time(&self) -> NaiveDateTime {
+        match self {
+            // For every variant type, return a copy of the message
+            &Notification::Error { ref time, .. } => time.clone(),
+            &Notification::Warning { ref time, .. } => time.clone(),
+            &Notification::Current { ref time, .. } => time.clone(),
+            &Notification::Update { ref time, .. } => time.clone(),
+        }
+    }
+}
+
+// Implement the display formatting for notifications.
+impl fmt::Display for Notification {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            // For every variant type, combine the message and notification time
+            &Notification::Error {
+                ref message,
+                ref time,
+                ..
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
+            &Notification::Warning {
+                ref message,
+                ref time,
+                ..
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
+            &Notification::Current {
+                ref message,
+                ref time,
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
+            &Notification::Update {
+                ref message,
+                ref time,
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
+        }
+    }
+}
+
 // Tests of the update module
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Test the update! macro
+    // Test the log! macro
     #[tokio::test]
-    async fn update_macro() {
+    async fn log_macro() {
         // Import libraries for testing
         use crate::definitions::{InternalSend, InternalUpdate};
 
@@ -362,11 +459,11 @@ mod tests {
         let (tx, mut rx) = InternalSend::new();
 
         // Generate a few messages
-        update!(err tx => "Test Error {}", 1);
-        update!(warn tx => "Test Warning {}", 2);
-        update!(broadcast tx => ItemId::new_unchecked(3), None);
-        update!(now tx => ItemId::new_unchecked(4));
-        update!(update tx => "Test Update {}", "5");
+        log!(err tx => "Test Error {}", 1);
+        log!(warn tx => "Test Warning {}", 2);
+        log!(broadcast tx => ItemId::new_unchecked(3), None);
+        log!(now tx => ItemId::new_unchecked(4));
+        log!(update tx => "Test Update {}", "5");
 
         // Create the test vector
         let test = vec![

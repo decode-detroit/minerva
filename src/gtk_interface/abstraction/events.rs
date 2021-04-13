@@ -532,7 +532,7 @@ impl EventGroupAbstraction {
                     // Connect the status dialog when clicked
                     selection.connect_clicked(clone!(interface_send => move |_| {
                         // Send the status dialog to the user interface
-                        interface_send.send(LaunchWindow {
+                        interface_send.send(InterfaceUpdate::LaunchWindow {
                             window_type: WindowType::Status(Some(id_pair.clone()))
                         }).unwrap_or(());
                     }));

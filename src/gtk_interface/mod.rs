@@ -132,7 +132,7 @@ impl GtkInterface {
             // Unpack the updates of every type
             match update {
                 // Change the internal setting of the user interface
-                ChangeSettings { display_setting } => {
+                InterfaceUpdate::ChangeSettings { display_setting } => {
                     // Attempt to get a mutable copy of the menu abstraction
                     let mut menu = match self.menu_abstraction.try_borrow_mut() {
                         Ok(menu) => menu,
@@ -190,7 +190,7 @@ impl GtkInterface {
                 }
 
                 // Change the user interface to or from edit mode
-                EditMode(is_edit) => {
+                InterfaceUpdate::EditMode(is_edit) => {
                     // If the edit setting was chosen
                     if is_edit {
                         // Switch the interface to edit mode
@@ -204,7 +204,7 @@ impl GtkInterface {
                 }
 
                 // Launch the requested special window
-                LaunchWindow { window_type } => {
+                InterfaceUpdate::LaunchWindow { window_type } => {
                     // Sort for the window type
                     match window_type {
                         // Launch the jump dialog
@@ -238,10 +238,10 @@ impl GtkInterface {
                 }
 
                 // Show a one line notification in the status bar
-                Notify { message } => interface.notify(&message),
+                InterfaceUpdate::Notify { message } => interface.notify(&message),
 
                 // Pass information from the system to the correct spot
-                Reply { reply_to, reply } => {
+                InterfaceUpdate::Reply { reply_to, reply } => {
                     // Match the type of the reply
                     match reply_to.clone() {
                         // Pass the reply to the trigger dialog
@@ -257,7 +257,7 @@ impl GtkInterface {
                 }
 
                 // Update the available scenes and available statuses
-                UpdateConfig {
+                InterfaceUpdate::UpdateConfig {
                     scenes,
                     full_status,
                 } => {
@@ -270,7 +270,7 @@ impl GtkInterface {
                 }
 
                 // Update the current event window
-                UpdateWindow {
+                InterfaceUpdate::UpdateWindow {
                     current_scene,
                     statuses,
                     window,
@@ -284,18 +284,18 @@ impl GtkInterface {
                 }
 
                 // Update the state of a particular status
-                UpdateStatus {
+                InterfaceUpdate::UpdateStatus {
                     status_id,
                     new_state,
                 } => interface.update_state(status_id, new_state),
 
                 // Update the notifications in the notification window
-                UpdateNotifications { notifications } => {
+                InterfaceUpdate::UpdateNotifications { notifications } => {
                     interface.update_notifications(notifications)
                 }
 
                 // Update the events in the timeline area
-                UpdateTimeline { events } => interface.update_events(events),
+                InterfaceUpdate::UpdateTimeline { events } => interface.update_events(events),
             }
         }
     }
