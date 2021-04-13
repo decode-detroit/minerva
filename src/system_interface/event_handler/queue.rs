@@ -24,12 +24,12 @@
 use crate::definitions::*;
 
 // Import standard library features
-use std::time::Duration;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 // Import tokio features
-use tokio::sync::mpsc;
 use tokio::runtime::Handle;
+use tokio::sync::mpsc;
 use tokio::time::sleep;
 
 /// An internal struct to hold the coming events and associated updates.
@@ -116,7 +116,7 @@ impl ComingEvents {
         if let Ok(mut list) = self.list.lock() {
             *list = Vec::new();
         }
-        
+
         // Send the update
         self.send_current().await;
     }
@@ -131,7 +131,7 @@ impl ComingEvents {
             return match list.last() {
                 Some(event) => Some(event.clone()),
                 None => None,
-            }
+            };
         }
         None
     }
@@ -154,7 +154,7 @@ impl ComingEvents {
                 Ok(mut list) => list.pop(), // technically could be None, but isn't because of the logic above
                 _ => None,
             };
-            
+
             // Send the update
             self.send_current().await;
             return tmp;
@@ -203,7 +203,7 @@ impl ComingEvents {
             // Look for and remove the requested event (based on the drain_filter code)
             let mut index = 0;
             while index != list.len() {
-                // If the event was found, 
+                // If the event was found,
                 if list[index].compare_with(&new_event) {
                     // Break at this index point
                     break;
@@ -212,16 +212,16 @@ impl ComingEvents {
                 // Otherwise, keep looking
                 index += 1;
             }
-            
+
             // If the event wasn't found, return None
             if index == list.len() {
                 return None;
             }
-            
+
             // Otherwise, remove the event from the list
             list.remove(index);
         }
-        
+
         // Send the update
         self.send_current().await;
 
@@ -258,7 +258,7 @@ impl ComingEvents {
                 }
             }
         }
-        
+
         // If changed, update the current events
         if is_changed {
             self.send_current().await;
@@ -343,7 +343,7 @@ impl Queue {
                         None => {
                             // Remove the last event from the list
                             let last_event = coming_events.pop_if(&event).await;
-                            
+
                             // Send it if it matches what we expected. Otherwise, do nothing.
                             if let Some(event_now) = last_event {
                                 interface_send.send_event(event_now.id(), true, true).await;
@@ -354,7 +354,7 @@ impl Queue {
                         Some(delay) => {
                             // Create the new sleep
                             let sleep = sleep(delay);
-                            
+
                             // Act on the first to return
                             tokio::select! {
                                 // If an event is received before the delay expires
@@ -362,12 +362,12 @@ impl Queue {
                                     // Process the new upcoming event
                                     coming_events.load_event(new_event).await;
                                 }
-                                
+
                                 // If the delay expires instead
                                 _ = sleep => {
                                     // Remove the last event from the list
                                     let last_event = coming_events.pop_if(&event).await;
-                                    
+
                                     // Send it if it matches what we expected. Otherwise, do nothing.
                                     if let Some(event_now) = last_event {
                                         interface_send.send_event(event_now.id(), true, true).await;
@@ -469,7 +469,7 @@ impl Queue {
             Ok(mut list) => Some(list.drain(..).collect()),
             _ => None,
         };
-        
+
         // If collecting the events was successful
         if let Some(mut events) = possible_events {
             // If the adjustment is positive
@@ -483,7 +483,8 @@ impl Queue {
                             delay: event.delay + adjustment,
                             event_id: event.id(),
                         })
-                        .await.unwrap_or(());
+                        .await
+                        .unwrap_or(());
                 }
 
             // Otherwise, try to subtract time from the events
@@ -510,13 +511,14 @@ impl Queue {
                                         delay,
                                         event_id: event.id(),
                                     })
-                                    .await.unwrap_or(());
+                                    .await
+                                    .unwrap_or(());
                             }
                         }
                     }
                 }
             }
-        
+
         // Otherwise, raise an error that the queue has failed
         } else {
             update!(err &self.interface_send => "Internal Failure Of The Event Queue.");
@@ -593,34 +595,64 @@ mod tests {
         let mut queue = Queue::new(tx);
 
         // Load some events into the queue
-        queue.add_event(EventDelay::new(
-            Some(Duration::from_millis(20)),
-            ItemId::new(20).unwrap(),
-        )).await;
-        queue.add_event(EventDelay::new(
-            Some(Duration::from_millis(60)),
-            ItemId::new(60).unwrap(),
-        )).await;
-        queue.add_event(EventDelay::new(
-            Some(Duration::from_millis(40)),
-            ItemId::new(40).unwrap(),
-        )).await;
-        queue.add_event(EventDelay::new(
-            Some(Duration::from_millis(100)),
-            ItemId::new(100).unwrap(),
-        )).await;
-        queue.add_event(EventDelay::new(
-            Some(Duration::from_millis(80)),
-            ItemId::new(80).unwrap(),
-        )).await;
+        queue
+            .add_event(EventDelay::new(
+                Some(Duration::from_millis(20)),
+                ItemId::new(20).unwrap(),
+            ))
+            .await;
+        queue
+            .add_event(EventDelay::new(
+                Some(Duration::from_millis(60)),
+                ItemId::new(60).unwrap(),
+            ))
+            .await;
+        queue
+            .add_event(EventDelay::new(
+                Some(Duration::from_millis(40)),
+                ItemId::new(40).unwrap(),
+            ))
+            .await;
+        queue
+            .add_event(EventDelay::new(
+                Some(Duration::from_millis(100)),
+                ItemId::new(100).unwrap(),
+            ))
+            .await;
+        queue
+            .add_event(EventDelay::new(
+                Some(Duration::from_millis(80)),
+                ItemId::new(80).unwrap(),
+            ))
+            .await;
 
         // Create the test vector
         let reference = vec![
-            InternalUpdate::ProcessEvent{ event: ItemId::new_unchecked(20), check_scene: true, broadcast: true },
-            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(40), check_scene: true, broadcast: true },
-            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(60), check_scene: true, broadcast: true },
-            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(80), check_scene: true, broadcast: true },
-            InternalUpdate::ProcessEvent { event: ItemId::new_unchecked(100), check_scene: true, broadcast: true },
+            InternalUpdate::ProcessEvent {
+                event: ItemId::new_unchecked(20),
+                check_scene: true,
+                broadcast: true,
+            },
+            InternalUpdate::ProcessEvent {
+                event: ItemId::new_unchecked(40),
+                check_scene: true,
+                broadcast: true,
+            },
+            InternalUpdate::ProcessEvent {
+                event: ItemId::new_unchecked(60),
+                check_scene: true,
+                broadcast: true,
+            },
+            InternalUpdate::ProcessEvent {
+                event: ItemId::new_unchecked(80),
+                check_scene: true,
+                broadcast: true,
+            },
+            InternalUpdate::ProcessEvent {
+                event: ItemId::new_unchecked(100),
+                check_scene: true,
+                broadcast: true,
+            },
         ];
 
         // Print and check the messages received (wait at most half a second)
@@ -633,7 +665,7 @@ mod tests {
                     if let &InternalUpdate::ProcessEvent { .. } = &update {
                         received.push(update);
                     }
-                    
+
                     // Check if the received vector matches the test vector
                     if reference == received {
                         return;

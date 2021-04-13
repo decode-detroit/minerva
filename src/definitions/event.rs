@@ -20,8 +20,11 @@
 // Import crate definitions
 use crate::definitions::*;
 
-// Import standard library modules
-use std::time::{Duration, Instant};
+// Import standard library features
+use std::time::Duration;
+
+// Import Chrono features
+use chrono::{NaiveDateTime, Local};
 
 // Import FNV HashMap
 use fnv::FnvHashMap;
@@ -59,15 +62,68 @@ impl EventDelay {
     }
 }
 
+/// A struct to allow easier manipulation of queued events.
+/// 
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub struct ComingEvent {
+    pub start_time: NaiveDateTime,   // the start time of the event
+    pub delay: Duration,        // delay between the start time and the trigger time for the event
+    pub event_id: ItemId,       // id of the event to launch
+}
+
+// Implement the Coming Event features
+impl ComingEvent {
+    /// A function to return a new ComingEvent by consuming Duration and
+    /// ItemId.
+    ///
+    pub fn new(delay: Duration, event_id: ItemId) -> ComingEvent {
+        ComingEvent {
+            start_time: Local::now().naive_local(),
+            delay,
+            event_id,
+        }
+    }
+
+    /// A method to return a copy of the event id.
+    ///
+    pub fn id(&self) -> ItemId {
+        self.event_id.clone()
+    }
+
+    /// A method to calculate the amount of time remaining before the event
+    /// triggers. Returns None if the event should already have occured.
+    ///
+    pub fn remaining(&self) -> Option<Duration> {
+        // Calculate the time since the event was queued
+        let elapsed = Local::now().naive_local().signed_duration_since(self.start_time);
+        
+        // Compare the durations, or default to playing the event immediately
+        match elapsed.to_std().ok() {
+            // If the conversion was a success, perform the calculation
+            Some(duration) => self.delay.checked_sub(duration),
+
+            // Default to zero
+            None => None,
+        }
+    }
+
+    /// A method to compare the start time and event id of two coming events.
+    /// The method returns true iff both values are equal.
+    /// 
+    pub fn compare_with(&self, other: &ComingEvent) -> bool {
+        (self.event_id == other.event_id) & (self.start_time == other.start_time)
+    }
+}
+
 /// A small struct that holds and event item pair and the corresponding delay
 /// until the event should be triggered. Designed for passing events to the
 /// user interface.
 ///
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct UpcomingEvent {
-    pub event: ItemPair,     // id and description of the event to launch
-    pub start_time: Instant, // the original start time of the event
-    pub delay: Duration,     // delay between now and the time for the event
+    pub event: ItemPair,            // id and description of the event to launch
+    pub start_time: NaiveDateTime,  // the original start time of the event
+    pub delay: Duration,            // delay between now and the time for the event
 }
 
 /// An enum with the types of data available to be saved and sent
@@ -138,5 +194,5 @@ pub type Event = Vec<EventAction>;
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    CancelEvent, SelectEvent, ModifyStatus, NewScene, CueEvent, SaveData, SendData,
+    CancelEvent, CueEvent, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
 };

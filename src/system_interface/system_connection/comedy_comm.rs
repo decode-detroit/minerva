@@ -201,7 +201,9 @@ impl EventConnection for ComedyComm {
                     // And if time has expired
                     if (instant + Duration::from_millis(ACK_DELAY)) < Instant::now() {
                         // Notify the system of a communication error
-                        results.push(ReadResult::WriteError(format_err!("No Acknowledgement from Comedy Comm. Retrying ...")));
+                        results.push(ReadResult::WriteError(format_err!(
+                            "No Acknowledgement from Comedy Comm. Retrying ..."
+                        )));
 
                         // Copy and resend the current event
                         let (id, data1, data2) = self.outgoing[0];
@@ -279,7 +281,9 @@ impl EventConnection for ComedyComm {
                         Ok(id) => id,
                         _ => {
                             // Return an error and exit
-                            results.push(ReadResult::ReadError(format_err!("Invalid Event Id for Comedy Comm.")));
+                            results.push(ReadResult::ReadError(format_err!(
+                                "Invalid Event Id for Comedy Comm."
+                            )));
                             break; // end prematurely
                         }
                     };
@@ -287,7 +291,9 @@ impl EventConnection for ComedyComm {
                         Ok(data1) => data1,
                         _ => {
                             // Return an error and exit
-                            results.push(ReadResult::ReadError(format_err!("Invalid second field for Comedy Comm.")));
+                            results.push(ReadResult::ReadError(format_err!(
+                                "Invalid second field for Comedy Comm."
+                            )));
                             break; // end prematurely
                         }
                     };
@@ -295,7 +301,9 @@ impl EventConnection for ComedyComm {
                         Ok(data2) => data2,
                         _ => {
                             // Return an error and exit
-                            results.push(ReadResult::ReadError(format_err!("Invalid third field for Comedy Comm.")));
+                            results.push(ReadResult::ReadError(format_err!(
+                                "Invalid third field for Comedy Comm."
+                            )));
                             break; // end prematurely
                         }
                     };
@@ -325,7 +333,8 @@ impl EventConnection for ComedyComm {
         for result in results.iter() {
             // Check to make sure it's a valid event
             if let ReadResult::Normal(id, data1, data2) = result {
-                self.filter_events.push((id.clone(), data1.clone(), data2.clone()));
+                self.filter_events
+                    .push((id.clone(), data1.clone(), data2.clone()));
             }
         }
 
@@ -427,7 +436,6 @@ mod tests {
                     assert_eq!(id, id_ref);
                     assert_eq!(data1, data1_ref);
                     assert_eq!(data2, data2_ref);
-                
                 } else {
                     panic!("Read error in the Commedy Comm")
                 }

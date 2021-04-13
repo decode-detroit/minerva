@@ -30,8 +30,8 @@ use crate::definitions::*;
 
 // Import other definitions
 use self::event_handler::EventHandler;
-use self::system_connection::SystemConnection;
 use self::logging::Logger;
+use self::system_connection::SystemConnection;
 #[cfg(feature = "media-out")]
 use crate::definitions::LaunchWindow;
 
@@ -70,8 +70,8 @@ pub struct SystemInterface {
     gtk_receive: mpsc::Receiver<GtkRequest>, // the receiving line for gtk requests
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
-    internal_send: InternalSend, // a sending line to pass internal updates
-    is_debug_mode: bool,           // a flag to indicate debug mode
+    internal_send: InternalSend,                      // a sending line to pass internal updates
+    is_debug_mode: bool,                              // a flag to indicate debug mode
 }
 
 // Implement key SystemInterface functionality
@@ -147,7 +147,7 @@ impl SystemInterface {
             // Try the file, if it exists
             if path.exists() {
                 sys_interface.load_config(path, false).await;
-            
+
             // Otherwise, try the yaml path
             } else {
                 path.set_extension("yaml");
@@ -162,7 +162,7 @@ impl SystemInterface {
     /// A method to run one iteration of the system interface to update the user
     /// and underlying system of any event changes.
     ///
-    async fn run_once(&mut self) -> bool {        
+    async fn run_once(&mut self) -> bool {
         // Check for updates on any line
         tokio::select! {
             // Updates from the Internal System
@@ -264,16 +264,18 @@ impl SystemInterface {
                 }
 
                 // Send the upcoming events to the interface
-                self.interface_send.send(InterfaceUpdate::UpdateTimeline {
-                    events: upcoming_events,
-                }).unwrap_or(());
+                self.interface_send
+                    .send(InterfaceUpdate::UpdateTimeline {
+                        events: upcoming_events,
+                    })
+                    .unwrap_or(());
             }
 
             // Solicit a string from the user
             InternalUpdate::GetUserString(event) => {
                 // Get the item pair for the event
                 let pair = self.index_access.get_pair(&event).await;
-                
+
                 // Request the information from the user interface
                 self.interface_send
                     .send(InterfaceUpdate::LaunchWindow {
@@ -281,7 +283,7 @@ impl SystemInterface {
                     })
                     .unwrap_or(());
             }
-            
+
             // Pass a video stream to the user interface
             #[cfg(feature = "media-out")]
             InternalUpdate::NewVideo(video_stream) => {
@@ -311,7 +313,7 @@ impl SystemInterface {
                             })
                             .unwrap_or(());
                     }
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
 
@@ -339,10 +341,14 @@ impl SystemInterface {
                         current_items,
                         self.index_access.clone(),
                         self.is_debug_mode,
-                    ).await;
+                    )
+                    .await;
 
                     // Get the current scene and key map
-                    let current_scene = self.index_access.get_pair(&handler.get_current_scene()).await;
+                    let current_scene = self
+                        .index_access
+                        .get_pair(&handler.get_current_scene())
+                        .await;
                     let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
@@ -387,10 +393,10 @@ impl SystemInterface {
                 if let Some(mut handler) = self.event_handler.take() {
                     // Adjust the current time of the event
                     handler.adjust_all_events(adjustment, is_negative).await;
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
-                
+
                 // Otherwise, return a failure
                 } else {
                     return UnpackResult::Failure("No active configuration.".into());
@@ -402,7 +408,7 @@ impl SystemInterface {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
                 }
@@ -429,13 +435,15 @@ impl SystemInterface {
                 update!(broadcast &mut self.internal_send => event_id, data);
 
                 // Get the event description
-                let message = self.index_access.get_description(&event_id).await.description;
+                let message = self
+                    .index_access
+                    .get_description(&event_id)
+                    .await
+                    .description;
 
                 // Notify the user interface of the event
                 self.interface_send
-                    .send(InterfaceUpdate::Notify {
-                        message,
-                    })
+                    .send(InterfaceUpdate::Notify { message })
                     .unwrap_or(());
             }
 
@@ -444,10 +452,10 @@ impl SystemInterface {
                 // Try to clear all the events in the queue
                 if let Some(mut handler) = self.event_handler.take() {
                     handler.clear_events().await;
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
-                
+
                 // Otherwise, return a failure
                 } else {
                     return UnpackResult::Failure("No active configuration.".into());
@@ -477,7 +485,7 @@ impl SystemInterface {
                 if let Some(mut handler) = self.event_handler.take() {
                     // Cue the event
                     handler.add_event(event_delay).await;
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
 
@@ -503,13 +511,18 @@ impl SystemInterface {
                         // Match the specified moficiation
                         match modification {
                             // Add or modify the item
-                            Modification::ModifyItem {
-                                item_pair,
-                            } => {
+                            Modification::ModifyItem { item_pair } => {
                                 // Pass the update and see if it's a new item
-                                if self.index_access.update_description(item_pair.get_id(), item_pair.get_description()).await {
+                                if self
+                                    .index_access
+                                    .update_description(
+                                        item_pair.get_id(),
+                                        item_pair.get_description(),
+                                    )
+                                    .await
+                                {
                                     update!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
-                                
+
                                 // If not, notify that the item was updated
                                 } else {
                                     update!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
@@ -517,31 +530,22 @@ impl SystemInterface {
                             }
 
                             // Add or modify the event
-                            Modification::ModifyEvent {
-                                item_id,
-                                event,
-                            } => {
+                            Modification::ModifyEvent { item_id, event } => {
                                 handler.edit_event(item_id, event).await;
                             }
 
                             // Add or modify the status
-                            Modification::ModifyStatus {
-                                item_id,
-                                status,
-                            } => {
+                            Modification::ModifyStatus { item_id, status } => {
                                 handler.edit_status(item_id, status).await;
                             }
 
                             // Add or modify the scene
-                            Modification::ModifyScene {
-                                item_id,
-                                scene,
-                            } => {
+                            Modification::ModifyScene { item_id, scene } => {
                                 handler.edit_scene(item_id, scene).await;
                             }
                         }
                     }
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
 
@@ -561,7 +565,7 @@ impl SystemInterface {
                 if let Some(mut handler) = self.event_handler.take() {
                     // Adjust the current time of the event
                     handler.adjust_event(event_id, start_time, new_delay).await;
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
                 }
@@ -591,7 +595,7 @@ impl SystemInterface {
                             })
                             .unwrap_or(());
                     }
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
 
@@ -619,10 +623,14 @@ impl SystemInterface {
                         current_items,
                         self.index_access.clone(),
                         self.is_debug_mode,
-                    ).await;
+                    )
+                    .await;
 
                     // Get the current scene and key map
-                    let current_scene = self.index_access.get_pair(&handler.get_current_scene()).await;
+                    let current_scene = self
+                        .index_access
+                        .get_pair(&handler.get_current_scene())
+                        .await;
                     let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
@@ -655,7 +663,9 @@ impl SystemInterface {
                             self.interface_send
                                 .send(Reply {
                                     reply_to, // echo to display component
-                                    reply: ReplyType::Description { description: item_pair },
+                                    reply: ReplyType::Description {
+                                        description: item_pair,
+                                    },
                                 })
                                 .unwrap_or(());
                         }
@@ -715,7 +725,7 @@ impl SystemInterface {
                                 .unwrap_or(());
                         }
                     }
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
 
@@ -731,7 +741,7 @@ impl SystemInterface {
                 if let Some(mut handler) = self.event_handler.take() {
                     // Save the current configuration
                     handler.save_config(filepath).await;
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
                 }
@@ -743,19 +753,19 @@ impl SystemInterface {
                 if let Some(mut handler) = self.event_handler.take() {
                     // Change the current scene (automatically triggers a redraw)
                     handler.choose_scene(scene).await;
-                    
+
                     // Put the handler back
                     self.event_handler = Some(handler);
                 }
             }
 
             // Change the state of a particular status
-            UserRequest::StatusChange { status_id, state } => {
+            UserRequest::StatusChange { status, state } => {
                 // Change the status, if event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Change the state of the indicated status
-                    handler.modify_status(&status_id, &state).await;
-                    
+                    handler.modify_status(&status, &state).await;
+
                     // Put the handler back
                     self.event_handler = Some(handler);
                 }
@@ -776,7 +786,7 @@ impl SystemInterface {
     async fn load_config(&mut self, filepath: PathBuf, log_failure: bool) {
         // Clone the interface send
         let interface_send = self.interface_send.clone();
-        
+
         // Create a new event handler
         let mut event_handler = match EventHandler::new(
             filepath,
@@ -784,15 +794,19 @@ impl SystemInterface {
             self.internal_send.clone(),
             interface_send,
             log_failure,
-        ).await {
+        )
+        .await
+        {
             Ok(evnt_hdlr) => evnt_hdlr,
             Err(_) => return, // errors will be logged separately if log_failure is true
         };
 
         // Create a new connection to the underlying system
         let system_connection = event_handler.system_connection();
-        if !self.system_connection
-            .update_system_connection(Some(system_connection)).await
+        if !self
+            .system_connection
+            .update_system_connection(Some(system_connection))
+            .await
         {
             return;
         }
@@ -816,16 +830,16 @@ impl SystemInterface {
         for (status_id, mut status) in partial_status.drain() {
             // Create a new status pair from the status id
             let status_pair = self.index_access.get_pair(&status_id).await;
-            
+
             // Create the new current pair from the status description
             let current = self.index_access.get_pair(&status.current).await;
-            
+
             // Repackage the allowed states
             let mut allowed = Vec::new();
             for state in status.allowed.drain(..) {
                 allowed.push(self.index_access.get_pair(&state).await);
             }
-            
+
             // Add the new key/value to the full status
             full_status.insert(status_pair, StatusDescription { current, allowed });
         }

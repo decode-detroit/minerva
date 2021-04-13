@@ -24,17 +24,17 @@
 use crate::definitions::*;
 
 // Import standard library features
+use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
-use std::process::Command;
 
 // Import GTK and GDK libraries
 use gdk_pixbuf;
 use gio;
+use gio::prelude::*;
 use gtk;
 use gtk::prelude::*;
-use gio::prelude::*;
 
 /// A structure to hold all the features of the default menu.
 ///
@@ -436,7 +436,7 @@ impl MenuAbstraction {
                 }
             }
         }));
-        
+
         // Create the list audio devices action
         let list_audio = gio::SimpleAction::new("list_audio", None);
         list_audio.connect_activate(|_, _| {
@@ -446,12 +446,12 @@ impl MenuAbstraction {
                 if let Ok(output) = String::from_utf8(process.stdout) {
                     // Print the result
                     print!("{}", output);
-                
+
                 // Otherwise, alert the user
                 } else {
                     println!("Error: Invalid output from 'aplay'."); // FIXME Make this pretty
                 }
-            
+
             // Otherwise, alert the user aplay must be installed
             } else {
                 println!("Error: This feature requires 'aplay'.");
@@ -469,10 +469,10 @@ impl MenuAbstraction {
 
                 // Update the rest of the interface (to the opposite of the current state)
                 interface_send.send(EditMode(is_edit)).unwrap_or(());
-                
+
                 // Swap the checkbox state
                 checkbox.change_state(&(is_edit).to_variant());
-                
+
                 // Change the availability of the other actions
                 if is_edit {
                     // Enable the other actions
@@ -480,7 +480,7 @@ impl MenuAbstraction {
                     application.add_action(&new_event);
                     application.add_action(&new_status);
                     application.add_action(&new_scene);
-                
+
                 // Otherwise disable the other actions
                 } else {
                     application.remove_action("save_config");

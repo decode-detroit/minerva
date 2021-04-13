@@ -32,26 +32,26 @@ mod gtk_interface;
 mod web_interface;
 
 // Import the relevant structures into the correct namespace
+use self::gtk_interface::GtkInterface;
 use self::item_index::ItemIndex;
 use self::system_interface::SystemInterface;
-use self::gtk_interface::GtkInterface;
 use self::web_interface::WebInterface;
 
 // Import standard library features
-use std::thread;
 use std::env::args;
 use std::sync::mpsc as std_mpsc;
+use std::thread;
 
 // Import failure features
 #[macro_use]
 extern crate failure;
 
 // Import GTK and GIO libraries
+use self::gio::prelude::*;
+use self::gtk::prelude::*;
+use self::gtk::SettingsExt;
 use gio;
 use gtk;
-use self::gtk::prelude::*;
-use self::gio::prelude::*;
-use self::gtk::SettingsExt;
 
 // Import tokio features
 use tokio::runtime::Runtime;
@@ -78,10 +78,10 @@ impl Minerva {
             settings.set_property_gtk_theme_name(Some(GTK_THEME));
             settings.set_property_gtk_font_name(Some(FONT));
         }
-        
+
         // Create the tokio runtime
         let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
-        
+
         // Create the item index to process item description requests
         let (mut item_index, index_access) = ItemIndex::new();
 
@@ -92,9 +92,11 @@ impl Minerva {
 
         // Launch the system interface to monitor and handle events
         let (interface_send, interface_receive) = std_mpsc::channel();
-        let (system_interface, gtk_send, web_send) = runtime.block_on(async {
-            SystemInterface::new(index_access.clone(), interface_send.clone()).await
-        }).expect("Unable To Create System Interface.");
+        let (system_interface, gtk_send, web_send) = runtime
+            .block_on(async {
+                SystemInterface::new(index_access.clone(), interface_send.clone()).await
+            })
+            .expect("Unable To Create System Interface.");
 
         // Create a new web interface
         let mut web_interface = WebInterface::new(index_access.clone(), web_send);
@@ -111,7 +113,7 @@ impl Minerva {
                 web_interface.run().await;
             });
         });
-        
+
         // Create the application window
         let window = gtk::ApplicationWindow::new(application);
 

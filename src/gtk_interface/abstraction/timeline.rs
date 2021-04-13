@@ -31,20 +31,20 @@ use super::{LARGE_FONT, NORMAL_FONT};
 // Import standard library features
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-// Import the chrono library
-use chrono::{Local, Duration as ChronoDuration};
+// Import the Chrono library
+use chrono::{NaiveDateTime, Duration as ChronoDuration, Local};
 
 // Import FNV HashMap
-use fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 
 // Import GTK, GDK, and Cairo libraries
+use self::gtk::prelude::*;
 use cairo;
 use gdk;
 use gtk;
-use self::gtk::prelude::*;
 
 // Import module constants
 const TIMELINE_LIMIT: usize = 26; // maximum character width of timeline names
@@ -62,7 +62,7 @@ const HIGHLIGHT_WIDTH: f64 = 16.0; // the width of an event when highlighted
 #[derive(Clone, Debug)]
 struct TimelineEvent {
     event: ItemPair,     // the name and id of the event associated with this event
-    start_time: Instant, // the original start time of the event
+    start_time: NaiveDateTime, // the original start time of the event
     delay: Duration,     // the delay of the event (relative to the original start time)
     unique_id: String,   // a unique identifier, composed from both the event id and the start_time
     location: f64,       // the location on the timeline in pixels
@@ -92,7 +92,7 @@ impl TimelineEvent {
     /// A function to create the a unique id from an event itempair and start time.
     /// This is the method used inside ::new().
     ///
-    fn new_unique_id(event: &ItemPair, start_time: &Instant) -> String {
+    fn new_unique_id(event: &ItemPair, start_time: &NaiveDateTime) -> String {
         format!("{}{:?}", event.id(), start_time)
     }
 
@@ -101,9 +101,23 @@ impl TimelineEvent {
     /// expectations).
     ///
     fn remaining(&self) -> Option<(f64, f64)> {
-        // Find the amount of time remaining
-        let remaining = match self.delay.checked_sub(self.start_time.elapsed()) {
-            Some(time) => time,
+        // Calculate the time since the event was queued
+        let elapsed = Local::now().naive_local().signed_duration_since(self.start_time);
+
+        // Compare the durations, or default to playing the event immediately
+        let remaining = match elapsed.to_std().ok() {
+            // If the conversion was a success, perform the calculation
+            Some(duration) => {
+                // Try to perform the subtraction
+                match self.delay.checked_sub(duration) {
+                    Some(time) => time,
+
+                    // Default to zero
+                    None => return None,
+                }
+            }
+
+            // Default to zero
             None => return None,
         };
 
@@ -117,9 +131,24 @@ impl TimelineEvent {
     /// as a float number of fractional seconds.
     ///
     fn remaining_precise(&self) -> Option<f64> {
-        // Find the amount of time remaining
-        let remaining = match self.delay.checked_sub(self.start_time.elapsed()) {
-            Some(time) => time,
+        // Calculate the time since the event was queued
+        let elapsed = Local::now().naive_local().signed_duration_since(self.start_time);
+
+        // Compare the durations, or default to playing the event immediately
+        let remaining = match elapsed.to_std().ok() {
+            // If the conversion was a success, perform the calculation
+            Some(duration) => {
+                // Try to perform the subtraction
+                match self.delay.checked_sub(duration) {
+                    Some(time) => time,
+
+                    // Default to zero
+                    None => return None,
+                }
+            }
+
+
+            // Default to zero
             None => return None,
         };
 
@@ -294,9 +323,12 @@ impl TimelineAdjustment {
 
                         // Otherwise
                         } else {
+                            // Calculate the time since the event was queued
+                            let elapsed = Local::now().naive_local().signed_duration_since(event.start_time).to_std().ok().unwrap_or(Duration::from_millis(0));
+                            
                             // Use that information to create the new duration
                             let mut new_delay = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
-                            new_delay += event.start_time.elapsed();
+                            new_delay += elapsed;
 
                             // Send an event update to the system
                             gtk_send.send(UserRequest::EventChange {
@@ -656,9 +688,7 @@ impl TimelineAbstraction {
 
         // Add the current time to the timeline
         cr.move_to(NOW_LOCATION, 0.95);
-        cr.show_text(
-            format!(" {}", Local::now().format("%T")).as_str(),
-        );
+        cr.show_text(format!(" {}", Local::now().format("%T")).as_str());
 
         // Calculate the time subdivisions
         let duration_secs = info.duration.as_secs();
@@ -987,13 +1017,8 @@ impl TimelineAbstraction {
 
                 // Show what time the event will happen
                 let now = Local::now();
-                let future_time = now + ChronoDuration::minutes(min as i64) + ChronoDuration::seconds(sec as i64);
-                /*let minute =
-                    (((now.tm_sec as f64 + sec) / 60.0 + now.tm_min as f64 + min) % 60.0) as u64;
-                let hour = (((now.tm_sec as f64 + sec) / 3600.0
-                    + (now.tm_min as f64 + min) / 60.0
-                    + now.tm_hour as f64)
-                    % 24.0) as u64;*/
+                let future_time =
+                    now + ChronoDuration::minutes(min as i64) + ChronoDuration::seconds(sec as i64);
                 cr.move_to(location + (4.0 / width), 0.68);
                 cr.show_text(format!("At {}", future_time.format("%H:%M")).as_str());
             }

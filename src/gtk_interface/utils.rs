@@ -27,9 +27,9 @@ use std::rc::Rc;
 use std::u32::MAX as U32_MAX;
 
 // Import GTK library
+use glib;
 use gtk;
 use gtk::prelude::*;
-use glib;
 
 // Define module constants
 const FLASH_RATE: u32 = 700;
@@ -299,19 +299,13 @@ pub fn decorate_label(
     }
 }
 
-
 /// A helper function to properly color label for editing purposes. The function
 /// sets the markup for the existing label and returns the position from
 /// the DisplayType, if it exists.
 ///
 /// This function assumes that the text has already been cleaned and sized.
 ///
-pub fn color_label(
-    label: &gtk::Label,
-    text: &str,
-    display: DisplayType,
-    font_size: u32,
-) {
+pub fn color_label(label: &gtk::Label, text: &str, display: DisplayType, font_size: u32) {
     // Decorate based on the display type
     match display {
         // Match the display control variant
@@ -429,24 +423,28 @@ fn spotlight_label(
 ///
 macro_rules! drag {
     // Set a widget as a drag source
-    (source $widget:expr) => ({
+    (source $widget:expr) => {{
         $widget.drag_source_set(
             gdk::ModifierType::MODIFIER_MASK,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 10),
-            ],
+            &vec![gtk::TargetEntry::new(
+                "STRING",
+                gtk::TargetFlags::SAME_APP,
+                10,
+            )],
             gdk::DragAction::COPY,
         );
-    });
+    }};
 
     // Set a widget as a drag destination
-    (dest $widget:expr) => ({
+    (dest $widget:expr) => {{
         $widget.drag_dest_set(
             gtk::DestDefaults::ALL,
-            &vec![
-                gtk::TargetEntry::new("STRING", gtk::TargetFlags::SAME_APP, 10),
-            ],
-            gdk::DragAction::COPY
+            &vec![gtk::TargetEntry::new(
+                "STRING",
+                gtk::TargetFlags::SAME_APP,
+                10,
+            )],
+            gdk::DragAction::COPY,
         );
-    })
+    }};
 }

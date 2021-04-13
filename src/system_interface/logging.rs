@@ -31,7 +31,7 @@ use std::path::PathBuf;
 use std::sync::mpsc as std_mpsc;
 
 // Import the chrono library
-use chrono::{Local, Duration};
+use chrono::{Duration, Local};
 
 // Import the failure features
 use failure::Error as FailureError;
@@ -39,11 +39,11 @@ use failure::Error as FailureError;
 /// A structure to handle all logging and update processing for the program.
 ///
 pub struct Logger {
-    game_log: Option<File>,                 // game log file for the program
-    error_log: Option<File>,                // error log file for the program
-    old_notifications: Vec<Notification>,   // internal list of notifications less than 1 minute old
-    index_access: IndexAccess,               // the item index access point
-    internal_send: InternalSend,            // broadcast channel for current events
+    game_log: Option<File>,               // game log file for the program
+    error_log: Option<File>,              // error log file for the program
+    old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
+    index_access: IndexAccess,            // the item index access point
+    internal_send: InternalSend,          // broadcast channel for current events
     interface_send: std_mpsc::Sender<InterfaceUpdate>, // an update line for passing updates to the user interface
 }
 
@@ -89,7 +89,10 @@ impl Logger {
         // Attempt to open the error log file
         let error_log = match error_path {
             // If a file was specified, try to open it first
-            Some(filepath) => match OpenOptions::new().append(true).open(filepath.to_str().unwrap_or("")) {
+            Some(filepath) => match OpenOptions::new()
+                .append(true)
+                .open(filepath.to_str().unwrap_or(""))
+            {
                 Ok(file) => Some(file),
 
                 // If the file does not exist
@@ -183,7 +186,7 @@ impl Logger {
     async fn unpack_update(&mut self, update: LogUpdate) -> Notification {
         // Note the current time
         let now = Local::now().naive_local();
-        
+
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
@@ -192,14 +195,8 @@ impl Logger {
                 if let Some(ref mut file) = self.error_log {
                     // Try to write to the file
                     if let Err(_) = file.write_all(
-                        format!(
-                            "{} — ERROR: {}\n",
-                            now.format("%F %H:%M"),
-                            &error
-                        )
-                        .as_bytes(),
-                    
-                    // Post a message on error
+                        format!("{} — ERROR: {}\n", now.format("%F %H:%M"), &error).as_bytes(),
+                        // Post a message on error
                     ) {
                         return Notification::Error {
                             message: "Unable To Write To Error Log.".to_string(),
@@ -250,7 +247,7 @@ impl Logger {
                         event: None,
                     }
                 }
-            },
+            }
 
             // Simple display updates
             LogUpdate::Update(update) => Notification::Update {
@@ -284,7 +281,7 @@ impl Logger {
                 // Get the item pairs for the status and state
                 let status_pair = self.index_access.get_pair(&status_id).await;
                 let state_pair = self.index_access.get_pair(&new_state).await;
-                
+
                 // Send the change to the interface
                 self.interface_send
                     .send(UpdateStatus {
@@ -309,14 +306,8 @@ impl Logger {
                 if let Some(ref mut file) = self.game_log {
                     // Try to write to the file
                     if let Err(_) = file.write_all(
-                        format!(
-                            "{} — {}\n",
-                            now.format("%F %H:%M"),
-                            &data
-                        )
-                        .as_bytes(),
-                    
-                    // Post a message on error
+                        format!("{} — {}\n", now.format("%F %H:%M"), &data).as_bytes(),
+                        // Post a message on error
                     ) {
                         return Notification::Error {
                             message: "Unable To Write To Game Log.".to_string(),
@@ -362,29 +353,46 @@ mod tests {
         // Create a test index access and load the index
         let (index_access, _rx) = IndexAccess::new();
         let mut index = DescriptionMap::default();
-        index.insert(ItemId::new_unchecked(3), ItemDescription::new("Test Broadcast", Hidden));
-        index.insert(ItemId::new_unchecked(4), ItemDescription::new("Test Event", Hidden));
+        index.insert(
+            ItemId::new_unchecked(3),
+            ItemDescription::new("Test Broadcast", Hidden),
+        );
+        index.insert(
+            ItemId::new_unchecked(4),
+            ItemDescription::new("Test Event", Hidden),
+        );
         index_access.send_index(index).await;
 
         // Create a new logger instance
-        let mut logger = Logger::new(None, None, index_access, internal_send, interface_send).unwrap();
+        let mut logger =
+            Logger::new(None, None, index_access, internal_send, interface_send).unwrap();
 
         // Pass a series of updates to the logger and verify the output
-        let mut result = logger.update(LogUpdate::Error("Test Error".to_string(), None)).await;
+        let mut result = logger
+            .update(LogUpdate::Error("Test Error".to_string(), None))
+            .await;
         assert_eq!(result[0].message(), "No Active Error Log.".to_string()); // because no error log was specified
-        result = logger.update(LogUpdate::Warning("Test Warning".to_string(), None)).await;
+        result = logger
+            .update(LogUpdate::Warning("Test Warning".to_string(), None))
+            .await;
         assert_eq!(result[0].message(), "Test Warning".to_string());
         assert_eq!(result[1].message(), "No Active Error Log.".to_string());
-        result = logger.update(LogUpdate::Broadcast(ItemId::new_unchecked(3), None)).await;
+        result = logger
+            .update(LogUpdate::Broadcast(ItemId::new_unchecked(3), None))
+            .await;
         assert_eq!(result[0].message(), "Test Broadcast (3)".to_string());
         assert_eq!(result[1].message(), "Test Warning".to_string());
         assert_eq!(result[2].message(), "No Active Error Log.".to_string());
-        result = logger.update(LogUpdate::Current(ItemId::new_unchecked(4))).await;
+        result = logger
+            .update(LogUpdate::Current(ItemId::new_unchecked(4)))
+            .await;
         assert_eq!(result[0].message(), "Test Event (4)".to_string());
         assert_eq!(result[1].message(), "Test Broadcast (3)".to_string());
         assert_eq!(result[2].message(), "Test Warning".to_string());
         assert_eq!(result[3].message(), "No Active Error Log.".to_string());
-        result = logger.update(LogUpdate::Update("Test Update".to_string())).await;
+        result = logger
+            .update(LogUpdate::Update("Test Update".to_string()))
+            .await;
         assert_eq!(result[0].message(), "Test Update".to_string());
         assert_eq!(result[1].message(), "Test Event (4)".to_string());
         assert_eq!(result[2].message(), "Test Broadcast (3)".to_string());

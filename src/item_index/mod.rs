@@ -26,7 +26,7 @@ use tokio::sync::mpsc;
 
 /// A structure to store the item index and provide asyncronous responses
 /// to information requests
-/// 
+///
 pub struct ItemIndex {
     index_receive: mpsc::Receiver<IndexUpdate>,
     index: DescriptionMap, // hash map of all the item descriptions
@@ -35,31 +35,34 @@ pub struct ItemIndex {
 // Implement key features for the item index
 impl ItemIndex {
     /// A function to create a new ItemIndex
-    /// 
+    ///
     pub fn new() -> (ItemIndex, IndexAccess) {
         // Create the new IndexAccess
         let (index_access, index_receive) = IndexAccess::new();
 
         // Create an empty index and the ItemIndex
         let index = DescriptionMap::default();
-        let item_index = ItemIndex{ index_receive, index };
+        let item_index = ItemIndex {
+            index_receive,
+            index,
+        };
 
         // Return the new ItemIndex and IndexAccess
         (item_index, index_access)
     }
 
     /// A method to run the item index indefinitely
-    /// 
-    pub async fn run(&mut self) { 
+    ///
+    pub async fn run(&mut self) {
         // Listen for updates indefinitely
         loop {
             self.run_once().await;
         }
     }
-    
+
     /// A method to run the item index and process a single reqeust
-    /// 
-    async fn run_once(&mut self) { 
+    ///
+    async fn run_once(&mut self) {
         // Listen for updates
         match self.index_receive.recv().await {
             // If there is a full index update
@@ -69,21 +72,33 @@ impl ItemIndex {
             }
 
             // If there is an individual item update
-            Some(IndexUpdate::UpdateDescription { item_id, new_description, reply_line }) => {
+            Some(IndexUpdate::UpdateDescription {
+                item_id,
+                new_description,
+                reply_line,
+            }) => {
                 // Process the modification and return the result
-                reply_line.send(self.modify_item(item_id, new_description)).unwrap_or(());
+                reply_line
+                    .send(self.modify_item(item_id, new_description))
+                    .unwrap_or(());
             }
 
             // If it is a description request
-            Some(IndexUpdate::GetDescription { item_id, reply_line }) => {
+            Some(IndexUpdate::GetDescription {
+                item_id,
+                reply_line,
+            }) => {
                 // Return the description, if found
-                reply_line.send(self.get_description( item_id )).unwrap_or(());
+                reply_line.send(self.get_description(item_id)).unwrap_or(());
             }
 
             // If it is a description request
-            Some(IndexUpdate::GetPair { item_id, reply_line }) => {
+            Some(IndexUpdate::GetPair {
+                item_id,
+                reply_line,
+            }) => {
                 // Return the description, if found
-                reply_line.send(self.get_pair( item_id )).unwrap_or(());
+                reply_line.send(self.get_pair(item_id)).unwrap_or(());
             }
 
             // If it is a request for all the items
@@ -93,7 +108,7 @@ impl ItemIndex {
                 for (item, description) in self.index.iter() {
                     items.push(ItemPair::from_item(item.clone(), description.clone()));
                 }
-                
+
                 // Sort the items by item id
                 items.sort_unstable();
 
@@ -102,7 +117,7 @@ impl ItemIndex {
             }
 
             // Ignore failure
-            _ => ()
+            _ => (),
         }
     }
 
@@ -113,7 +128,11 @@ impl ItemIndex {
     /// If the item was not already in the index, this method will
     /// return false.
     ///
-    fn modify_item(&mut self, item_id: ItemId, possible_description: Option<ItemDescription>) -> bool {
+    fn modify_item(
+        &mut self,
+        item_id: ItemId,
+        possible_description: Option<ItemDescription>,
+    ) -> bool {
         // If the request is to modify the description
         if let Some(new_description) = possible_description {
             // If the item is already in the index, update the description
@@ -127,13 +146,13 @@ impl ItemIndex {
             self.index.insert(item_id, new_description);
             return true;
         }
-        
+
         // Otherwise, try to remove the item
         if let Some(_) = self.index.remove(&item_id) {
             // If the item exists
             return true;
         }
-        
+
         // Otherwise, return false
         false
     }
@@ -155,7 +174,7 @@ impl ItemIndex {
             None => ItemDescription::new_default(),
         }
     }
-    
+
     /// A method to repackage an ItemId into an ItemPair.
     ///
     /// # Note
@@ -184,11 +203,11 @@ mod tests {
     #[tokio::test]
     async fn call_index() {
         // Import libraries for testing
-        use crate::definitions::{Hidden};
+        use crate::definitions::Hidden;
 
         // Launch the item index
         let (mut item_index, index_access) = ItemIndex::new();
-        
+
         // Spawn a new thread for the index
         tokio::spawn(async move {
             item_index.run().await;
@@ -215,12 +234,18 @@ mod tests {
         assert_eq!(pair2, index_access.get_pair(&id2).await);
 
         // Change one of the descriptions and verify the change
-        assert_eq!(false, index_access.update_description(id1, desc2.clone()).await);
+        assert_eq!(
+            false,
+            index_access.update_description(id1, desc2.clone()).await
+        );
         assert_eq!(desc2, index_access.get_description(&id1).await);
 
         // Delete a description and verify the change
         assert_eq!(true, index_access._remove_item(id1).await);
-        assert_eq!(ItemDescription::new_default(), index_access.get_description(&id1).await);
+        assert_eq!(
+            ItemDescription::new_default(),
+            index_access.get_description(&id1).await
+        );
         assert_eq!(vec!(pair2)[0], index_access.get_all().await[0]);
     }
 }

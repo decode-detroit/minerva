@@ -33,7 +33,7 @@ use crate::definitions::*;
 /// additional copy may be held in the backup module.
 ///
 pub struct StatusHandler {
-    status_map: StatusMap,      // hash map of the local status
+    status_map: StatusMap,     // hash map of the local status
     update_line: InternalSend, // the update line for posting any warnings
 }
 
@@ -92,10 +92,15 @@ impl StatusHandler {
             None => None,
         }
     }
-    
+
     /// A method to edit an existing status, add a new one, or delete the existing
     ///
-    pub async fn edit_status(&mut self, status_id: ItemId, possible_status: Option<Status>, description: String) {
+    pub async fn edit_status(
+        &mut self,
+        status_id: ItemId,
+        possible_status: Option<Status>,
+        description: String,
+    ) {
         // If a new status was specified
         if let Some(new_status) = possible_status {
             // If the scene is in the status_map
@@ -103,13 +108,13 @@ impl StatusHandler {
                 // Update the status and notify the system
                 *status = new_status;
                 update!(update &self.update_line => "Status Updated: {}", description);
-            
+
             // Otherwise, add the status
             } else {
                 update!(update &self.update_line => "Status Added: {}", description);
                 self.status_map.insert(status_id, new_status);
             }
-        
+
         // If no new status was specified
         } else {
             // If the status is in the status map, remove it
@@ -118,7 +123,6 @@ impl StatusHandler {
                 update!(update &self.update_line => "Status Removed: {}", description);
             }
         }
-    
     }
 
     /// A method to modify a status state within the current scene based
@@ -137,7 +141,11 @@ impl StatusHandler {
     /// Like all StatusHandler functions and methods, this method will fail
     /// gracefully by notifying of errors on the update line and returning false.
     ///
-    pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
+    pub async fn modify_status(
+        &mut self,
+        status_id: &ItemId,
+        new_state: &ItemId,
+    ) -> Option<ItemId> {
         // Try to get a mutable reference to the status
         if let Some(status) = self.status_map.get_mut(status_id) {
             // Try to update the status and return the result
@@ -244,8 +252,22 @@ mod tests {
 
         // Create the status map
         let mut status_map = StatusMap::default();
-        status_map.insert(status1, Status::MultiState { current: state1, allowed: vec!(state1, state2), no_change_silent: false });
-        status_map.insert(status2, Status::MultiState { current: state1, allowed: vec!(state1, state2), no_change_silent: false });
+        status_map.insert(
+            status1,
+            Status::MultiState {
+                current: state1,
+                allowed: vec![state1, state2],
+                no_change_silent: false,
+            },
+        );
+        status_map.insert(
+            status2,
+            Status::MultiState {
+                current: state1,
+                allowed: vec![state1, state2],
+                no_change_silent: false,
+            },
+        );
 
         // Create a new status handler
         let mut status_handler = StatusHandler::new(internal_send, status_map);
@@ -255,8 +277,14 @@ mod tests {
         assert_eq!(Some(state1), status_handler.get_state(&status2).await);
 
         // Modify both statuses and check the new state
-        assert_eq!(Some(state2), status_handler.modify_status(&status1, &state2).await);
-        assert_eq!(None, status_handler.modify_status(&status2, &invalid_state).await); // invalid change
+        assert_eq!(
+            Some(state2),
+            status_handler.modify_status(&status1, &state2).await
+        );
+        assert_eq!(
+            None,
+            status_handler.modify_status(&status2, &invalid_state).await
+        ); // invalid change
 
         // Check the changed states
         assert_eq!(Some(state2), status_handler.get_state(&status1).await);

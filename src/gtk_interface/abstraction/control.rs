@@ -31,8 +31,8 @@ use super::{LARGE_FONT, SMALL_FONT};
 use std::sync::mpsc;
 
 // Import GTK and GDK libraries
-use gtk;
 use self::gtk::prelude::*;
+use gtk;
 
 // Define module constants
 const UPDATE_LIMIT: usize = 30; // maximum character width of updates

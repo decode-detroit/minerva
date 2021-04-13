@@ -26,21 +26,21 @@ mod test;
 mod item;
 #[macro_use]
 mod event;
-mod status;
 mod scene;
+mod status;
 #[macro_use]
 mod update;
-mod connections;
 mod communication;
+mod connections;
 
 // Reexport all the definitions from the submodules
-pub use self::item::*;
-pub use self::event::*;
-pub use self::status::*;
-pub use self::scene::*;
-pub use self::update::*;
-pub use self::connections::*;
 pub use self::communication::*;
+pub use self::connections::*;
+pub use self::event::*;
+pub use self::item::*;
+pub use self::scene::*;
+pub use self::status::*;
+pub use self::update::*;
 
 // Reexport the testing module and definitions
 #[cfg(test)]

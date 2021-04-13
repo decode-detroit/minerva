@@ -15,14 +15,162 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//! This module implements the update! macro for easy logging in the
-//! system interface.'
+//! This module implements the internal send communication for the system
+//! interface and the update! macro for easy logging and notifications.
 
 // Import crate definitions
 use crate::definitions::*;
 
 // Import standard library modules
 use std::fmt;
+
+// Import Tokio features
+use tokio::sync::mpsc;
+
+/// An enum to provide and receive updates from the various internal
+/// components of the system interface and external updates from the interface.
+///
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InternalUpdate {
+    /// A variant that broadcasts an event with the given item id. This event id
+    /// is not processed or otherwise checked for validity. If data is provided,
+    /// it will be broadcast with the event.
+    BroadcastEvent(ItemId, Option<u32>),
+
+    /// A variant that notifies the system of a change in the coming events
+    ComingEvents(Vec<ComingEvent>),
+
+    /// A variant that solicites a string of data from the user to send to the
+    /// system. The string will be sent as a series of events with the same
+    /// item id. TODO Make this more generic for other user input
+    GetUserString(ItemId),
+
+    /// A variant to pass a new video stream to the user interface
+    #[cfg(feature = "media-out")]
+    NewVideo(Option<VideoStream>),
+
+    /// A variant that processes a new event with the given item id. If the
+    /// check_scene flag is not set, the system will not check if the event is
+    /// listed in the current scene. If broadcast is set to true, the event
+    /// will be broadcast to the system
+    ProcessEvent {
+        event: ItemId,
+        check_scene: bool,
+        broadcast: bool,
+    },
+
+    /// A variant to trigger a refresh of the user interface
+    /// FIXME Reconsider this arrangement
+    RefreshInterface,
+
+    /// A variant to log updates
+    Update(LogUpdate),
+}
+
+/// The stucture and methods to send internal updates to the system interface.
+///
+#[derive(Clone, Debug)]
+pub struct InternalSend {
+    internal_send: mpsc::Sender<InternalUpdate>, // the line to pass internal updates to the system interface
+}
+
+// Implement the key features of the internal update
+impl InternalSend {
+    /// A function to create a new Internal Update
+    ///
+    /// The function returns the the Internal Update structure and the internal
+    /// receive channel which will return the provided updates.
+    ///
+    pub fn new() -> (InternalSend, mpsc::Receiver<InternalUpdate>) {
+        // Create the new channel
+        let (internal_send, receive) = mpsc::channel(128);
+
+        // Create and return both new items
+        (InternalSend { internal_send }, receive)
+    }
+
+    /// A method to broadcast an event via the system interface (with data,
+    /// if it is provided)
+    ///
+    pub async fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
+        self.internal_send
+            .send(InternalUpdate::BroadcastEvent(event_id, data))
+            .await
+            .unwrap_or(());
+    }
+
+    /// A method to send new coming events to the system
+    ///
+    pub async fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
+        self.internal_send
+            .send(InternalUpdate::ComingEvents(coming_events))
+            .await
+            .unwrap_or(());
+    }
+
+    // A method to process a new event. If the check_scene flag is not set,
+    // the system will not check if the event is in the current scene. If
+    // broadcast is set to true, the event will be broadcast to the system.
+    //
+    pub async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
+        self.internal_send
+            .send(InternalUpdate::ProcessEvent {
+                event,
+                check_scene,
+                broadcast,
+            })
+            .await
+            .unwrap_or(());
+    }
+
+    /// A method to request a string from the user FIXME make this more generic
+    /// for other types of data
+    ///
+    pub async fn send_get_user_string(&self, event: ItemId) {
+        self.internal_send
+            .send(InternalUpdate::GetUserString(event))
+            .await
+            .unwrap_or(());
+    }
+
+    /// A method to pass a new video stream to the user interface
+    ///
+    #[cfg(feature = "media-out")]
+    pub async fn send_new_video(&self, video_stream: VideoStream) {
+        self.internal_send
+            .send(InternalUpdate::NewVideo(Some(video_stream)))
+            .await
+            .unwrap_or(());
+    }
+
+    /// A method to clear all video streams from the user interface
+    ///
+    #[cfg(feature = "media-out")]
+    pub async fn send_clear_videos(&self) {
+        self.internal_send
+            .send(InternalUpdate::NewVideo(None))
+            .await
+            .unwrap_or(());
+    }
+
+    // A method to trigger a refresh of the user interface
+    //
+    pub async fn send_refresh(&self) {
+        self.internal_send
+            .send(InternalUpdate::RefreshInterface)
+            .await
+            .unwrap_or(());
+    }
+
+    /// A method to send an event update to the system interface.
+    ///
+    pub async fn send_update(&self, update: LogUpdate) {
+        self.internal_send
+            .send(InternalUpdate::Update(update))
+            .await
+            .unwrap_or(());
+    }
+}
 
 /// An enum for logging changes to the game. Most changes in the system interface
 /// should go through this enum (and through the logging module).
@@ -71,7 +219,9 @@ impl fmt::Display for LogUpdate {
             &LogUpdate::Save(ref data) => write!(f, "Got Data: {:?}", data),
 
             // If there is a status change, copy it
-            &LogUpdate::Status(ref status_id, ref state) => write!(f, "Status: {} Now {}", status_id, state),
+            &LogUpdate::Status(ref status_id, ref state) => {
+                write!(f, "Status: {} Now {}", status_id, state)
+            }
 
             // If there is a system update, simply write the string
             &LogUpdate::Update(ref update) => write!(f, "Update: {}", update),
@@ -110,7 +260,7 @@ macro_rules! update {
         // Attempt to format the string
         let mut s = String::new();
         s.write_fmt(format_args!($($arg)*)).unwrap_or(());
-        
+
         // Send the error to the mpsc line
         $line.send_update(LogUpdate::Error(s, Some($event))).await;
     });
@@ -124,7 +274,7 @@ macro_rules! update {
         // Attempt to format the string
         let mut s = String::new();
         s.write_fmt(format_args!($($arg)*)).unwrap_or(());
-        
+
         // Send the warning to the mpsc line
         $line.send_update(LogUpdate::Warning(s, None)).await;
     });
@@ -139,7 +289,7 @@ macro_rules! update {
         // Attempt to format the string
         let mut s = String::new();
         s.write_fmt(format_args!($($arg)*)).unwrap_or(());
-        
+
         // Send the warning to the mpsc line
         $line.send_update(LogUpdate::Warning(s, Some($event))).await;
     });
@@ -191,7 +341,7 @@ macro_rules! update {
         // Attempt to format the string
         let mut s = String::new();
         s.write_fmt(format_args!($($arg)*)).unwrap_or(());
-        
+
         // Send the update to the mpsc line
         $line.send_update(LogUpdate::Update(s)).await;
     });

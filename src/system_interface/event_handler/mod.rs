@@ -39,7 +39,10 @@ use super::system_connection::ConnectionSet;
 use std::fs::File;
 use std::path::PathBuf;
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+// Import Chrono features
+use chrono::NaiveDateTime;
 
 // Import Tokio features
 use tokio::time::sleep;
@@ -52,10 +55,10 @@ use failure::Error;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    internal_send: InternalSend,    // sending line for event updates and timed events
-    queue: Queue,                   // current event queue
-    config: Config,                 // current configuration
-    backup: BackupHandler,          // current backup server
+    internal_send: InternalSend, // sending line for event updates and timed events
+    queue: Queue,                // current event queue
+    config: Config,              // current configuration
+    backup: BackupHandler,       // current backup server
 }
 
 // Implement the event handler functions
@@ -101,14 +104,21 @@ impl EventHandler {
         };
 
         // Attempt to process the configuration file
-        let mut config = Config::from_config(index_access, internal_send.clone(), interface_send, &config_file).await?;
+        let mut config = Config::from_config(
+            index_access,
+            internal_send.clone(),
+            interface_send,
+            &config_file,
+        )
+        .await?;
 
         // Attempt to create the backup handler
         let mut backup = BackupHandler::new(
             internal_send.clone(),
             config.identifier(),
             config.server_location(),
-        ).await?;
+        )
+        .await?;
 
         // Create an empty event queue
         let mut queue = Queue::new(internal_send.clone());
@@ -127,7 +137,9 @@ impl EventHandler {
 
             // Update the queue with the found events
             for event in queued_events {
-                queue.add_event(EventDelay::new(Some(event.remaining), event.event_id)).await;
+                queue
+                    .add_event(EventDelay::new(Some(event.remaining), event.event_id))
+                    .await;
             }
 
             // Wait 10 nanoseconds for the queued events to process
@@ -138,11 +150,15 @@ impl EventHandler {
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
-            queue.add_event(EventDelay::new(None, config.get_current_scene())).await;
+            queue
+                .add_event(EventDelay::new(None, config.get_current_scene()))
+                .await;
         }
 
         // Load the current scene into the backup (to detect any crash after this point)
-        backup.backup_current_scene(&config.get_current_scene()).await;
+        backup
+            .backup_current_scene(&config.get_current_scene())
+            .await;
 
         // Return the completed EventHandler with a new queue
         Ok(EventHandler {
@@ -279,13 +295,13 @@ impl EventHandler {
     pub async fn edit_event(&mut self, event_id: ItemId, new_event: Option<Event>) {
         self.config.edit_event(event_id, new_event).await;
     }
-        
+
     /// A method to add or modify a status within the current configuration.
     ///
     pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
         self.config.edit_status(status_id, new_status).await;
     }
-    
+
     /// A method to add or modify a scene within the current configuration.
     ///
     pub async fn edit_scene(&mut self, scene_id: ItemId, new_scene: Option<Scene>) {
@@ -324,27 +340,36 @@ impl EventHandler {
     /// the user tried to modify an event just a few moments before the time
     /// expired.
     ///
-    pub async fn adjust_event(&mut self, event_id: ItemId, start_time: Instant, new_delay: Option<Duration>) {
+    pub async fn adjust_event(
+        &mut self,
+        event_id: ItemId,
+        start_time: NaiveDateTime,
+        new_delay: Option<Duration>,
+    ) {
         // Check to see if a delay was specified
         match new_delay {
             // If a delay was specified
             Some(delay) => {
                 // Try to modify the provided event in the current queue
-                self.queue.adjust_event(ComingEvent {
-                    event_id,
-                    start_time,
-                    delay,
-                }).await;
+                self.queue
+                    .adjust_event(ComingEvent {
+                        event_id,
+                        start_time,
+                        delay,
+                    })
+                    .await;
             }
 
             // Otherwise
             None => {
                 // Try to cancel the event
-                self.queue.cancel_event(ComingEvent {
-                    event_id,
-                    start_time,
-                    delay: Duration::from_secs(0),
-                }).await;
+                self.queue
+                    .cancel_event(ComingEvent {
+                        event_id,
+                        start_time,
+                        delay: Duration::from_secs(0),
+                    })
+                    .await;
             }
         }
     }
@@ -394,7 +419,12 @@ impl EventHandler {
     /// inconsistency when trying to process an event, it will raise a warning
     /// and otherwise continue processing events.
     ///
-    pub async fn process_event(&mut self, event_id: &ItemId, checkscene: bool, broadcast: bool) -> bool {
+    pub async fn process_event(
+        &mut self,
+        event_id: &ItemId,
+        checkscene: bool,
+        broadcast: bool,
+    ) -> bool {
         // Try to retrieve the event and unpack the event
         let event = match self.config.try_event(event_id, checkscene).await {
             // Process a valid event
@@ -436,7 +466,9 @@ impl EventHandler {
                     was_broadcast = true;
 
                     // Solicit a string
-                    self.internal_send.send_get_user_string(event_id.clone()).await;
+                    self.internal_send
+                        .send_get_user_string(event_id.clone())
+                        .await;
                 }
             }
         }
@@ -637,9 +669,11 @@ impl EventHandler {
                     // Try to find the corresponding event in the event_map
                     if let Some(event_id) = event_map.get(&state) {
                         // Trigger the event if it was found
-                        self.queue.add_event(EventDelay::new(None, event_id.clone())).await;
-                        
-                    // States with no matching event are ignored
+                        self.queue
+                            .add_event(EventDelay::new(None, event_id.clone()))
+                            .await;
+
+                        // States with no matching event are ignored
                     }
                 }
             }

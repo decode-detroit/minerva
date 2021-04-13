@@ -147,9 +147,7 @@ impl BackgroundThread {
             });
 
             // Return the completed background thread
-            Some(BackgroundThread {
-                background_process,
-            })
+            Some(BackgroundThread { background_process })
 
         // Warn that the process wasn't found
         } else {
@@ -170,7 +168,7 @@ impl BackgroundThread {
 ///
 #[derive(Serialize, Deserialize)]
 struct YamlConfig {
-    version: String,    // a version tag to warn the user of incompatible versions
+    version: String,        // a version tag to warn the user of incompatible versions
     identifier: Identifier, // unique identifier for the controller instance, if specified
     server_location: Option<String>, // the location of the backup server, if specified
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
@@ -178,7 +176,7 @@ struct YamlConfig {
     default_scene: Option<ItemId>, // the starting scene for the configuration
     fullscreen: Option<bool>, // whether the interface should begin fullscreen
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
-    status_map: StatusMap, // hash map of the default game status
+    status_map: StatusMap,  // hash map of the default game status
     event_set: FnvHashMap<ItemPair, Option<Event>>, // hash map of all the item pairs and events
 } // Private struct to allow deserialization of the configuration
 
@@ -188,16 +186,16 @@ struct YamlConfig {
 /// current active and modifyable scene of the program.
 ///
 pub struct Config {
-    identifier: Identifier,           // unique identifier for the controller instance
+    identifier: Identifier, // unique identifier for the controller instance
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
-    server_location: Option<String>,  // the location of the backup server, if specified
+    server_location: Option<String>, // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
-    current_scene: ItemId,            // identifier for the current scene
+    current_scene: ItemId,  // identifier for the current scene
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
-    status_handler: StatusHandler,    // status handler for the current game status
+    status_handler: StatusHandler, // status handler for the current game status
     events: FnvHashMap<ItemId, Event>, // hash map of all the events
-    index_access: IndexAccess,      // access point to the item index
-    internal_send: InternalSend,    // line to provide updates to the higher-level system
+    index_access: IndexAccess, // access point to the item index
+    internal_send: InternalSend, // line to provide updates to the higher-level system
 }
 
 // Implement key features for the configuration
@@ -261,7 +259,9 @@ impl Config {
             // Insert the event description into the lookup
             match item_index.insert(item_pair.get_id(), item_pair.get_description()) {
                 // Warn of events defined multiple times
-                Some(_) => update!(warn internal_send => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id()),
+                Some(_) => {
+                    update!(warn internal_send => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id())
+                }
                 None => (),
             }
 
@@ -270,7 +270,9 @@ impl Config {
                 // Insert the event into the events hash map
                 match events.insert(item_pair.get_id(), event.clone()) {
                     // Warn of an event defined multiple times
-                    Some(_) => update!(warn internal_send => "Item {} Has Multiple Definitions In Event List.", &item_pair.id()),
+                    Some(_) => {
+                        update!(warn internal_send => "Item {} Has Multiple Definitions In Event List.", &item_pair.id())
+                    }
                     None => (),
                 }
             }
@@ -279,7 +281,14 @@ impl Config {
         // Verify the configuration is defined correctly
         let all_scenes = yaml_config.all_scenes;
         let status_map = yaml_config.status_map;
-        Config::verify_config(&internal_send, &all_scenes, &status_map, &item_index, &events).await;
+        Config::verify_config(
+            &internal_send,
+            &all_scenes,
+            &status_map,
+            &item_index,
+            &events,
+        )
+        .await;
 
         // Load the item index
         index_access.send_index(item_index).await;
@@ -302,7 +311,8 @@ impl Config {
         // Try to start the background process and monitor it, if specified
         let mut background_thread = None;
         if let Some(background_process) = yaml_config.background_process.clone() {
-            background_thread = BackgroundThread::new(background_process, internal_send.clone()).await;
+            background_thread =
+                BackgroundThread::new(background_process, internal_send.clone()).await;
         }
 
         // Adjust fullscreen, if specified
@@ -384,7 +394,9 @@ impl Config {
     pub async fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
         // For every status in the status pairs, set the current value
         for (status_id, new_state) in status_pairs.drain(..) {
-            self.status_handler.modify_status(&status_id, &new_state).await;
+            self.status_handler
+                .modify_status(&status_id, &new_state)
+                .await;
 
             // Notify the system of the successful status change
             update!(status &self.internal_send => status_id, new_state);
@@ -402,7 +414,7 @@ impl Config {
 
     /// A method to return a list of all available scenes in this
     /// configuration. This method will always return the scenes from lowest to
-    /// highest id. 
+    /// highest id.
     ///
     pub fn get_scenes(&self) -> Vec<ItemId> {
         // Compile a list of the available scenes
@@ -417,7 +429,6 @@ impl Config {
         // Return the result
         scenes
     }
-
 
     /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
     /// the method returns the scene. Otherwise, it returns None. FIXME Replace with ItemId version
@@ -452,11 +463,17 @@ impl Config {
                             map.insert(key.clone(), self.index_access.get_pair(&item_id).await);
                         }
                         // Return the Scene with the reversed key map
-                        Some(DescriptiveScene { events, key_map: Some(map) })
+                        Some(DescriptiveScene {
+                            events,
+                            key_map: Some(map),
+                        })
                     }
 
                     // Otherwise, return the DescriptiveScene with no key map
-                    None => Some(DescriptiveScene { events, key_map: None }),
+                    None => Some(DescriptiveScene {
+                        events,
+                        key_map: None,
+                    }),
                 }
             }
         }
@@ -569,9 +586,17 @@ impl Config {
     /// the configuration. This usually indicates a problem with the underlying
     /// configuration file.
     ///
-    pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) -> Option<ItemId> {
+    pub async fn modify_status(
+        &mut self,
+        status_id: &ItemId,
+        new_state: &ItemId,
+    ) -> Option<ItemId> {
         // Try to update the underlying status
-        if let Some(new_id) = self.status_handler.modify_status(&status_id, &new_state).await {
+        if let Some(new_id) = self
+            .status_handler
+            .modify_status(&status_id, &new_state)
+            .await
+        {
             // Notify the system of the successful status change
             update!(status &self.internal_send => status_id.clone(), new_state.clone());
 
@@ -587,19 +612,19 @@ impl Config {
     ///
     pub async fn edit_event(&mut self, event_id: ItemId, possible_event: Option<Event>) {
         // If a new event was specified
-        if let Some(new_event) = possible_event {        
+        if let Some(new_event) = possible_event {
             // If the event is in the event list, update the event
             if let Some(event) = self.events.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
                 update!(update &self.internal_send => "Event Updated: {}", self.index_access.get_description(&event_id).await);
-            
+
             // Otherwise, add the event
             } else {
                 update!(update &self.internal_send => "Event Added: {}", self.index_access.get_description(&event_id).await);
                 self.events.insert(event_id, new_event);
             }
-        
+
         // If no new event was specified
         } else {
             // If the event is in the event list, remove it
@@ -609,13 +634,19 @@ impl Config {
             }
         }
     }
-    
+
     /// A method to modify or add a status with provided id.
     ///
     pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
         // Get the item description and then pass the change to the status handler
-        let description = self.index_access.get_description(&status_id).await.description;
-        self.status_handler.edit_status(status_id, new_status, description).await;
+        let description = self
+            .index_access
+            .get_description(&status_id)
+            .await
+            .description;
+        self.status_handler
+            .edit_status(status_id, new_status, description)
+            .await;
     }
 
     /// A method to modify or add a scene with provided id.
@@ -628,13 +659,13 @@ impl Config {
                 // Update the scene and notify the system
                 *scene = new_scene;
                 update!(update &self.internal_send => "Scene Updated: {}", self.index_access.get_description(&scene_id).await);
-            
+
             // Otherwise, add the scene
             } else {
                 update!(update &self.internal_send => "Scene Added: {}", self.index_access.get_description(&scene_id).await);
                 self.all_scenes.insert(scene_id, new_scene);
             }
-        
+
         // If no new event was specified
         } else {
             // If the scene is in the scene list, remove it
@@ -670,7 +701,7 @@ impl Config {
                 return None;
             }
         }
-        
+
         // Try to return the event
         match self.events.get(id) {
             // Return the found event
@@ -751,7 +782,9 @@ impl Config {
         // Try to write the configuration to the file
         match config_file.write_all(config_string.as_bytes()) {
             Ok(_) => (),
-            Err(error) => update!(err &self.internal_send => "Unable To Write Configuration To File: {}", error),
+            Err(error) => {
+                update!(err &self.internal_send => "Unable To Write Configuration To File: {}", error)
+            }
         }
     }
 
@@ -775,14 +808,9 @@ impl Config {
     ) {
         // Verify each scene in the config
         for (id, scene) in all_scenes.iter() {
-            if !Config::verify_scene(
-                internal_send,
-                scene,
-                all_scenes,
-                status_map,
-                lookup,
-                events,
-            ).await {
+            if !Config::verify_scene(internal_send, scene, all_scenes, status_map, lookup, events)
+                .await
+            {
                 update!(warn internal_send => "Broken Scene Definition: {}", id);
             }
 
@@ -826,7 +854,9 @@ impl Config {
                     status_map,
                     lookup,
                     events,
-                ).await {
+                )
+                .await
+                {
                     update!(warn internal_send => "Invalid Event: {}", id);
                     test = false;
                 }
@@ -982,7 +1012,7 @@ impl Config {
                                     return false;
                                 }
 
-                            // If no event is specified, nothing is triggered
+                                // If no event is specified, nothing is triggered
                             }
                         }
 

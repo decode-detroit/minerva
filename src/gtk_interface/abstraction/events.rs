@@ -34,12 +34,12 @@ use std::sync::mpsc;
 use std::u32::MAX as U32_MAX;
 
 // Import FNV HashMap
-use fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 
 // Import GTK and GDK libraries
-use gtk;
 use self::gtk::prelude::*;
+use gtk;
 
 // Define module constants
 const BUTTON_LIMIT: usize = 16; // maximum character width of buttons

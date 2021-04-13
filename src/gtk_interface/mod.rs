@@ -40,9 +40,9 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 // Import GTK and GDK libraries
+use glib;
 use gtk;
 use gtk::prelude::*;
-use glib;
 
 // Define user interface constants
 const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
@@ -72,8 +72,7 @@ impl GtkInterface {
         interface_receive: mpsc::Receiver<InterfaceUpdate>,
     ) -> Self {
         // Create a new interface abstraction and add the top element to the window
-        let interface_abstraction =
-            InterfaceAbstraction::new(&gtk_send, &interface_send, window);
+        let interface_abstraction = InterfaceAbstraction::new(&gtk_send, &interface_send, window);
         window.add(interface_abstraction.get_top_element());
 
         // Wrap the interface abstraction in a rc and refcell
@@ -229,7 +228,7 @@ impl GtkInterface {
                             // Switch based on if a video stream was provided
                             if let Some(stream) = video_stream {
                                 interface.add_new_video(stream);
-                            
+
                             // Otherwise, destroy the video window
                             } else {
                                 interface.clear_video_windows();

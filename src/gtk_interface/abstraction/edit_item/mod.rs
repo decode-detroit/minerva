@@ -19,7 +19,6 @@
 //! items (including events, statuses, and scenes). This module links directly
 //! to the system interface to request and modify data in the configuration.
 
-
 // Define private submodules
 mod edit_event;
 mod edit_scene;
@@ -46,14 +45,13 @@ use serde_yaml;
 use fnv::FnvHashSet;
 
 // Import GTK and GDK libraries
+use self::gtk::prelude::*;
 use gdk;
 use gtk;
-use self::gtk::prelude::*;
 
 // Define module constants
 const LABEL_LIMIT: usize = 30; // maximum character width of labels
 const ITEM_START: u32 = 1000; // starting number for new items
-
 
 /// A structure to hold all editing components.
 ///
@@ -62,10 +60,10 @@ const ITEM_START: u32 = 1000; // starting number for new items
 /// individual items.
 #[derive(Clone, Debug)]
 pub struct EditWindow {
-    scroll_window: gtk::ScrolledWindow,            // the scroll window to hold the underlying elements
-    gtk_send: GtkSend,              // a copy of the system send line
-    item_list: ItemList,                  // the list of all possible items
-    edit_item_left: EditItemAbstraction,   // the left overview to edit an item
+    scroll_window: gtk::ScrolledWindow, // the scroll window to hold the underlying elements
+    gtk_send: GtkSend,                  // a copy of the system send line
+    item_list: ItemList,                // the list of all possible items
+    edit_item_left: EditItemAbstraction, // the left overview to edit an item
     edit_item_right: EditItemAbstraction, // the right overview to edit an item
 }
 
@@ -115,7 +113,7 @@ impl EditWindow {
             window,
             gtk_send,
             interface_send,
-            true // left side
+            true, // left side
         );
 
         // Create an EditItemAbstraction copy for the right side
@@ -123,7 +121,7 @@ impl EditWindow {
             window,
             gtk_send,
             interface_send,
-            false // right side
+            false, // right side
         );
 
         // Attach the edit elements to the grid
@@ -163,8 +161,8 @@ impl EditWindow {
         if let Ok(current_id) = self.edit_item_left.current_id.try_borrow() {
             // If a current id is specified
             if let Some(ref id) = *current_id {
-               // Refresh the current item
-               EditItemAbstraction::refresh_item(id.clone(), true, &self.gtk_send);
+                // Refresh the current item
+                EditItemAbstraction::refresh_item(id.clone(), true, &self.gtk_send);
             }
         }
 
@@ -172,8 +170,8 @@ impl EditWindow {
         if let Ok(current_id) = self.edit_item_right.current_id.try_borrow() {
             // If a current id is specified
             if let Some(ref id) = *current_id {
-               // Refresh the current item
-               EditItemAbstraction::refresh_item(id.clone(), false, &self.gtk_send);
+                // Refresh the current item
+                EditItemAbstraction::refresh_item(id.clone(), false, &self.gtk_send);
             }
         }
     }
@@ -232,11 +230,7 @@ impl EditWindow {
             _ => unreachable!(),
         }
     }
-
 }
-
-
-
 
 /// A structure to contain the the item editing funcitonality.
 ///
@@ -246,11 +240,11 @@ impl EditWindow {
 #[derive(Clone, Debug)]
 pub struct EditItemAbstraction {
     grid: gtk::Grid,                               // the grid to hold underlying elements
-    gtk_send: GtkSend,                   // a copy of the system send line
+    gtk_send: GtkSend,                             // a copy of the system send line
     interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
     current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
     is_left: bool,                                 // whether the element is on the left or right
-    item_description: gtk::Entry,                 // the description of the item being edited
+    item_description: gtk::Entry,                  // the description of the item being edited
     edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section
     edit_event: Rc<RefCell<EditEvent>>,            // the wrapped edit event section
     edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section
@@ -297,24 +291,26 @@ impl EditItemAbstraction {
 
         // Set the callback function when data is received
         let current_id = Rc::new(RefCell::new(None));
-        edit_title.connect_drag_data_received(clone!(gtk_send, current_id, is_left => move |_, _, _, _, selection_data, _, _| {
-            // Try to extract the selection data
-            if let Some(string) = selection_data.get_text() {
-                // Convert the selection data to an ItemPair
-                let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
-                    Ok(item_pair) => item_pair,
-                    _ => return,
-                };
+        edit_title.connect_drag_data_received(
+            clone!(gtk_send, current_id, is_left => move |_, _, _, _, selection_data, _, _| {
+                // Try to extract the selection data
+                if let Some(string) = selection_data.get_text() {
+                    // Convert the selection data to an ItemPair
+                    let item_pair: ItemPair = match serde_yaml::from_str(string.as_str()) {
+                        Ok(item_pair) => item_pair,
+                        _ => return,
+                    };
 
-                // Try to update the current id
-                if let Ok(mut current_id) = current_id.try_borrow_mut() {
-                    *current_id = Some(item_pair.get_id());
+                    // Try to update the current id
+                    if let Ok(mut current_id) = current_id.try_borrow_mut() {
+                        *current_id = Some(item_pair.get_id());
+                    }
+
+                    // Refresh the current data
+                    EditItemAbstraction::refresh_item(item_pair.get_id(), is_left, &gtk_send)
                 }
-
-                // Refresh the current data
-                EditItemAbstraction::refresh_item(item_pair.get_id(), is_left, &gtk_send)
-            }
-        }));
+            }),
+        );
 
         // Create the scrollable window for the edit item fields
         let edit_window = gtk::ScrolledWindow::new(
@@ -509,20 +505,32 @@ impl EditItemAbstraction {
     fn refresh_item(item_id: ItemId, is_left: bool, gtk_send: &GtkSend) {
         // Request new data for each component
         gtk_send.send(UserRequest::Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::ItemDescription },
+            reply_to: DisplayComponent::EditItemOverview {
+                is_left,
+                variant: EditItemElement::ItemDescription,
+            },
             request: RequestType::Description { item_id },
         });
         gtk_send.send(UserRequest::Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
+            reply_to: DisplayComponent::EditItemOverview {
+                is_left,
+                variant: EditItemElement::Details,
+            },
             request: RequestType::Event { item_id },
         });
         gtk_send.send(UserRequest::Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
-            request: RequestType::Scene { item_id, },
+            reply_to: DisplayComponent::EditItemOverview {
+                is_left,
+                variant: EditItemElement::Details,
+            },
+            request: RequestType::Scene { item_id },
         });
         gtk_send.send(UserRequest::Request {
-            reply_to: DisplayComponent::EditItemOverview { is_left, variant: EditItemElement::Details },
-            request: RequestType::Status { item_id, },
+            reply_to: DisplayComponent::EditItemOverview {
+                is_left,
+                variant: EditItemElement::Details,
+            },
+            request: RequestType::Status { item_id },
         });
     }
 
@@ -574,7 +582,7 @@ impl EditItemAbstraction {
                                 if let Ok(mut edit_status) = self.edit_status.try_borrow_mut() {
                                     edit_status.load_status(status);
                                 }
-                            },
+                            }
 
                             // The status variant
                             EditItemElement::Status { state } => {
@@ -618,7 +626,6 @@ impl EditItemAbstraction {
                 }
             }
 
-
             DisplayComponent::EditMultiStateStatus { position, .. } => {
                 if let ReplyType::Description { description } = reply {
                     // Try to borrow the edit status
@@ -645,10 +652,10 @@ impl EditItemAbstraction {
 // Create a structure for listing all items
 #[derive(Clone, Debug)]
 struct ItemList {
-    grid: gtk::Grid,                        // the main grid for this element
-    next_item: Rc<RefCell<u32>>,            // the number for the next-created item, not necessarily unique
-    id_list: Rc<RefCell<FnvHashSet<u32>>>,  // the list of existing ids
-    items_list: gtk::ListBox,               // the list of item buttons
+    grid: gtk::Grid,                       // the main grid for this element
+    next_item: Rc<RefCell<u32>>, // the number for the next-created item, not necessarily unique
+    id_list: Rc<RefCell<FnvHashSet<u32>>>, // the list of existing ids
+    items_list: gtk::ListBox,    // the list of item buttons
 }
 
 // Implement key features of the ItemList
@@ -719,7 +726,7 @@ impl ItemList {
         items_separator.set_hexpand(true);
         items_separator.set_halign(gtk::Align::Fill);
         grid.attach(&items_separator, 0, 1, 2, 1);
-        
+
         // Create the scrolling window that contains the list box
         let items_scroll = gtk::ScrolledWindow::new(
             Some(&gtk::Adjustment::new(0.0, 0.0, 100.0, 0.1, 100.0, 100.0)),
@@ -736,20 +743,25 @@ impl ItemList {
         let items_list = gtk::ListBox::new();
         items_list.set_selection_mode(gtk::SelectionMode::None);
         items_scroll.add(&items_list);
-        
+
         // Show all the elements of the grid
         grid.show_all();
 
         // Return the completed structure
-        ItemList { grid, next_item, id_list, items_list }
+        ItemList {
+            grid,
+            next_item,
+            id_list,
+            items_list,
+        }
     }
-    
+
     /// A method to return the top element
     ///
     fn get_top_element(&self) -> &gtk::Grid {
         &self.grid
     }
-    
+
     /// A method to clear the current item list
     ///
     fn clear(&self) {
@@ -770,15 +782,15 @@ impl ItemList {
             Ok(list) => list,
             _ => return,
         };
-        
+
         // Clear the item list
         self.clear();
-        
+
         // Iterate through the item pairs in the items vector
         for item_pair in items {
             // Add the id to the id_list
             list.insert(item_pair.id()); // if it is already present, nothing happens
-            
+
             // Create the label to hold the data
             let item_label = gtk::Label::new(None);
             let item_markup = clean_text(&item_pair.description, LABEL_LIMIT, true, false, true);
@@ -797,11 +809,13 @@ impl ItemList {
             drag!(source item_button);
 
             // Serialize the item pair data
-            item_button.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _| {
-                if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                    selection_data.set_text(data.as_str());
-                }
-            }));
+            item_button.connect_drag_data_get(
+                clone!(item_pair => move |_, _, selection_data, _, _| {
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }),
+            );
 
             // Show the label, button and add the button to the list box
             item_label.show();
@@ -811,29 +825,28 @@ impl ItemList {
     }
 }
 
-
 // Create a structure for editing the item description of the item
 #[derive(Clone, Debug)]
 struct EditOverview {
-    grid: gtk::Grid,                      // the main grid for this element
-    gtk_send: GtkSend,          // a copy of the system send line
-    display_type: gtk::ComboBoxText,      // the display type selection for the event
-    group_checkbox: gtk::CheckButton,     // the checkbox for group id
-    group_description: gtk::Label,        // the description of the group
-    group_data: Rc<RefCell<Option<ItemId>>>,      // the data associated with the group
-    position_checkbox: gtk::CheckButton,  // the position checkbox
-    position: gtk::SpinButton,            // the spin selection for position
-    color_checkbox: gtk::CheckButton,     // the color checkbox
-    color: gtk::ColorButton,              // the color selection button
-    highlight_checkbox: gtk::CheckButton, // the highlight checkbox
-    highlight: gtk::ColorButton,          // the highlight selection button
-    spotlight_checkbox: gtk::CheckButton, // the spotlight checkbox
-    spotlight: gtk::SpinButton,           // the spin selection for spotlight number
-    highstate_checkbox: gtk::CheckButton, // the highlight state checkbox
-    highstate_status_description: gtk::Label,       // the description of the status
-    highstate_status_data: Rc<RefCell<ItemId>>,     // the data associated with the status
-    highstate_state_dropdown: gtk::ComboBoxText,    // a dropdown of the valid states
-    is_left: bool,                        // whether the element is on the left or right
+    grid: gtk::Grid,                             // the main grid for this element
+    gtk_send: GtkSend,                           // a copy of the system send line
+    display_type: gtk::ComboBoxText,             // the display type selection for the event
+    group_checkbox: gtk::CheckButton,            // the checkbox for group id
+    group_description: gtk::Label,               // the description of the group
+    group_data: Rc<RefCell<Option<ItemId>>>,     // the data associated with the group
+    position_checkbox: gtk::CheckButton,         // the position checkbox
+    position: gtk::SpinButton,                   // the spin selection for position
+    color_checkbox: gtk::CheckButton,            // the color checkbox
+    color: gtk::ColorButton,                     // the color selection button
+    highlight_checkbox: gtk::CheckButton,        // the highlight checkbox
+    highlight: gtk::ColorButton,                 // the highlight selection button
+    spotlight_checkbox: gtk::CheckButton,        // the spotlight checkbox
+    spotlight: gtk::SpinButton,                  // the spin selection for spotlight number
+    highstate_checkbox: gtk::CheckButton,        // the highlight state checkbox
+    highstate_status_description: gtk::Label,    // the description of the status
+    highstate_status_data: Rc<RefCell<ItemId>>,  // the data associated with the status
+    highstate_state_dropdown: gtk::ComboBoxText, // a dropdown of the valid states
+    is_left: bool,                               // whether the element is on the left or right
 }
 
 // Implement key features of the Edit Overview
@@ -1431,7 +1444,7 @@ impl EditOverview {
                     None => self.group_checkbox.set_active(true),
                     Some(id) => {
                         self.group_checkbox.set_active(false);
-                        
+
                         // Set the group data
                         if let Ok(mut group_data) = self.group_data.try_borrow_mut() {
                             *group_data = Some(id.clone());
@@ -1443,7 +1456,9 @@ impl EditOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Group,
                             },
-                            request: RequestType::Description { item_id: id.clone() }
+                            request: RequestType::Description {
+                                item_id: id.clone(),
+                            },
                         });
                     }
                 }
@@ -1502,16 +1517,22 @@ impl EditOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Status { state: None },
                             },
-                            request: RequestType::Description { item_id: new_status.clone() }
+                            request: RequestType::Description {
+                                item_id: new_status.clone(),
+                            },
                         });
 
                         // Send a request to get the states associated with the status
                         self.gtk_send.send(UserRequest::Request {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
-                                variant: EditItemElement::Status { state: Some(new_state.clone()) },
+                                variant: EditItemElement::Status {
+                                    state: Some(new_state.clone()),
+                                },
                             },
-                            request: RequestType::Status { item_id: new_status.clone() }
+                            request: RequestType::Status {
+                                item_id: new_status.clone(),
+                            },
                         });
                     }
                 }
@@ -1524,19 +1545,26 @@ impl EditOverview {
                         self.spotlight.set_value(number as f64);
                     }
                 }
-            },
+            }
 
             // Update the group description
-            EditItemElement::Group => self.group_description.set_text(&format!("Group: {}", description.description)),
+            EditItemElement::Group => self
+                .group_description
+                .set_text(&format!("Group: {}", description.description)),
 
             // Update the status description
-            EditItemElement::Status { .. } => self.highstate_status_description.set_text(&format!("Status: {}", description.description)),
+            EditItemElement::Status { .. } => self
+                .highstate_status_description
+                .set_text(&format!("Status: {}", description.description)),
 
             // Update the state description in the dropdown
             EditItemElement::State => {
                 // Add the decription to the dropdown with the item id as the id
-                self.highstate_state_dropdown.append(Some(&description.id().to_string()), &description.description) // FIXME This probably doesn't work
-            },
+                self.highstate_state_dropdown.append(
+                    Some(&description.id().to_string()),
+                    &description.description,
+                ) // FIXME This probably doesn't work
+            }
 
             _ => unreachable!(),
         }
@@ -1557,13 +1585,16 @@ impl EditOverview {
                         is_left: self.is_left,
                         variant: EditItemElement::State,
                     },
-                    request: RequestType::Description { item_id: state_id.clone() },
+                    request: RequestType::Description {
+                        item_id: state_id.clone(),
+                    },
                 });
             }
 
             // Set the dropdown menu to the default state, if one was given
             if let Some(state) = default_state {
-                self.highstate_state_dropdown.set_active_id(Some(&state.id().to_string()));
+                self.highstate_state_dropdown
+                    .set_active_id(Some(&state.id().to_string()));
             }
         }
     }
@@ -1573,7 +1604,6 @@ impl EditOverview {
         // Remove all the dropdown elements
         self.highstate_state_dropdown.remove_all();
     }
-
 
     // A method to pack the item description
     //
@@ -1669,7 +1699,7 @@ impl EditOverview {
                         highlight_state,
                         spotlight,
                     }
-                
+
                 // Fallback to DisplayControl
                 } else {
                     DisplayControl {
@@ -1680,7 +1710,7 @@ impl EditOverview {
                         spotlight,
                     }
                 }
-            } 
+            }
 
             // Compose the DisplayDebug type
             "displaydebug" => {
@@ -1697,7 +1727,7 @@ impl EditOverview {
                     highlight_state,
                     spotlight,
                 }
-            },
+            }
 
             // Compose the LabelControl type
             "labelcontrol" => LabelControl {

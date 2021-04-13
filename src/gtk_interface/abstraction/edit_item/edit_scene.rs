@@ -23,27 +23,26 @@
 use crate::definitions::*;
 
 // Import standard library features
+use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
-use std::cell::RefCell;
 
 // Import FNV HashSet
+use self::fnv::{FnvHashMap, FnvHashSet};
 use fnv;
-use self::fnv::{FnvHashSet, FnvHashMap};
 
 // Import GTK and GDK libraries
-use gdk;
-use gtk;
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
-
+use gdk;
+use gtk;
 
 /// A structure to keep track of keybindings
 ///
 #[derive(Clone, Debug)]
 struct Keybinding {
-    key_value: Option<u32>,     // the key value that triggers an event
-    event_id: Option<ItemId>,   // the event id bound to this key
+    key_value: Option<u32>,   // the key value that triggers an event
+    event_id: Option<ItemId>, // the event id bound to this key
 }
 
 // Implement key features of the Keybinding
@@ -77,13 +76,13 @@ impl Keybinding {
 ///
 #[derive(Clone, Debug)]
 pub struct EditScene {
-    grid: gtk::Grid,                   // a grid to hold the events
-    window: gtk::ApplicationWindow,    // a copy of the application window
-    scene_checkbox: gtk::CheckButton,  // the button that toggles whether the item is a scene
-    events_list: gtk::ListBox,         // a list box to hold the events in the scene
+    grid: gtk::Grid,                                       // a grid to hold the events
+    window: gtk::ApplicationWindow,                        // a copy of the application window
+    scene_checkbox: gtk::CheckButton, // the button that toggles whether the item is a scene
+    events_list: gtk::ListBox,        // a list box to hold the events in the scene
     events_data: Rc<RefCell<FnvHashMap<usize, ItemId>>>, // a database of events in the scene
-    next_event: Rc<RefCell<usize>>,    // the next available event location
-    keys_list: gtk::ListBox,           // a list box to hold the key bindings for the scene
+    next_event: Rc<RefCell<usize>>,   // the next available event location
+    keys_list: gtk::ListBox,          // a list box to hold the key bindings for the scene
     keys_data: Rc<RefCell<FnvHashMap<usize, Keybinding>>>, // a database for the key bindings
     next_keybinding: Rc<RefCell<usize>>, // the next available keybinding location
     key_press_handler: Rc<RefCell<Option<glib::signal::SignalHandlerId>>>, // the active handler for setting shortcuts
@@ -93,10 +92,7 @@ pub struct EditScene {
 impl EditScene {
     /// A function to create a new instance of the EditScene
     ///
-    pub fn new(
-        window: &gtk::ApplicationWindow,
-    ) -> EditScene {
-
+    pub fn new(window: &gtk::ApplicationWindow) -> EditScene {
         // Create the database to hold the event data
         let events_data = Rc::new(RefCell::new(FnvHashMap::default()));
         let next_event = Rc::new(RefCell::new(0));
@@ -166,17 +162,19 @@ impl EditScene {
         let key_press_handler = Rc::new(RefCell::new(None));
 
         // When the button is clicked, add a new keybinding button
-        add_key.connect_clicked(clone!(window, keys_list, keys_data, next_keybinding, key_press_handler => move |_| {
-            EditScene::add_keybinding(
-                &window,
-                &keys_list,
-                &keys_data,
-                &next_keybinding,
-                &key_press_handler,
-                None, // No default keybinding
-                None, // No default event
-            );
-        }));
+        add_key.connect_clicked(
+            clone!(window, keys_list, keys_data, next_keybinding, key_press_handler => move |_| {
+                EditScene::add_keybinding(
+                    &window,
+                    &keys_list,
+                    &keys_data,
+                    &next_keybinding,
+                    &key_press_handler,
+                    None, // No default keybinding
+                    None, // No default event
+                );
+            }),
+        );
 
         // Create a label for the key bindings window
         let keys_label = gtk::Label::new(Some("Keyboard shortcuts"));
@@ -210,7 +208,7 @@ impl EditScene {
 
         // Create a grid to hold the events and keyboard shortcuts
         let grid = gtk::Grid::new();
-        grid.set_margin_top(10);  // Add some space on the top and bottom
+        grid.set_margin_top(10); // Add some space on the top and bottom
         grid.set_margin_bottom(10);
         grid.set_column_spacing(10); // Add some space within
         grid.set_row_spacing(10);
@@ -232,7 +230,7 @@ impl EditScene {
         keys_scroll.hide();
         add_key.hide();
 
-        EditScene{
+        EditScene {
             grid,
             window: window.clone(),
             scene_checkbox,
@@ -260,7 +258,7 @@ impl EditScene {
 
         // Check if the scene is valid
         match scene {
-            Some(mut scene) =>  {
+            Some(mut scene) => {
                 // Show the scene by setting the check box
                 self.scene_checkbox.set_active(true);
 
@@ -287,7 +285,7 @@ impl EditScene {
                             &self.next_keybinding,
                             &self.key_press_handler,
                             Some(id),
-                            Some(key)
+                            Some(key),
                         );
                     }
                 }
@@ -368,10 +366,7 @@ impl EditScene {
                 };
 
                 // Pack and return the data as a scene
-                return Some(Scene {
-                    events,
-                    key_map,
-                });
+                return Some(Scene { events, key_map });
             }
         }
 
@@ -386,7 +381,7 @@ impl EditScene {
         event_data: &Rc<RefCell<FnvHashMap<usize, ItemId>>>,
         next_event: &Rc<RefCell<usize>>,
         event: ItemPair,
-    ){
+    ) {
         // Try to get a mutable copy of the next_event
         let position = match next_event.try_borrow_mut() {
             Ok(mut position) => {
@@ -461,7 +456,7 @@ impl EditScene {
         key_press_handler: &Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
         event: Option<ItemPair>,
         key_value: Option<u32>,
-    ){
+    ) {
         // Try to get a mutable copy of the next_keybinding
         let position = match next_keybinding.try_borrow_mut() {
             Ok(mut position) => {
@@ -524,8 +519,14 @@ impl EditScene {
         if let Ok(mut data) = keys_data.try_borrow_mut() {
             // Compose the keybinding
             let keybinding = match event {
-                Some(event) => Keybinding { key_value, event_id: Some(event.get_id()) },
-                None => Keybinding { key_value, event_id: None },
+                Some(event) => Keybinding {
+                    key_value,
+                    event_id: Some(event.get_id()),
+                },
+                None => Keybinding {
+                    key_value,
+                    event_id: None,
+                },
             };
 
             // Add the key binding to the keys database
@@ -539,17 +540,19 @@ impl EditScene {
         let keybinding_info = gtk::Grid::new();
 
         // Remove the user interface element and database entry when clicked
-        key_delete.connect_clicked(clone!(keys_list, keys_data, keybinding_info, position => move |_| {
-            // Remove the event element from the user interface
-            if let Some(widget) = keybinding_info.get_parent() {
-                keys_list.remove(&widget);
-            }
+        key_delete.connect_clicked(
+            clone!(keys_list, keys_data, keybinding_info, position => move |_| {
+                // Remove the event element from the user interface
+                if let Some(widget) = keybinding_info.get_parent() {
+                    keys_list.remove(&widget);
+                }
 
-            // Remove the key binding from the database
-            if let Ok(mut data) = keys_data.try_borrow_mut() {
-                data.remove(&position);
-            }
-        }));
+                // Remove the key binding from the database
+                if let Ok(mut data) = keys_data.try_borrow_mut() {
+                    data.remove(&position);
+                }
+            }),
+        );
 
         // Wrap all the info in the grid and add it to the list box row
         keybinding_info.attach(&event_label, 0, 0, 2, 1);
@@ -605,8 +608,8 @@ impl EditScene {
         window: &gtk::ApplicationWindow,
         keys_data: &Rc<RefCell<FnvHashMap<usize, Keybinding>>>,
         position: usize,
-        handler: &Rc<RefCell<Option<glib::signal::SignalHandlerId>>>
-    ){
+        handler: &Rc<RefCell<Option<glib::signal::SignalHandlerId>>>,
+    ) {
         // Unwrap the key press handler
         if let Ok(mut key_press_handler) = handler.try_borrow_mut() {
             // Clear the old key press handler
@@ -617,8 +620,8 @@ impl EditScene {
             }
 
             // Attach the new handler
-            *key_press_handler = Some(
-                window.connect_key_press_event(clone!(button, keys_data, handler, window => move |_, key_press| {
+            *key_press_handler = Some(window.connect_key_press_event(
+                clone!(button, keys_data, handler, window => move |_, key_press| {
                     // Get the name of the key pressed
                     let key = match key_press.get_keyval().name() {
                         Some(gstring) => String::from(gstring),
@@ -651,8 +654,8 @@ impl EditScene {
 
                     // Prevent any other keypress handlers from running
                     gtk::Inhibit(true)
-                })),
-            );
+                }),
+            ));
         }
     }
 }

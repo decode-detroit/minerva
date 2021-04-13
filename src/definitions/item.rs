@@ -20,9 +20,9 @@
 //! scenes, and other items in the program.
 
 // Import standard library modules
+use std::cmp::Ordering;
 use std::fmt;
 use std::hash;
-use std::cmp::Ordering;
 
 // Import FNV HashMap
 use fnv::FnvHashMap;
@@ -457,7 +457,7 @@ impl ItemPair {
     /// let id_pair = ItemPair::new_default(5);
     /// assert_eq!(5, id_pair.id());
     /// ```
-    /// 
+    ///
     pub fn id(&self) -> u32 {
         self.id
     }
@@ -485,7 +485,7 @@ impl ItemPair {
     /// let id_pair = ItemPair::new(5, "A Description", DisplayType::Hidden);
     /// assert_eq!(description, id_pair.description());
     /// ```
-    /// 
+    ///
     pub fn description(&self) -> String {
         self.description.clone()
     }

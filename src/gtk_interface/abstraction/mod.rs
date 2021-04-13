@@ -31,17 +31,17 @@ mod timeline;
 use crate::definitions::*;
 
 // Import other definitions
-#[cfg(feature = "media-out")]
-use crate::definitions::VideoStream;
 use self::control::ControlAbstraction;
 use self::events::EventAbstraction;
+#[cfg(feature = "media-out")]
+use self::operation_dialogs::VideoWindow;
 use self::operation_dialogs::{
     JumpDialog, PromptStringDialog, ShortcutsDialog, StatusDialog, TriggerDialog,
 };
-#[cfg(feature = "media-out")]
-use self::operation_dialogs::VideoWindow;
 use self::timeline::TimelineAbstraction;
 use super::utils::clean_text;
+#[cfg(feature = "media-out")]
+use crate::definitions::VideoStream;
 use edit_item::EditWindow;
 
 // Import standard library features
@@ -50,8 +50,8 @@ use std::rc::Rc;
 use std::sync::mpsc;
 
 // Import GTK and GDK libraries
-use gtk;
 use self::gtk::prelude::*;
+use gtk;
 
 // Import the chrono library
 use chrono::Local;
@@ -84,8 +84,8 @@ pub struct InterfaceAbstraction {
     trigger_dialog: TriggerDialog, // the trigger dialog
     prompt_string_dialog: PromptStringDialog, // the prompt string dialog
     #[cfg(feature = "media-out")]
-    video_window: VideoWindow,  // the video window
-    is_debug: bool,          // a flag to indicate whether the program is in debug mode
+    video_window: VideoWindow, // the video window
+    is_debug: bool,       // a flag to indicate whether the program is in debug mode
 }
 
 impl InterfaceAbstraction {
@@ -166,7 +166,7 @@ impl InterfaceAbstraction {
         title.set_halign(gtk::Align::Center);
         operations_grid.attach(&title, 0, 1, 1, 1);
         operations_grid.attach(&side_scroll, 0, 2, 1, 1);
-        
+
         // Show the stack and all elements of the operations grid
         top_element.show_all();
 
@@ -449,13 +449,13 @@ impl InterfaceAbstraction {
     pub fn launch_prompt_string(&self, event: ItemPair) {
         self.prompt_string_dialog.launch(&self.system_send, event);
     }
-    
+
     /// A method to update the video window
     #[cfg(feature = "media-out")]
     pub fn add_new_video(&mut self, video_stream: VideoStream) {
         self.video_window.add_new_video(video_stream);
     }
-    
+
     #[cfg(feature = "media-out")]
     pub fn clear_video_windows(&mut self) {
         self.video_window.clear_all();

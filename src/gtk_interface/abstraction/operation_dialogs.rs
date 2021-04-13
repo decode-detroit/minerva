@@ -22,35 +22,35 @@
 use crate::definitions::*;
 
 // Import other definitions
-#[cfg(feature = "media-out")]
-use crate::definitions::VideoStream;
 use super::super::utils::{clean_text, decorate_label};
 use super::NORMAL_FONT;
+#[cfg(feature = "media-out")]
+use crate::definitions::VideoStream;
 
 // Import standard library features
 use std::cell::RefCell;
+#[cfg(feature = "media-out")]
+use std::ffi::c_void;
 use std::mem;
 use std::rc::Rc;
 use std::time::Duration;
-#[cfg(feature = "media-out")]
-use std::ffi::c_void;
 
 // Import FNV HashMap
-use fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 
 // Import GTK and GDK libraries
-use gdk;
-use gtk;
-use self::gtk::prelude::*;
 #[cfg(feature = "media-out")]
 use self::gdk::{Cursor, WindowExt};
+use self::gtk::prelude::*;
+use gdk;
+use gtk;
 
 // Import Gstreamer Library
 #[cfg(feature = "media-out")]
-use gstreamer_video as gst_video;
-#[cfg(feature = "media-out")]
 use self::gst_video::prelude::*;
+#[cfg(feature = "media-out")]
+use gstreamer_video as gst_video;
 
 // Define and import constants
 const STATE_LIMIT: usize = 20; // maximum character width of states
@@ -236,7 +236,7 @@ impl StatusDialog {
                     if let Ok(status_number) = id_status.parse::<u32>() {
 
                         // Try to compose the id as an item
-                        if let Some(status_id) = ItemId::new(status_number) {
+                        if let Some(status) = ItemId::new(status_number) {
 
                             // Identify and forward the selected state
                             let mut state = ItemId::new_unchecked(0);
@@ -252,7 +252,7 @@ impl StatusDialog {
                             }
 
                             // Send the new state update to the system
-                            gtk_send.send(UserRequest::StatusChange { status_id, state });
+                            gtk_send.send(UserRequest::StatusChange { status, state });
                         }
                     }
                 }
@@ -381,7 +381,7 @@ impl JumpDialog {
 pub struct ShortcutsDialog {
     key_press_handler: Option<glib::signal::SignalHandlerId>, // the active handler
     key_map: KeyMap,                                          // the map of key codes to event ids
-    gtk_send: GtkSend,                                  // a copy of system send
+    gtk_send: GtkSend,                                        // a copy of system send
     window: gtk::ApplicationWindow,                           // a copy of the primary window
 }
 
@@ -444,7 +444,11 @@ impl ShortcutsDialog {
                 None => String::from("Invalid Key Code"),
             };
             grid.attach(
-                &gtk::Label::new(Some(&format!("  {}  ", key))), 0, count, 1, 1,
+                &gtk::Label::new(Some(&format!("  {}  ", key))),
+                0,
+                count,
+                1,
+                1,
             );
 
             // Increment the count
@@ -893,7 +897,7 @@ impl VideoWindow {
     pub fn new() -> VideoWindow {
         // Create the overlay map
         let overlay_map = FnvHashMap::default();
-        
+
         // Create the channel map
         let channel_map: Rc<RefCell<FnvHashMap<std::string::String, gtk::Rectangle>>> =
             Rc::new(RefCell::new(FnvHashMap::default()));
@@ -904,7 +908,7 @@ impl VideoWindow {
             channel_map,
         }
     }
-    
+
     /// A method to clear all video windows
     ///
     pub fn clear_all(&mut self) {
@@ -916,7 +920,7 @@ impl VideoWindow {
                 }
             }
         }
-        
+
         // Empty the channel map
         if let Ok(mut map) = self.channel_map.try_borrow_mut() {
             map.clear();
@@ -928,27 +932,27 @@ impl VideoWindow {
     pub fn add_new_video(&mut self, video_stream: VideoStream) {
         // Create a new video area
         let video_area = gtk::DrawingArea::new();
-        
+
         // Try to add the video area to the channel map
         match self.channel_map.try_borrow_mut() {
             // Insert the new channel
             Ok(mut map) => {
                 map.insert(video_stream.channel.to_string(), video_stream.allocation);
             }
-            
+
             // Fail silently
             _ => return,
         }
         video_area.set_widget_name(&video_stream.channel.to_string());
-        
+
         // Extract the window number (for use below)
         let window_number = video_stream.window_number;
-        
+
         // Connect the realize signal for the video area
         video_area.connect_realize(move |video_area| {
             // Extract a reference for the video overlay
             let video_overlay = &video_stream.video_overlay;
-            
+
             // Try to get a copy of the GDk window
             let gdk_window = match video_area.get_window() {
                 Some(window) => window,
@@ -961,8 +965,8 @@ impl VideoWindow {
             // Set the window cursor to blank
             let display = gdk_window.get_display();
             let cursor = Cursor::new_for_display(&display, gdk::CursorType::BlankCursor);
-            gdk_window.set_cursor(Some(&cursor)); 
-            
+            gdk_window.set_cursor(Some(&cursor));
+
             // Check to make sure the window is native
             if !gdk_window.ensure_native() {
                 println!("Widget is not located inside a native window.");
@@ -971,7 +975,7 @@ impl VideoWindow {
 
             // Extract the display type of the window
             let display_type = gdk_window.get_display().get_type().name();
-            
+
             // Switch based on the platform
             #[cfg(target_os = "linux")]
             {
@@ -994,7 +998,7 @@ impl VideoWindow {
                     println!("Unsupported display type: {}", display_type);
                 }
             }
-            
+
             // If on Mac OS
             #[cfg(target_os = "macos")]
             {
@@ -1016,41 +1020,41 @@ impl VideoWindow {
                 }
             }
         });
-        
+
         // Check to see if there is already a matching window
         if let Some(overlay) = self.overlay_map.get(&window_number) {
             // Add the video area to the overlay
             overlay.add_overlay(&video_area);
-            
+
             // Show the video area
             video_area.show();
-        
+
         // Otherwise, create a new window
         } else {
             // Create the new window
             let (window, overlay) = self.new_window();
-            
+
             // Add the video area to the overlay
             overlay.add_overlay(&video_area);
-            
+
             // Save the overlay in the overlay map
             self.overlay_map.insert(window_number, overlay);
-            
+
             // Show the window
             window.show_all();
         }
     }
-    
+
     // A helper function to create a new video window and return the window and overlay
     //
     fn new_window(&self) -> (gtk::Window, gtk::Overlay) {
         // Create the new window
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
-        
+
         // Set window parameters
         window.set_decorated(false);
         window.fullscreen();
-        
+
         // Create black background
         let background = gtk::DrawingArea::new();
         background.connect_draw(|_, cr| {
@@ -1059,11 +1063,11 @@ impl VideoWindow {
             cr.paint();
             Inhibit(true)
         });
-        
+
         // Create the overlay and add the background
         let overlay = gtk::Overlay::new();
         overlay.add(&background);
-        
+
         // Connect the get_child_position signal
         let channel_map = self.channel_map.clone();
         overlay.connect_get_child_position(move |_, widget| {
@@ -1075,14 +1079,14 @@ impl VideoWindow {
                     return Some(allocation.clone());
                 }
             }
-            
+
             // Return None on failure
             None
         });
-        
+
         // Add the overlay to the window
         window.add(&overlay);
-        
+
         // Return the overlay
         (window, overlay)
     }

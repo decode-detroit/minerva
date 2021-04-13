@@ -41,6 +41,6 @@ pub struct Scene {
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct DescriptiveScene {
-    pub events: Vec<ItemPair>,     // a vector of the events and descriptions in this scene
-    pub key_map: Option<FnvHashMap<u32, ItemPair>>,  // an optional mapping of event ids to key codes
+    pub events: Vec<ItemPair>, // a vector of the events and descriptions in this scene
+    pub key_map: Option<FnvHashMap<u32, ItemPair>>, // an optional mapping of event ids to key codes
 }

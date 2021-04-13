@@ -147,7 +147,7 @@ impl BackupHandler {
                 // Warn that it wasn't possible to update the current scene
                 update!(err self.internal_send => "Unable To Backup Current Scene Onto Backup Server.");
             }
-            
+
             // Put the connection back
             self.connection = Some(connection);
         }
@@ -188,7 +188,7 @@ impl BackupHandler {
             } else {
                 self.backup_items.insert(status_id.clone());
             }
-            
+
             // Put the connection back
             self.connection = Some(connection);
         }
@@ -231,7 +231,7 @@ impl BackupHandler {
                 Ok(string) => string,
                 Err(error) => {
                     update!(err &self.internal_send => "Unable To Parse Coming Events: {}", error);
-                    
+
                     // Put the connection back
                     self.connection = Some(connection);
                     return;
@@ -246,7 +246,7 @@ impl BackupHandler {
             if let Err(..) = result {
                 update!(warn &self.internal_send => "Unable To Backup Events Onto Backup Server.");
             }
-            
+
             // Put the connection back
             self.connection = Some(connection);
         }
@@ -315,7 +315,7 @@ impl BackupHandler {
                     if let Some(current_scene) = ItemId::new(current_id) {
                         // Put the connection back
                         self.connection = Some(connection);
-                        
+
                         // Return the current scene and status pairs
                         return Some((current_scene, status_pairs, queued_events));
                     }
@@ -376,7 +376,9 @@ mod tests {
             internal_send,
             Identifier { id: None },
             Some("redis://127.0.0.1:6379".to_string()),
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
 
         // Make sure there is no existing backup
         if let Some(_) = backup_handler.reload_backup(Vec::new()) {
@@ -385,21 +387,23 @@ mod tests {
 
         // Create the current scene and status pairs
         let current_scene = ItemId::new_unchecked(10);
-        let status1  = ItemId::new_unchecked(11);
+        let status1 = ItemId::new_unchecked(11);
         let state1 = ItemId::new_unchecked(12);
         let status2 = ItemId::new_unchecked(13);
         let state2 = ItemId::new_unchecked(14);
-        
+
         // Backup the current scene, statuses (unable to easily test coming events)
         backup_handler.backup_current_scene(&current_scene).await;
         backup_handler.backup_status(&status1, &state1).await;
         backup_handler.backup_status(&status2, &state2).await;
 
         // Reload the backup
-        if let Some((reload_scene, statuses, _)) = backup_handler.reload_backup(vec!(status1, status2)) {
+        if let Some((reload_scene, statuses, _)) =
+            backup_handler.reload_backup(vec![status1, status2])
+        {
             assert_eq!(current_scene, reload_scene);
             assert_eq!(vec!((status1, state1), (status2, state2)), statuses);
-        
+
         // If the backup doesn't exist, throw the error
         } else {
             panic!("Backup was not reloaded.");

@@ -29,7 +29,7 @@ use fnv::FnvHashMap;
 pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and status pairs
 
 /// A type to store a hashmap of status ids and status descriptions
-/// 
+///
 /// # FIXME
 /// This intermediary should be eliminated and the UI should call for this
 /// information as needed.
@@ -143,11 +143,11 @@ impl Status {
                     if *no_change_silent & (*current == new_state) {
                         return None; // Indicate no change
                     }
-                    
+
                     // Update the state
                     *current = new_state;
                     Some(new_state)
-                
+
                 // Indicate failure
                 } else {
                     None
@@ -168,12 +168,12 @@ impl Status {
                 if new_state == *reset {
                     // Reset the count
                     *count = *default_count;
-                    
+
                     // If no_change_silent and current is already anti_trigger
                     if *no_change_silent & (*current == *anti_trigger) {
                         return None; // Indicate no change
                     }
-                    
+
                     // Reset the current state
                     *current = *anti_trigger;
                     Some(current.clone())
@@ -182,12 +182,12 @@ impl Status {
                 } else if new_state == *anti_trigger {
                     // Increase the count
                     *count = *count + 1;
-                    
+
                     // If no_change_silent and current is already anti_trigger
                     if *no_change_silent & (*current == *anti_trigger) {
                         return None; // Indicate no change
                     }
-                    
+
                     // Reset the current state
                     *current = *anti_trigger;
                     Some(current.clone())
@@ -197,7 +197,7 @@ impl Status {
                     // If the count is not zero, decrease it
                     if *count > 0 {
                         *count = *count - 1;
-                    
+
                     // If the count is already zero and no_change_silent
                     } else if *no_change_silent {
                         return None; // Indicate no change
@@ -246,7 +246,6 @@ pub struct StatusDescription {
     pub allowed: Vec<ItemPair>,
 }
 
-
 // Tests of the status module
 #[cfg(test)]
 mod tests {
@@ -260,7 +259,7 @@ mod tests {
         let id2 = ItemId::new_unchecked(11);
         let id3 = ItemId::new_unchecked(12);
         let id4 = ItemId::new_unchecked(13);
-        let valid_states = vec!(id1, id2, id3);
+        let valid_states = vec![id1, id2, id3];
         let mut status = MultiState {
             current: id1,
             allowed: valid_states.clone(),
@@ -290,7 +289,7 @@ mod tests {
         let id2 = ItemId::new_unchecked(11);
         let id3 = ItemId::new_unchecked(12);
         let id4 = ItemId::new_unchecked(13);
-        let valid_states = vec!(id1, id2, id3);
+        let valid_states = vec![id1, id2, id3];
         let mut status = CountedState {
             current: id2,
             trigger: id1,

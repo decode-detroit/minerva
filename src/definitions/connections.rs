@@ -32,7 +32,7 @@ use gstreamer_video as gst_video;
 ///
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Identifier {
-  pub id: Option<u32>,  // An optionally-specified identifier for this instance
+    pub id: Option<u32>, // An optionally-specified identifier for this instance
 }
 
 // Implement display for identifier
@@ -49,8 +49,8 @@ impl fmt::Display for Identifier {
 #[cfg(feature = "media-out")]
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct VideoStream {
-    pub channel: u32,                       // the channel where the video should be played
-    pub window_number: u32,                 // the window where the video should be played
-    pub allocation: gtk::Rectangle,         // the location of the video in the screen
+    pub channel: u32,               // the channel where the video should be played
+    pub window_number: u32,         // the window where the video should be played
+    pub allocation: gtk::Rectangle, // the location of the video in the screen
     pub video_overlay: gst_video::VideoOverlay, // the video overlay which should be connected to the video id
 }

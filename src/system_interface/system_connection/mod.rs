@@ -33,9 +33,9 @@ use crate::definitions::*;
 
 // Import other definitions
 use self::comedy_comm::ComedyComm;
-use self::dmx_out::{DmxOut, DmxFade, DmxMap};
+use self::dmx_out::{DmxFade, DmxMap, DmxOut};
+use self::media_out::{ChannelMap, MediaCue, MediaMap, MediaOut};
 use self::zmq_comm::{ZmqBind, ZmqConnect};
-use self::media_out::{MediaOut, MediaCue, MediaMap, ChannelMap};
 
 // Import standard library modules and traits
 use std::path::PathBuf;
@@ -58,7 +58,7 @@ enum ReadResult {
 
     // A variant for errors when writing data
     WriteError(Error),
-    
+
     // A variant for errors when reading data
     ReadError(Error),
 }
@@ -97,13 +97,13 @@ pub enum ConnectionType {
         all_stop_dmx: Vec<DmxFade>, // a vector of dmx fades for all stop
         dmx_map: DmxMap,            // the map of event ids to dmx fades
     },
-    
+
     /// A variant to play media on the local screen. This connection type only allows
     /// messages to be sent
     Media {
-        all_stop_media: Vec<MediaCue>,  // a vector of media cues for all stop
-        media_map: MediaMap,            // the map of event ids to media cues
-        channel_map: ChannelMap,        // the map of channel numbers to channel dimensions
+        all_stop_media: Vec<MediaCue>, // a vector of media cues for all stop
+        media_map: MediaMap,           // the map of event ids to media cues
+        channel_map: ChannelMap,       // the map of channel numbers to channel dimensions
     },
 }
 
@@ -153,7 +153,7 @@ impl ConnectionType {
                 let connection = DmxOut::new(path, all_stop_dmx.clone(), dmx_map.clone())?;
                 Ok(LiveConnection::DmxSerial { connection })
             }
-            
+
             // Connect to a live version of the Media output
             &ConnectionType::Media {
                 ref all_stop_media,
@@ -165,7 +165,7 @@ impl ConnectionType {
                     internal_send,
                     all_stop_media.clone(),
                     media_map.clone(),
-                    channel_map.clone()
+                    channel_map.clone(),
                 )?;
                 Ok(LiveConnection::Media { connection })
             }
@@ -202,12 +202,12 @@ enum LiveConnection {
         connection: ZmqConnect, // the zmq connection
     },
 
-    /// A variant to connect with a DMX serial port. This connection type only 
+    /// A variant to connect with a DMX serial port. This connection type only
     /// allows messages to be the sent.
     DmxSerial {
         connection: DmxOut, // the DMX serial connection
     },
-    
+
     /// A variant to connect with system media. This connection type only allows
     /// messages to be sent.
     Media {
@@ -319,7 +319,9 @@ impl SystemConnection {
         };
 
         // Try to update the system connection using the provided connection type(s)
-        system_connection.update_system_connection(connections).await;
+        system_connection
+            .update_system_connection(connections)
+            .await;
 
         // Return the system connection
         system_connection
@@ -362,7 +364,8 @@ impl SystemConnection {
             let internal_send = self.internal_send.clone();
             tokio::spawn(async move {
                 // Loop indefinitely
-                SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier).await;
+                SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier)
+                    .await;
             });
 
             // Update the system connection
@@ -424,25 +427,26 @@ impl SystemConnection {
                             // Verify the game id is correct
                             if identity == game_id {
                                 // Send the event to the program
-                                internal_send.send_event(id, true, false).await; // don't broadcast
-                                // FIXME Handle incoming data
+                                internal_send.send_event(id, true, false).await;
+                            // don't broadcast
+                            // FIXME Handle incoming data
 
                             // Otherwise send a notification of an incorrect game number
                             } else {
                                 update!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
                             }
-                        
+
                         // Otherwise, send the event to the program
                         } else {
                             internal_send.send_event(id, true, false).await; // don't broadcast
                         }
                     }
-                    
+
                     // For a write error, notify the system
                     ReadResult::WriteError(error) => {
                         update!(err &internal_send => "Communication Write Error: {}", error);
                     }
-                    
+
                     // For a read error, notify the system
                     ReadResult::ReadError(error) => {
                         update!(err &internal_send => "Communication Read Error: {}", error);
@@ -460,7 +464,7 @@ impl SystemConnection {
                         Some(id) => id,
                         None => 0,
                     };
-                     
+
                     // Translate the data to a placeholder, if necessary
                     let data2 = match data {
                         Some(number) => number,
@@ -473,7 +477,7 @@ impl SystemConnection {
                         if let Err(error1) = connection.write_event(id, game_id, data2) {
                             // Throw the error
                             update!(err &internal_send => "Communication Error: {}", error1);
-                            
+
                             // Wait a little bit and try again
                             sleep(Duration::from_millis(POLLING_RATE)).await;
                             if let Err(error2) = connection.write_event(id, game_id, data2) {

@@ -23,19 +23,18 @@
 use crate::definitions::*;
 
 // Import standard library features
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 // Import FNV HashSet
-use fnv;
 use self::fnv::FnvHashMap;
+use fnv;
 
 // Import GTK and GDK libraries
-use gdk;
-use gtk;
 use self::gtk::prelude::*;
 use self::gtk::GridExt;
-
+use gdk;
+use gtk;
 
 /// A compound structure to store an item id and the widget in which
 /// its description is being displayed
@@ -43,20 +42,19 @@ use self::gtk::GridExt;
 #[derive(Clone, Debug)]
 pub struct ItemDisplay {
     item_id: ItemId,
-    label: gtk::Button
+    label: gtk::Button,
 }
-
 
 /// A structure to contain the grid for editing an individual status.
 ///
 #[derive(Clone, Debug)]
 pub struct EditStatus {
     grid: gtk::Grid,                     // a grid to hold the events
-    gtk_send: GtkSend,             // a copy of the system send
+    gtk_send: GtkSend,                   // a copy of the system send
     status_checkbox: gtk::CheckButton,   // the button that toggles whether the item is a scene
     status_selection: gtk::ComboBoxText, // the dropdown that toggles the status type
     edit_multistate: EditMultiState,     // the edit multi state
-    edit_countedstate: EditCountedState  // the edit counted state
+    edit_countedstate: EditCountedState, // the edit counted state
 }
 
 // Implement key features for edit status
@@ -118,7 +116,7 @@ impl EditStatus {
         grid.set_column_spacing(10); // add some space
         grid.set_row_spacing(10);
         grid.show_all();
-        
+
         // Default to unchecked
         status_checkbox.set_active(false);
         status_grid.hide();
@@ -143,19 +141,38 @@ impl EditStatus {
 
             // Check which status variant it is
             match status.clone() {
-                Status::MultiState { current, allowed, no_change_silent: _ } => { // FIXME should use this field
+                Status::MultiState {
+                    current,
+                    allowed,
+                    no_change_silent: _,
+                } => {
+                    // FIXME should use this field
                     // Change the dropdown
                     self.status_selection.set_active_id(Some("multistate"));
 
                     // Load the data into the Edit MultiState
-                    self.edit_multistate.load_multistate(&self.gtk_send, &current, allowed)
+                    self.edit_multistate
+                        .load_multistate(&self.gtk_send, &current, allowed)
                 }
-                Status::CountedState { current, trigger, anti_trigger, reset, default_count, .. } => {
+                Status::CountedState {
+                    current,
+                    trigger,
+                    anti_trigger,
+                    reset,
+                    default_count,
+                    ..
+                } => {
                     // Change the dropdown
                     self.status_selection.set_active_id(Some("countedstate"));
 
                     // Load the data into the Edit Counted State
-                    self.edit_countedstate.load_countedstate(&current, &trigger, &anti_trigger, &reset, default_count);
+                    self.edit_countedstate.load_countedstate(
+                        &current,
+                        &trigger,
+                        &anti_trigger,
+                        &reset,
+                        default_count,
+                    );
                 }
             }
 
@@ -167,12 +184,14 @@ impl EditStatus {
 
     // A method to pass a requested item description to the multistate status
     pub fn update_multistate_description(&self, description: ItemPair, position: Option<usize>) {
-        self.edit_multistate.update_description(description, position)
+        self.edit_multistate
+            .update_description(description, position)
     }
 
     // A method to pass a requested item description to the counted state status
     pub fn update_countedstate_description(&self, description: ItemPair, state_type: String) {
-        self.edit_countedstate.update_description(description, state_type)
+        self.edit_countedstate
+            .update_description(description, state_type)
     }
 
     // A method to pack the new status
@@ -200,10 +219,9 @@ impl EditStatus {
             }
 
             // Otherwise
-            None => return None
+            None => return None,
         }
     }
-
 
     // A method to return the top element
     //
@@ -215,13 +233,13 @@ impl EditStatus {
 // Create the multistate variant
 #[derive(Clone, Debug)]
 struct EditMultiState {
-    grid: gtk::Grid,                       // the main grid for this element
-    is_left: bool,                         // whether the element is on the left or right
-    current_label: gtk::Button,            // a label to display the current state
-    current_data: Rc<RefCell<ItemId>>,     // the data of the current state
-    states_list: gtk::ListBox,             // a list box to display the allowed states
-    states_data: Rc<RefCell<FnvHashMap<usize, ItemDisplay>>>,  // the database of the ids and display elements
-    next_state: Rc<RefCell<usize>>,        // the next available state location
+    grid: gtk::Grid,                   // the main grid for this element
+    is_left: bool,                     // whether the element is on the left or right
+    current_label: gtk::Button,        // a label to display the current state
+    current_data: Rc<RefCell<ItemId>>, // the data of the current state
+    states_list: gtk::ListBox,         // a list box to display the allowed states
+    states_data: Rc<RefCell<FnvHashMap<usize, ItemDisplay>>>, // the database of the ids and display elements
+    next_state: Rc<RefCell<usize>>,                           // the next available state location
 }
 
 // Implement key features for Edit MultiState
@@ -268,7 +286,6 @@ impl EditMultiState {
                 }));
             }
         }));
-
 
         // Create the database of states
         let states_data = Rc::new(RefCell::new(FnvHashMap::default()));
@@ -327,7 +344,7 @@ impl EditMultiState {
         grid.set_margin_bottom(10);
         grid.show_all();
 
-        EditMultiState{
+        EditMultiState {
             grid,
             is_left,
             current_label,
@@ -339,7 +356,12 @@ impl EditMultiState {
     }
 
     // A method to load in info for a multistate status
-    pub fn load_multistate(&mut self, gtk_send: &GtkSend, current: &ItemId, mut allowed: Vec<ItemId>) {
+    pub fn load_multistate(
+        &mut self,
+        gtk_send: &GtkSend,
+        current: &ItemId,
+        mut allowed: Vec<ItemId>,
+    ) {
         // Clear the previous data
         self.clear();
 
@@ -350,10 +372,14 @@ impl EditMultiState {
 
         // Request the description associated with the current id
         gtk_send.send(UserRequest::Request {
-            reply_to: DisplayComponent::EditMultiStateStatus{ is_left: self.is_left, position: None },
-            request: RequestType::Description { item_id: current.clone() },
+            reply_to: DisplayComponent::EditMultiStateStatus {
+                is_left: self.is_left,
+                position: None,
+            },
+            request: RequestType::Description {
+                item_id: current.clone(),
+            },
         });
-
 
         // Add the states to the user interface and database
         for state_id in allowed.drain(..) {
@@ -363,7 +389,7 @@ impl EditMultiState {
                 &self.states_list,
                 &self.states_data,
                 &self.next_state,
-                state_id
+                state_id,
             )
         }
     }
@@ -420,7 +446,7 @@ impl EditMultiState {
         states_data: &Rc<RefCell<FnvHashMap<usize, ItemDisplay>>>,
         next_state: &Rc<RefCell<usize>>,
         state_id: ItemId,
-    ){
+    ) {
         // Try to get a mutable copy of the next_state
         let position = match next_state.try_borrow_mut() {
             Ok(mut position) => {
@@ -445,15 +471,20 @@ impl EditMultiState {
                 position,
                 ItemDisplay {
                     item_id: state_id.clone(),
-                    label: state_description.clone()
-                }
+                    label: state_description.clone(),
+                },
             );
         }
 
         // Request the description associated with the id
         gtk_send.send(UserRequest::Request {
-            reply_to: DisplayComponent::EditMultiStateStatus{ is_left, position: Some(position) },
-            request: RequestType::Description { item_id: state_id.clone() },
+            reply_to: DisplayComponent::EditMultiStateStatus {
+                is_left,
+                position: Some(position),
+            },
+            request: RequestType::Description {
+                item_id: state_id.clone(),
+            },
         });
 
         // Create a delete button
@@ -499,25 +530,30 @@ impl EditMultiState {
                     item_info.label.set_label(&item_pair.description);
 
                     // Set the callback function when data is dragged
-                    item_info.label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                        // Serialize the data
-                        if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                            selection_data.set_text(data.as_str());
-                        }
-                    }));
+                    item_info.label.connect_drag_data_get(
+                        clone!(item_pair => move |_, _, selection_data, _, _|  {
+                            // Serialize the data
+                            if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                                selection_data.set_text(data.as_str());
+                            }
+                        }),
+                    );
                 }
             }
         } else {
             // Otherwise, update the current state description
-            self.current_label.set_label(&format!("Current State: {}", &item_pair.description));
+            self.current_label
+                .set_label(&format!("Current State: {}", &item_pair.description));
 
             // Set the callback function when data is dragged
-            self.current_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                // Serialize the data
-                if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                    selection_data.set_text(data.as_str());
-                }
-            }));
+            self.current_label.connect_drag_data_get(
+                clone!(item_pair => move |_, _, selection_data, _, _|  {
+                    // Serialize the data
+                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                        selection_data.set_text(data.as_str());
+                    }
+                }),
+            );
         }
     }
 
@@ -531,15 +567,15 @@ impl EditMultiState {
 // Create the counted state variant
 #[derive(Clone, Debug)]
 struct EditCountedState {
-    grid: gtk::Grid,                    // the main grid for this element
-    gtk_send: GtkSend,            // a copy of the system send line
-    is_left: bool,                      // whether this element is on the left or right
-    status_data: Rc<RefCell<FnvHashMap<String, ItemId>>>,   // a database for the data associated with the status
-    current_label: gtk::Button,          // the button to display the current state
-    trigger_label: gtk::Button,          // the button to display the trigger state
-    antitrigger_label: gtk::Button,      // the button to display the antitrigger state
-    reset_label: gtk::Button,            // the button to display the reset state
-    count_spin: gtk::SpinButton,        // the spin to hold the default count
+    grid: gtk::Grid,   // the main grid for this element
+    gtk_send: GtkSend, // a copy of the system send line
+    is_left: bool,     // whether this element is on the left or right
+    status_data: Rc<RefCell<FnvHashMap<String, ItemId>>>, // a database for the data associated with the status
+    current_label: gtk::Button,                           // the button to display the current state
+    trigger_label: gtk::Button,                           // the button to display the trigger state
+    antitrigger_label: gtk::Button, // the button to display the antitrigger state
+    reset_label: gtk::Button,       // the button to display the reset state
+    count_spin: gtk::SpinButton,    // the spin to hold the default count
 }
 
 // Implement key features for Edit MultiState
@@ -708,7 +744,7 @@ impl EditCountedState {
         // Show all elements
         grid.show_all();
 
-        EditCountedState{
+        EditCountedState {
             grid,
             gtk_send: gtk_send.clone(),
             is_left,
@@ -723,7 +759,14 @@ impl EditCountedState {
 
     /// A method to load in info for a countedstate status
     ///
-    pub fn load_countedstate(&self, current: &ItemId, trigger: &ItemId, antitrigger: &ItemId, reset: &ItemId, default_count: u32) {
+    pub fn load_countedstate(
+        &self,
+        current: &ItemId,
+        trigger: &ItemId,
+        antitrigger: &ItemId,
+        reset: &ItemId,
+        default_count: u32,
+    ) {
         // Load the data into the database
         if let Ok(mut database) = self.status_data.try_borrow_mut() {
             database.insert("current".to_string(), current.clone());
@@ -736,41 +779,48 @@ impl EditCountedState {
         self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
-                state_type: String::from("current")
+                state_type: String::from("current"),
             },
-            request: RequestType::Description { item_id: current.clone() },
+            request: RequestType::Description {
+                item_id: current.clone(),
+            },
         });
 
         // Request the trigger id description
         self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
-                state_type: String::from("trigger")
+                state_type: String::from("trigger"),
             },
-            request: RequestType::Description { item_id: trigger.clone() },
+            request: RequestType::Description {
+                item_id: trigger.clone(),
+            },
         });
 
         // Request the antitrigger id description
         self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
-                state_type: String::from("antitrigger")
+                state_type: String::from("antitrigger"),
             },
-            request: RequestType::Description { item_id: antitrigger.clone() },
+            request: RequestType::Description {
+                item_id: antitrigger.clone(),
+            },
         });
 
         // Request the reset id description
         self.gtk_send.send(UserRequest::Request {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
-                state_type: String::from("reset")
+                state_type: String::from("reset"),
             },
-            request: RequestType::Description { item_id: reset.clone() },
+            request: RequestType::Description {
+                item_id: reset.clone(),
+            },
         });
 
         // Load the default count
         self.count_spin.set_value(default_count as f64);
-
     }
 
     pub fn pack_countedstate(&self) -> Option<Status> {
@@ -793,7 +843,6 @@ impl EditCountedState {
 
         // Unreachable
         None
-
     }
 
     /// A method to update the description of a state label
@@ -804,58 +853,70 @@ impl EditCountedState {
             // The current state variant
             "current" => {
                 // Set the text on the label
-                self.current_label.set_label(&format!("Current State: {}", &item_pair.description));
+                self.current_label
+                    .set_label(&format!("Current State: {}", &item_pair.description));
 
                 // Set the callback function when data is dragged
-                self.current_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                    // Serialize the data
-                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                        selection_data.set_text(data.as_str());
-                    }
-                }));
-            },
+                self.current_label.connect_drag_data_get(
+                    clone!(item_pair => move |_, _, selection_data, _, _|  {
+                        // Serialize the data
+                        if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                            selection_data.set_text(data.as_str());
+                        }
+                    }),
+                );
+            }
 
             "trigger" => {
                 // Set the text on the label
-                self.trigger_label.set_label(&format!("Trigger State: {}", &item_pair.description));
+                self.trigger_label
+                    .set_label(&format!("Trigger State: {}", &item_pair.description));
 
                 // Set the callback function when data is dragged
-                self.trigger_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                    // Serialize the data
-                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                        selection_data.set_text(data.as_str());
-                    }
-                }));
-            },
+                self.trigger_label.connect_drag_data_get(
+                    clone!(item_pair => move |_, _, selection_data, _, _|  {
+                        // Serialize the data
+                        if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                            selection_data.set_text(data.as_str());
+                        }
+                    }),
+                );
+            }
 
             "antitrigger" => {
                 // Set the text on the label
-                self.antitrigger_label.set_label(&format!("Anti-Trigger State: {}", &item_pair.description));
+                self.antitrigger_label
+                    .set_label(&format!("Anti-Trigger State: {}", &item_pair.description));
 
                 // Set the callback function when data is dragged
-                self.antitrigger_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                    // Serialize the data
-                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                        selection_data.set_text(data.as_str());
-                    }
-                }));
-            },
+                self.antitrigger_label.connect_drag_data_get(
+                    clone!(item_pair => move |_, _, selection_data, _, _|  {
+                        // Serialize the data
+                        if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                            selection_data.set_text(data.as_str());
+                        }
+                    }),
+                );
+            }
 
             "reset" => {
                 // Set the text on the label
-                self.reset_label.set_label(&format!("Reset State: {}", &item_pair.description));
+                self.reset_label
+                    .set_label(&format!("Reset State: {}", &item_pair.description));
 
                 // Set the callback function when data is dragged
-                self.reset_label.connect_drag_data_get(clone!(item_pair => move |_, _, selection_data, _, _|  {
-                    // Serialize the data
-                    if let Ok(data) = serde_yaml::to_string(&item_pair) {
-                        selection_data.set_text(data.as_str());
-                    }
-                }));
-            },
+                self.reset_label.connect_drag_data_get(
+                    clone!(item_pair => move |_, _, selection_data, _, _|  {
+                        // Serialize the data
+                        if let Ok(data) = serde_yaml::to_string(&item_pair) {
+                            selection_data.set_text(data.as_str());
+                        }
+                    }),
+                );
+            }
 
             // Unreachable
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 

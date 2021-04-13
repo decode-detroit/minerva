@@ -22,11 +22,11 @@
 use crate::definitions::*;
 
 // Import standard library features
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
 use std::fmt;
+use std::path::PathBuf;
+use std::time::Duration;
 
-// Import Tokio and warp features
+// Import Tokio features
 use tokio::sync::{mpsc, oneshot};
 
 // Import Chrono features
@@ -38,18 +38,30 @@ use chrono::NaiveDateTime;
 pub enum IndexUpdate {
     /// A variant to pass a new index the item index
     NewIndex { new_index: DescriptionMap },
-    
+
     /// A variant to add, update, or remove a description in the index
-    UpdateDescription { item_id: ItemId, new_description: Option<ItemDescription>, reply_line: oneshot::Sender<bool> },
+    UpdateDescription {
+        item_id: ItemId,
+        new_description: Option<ItemDescription>,
+        reply_line: oneshot::Sender<bool>,
+    },
 
     /// A variant to receive a description from the item index
-    GetDescription { item_id: ItemId, reply_line: oneshot::Sender<ItemDescription> },
+    GetDescription {
+        item_id: ItemId,
+        reply_line: oneshot::Sender<ItemDescription>,
+    },
 
     /// A variant to receive a pair from the item index
-    GetPair { item_id: ItemId, reply_line: oneshot::Sender<ItemPair> },
+    GetPair {
+        item_id: ItemId,
+        reply_line: oneshot::Sender<ItemPair>,
+    },
 
     /// A variant to receive all the pairs from the item index
-    GetAll { reply_line: oneshot::Sender<Vec<ItemPair>> },
+    GetAll {
+        reply_line: oneshot::Sender<Vec<ItemPair>>,
+    },
 }
 
 /// The stucture and methods to send requests to the item index.
@@ -80,17 +92,26 @@ impl IndexAccess {
     ///
     pub async fn send_index(&self, new_index: DescriptionMap) {
         self.index_send
-            .send(IndexUpdate::NewIndex { new_index }).await
+            .send(IndexUpdate::NewIndex { new_index })
+            .await
             .unwrap_or(());
     }
 
     /// A method to remove an item from the index
     /// Returns true if the item was found and false otherwise.
-    /// 
+    ///
     pub async fn _remove_item(&self, item_id: ItemId) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self.index_send.send(IndexUpdate::UpdateDescription { item_id: item_id.clone(), new_description: None, reply_line }).await {
+        if let Err(_) = self
+            .index_send
+            .send(IndexUpdate::UpdateDescription {
+                item_id: item_id.clone(),
+                new_description: None,
+                reply_line,
+            })
+            .await
+        {
             // On failure, return false
             return false;
         }
@@ -101,11 +122,23 @@ impl IndexAccess {
 
     /// A method to add or update the description in the item index
     /// Returns true if the item was not previously defined and false otherwise.
-    /// 
-    pub async fn update_description(&self, item_id: ItemId, new_description: ItemDescription) -> bool {
+    ///
+    pub async fn update_description(
+        &self,
+        item_id: ItemId,
+        new_description: ItemDescription,
+    ) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self.index_send.send(IndexUpdate::UpdateDescription { item_id: item_id.clone(), new_description: Some(new_description.clone()), reply_line }).await {
+        if let Err(_) = self
+            .index_send
+            .send(IndexUpdate::UpdateDescription {
+                item_id: item_id.clone(),
+                new_description: Some(new_description.clone()),
+                reply_line,
+            })
+            .await
+        {
             // On failure, return false
             return false;
         }
@@ -119,7 +152,14 @@ impl IndexAccess {
     pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self.index_send.send(IndexUpdate::GetDescription { item_id: item_id.clone(), reply_line }).await {
+        if let Err(_) = self
+            .index_send
+            .send(IndexUpdate::GetDescription {
+                item_id: item_id.clone(),
+                reply_line,
+            })
+            .await
+        {
             // On failure, return default
             return ItemDescription::new_default();
         }
@@ -133,7 +173,14 @@ impl IndexAccess {
     pub async fn get_pair(&self, item_id: &ItemId) -> ItemPair {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self.index_send.send(IndexUpdate::GetPair { item_id: item_id.clone(), reply_line }).await {
+        if let Err(_) = self
+            .index_send
+            .send(IndexUpdate::GetPair {
+                item_id: item_id.clone(),
+                reply_line,
+            })
+            .await
+        {
             // On failure, return default
             return ItemPair::new_default(item_id.id());
         }
@@ -147,55 +194,17 @@ impl IndexAccess {
     pub async fn get_all(&self) -> Vec<ItemPair> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self.index_send.send(IndexUpdate::GetAll { reply_line }).await {
+        if let Err(_) = self
+            .index_send
+            .send(IndexUpdate::GetAll { reply_line })
+            .await
+        {
             // On failure, return none
             return Vec::new();
         }
 
         // Wait for the reply
         rx.await.unwrap_or(Vec::new())
-    }
-}
-
-/// A struct to allow easier manipulation of coming events.
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub struct ComingEvent {
-    pub start_time: Instant, // the original start time of the event
-    pub delay: Duration,     // delay between the start time and the trigger time for the event
-    pub event_id: ItemId,    // id of the event to launch
-}
-
-// Implement the Coming Event features
-impl ComingEvent {
-    /// A function to return a new ComingEvent by consuming Duration and
-    /// ItemId.
-    ///
-    pub fn new(delay: Duration, event_id: ItemId) -> ComingEvent {
-        ComingEvent {
-            start_time: Instant::now(),
-            delay,
-            event_id,
-        }
-    }
-
-    /// A method to return a copy of the event id.
-    ///
-    pub fn id(&self) -> ItemId {
-        self.event_id.clone()
-    }
-
-    /// A method to calculate the amount of time remaining before the event
-    /// triggers. Returns None if the event should already have occured.
-    ///
-    pub fn remaining(&self) -> Option<Duration> {
-        self.delay.checked_sub(self.start_time.elapsed())
-    }
-
-    /// A method to compare the start time and event id of two coming events.
-    /// The method returns true iff both values are equal.
-    ///
-    pub fn compare_with(&self, other: &ComingEvent) -> bool {
-        (self.event_id == other.event_id) & (self.start_time == other.start_time)
     }
 }
 
@@ -224,10 +233,16 @@ pub enum Notification {
     },
 
     /// A current event type of notification
-    Current { message: String, time: NaiveDateTime },
+    Current {
+        message: String,
+        time: NaiveDateTime,
+    },
 
     /// Any other type of internal update
-    Update { message: String, time: NaiveDateTime },
+    Update {
+        message: String,
+        time: NaiveDateTime,
+    },
 }
 
 // Reexport the notification type variants
@@ -272,178 +287,21 @@ impl fmt::Display for Notification {
                 ref message,
                 ref time,
                 ..
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
             &Warning {
                 ref message,
                 ref time,
                 ..
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
             &Current {
                 ref message,
                 ref time,
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
             &Update {
                 ref message,
                 ref time,
-            } => write!(
-                f,
-                "{}: {}",
-                time.format("%F %T"),
-                message
-            ),
+            } => write!(f, "{}: {}", time.format("%F %T"), message),
         }
-    }
-}
-
-/// An enum to provide and receive updates from the various internal
-/// components of the system interface and external updates from the interface.
-///
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum InternalUpdate {
-    /// A variant that broadcasts an event with the given item id. This event id
-    /// is not processed or otherwise checked for validity. If data is provided,
-    /// it will be broadcast with the event.
-    BroadcastEvent(ItemId, Option<u32>),
-
-    /// A variant that notifies the system of a change in the coming events
-    ComingEvents(Vec<ComingEvent>),
-    
-    /// A variant that solicites a string of data from the user to send to the
-    /// system. The string will be sent as a series of events with the same
-    /// item id. TODO Make this more generic for other user input
-    GetUserString(ItemId),
-    
-    /// A variant to pass a new video stream to the user interface
-    #[cfg(feature = "media-out")]
-    NewVideo(Option<VideoStream>),
-
-    /// A variant that processes a new event with the given item id. If the
-    /// check_scene flag is not set, the system will not check if the event is
-    /// listed in the current scene. If broadcast is set to true, the event
-    /// will be broadcast to the system
-    ProcessEvent {
-        event: ItemId,
-        check_scene: bool,
-        broadcast: bool,
-    },
-
-    /// A variant to trigger a refresh of the user interface
-    /// FIXME Reconsider this arrangement
-    RefreshInterface,
-
-    /// A variant to log updates
-    Update(LogUpdate),
-}
-
-/// The stucture and methods to send internal updates to the system interface.
-///
-#[derive(Clone, Debug)]
-pub struct InternalSend {
-    internal_send: mpsc::Sender<InternalUpdate>, // the line to pass internal updates to the system interface
-}
-
-// Implement the key features of the internal update
-impl InternalSend {
-    /// A function to create a new Internal Update
-    ///
-    /// The function returns the the Internal Update structure and the internal
-    /// receive channel which will return the provided updates.
-    ///
-    pub fn new() -> (InternalSend, mpsc::Receiver<InternalUpdate>) {
-        // Create the new channel
-        let (internal_send, receive) = mpsc::channel(128);
-
-        // Create and return both new items
-        (InternalSend { internal_send }, receive)
-    }
-
-    /// A method to broadcast an event via the system interface (with data,
-    /// if it is provided)
-    ///
-    pub async fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
-        self.internal_send
-            .send(InternalUpdate::BroadcastEvent(event_id, data)).await
-            .unwrap_or(());
-    }
-
-    /// A method to send new coming events to the system
-    ///
-    pub async fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
-        self.internal_send
-            .send(InternalUpdate::ComingEvents(coming_events)).await
-            .unwrap_or(());
-    }
-
-    // A method to process a new event. If the check_scene flag is not set,
-    // the system will not check if the event is in the current scene. If
-    // broadcast is set to true, the event will be broadcast to the system.
-    //
-    pub async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
-        self.internal_send
-            .send(InternalUpdate::ProcessEvent {
-                event,
-                check_scene,
-                broadcast,
-            }).await
-            .unwrap_or(());
-    }
-
-    /// A method to request a string from the user FIXME make this more generic
-    /// for other types of data
-    ///
-    pub async fn send_get_user_string(&self, event: ItemId) {
-        self.internal_send
-            .send(InternalUpdate::GetUserString(event)).await
-            .unwrap_or(());
-    }
-     
-    /// A method to pass a new video stream to the user interface
-    ///
-    #[cfg(feature = "media-out")]
-    pub async fn send_new_video(&self, video_stream: VideoStream) {
-        self.internal_send
-            .send(InternalUpdate::NewVideo(Some(video_stream))).await
-            .unwrap_or(());
-    }
-
-    /// A method to clear all video streams from the user interface
-    ///
-    #[cfg(feature = "media-out")]
-    pub async fn send_clear_videos(&self) {
-        self.internal_send
-            .send(InternalUpdate::NewVideo(None)).await
-            .unwrap_or(());
-    }
-
-    // A method to trigger a refresh of the user interface
-    //
-    pub async fn send_refresh(&self) {
-        self.internal_send
-            .send(InternalUpdate::RefreshInterface).await
-            .unwrap_or(());
-    }
-
-    /// A method to send an event update to the system interface.
-    ///
-    pub async fn send_update(&self, update: LogUpdate) {
-        self.internal_send
-            .send(InternalUpdate::Update(update)).await
-            .unwrap_or(());
     }
 }
 
@@ -483,12 +341,10 @@ pub struct GtkRequest {
     request: UserRequest,
 }
 
-/// Implement from and to UserRequest for GtkRequest 
+/// Implement from and to UserRequest for GtkRequest
 impl From<UserRequest> for GtkRequest {
     fn from(request: UserRequest) -> Self {
-        GtkRequest {
-            request,
-        }
+        GtkRequest { request }
     }
 }
 impl From<GtkRequest> for UserRequest {
@@ -522,29 +378,32 @@ impl WebSend {
     /// A method to send a web request. This method fails silently.
     ///
     pub async fn send(&self, reply_to: oneshot::Sender<WebReply>, request: UserRequest) {
-        self.web_send.send(WebRequest { reply_to, request }).await.unwrap_or(());
+        self.web_send
+            .send(WebRequest { reply_to, request })
+            .await
+            .unwrap_or(());
     }
 }
 
 /// A structure for carrying requests from the web interface
-/// 
+///
 pub struct WebRequest {
-    pub reply_to: oneshot::Sender<WebReply>,    // the handle for replying to the reqeust
-    pub request: UserRequest,                   // the request
+    pub reply_to: oneshot::Sender<WebReply>, // the handle for replying to the reqeust
+    pub request: UserRequest,                // the request
 }
-
 
 /// An enum to execute one modification to the configuration
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Modification {
     /// A modification to add an item or modify an existing one
-    ModifyItem {
-        item_pair: ItemPair,
-    },
+    #[serde(rename_all = "camelCase")]
+    ModifyItem { item_pair: ItemPair },
 
     /// A modification to add an event, modify an existing one, or delete it
     /// (if None provided)
+    #[serde(rename_all = "camelCase")]
     ModifyEvent {
         item_id: ItemId,
         event: Option<Event>,
@@ -552,6 +411,7 @@ pub enum Modification {
 
     /// A modification to add a status, modify an existing one, or delete it
     /// (if None provided)
+    #[serde(rename_all = "camelCase")]
     ModifyStatus {
         item_id: ItemId,
         status: Option<Status>,
@@ -559,6 +419,7 @@ pub enum Modification {
 
     /// A modification to add a scene, modify an existing one, or delete it
     /// (if None provided)
+    #[serde(rename_all = "camelCase")]
     ModifyScene {
         item_id: ItemId,
         scene: Option<Scene>,
@@ -567,7 +428,7 @@ pub enum Modification {
 
 /// An enum to specify the type of information request
 ///
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RequestType {
     /// A variant for the description of an item
     Description { item_id: ItemId },
@@ -586,7 +447,7 @@ pub enum RequestType {
 }
 
 /// An enum to specify which Edit Action subcomponent has requested the information
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EditActionElement {
     /// A variant for the edit new scene action
     EditNewScene,
@@ -607,14 +468,17 @@ pub enum EditActionElement {
     EditSendData,
 
     /// A variant for the select event status description
-    SelectEventDescription { position: Option<usize>, is_event: bool },
+    SelectEventDescription {
+        position: Option<usize>,
+        is_event: bool,
+    },
 
     /// A variant for the select event states
     SelectEventStates,
 }
 
 /// An enum to specify which Edit Item subcomponent has requested the information
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EditItemElement {
     /// A variant for the item description
     ItemDescription,
@@ -633,16 +497,25 @@ pub enum EditItemElement {
 }
 
 /// An enum to specify which display component has requested the information
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DisplayComponent {
     /// A variant for the edit item window
-    EditItemOverview { is_left: bool, variant: EditItemElement },
+    EditItemOverview {
+        is_left: bool,
+        variant: EditItemElement,
+    },
 
     /// A variant for the edit action element
-    EditActionElement { is_left: bool, variant: EditActionElement},
+    EditActionElement {
+        is_left: bool,
+        variant: EditActionElement,
+    },
 
     /// A variant for the edit multistate status element
-    EditMultiStateStatus { is_left: bool, position: Option<usize> },
+    EditMultiStateStatus {
+        is_left: bool,
+        position: Option<usize>,
+    },
 
     /// A variant for the edit counted state status element
     EditCountedStateStatus { is_left: bool, state_type: String },
@@ -656,7 +529,7 @@ pub enum DisplayComponent {
 
 /// An enum to carry requests from the user
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserRequest {
     /// A variant to adjust all the events in the timeline
     /// NOTE: after the adjustment, events that would have already happened are discarded
@@ -701,7 +574,7 @@ pub enum UserRequest {
     /// queue.
     EventChange {
         event_id: ItemId,
-        start_time: Instant, // the start time of the event, for unambiguous identification
+        start_time: NaiveDateTime, // the start time of the event, for unambiguous identification
         new_delay: Option<Duration>, // new delay relative to the original start time, or None to cancel the event
     },
 
@@ -736,53 +609,53 @@ pub enum UserRequest {
     SceneChange { scene: ItemId },
 
     /// A variant to change the state of the indicated status.
-    StatusChange { status_id: ItemId, state: ItemId },
+    StatusChange { status: ItemId, state: ItemId },
 }
 
 /// A type to cover all web replies
-/// 
+///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WebReply {
     // A variant for replies with no specific content
     #[serde(rename_all = "camelCase")]
     Generic {
-        is_valid: bool, // a flag to indicate the result of the request
+        is_valid: bool,  // a flag to indicate the result of the request
         message: String, // a message describing the success or failure
     },
-    
+
     // A variant that contains the complete item list
     #[serde(rename_all = "camelCase")]
     AllItems {
-        is_valid: bool, // a flag to indicate the result of the request
+        is_valid: bool,                   // a flag to indicate the result of the request
         all_items: Option<Vec<ItemPair>>, // the list of all items, if found
     },
 
     // A variant that contains scene detail
     #[serde(rename_all = "camelCase")]
     Scene {
-        is_valid: bool, // a flag to indicate the result of the request
+        is_valid: bool,                  // a flag to indicate the result of the request
         scene: Option<DescriptiveScene>, // the scene detail, if found
     },
 
     // A variant that contains status detail
     #[serde(rename_all = "camelCase")]
     Status {
-        is_valid: bool, // a flag to indicate the result of the request
+        is_valid: bool,         // a flag to indicate the result of the request
         status: Option<Status>, // the status detail, if found
     },
 
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
     Event {
-        is_valid: bool, // a flag to indicate the result of the request
+        is_valid: bool,       // a flag to indicate the result of the request
         event: Option<Event>, // the event detail, if found
     },
 
     // A variant that contains item detail
     #[serde(rename_all = "camelCase")]
     Item {
-        is_valid: bool, // a flag to indicate the result of the request
+        is_valid: bool,      // a flag to indicate the result of the request
         item_pair: ItemPair, // the item pair
     },
 }
@@ -797,11 +670,12 @@ impl WebReply {
             message: "Request completed.".to_string(),
         }
     }
-    
+
     /// A function to return a new, failed web reply
     ///
     pub fn failure<S>(reason: S) -> WebReply
-        where S: Into<String>
+    where
+        S: Into<String>,
     {
         WebReply::Generic {
             is_valid: false,
@@ -810,7 +684,7 @@ impl WebReply {
     }
 
     /// A method to check if the reply is a success
-    /// 
+    ///
     pub fn is_success(&self) -> bool {
         match self {
             &WebReply::Generic { ref is_valid, .. } => is_valid.clone(),
@@ -842,20 +716,20 @@ pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong 
 pub enum WindowType {
     /// A variant to launch the jump dialog with an optional scene of interest
     Jump(Option<ItemPair>),
-    
+
     /// A variant to solicit a string from the user. The string will be sent as
     /// a series of events to the system
     PromptString(ItemPair),
-    
+
     /// A variant to show the shortcuts window
     Shortcuts,
-    
+
     /// A variant to launch the status dialog with an optional relevant status of interest
     Status(Option<ItemPair>),
-    
+
     /// A variant to launch the trigger dialog with an optional event of interest
     Trigger(Option<ItemPair>),
-    
+
     /// A variant to launch a video window with a source from the video system connection
     #[cfg(feature = "media-out")]
     Video(Option<VideoStream>),
