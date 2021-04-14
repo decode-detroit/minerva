@@ -28,7 +28,6 @@ use crate::definitions::*;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::mpsc as std_mpsc;
 
 // Import the chrono library
 use chrono::{Duration, Local};
@@ -44,7 +43,7 @@ pub struct Logger {
     old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
     index_access: IndexAccess,            // the item index access point
     internal_send: InternalSend,          // broadcast channel for current events
-    interface_send: std_mpsc::Sender<InterfaceUpdate>, // an update line for passing updates to the user interface
+    interface_send: InterfaceSend,        // an update line for passing updates to the user interface
 }
 
 // Implement key Logger struct features
@@ -66,7 +65,7 @@ impl Logger {
         error_path: Option<PathBuf>,
         index_access: IndexAccess,
         internal_send: InternalSend,
-        interface_send: std_mpsc::Sender<InterfaceUpdate>,
+        interface_send: InterfaceSend,
     ) -> Result<Logger, FailureError> {
         // Attempt to open the game log file
         let game_log = match log_path {
@@ -287,8 +286,7 @@ impl Logger {
                     .send(InterfaceUpdate::UpdateStatus {
                         status_id: status_pair.clone(),
                         new_state: state_pair.clone(),
-                    })
-                    .unwrap_or(());
+                    }).await;
 
                 // Return the notification
                 Notification::Update {
@@ -348,7 +346,7 @@ mod tests {
 
         // Create the communication lines
         let (internal_send, _internal_recv) = InternalSend::new();
-        let (interface_send, _interface_recv) = std_mpsc::channel();
+        let (interface_send, _gtk_interface_recv, _web_interface_recv) = InterfaceSend::new();
 
         // Create a test index access and load the index
         let (index_access, _rx) = IndexAccess::new();

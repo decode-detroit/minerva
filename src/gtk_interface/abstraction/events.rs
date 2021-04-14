@@ -30,7 +30,6 @@ use super::{LARGE_FONT, NORMAL_FONT};
 // Import standard library features
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc;
 use std::u32::MAX as U32_MAX;
 
 // Import FNV HashMap
@@ -220,7 +219,7 @@ impl EventAbstraction {
         mut window: EventWindow,
         full_status: &FullStatus,
         gtk_send: &GtkSend,
-        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        interface_send: &InterfaceSend,
     ) {
         // Empty the old event grid
         self.clear();
@@ -457,7 +456,7 @@ impl EventGroupAbstraction {
     fn new(
         event_group: EventGroup,
         gtk_send: &GtkSend,
-        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        interface_send: &InterfaceSend,
         full_status: &FullStatus,
         font_size: u32,
         is_high_contrast: bool,
@@ -532,9 +531,9 @@ impl EventGroupAbstraction {
                     // Connect the status dialog when clicked
                     selection.connect_clicked(clone!(interface_send => move |_| {
                         // Send the status dialog to the user interface
-                        interface_send.send(InterfaceUpdate::LaunchWindow {
+                        interface_send.sync_send(InterfaceUpdate::LaunchWindow {
                             window_type: WindowType::Status(Some(id_pair.clone()))
-                        }).unwrap_or(());
+                        });
                     }));
 
                     // Set the new state selection

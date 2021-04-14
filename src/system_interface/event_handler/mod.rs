@@ -38,7 +38,6 @@ use super::system_connection::ConnectionSet;
 // Import standard library features
 use std::fs::File;
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::time::Duration;
 
 // Import Chrono features
@@ -88,7 +87,7 @@ impl EventHandler {
         config_path: PathBuf,
         index_access: IndexAccess,
         internal_send: InternalSend,
-        interface_send: mpsc::Sender<InterfaceUpdate>,
+        interface_send: InterfaceSend,
         log_failure: bool,
     ) -> Result<EventHandler, Error> {
         // Attempt to open the configuration file

@@ -39,7 +39,6 @@ use crate::definitions::LaunchWindow;
 use std::env;
 use std::fs::DirBuilder;
 use std::path::PathBuf;
-use std::sync::mpsc as std_mpsc;
 
 // Import Tokio features
 use tokio::sync::mpsc;
@@ -66,7 +65,7 @@ pub struct SystemInterface {
     logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
     index_access: IndexAccess,           // the access point for the item index
-    interface_send: std_mpsc::Sender<InterfaceUpdate>, // a sending line to pass interface updates
+    interface_send: InterfaceSend, // a sending line to pass interface updates
     gtk_receive: mpsc::Receiver<GtkRequest>, // the receiving line for gtk requests
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
@@ -80,7 +79,7 @@ impl SystemInterface {
     ///
     pub async fn new(
         index_access: IndexAccess,
-        interface_send: std_mpsc::Sender<InterfaceUpdate>,
+        interface_send: InterfaceSend,
     ) -> Result<(Self, GtkSend, WebSend), FailureError> {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
@@ -197,16 +196,6 @@ impl SystemInterface {
                         request.reply_to.send(WebReply::success()).unwrap_or(());
                         return false;
                     }
-
-                    /*
-                                "Unable to cue the event."
-
-
-                        // Ignore other cases
-                        _ => {
-                            reply_to.send(WebReply::failure("Other requests have not been implemented.")).unwrap_or(());
-                        }
-                    reply_to.send(WebReply::failure("No active configuration.")).unwrap_or(());*/
                 }
             }
         }
@@ -267,8 +256,7 @@ impl SystemInterface {
                 self.interface_send
                     .send(InterfaceUpdate::UpdateTimeline {
                         events: upcoming_events,
-                    })
-                    .unwrap_or(());
+                    }).await;
             }
 
             // Solicit a string from the user
@@ -280,8 +268,7 @@ impl SystemInterface {
                 self.interface_send
                     .send(InterfaceUpdate::LaunchWindow {
                         window_type: WindowType::PromptString(pair),
-                    })
-                    .unwrap_or(());
+                    }).await;
             }
 
             // Pass a video stream to the user interface
@@ -310,8 +297,7 @@ impl SystemInterface {
                         self.interface_send
                             .send(InterfaceUpdate::Notify {
                                 message: description.description,
-                            })
-                            .unwrap_or(());
+                            }).await;
                     }
 
                     // Put the handler back
@@ -358,8 +344,7 @@ impl SystemInterface {
                             window,
                             statuses,
                             key_map,
-                        })
-                        .unwrap_or(());
+                        }).await;
                 }
             }
 
@@ -370,8 +355,7 @@ impl SystemInterface {
 
                 // Send a notification update to the system
                 self.interface_send
-                    .send(InterfaceUpdate::UpdateNotifications { notifications })
-                    .unwrap_or(());
+                    .send(InterfaceUpdate::UpdateNotifications { notifications }).await;
             }
         }
     }
@@ -423,8 +407,7 @@ impl SystemInterface {
                 self.interface_send
                     .send(InterfaceUpdate::Notify {
                         message: "ALL STOP. Upcoming events have been cleared.".to_string(),
-                    })
-                    .unwrap_or(());
+                    }).await;
             }
 
             // Pass a broadcast event to the system connection (used only by
@@ -443,8 +426,7 @@ impl SystemInterface {
 
                 // Notify the user interface of the event
                 self.interface_send
-                    .send(InterfaceUpdate::Notify { message })
-                    .unwrap_or(());
+                    .send(InterfaceUpdate::Notify { message }).await;
             }
 
             // Clear the events currently in the queue
@@ -592,8 +574,7 @@ impl SystemInterface {
                         self.interface_send
                             .send(InterfaceUpdate::Notify {
                                 message: description.description,
-                            })
-                            .unwrap_or(());
+                            }).await;
                     }
 
                     // Put the handler back
@@ -640,8 +621,7 @@ impl SystemInterface {
                             window,
                             statuses,
                             key_map,
-                        })
-                        .unwrap_or(());
+                        }).await;
                 }
             }
 
@@ -666,8 +646,7 @@ impl SystemInterface {
                                     reply: ReplyType::Description {
                                         description: item_pair,
                                     },
-                                })
-                                .unwrap_or(());
+                                }).await;
                         }
 
                         // Reply to a request for the event
@@ -680,8 +659,7 @@ impl SystemInterface {
                                 .send(InterfaceUpdate::Reply {
                                     reply_to, // echo the display component
                                     reply: ReplyType::Event { event },
-                                })
-                                .unwrap_or(());
+                                }).await;
                         }
 
                         // Reply to a request for all the configuration items
@@ -694,8 +672,7 @@ impl SystemInterface {
                                 .send(InterfaceUpdate::Reply {
                                     reply_to,
                                     reply: ReplyType::Items { items },
-                                })
-                                .unwrap_or(());
+                                }).await;
                         }
 
                         // Reply to a request for all the events in a scene
@@ -708,8 +685,7 @@ impl SystemInterface {
                                 .send(InterfaceUpdate::Reply {
                                     reply_to,
                                     reply: ReplyType::Scene { scene },
-                                })
-                                .unwrap_or(());
+                                }).await;
                         }
                         // Reply to a request for the status
                         RequestType::Status { item_id } => {
@@ -721,8 +697,7 @@ impl SystemInterface {
                                 .send(InterfaceUpdate::Reply {
                                     reply_to, // echo the display component
                                     reply: ReplyType::Status { status },
-                                })
-                                .unwrap_or(());
+                                }).await;
                         }
                     }
 
@@ -849,8 +824,7 @@ impl SystemInterface {
             .send(InterfaceUpdate::UpdateConfig {
                 scenes,
                 full_status,
-            })
-            .unwrap_or(());
+            }).await;
 
         // Trigger a redraw of the system
         self.internal_send.send_refresh().await;

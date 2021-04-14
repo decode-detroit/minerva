@@ -34,7 +34,6 @@ use std::fs::File;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::mpsc;
 
 // Import tokio features
 use tokio::process::Command;
@@ -224,7 +223,7 @@ impl Config {
     pub async fn from_config(
         index_access: IndexAccess,
         internal_send: InternalSend,
-        interface_send: mpsc::Sender<InterfaceUpdate>,
+        interface_send: InterfaceSend,
         mut config_file: &File,
     ) -> Result<Config, Error> {
         // Try to read from the configuration file
@@ -320,8 +319,7 @@ impl Config {
             interface_send
                 .send(InterfaceUpdate::ChangeSettings {
                     display_setting: DisplaySetting::FullScreen(fullscreen),
-                })
-                .unwrap_or(());
+                }).await;
         }
 
         // Return the new configuration

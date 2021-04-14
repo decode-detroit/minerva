@@ -27,9 +27,6 @@ use crate::definitions::*;
 use super::super::utils::clean_text;
 use super::{LARGE_FONT, SMALL_FONT};
 
-// Import standard library features
-use std::sync::mpsc;
-
 // Import GTK and GDK libraries
 use self::gtk::prelude::*;
 use gtk;
@@ -46,7 +43,7 @@ const UPDATE_NUMBER: usize = 50; // maximum number of updates to display
 #[derive(Clone, Debug)]
 pub struct ControlAbstraction {
     grid: gtk::Grid, // the grid to hold the underlying elements
-    interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of interface send
+    interface_send: InterfaceSend, // a copy of interface send
     notification_area_list: gtk::ListBox, // the notification area list for system notifications
     is_debug_mode: bool, // a flag to indicate whether debug-level notifications are shown
     is_font_large: bool, // a flag to indicate the font size of the items
@@ -61,7 +58,7 @@ impl ControlAbstraction {
     ///
     pub fn new(
         gtk_send: &GtkSend,
-        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        interface_send: &InterfaceSend,
     ) -> ControlAbstraction {
         // Create the control grid for holding all the universal controls
         let grid = gtk::Grid::new();
@@ -359,10 +356,9 @@ impl ControlAbstraction {
                         let interface_clone = self.interface_send.clone();
                         new_button.connect_clicked(clone!(event_pair => move |_| {
                             interface_clone
-                                .send(InterfaceUpdate::LaunchWindow {
+                                .sync_send(InterfaceUpdate::LaunchWindow {
                                     window_type: WindowType::Trigger(Some(event_pair.clone())),
-                                })
-                                .unwrap_or(());
+                                });
                         }));
 
                         // Return the message and new button
@@ -424,10 +420,9 @@ impl ControlAbstraction {
                         let interface_clone = self.interface_send.clone();
                         new_button.connect_clicked(clone!(event_pair => move |_| {
                             interface_clone
-                                .send(InterfaceUpdate::LaunchWindow {
+                                .sync_send(InterfaceUpdate::LaunchWindow {
                                     window_type: WindowType::Trigger(Some(event_pair.clone())),
-                                })
-                                .unwrap_or(());
+                                });
                         }));
 
                         // Return the message and new button

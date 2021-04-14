@@ -28,7 +28,7 @@ use std::time::Duration;
 use std::num::ParseIntError;
 
 // Import tokio and warp modules
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 use warp::{http, Filter};
 
 /// Helper data types to formalize request structure
@@ -221,6 +221,7 @@ impl From<StatusChange> for UserRequest {
 pub struct WebInterface {
     index_access: IndexAccess, // access point for the item index
     web_send: WebSend,         // send line to the system interface
+    interface_receive: mpsc::Receiver<WebInterfaceUpdate>, // receiving line for interface updates
 }
 
 // Implement key Web Interface functionality
@@ -228,11 +229,12 @@ impl WebInterface {
     /// A function to create a new web interface. The send channel should
     /// connect directly to the system interface.
     ///
-    pub fn new(index_access: IndexAccess, web_send: WebSend) -> Self {
+    pub fn new(index_access: IndexAccess, web_send: WebSend, interface_receive: mpsc::Receiver<WebInterfaceUpdate>) -> Self {
         // Return the new web interface and runtime handle
         WebInterface {
             index_access,
             web_send,
+            interface_receive,
         }
     }
 

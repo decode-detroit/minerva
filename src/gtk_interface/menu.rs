@@ -25,7 +25,6 @@ use crate::definitions::*;
 
 // Import standard library features
 use std::process::Command;
-use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
@@ -56,7 +55,7 @@ impl MenuAbstraction {
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
         gtk_send: &GtkSend,
-        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        interface_send: &InterfaceSend,
     ) -> MenuAbstraction {
         // Create the menu bar and the different submenus
         let menu_bar = gio::Menu::new();
@@ -235,10 +234,9 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(InterfaceUpdate::ChangeSettings {
+                    .sync_send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::FullScreen(!is_fullscreen),
-                    })
-                    .unwrap_or(());
+                    });
             }
         }));
 
@@ -252,10 +250,9 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(InterfaceUpdate::ChangeSettings {
+                    .sync_send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::DebugMode(!is_debug),
-                    })
-                    .unwrap_or(());
+                    });
             }
         }));
 
@@ -269,10 +266,9 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(InterfaceUpdate::ChangeSettings {
+                    .sync_send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::LargeFont(!is_large),
-                    })
-                    .unwrap_or(());
+                    });
             }
         }));
 
@@ -286,10 +282,9 @@ impl MenuAbstraction {
 
                 // Update the interface (to the opposite of the current state)
                 interface_send
-                    .send(InterfaceUpdate::ChangeSettings {
+                    .sync_send(InterfaceUpdate::ChangeSettings {
                         display_setting: DisplaySetting::HighContrast(!is_hc),
-                    })
-                    .unwrap_or(());
+                    });
             }
         }));
 
@@ -299,10 +294,9 @@ impl MenuAbstraction {
         shortcuts.connect_activate(move |_, _| {
             // Launch the shortcuts dialog
             interface_clone
-                .send(InterfaceUpdate::LaunchWindow {
+                .sync_send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Shortcuts,
-                })
-                .unwrap_or(());
+                });
         });
 
         // Create the jump to dialog action
@@ -311,10 +305,9 @@ impl MenuAbstraction {
         jump.connect_activate(move |_, _| {
             // Launch the jump dialog
             interface_clone
-                .send(InterfaceUpdate::LaunchWindow {
+                .sync_send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Jump(None),
-                })
-                .unwrap_or(());
+                });
         });
 
         // Create the modify status dialog action
@@ -323,10 +316,9 @@ impl MenuAbstraction {
         status.connect_activate(move |_, _| {
             // Launch the status modification dialog
             interface_clone
-                .send(InterfaceUpdate::LaunchWindow {
+                .sync_send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Status(None),
-                })
-                .unwrap_or(());
+                });
         });
 
         // Create the clear timeline action
@@ -342,10 +334,9 @@ impl MenuAbstraction {
         trigger.connect_activate(move |_, _| {
             // Launch the trigger event dialog
             interface_clone
-                .send(InterfaceUpdate::LaunchWindow {
+                .sync_send(InterfaceUpdate::LaunchWindow {
                     window_type: WindowType::Trigger(None),
-                })
-                .unwrap_or(());
+                });
         });
 
         // Create the edit mode action (toggles availability of the other edit actions)
@@ -468,7 +459,7 @@ impl MenuAbstraction {
                 let is_edit = !state.get().unwrap_or(true);
 
                 // Update the rest of the interface (to the opposite of the current state)
-                interface_send.send(InterfaceUpdate::EditMode(is_edit)).unwrap_or(());
+                interface_send.sync_send(InterfaceUpdate::ChangeSettings { display_setting: DisplaySetting::EditMode(is_edit) });
 
                 // Swap the checkbox state
                 checkbox.change_state(&(is_edit).to_variant());

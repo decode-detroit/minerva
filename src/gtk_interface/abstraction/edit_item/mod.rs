@@ -36,7 +36,6 @@ use super::super::utils::{clean_text, color_label};
 // Import standard library features
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc;
 
 // Import the serde_yaml library
 use serde_yaml;
@@ -76,7 +75,7 @@ impl EditWindow {
     pub fn new(
         window: &gtk::ApplicationWindow,
         gtk_send: &GtkSend,
-        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        interface_send: &InterfaceSend,
     ) -> EditWindow {
         // Create the control grid for holding all the universal controls
         let grid = gtk::Grid::new();
@@ -239,16 +238,16 @@ impl EditWindow {
 /// modify all the details associated with that item.
 #[derive(Clone, Debug)]
 pub struct EditItemAbstraction {
-    grid: gtk::Grid,                               // the grid to hold underlying elements
-    gtk_send: GtkSend,                             // a copy of the system send line
-    interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send line
-    current_id: Rc<RefCell<Option<ItemId>>>,       // the wrapped current item id
-    is_left: bool,                                 // whether the element is on the left or right
-    item_description: gtk::Entry,                  // the description of the item being edited
-    edit_overview: Rc<RefCell<EditOverview>>,      // the wrapped edit overview section
-    edit_event: Rc<RefCell<EditEvent>>,            // the wrapped edit event section
-    edit_scene: Rc<RefCell<EditScene>>,            // the wrapped edit scene section
-    edit_status: Rc<RefCell<EditStatus>>,          // the wrapped edit status section
+    grid: gtk::Grid,                            // the grid to hold underlying elements
+    gtk_send: GtkSend,                          // a copy of the system send line
+    interface_send: InterfaceSend,              // a copy of the interface send line
+    current_id: Rc<RefCell<Option<ItemId>>>,    // the wrapped current item id
+    is_left: bool,                              // whether the element is on the left or right
+    item_description: gtk::Entry,               // the description of the item being edited
+    edit_overview: Rc<RefCell<EditOverview>>,   // the wrapped edit overview section
+    edit_event: Rc<RefCell<EditEvent>>,         // the wrapped edit event section
+    edit_scene: Rc<RefCell<EditScene>>,         // the wrapped edit scene section
+    edit_status: Rc<RefCell<EditStatus>>,       // the wrapped edit status section
 }
 
 // Implement key features for the EditItemAbstraction
@@ -260,7 +259,7 @@ impl EditItemAbstraction {
     pub fn new(
         window: &gtk::ApplicationWindow,
         gtk_send: &GtkSend,
-        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        interface_send: &InterfaceSend,
         is_left: bool,
     ) -> EditItemAbstraction {
         // Create the control grid for holding all the universal controls

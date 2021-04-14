@@ -47,7 +47,6 @@ use edit_item::EditWindow;
 // Import standard library features
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc;
 
 // Import GTK and GDK libraries
 use self::gtk::prelude::*;
@@ -69,7 +68,7 @@ const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 ///
 pub struct InterfaceAbstraction {
     system_send: GtkSend, // a copy of system send held in the interface abstraction
-    interface_send: mpsc::Sender<InterfaceUpdate>, // a copy of the interface send
+    interface_send: InterfaceSend, // a copy of the interface send
     top_element: gtk::Stack, // the stack that contains the operations and edit grids
     full_status: Rc<RefCell<FullStatus>>, // a copy of the current full status of the system
     current_window: (ItemPair, Vec<ItemPair>, EventWindow), // a copy of the event window
@@ -100,7 +99,7 @@ impl InterfaceAbstraction {
     ///
     pub fn new(
         system_send: &GtkSend,
-        interface_send: &mpsc::Sender<InterfaceUpdate>,
+        interface_send: &InterfaceSend,
         window: &gtk::ApplicationWindow,
     ) -> InterfaceAbstraction {
         // Create the top-level element of the program, a stack to hold both

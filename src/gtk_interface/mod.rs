@@ -68,7 +68,7 @@ impl GtkInterface {
         application: &gtk::Application,
         window: &gtk::ApplicationWindow,
         gtk_send: GtkSend,
-        interface_send: mpsc::Sender<InterfaceUpdate>,
+        interface_send: InterfaceSend,
         interface_receive: mpsc::Receiver<InterfaceUpdate>,
     ) -> Self {
         // Create a new interface abstraction and add the top element to the window
@@ -167,6 +167,12 @@ impl GtkInterface {
                             self.gtk_send.send(UserRequest::Redraw);
                         }
 
+                        // Change the edit mode of the display
+                        DisplaySetting::EditMode(is_edit) => {
+                            // Switch the interface edit mode
+                            interface.select_edit(is_edit);
+                        }
+
                         // Change the font size of the display
                         DisplaySetting::LargeFont(is_large) => {
                             // Set the menu checkbox
@@ -186,20 +192,6 @@ impl GtkInterface {
                             interface.select_contrast(is_hc);
                             self.gtk_send.send(UserRequest::Redraw);
                         }
-                    }
-                }
-
-                // Change the user interface to or from edit mode
-                InterfaceUpdate::EditMode(is_edit) => {
-                    // If the edit setting was chosen
-                    if is_edit {
-                        // Switch the interface to edit mode
-                        interface.select_edit(true);
-
-                    // If the edit setting was not chosen
-                    } else {
-                        // Change the interface to operations mode
-                        interface.select_edit(false);
                     }
                 }
 

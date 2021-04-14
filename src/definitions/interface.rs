@@ -21,6 +21,9 @@
 // Import crate definitions
 use crate::definitions::*;
 
+// Import standard library features
+use std::sync::{Arc, Mutex, mpsc as std_mpsc};
+
 // Import Tokio features
 use tokio::sync::mpsc;
 
@@ -72,7 +75,7 @@ pub enum DisplaySetting {
     DebugMode(bool),
 
     /// A variant to change the edit mode of the display
-    // FIXME EditMode(bool),
+    EditMode(bool),
 
     /// A variant to change the font size of the display
     LargeFont(bool),
@@ -101,15 +104,12 @@ pub enum ReplyType {
     Items { items: Vec<ItemPair> },
 }
 
-/// An enum type to provide interface updates back to the user interface thread.
+/// An enum type to provide updates to the user interface thread.
 ///
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum InterfaceUpdate {
     /// A variant to change the display settings
     ChangeSettings { display_setting: DisplaySetting },
-
-    /// A variant to switch the interface to or from edit mode
-    EditMode(bool),
 
     /// A variant to launch one of the special windows
     LaunchWindow { window_type: WindowType },
@@ -117,7 +117,7 @@ pub enum InterfaceUpdate {
     /// A variant to post a current event to the status bar
     Notify { message: String },
 
-    /// A variant to reply to an information request from the user interface
+    /// A variant to reply to an information request from the gtk user interface
     Reply {
         reply_to: DisplayComponent,
         reply: ReplyType,
@@ -152,147 +152,145 @@ pub enum InterfaceUpdate {
     UpdateTimeline { events: Vec<UpcomingEvent> },
 }
 
-/*
-/// The stucture and methods to send updates to the user interface.
+/// An enum type to provide interface to the web interface (a subset of the InterfaceUpdates)
 ///
-#[cfg(not(test))]
-#[derive(Clone, Debug)]
-pub struct IndexAccess {
-    index_send: mpsc::Sender<IndexUpdate>, // the line to pass internal updates to the system interface
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub enum WebInterfaceUpdate {
+    /// A variant to change the display settings
+    ChangeSettings { display_setting: DisplaySetting },
+
+    /// A variant to post a current event to the status bar
+    Notify { message: String },
+
+    /// A variant to update the available scenes and full status in the main
+    /// program window.
+    UpdateConfig {
+        scenes: Vec<ItemPair>,
+        full_status: FullStatus,
+    },
+
+    /// A variant indicating the entire button window should be refreshed with
+    /// the new provided window.
+    UpdateWindow {
+        current_scene: ItemPair,
+        statuses: Vec<ItemPair>,
+        window: EventWindow,
+        key_map: KeyMap,
+    },
+
+    /// A variant to update the state of a partiular status.
+    UpdateStatus {
+        status_id: ItemPair, // the group to update
+        new_state: ItemPair, // the new state of the group
+    },
+
+    /// A variant indicating that the system notifications should be updated.
+    UpdateNotifications { notifications: Vec<Notification> },
+
+    /// A variant indicating that the event timeline should be updated.
+    UpdateTimeline { events: Vec<UpcomingEvent> },
 }
 
-// Implement the key features of the index access
-#[cfg(not(test))]
-impl IndexAccess {
-    /// A function to create a new Index Access
+/// The stucture and methods to send updates to the user interface.
+///
+#[derive(Clone, Debug)]
+pub struct InterfaceSend {
+    gtk_interface_send: Arc<Mutex<std_mpsc::Sender<InterfaceUpdate>>>, // the line to pass updates to the gtk user interface
+    web_interface_send: mpsc::Sender<WebInterfaceUpdate>, // the line to pass updates to the web user interface
+}
+
+// Implement the key features of interface send
+impl InterfaceSend {
+    /// A function to create a new InterfaceSend
     ///
-    /// The function returns the Index Access structure and the index
-    /// receive channel which will return the provided updates.
+    /// The function returns the InterfaceSend structure and the interface
+    /// receive channels which will return the provided updates.
     ///
-    pub fn new() -> (IndexAccess, mpsc::Receiver<IndexUpdate>) {
-        // Create the new channel
-        let (index_send, receive) = mpsc::channel(256);
+    pub fn new() -> (Self, std_mpsc::Receiver<InterfaceUpdate>, mpsc::Receiver<WebInterfaceUpdate>) {
+        // Create two new channels
+        let (gtk_interface_send, gtk_receive) = std_mpsc::channel();
+        let (web_interface_send, web_receive) = mpsc::channel(128);
 
         // Create and return both new items
-        (IndexAccess { index_send }, receive)
+        (InterfaceSend { gtk_interface_send: Arc::new(Mutex::new(gtk_interface_send)), web_interface_send }, gtk_receive, web_receive)
     }
 
-    /// A method to send a new index to the item index
+    /// A method to send an interface update. This method fails silently.
     ///
-    pub async fn send_index(&self, new_index: DescriptionMap) {
-        self.index_send
-            .send(IndexUpdate::NewIndex { new_index })
-            .await
-            .unwrap_or(());
-    }
-
-    /// A method to remove an item from the index
-    /// Returns true if the item was found and false otherwise.
-    ///
-    pub async fn _remove_item(&self, item_id: ItemId) -> bool {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::UpdateDescription {
-                item_id: item_id.clone(),
-                new_description: None,
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return false
-            return false;
+    pub async fn send(&self, update: InterfaceUpdate) {
+        // Get a lock on the gtk send line
+        if let Ok(gtk_send) = self.gtk_interface_send.lock() {
+            // Send the update to the gtk interface
+            gtk_send.send(update.clone()).unwrap_or(());
         }
 
-        // Wait for the reply
-        rx.await.unwrap_or(false)
+        // Match the update type
+        match update.clone() {
+            // For certain types, send the update to the web interface too
+            InterfaceUpdate::ChangeSettings { display_setting } => {
+                self.web_interface_send.send(WebInterfaceUpdate::ChangeSettings { display_setting }).await.unwrap_or(());
+            }
+            InterfaceUpdate::Notify { message } => {
+                self.web_interface_send.send(WebInterfaceUpdate::Notify { message }).await.unwrap_or(());
+            }
+            InterfaceUpdate::UpdateConfig { scenes, full_status } => {
+                self.web_interface_send.send(WebInterfaceUpdate::UpdateConfig { scenes, full_status }).await.unwrap_or(());
+            }
+            InterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map } => {
+                self.web_interface_send.send(WebInterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map }).await.unwrap_or(());
+            }
+            InterfaceUpdate::UpdateStatus { status_id, new_state } => {
+                self.web_interface_send.send(WebInterfaceUpdate::UpdateStatus { status_id, new_state }).await.unwrap_or(());
+            }
+            InterfaceUpdate::UpdateNotifications { notifications } => {
+                self.web_interface_send.send(WebInterfaceUpdate::UpdateNotifications { notifications }).await.unwrap_or(());
+            }
+            InterfaceUpdate::UpdateTimeline { events } => {
+                self.web_interface_send.send(WebInterfaceUpdate::UpdateTimeline { events }).await.unwrap_or(());
+            }
+
+            // Ignore others
+            _ => (),
+        }
     }
 
-    /// A method to add or update the description in the item index
-    /// Returns true if the item was not previously defined and false otherwise.
+    /// A method to send an interface update in a sync setting. This method fails
+    /// silently.
     ///
-    pub async fn update_description(
-        &self,
-        item_id: ItemId,
-        new_description: ItemDescription,
-    ) -> bool {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::UpdateDescription {
-                item_id: item_id.clone(),
-                new_description: Some(new_description.clone()),
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return false
-            return false;
+    pub fn sync_send(&self, update: InterfaceUpdate) {
+        // Get a lock on the gtk send line
+        if let Ok(gtk_send) = self.gtk_interface_send.lock() {
+            // Send the update to the gtk interface
+            gtk_send.send(update.clone()).unwrap_or(());
         }
 
-        // Wait for the reply
-        rx.await.unwrap_or(false)
-    }
+        // Match the update type
+        match update.clone() {
+            // For certain types, send the update to the web interface too
+            InterfaceUpdate::ChangeSettings { display_setting } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::ChangeSettings { display_setting }).unwrap_or(());
+            }
+            InterfaceUpdate::Notify { message } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::Notify { message }).unwrap_or(());
+            }
+            InterfaceUpdate::UpdateConfig { scenes, full_status } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateConfig { scenes, full_status }).unwrap_or(());
+            }
+            InterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map }).unwrap_or(());
+            }
+            InterfaceUpdate::UpdateStatus { status_id, new_state } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateStatus { status_id, new_state }).unwrap_or(());
+            }
+            InterfaceUpdate::UpdateNotifications { notifications } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateNotifications { notifications }).unwrap_or(());
+            }
+            InterfaceUpdate::UpdateTimeline { events } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateTimeline { events }).unwrap_or(());
+            }
 
-    /// A method to get the description from the item index
-    ///
-    pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::GetDescription {
-                item_id: item_id.clone(),
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return default
-            return ItemDescription::new_default();
+            // Ignore others
+            _ => (),
         }
-
-        // Wait for the reply
-        rx.await.unwrap_or(ItemDescription::new_default())
     }
-
-    /// A method to get the item pair from the item index
-    ///
-    pub async fn get_pair(&self, item_id: &ItemId) -> ItemPair {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::GetPair {
-                item_id: item_id.clone(),
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return default
-            return ItemPair::new_default(item_id.id());
-        }
-
-        // Wait for the reply
-        rx.await.unwrap_or(ItemPair::new_default(item_id.id()))
-    }
-
-    /// A method to get all pairs from the item index
-    ///
-    pub async fn get_all(&self) -> Vec<ItemPair> {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::GetAll { reply_line })
-            .await
-        {
-            // On failure, return none
-            return Vec::new();
-        }
-
-        // Wait for the reply
-        rx.await.unwrap_or(Vec::new())
-    }
-}*/
+}

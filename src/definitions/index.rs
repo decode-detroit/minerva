@@ -74,9 +74,9 @@ impl IndexAccess {
     /// The function returns the Index Access structure and the index
     /// receive channel which will return the provided updates.
     ///
-    pub fn new() -> (IndexAccess, mpsc::Receiver<IndexUpdate>) {
+    pub fn new() -> (Self, mpsc::Receiver<IndexUpdate>) {
         // Create the new channel
-        let (index_send, receive) = mpsc::channel(256);
+        let (index_send, receive) = mpsc::channel(128);
 
         // Create and return both new items
         (IndexAccess { index_send }, receive)

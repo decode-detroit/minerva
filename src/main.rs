@@ -31,7 +31,10 @@ mod system_interface;
 mod gtk_interface;
 mod web_interface;
 
-// Import the relevant structures into the correct namespace
+// Import crate definitions
+use crate::definitions::*;
+
+// Import other structures into this module
 use self::gtk_interface::GtkInterface;
 use self::item_index::ItemIndex;
 use self::system_interface::SystemInterface;
@@ -39,7 +42,6 @@ use self::web_interface::WebInterface;
 
 // Import standard library features
 use std::env::args;
-use std::sync::mpsc as std_mpsc;
 use std::thread;
 
 // Import failure features
@@ -91,7 +93,7 @@ impl Minerva {
         });
 
         // Launch the system interface to monitor and handle events
-        let (interface_send, interface_receive) = std_mpsc::channel();
+        let (interface_send, gtk_interface_recv, web_interface_recv) = InterfaceSend::new();
         let (system_interface, gtk_send, web_send) = runtime
             .block_on(async {
                 SystemInterface::new(index_access.clone(), interface_send.clone()).await
@@ -99,7 +101,7 @@ impl Minerva {
             .expect("Unable To Create System Interface.");
 
         // Create a new web interface
-        let mut web_interface = WebInterface::new(index_access.clone(), web_send);
+        let mut web_interface = WebInterface::new(index_access.clone(), web_send, web_interface_recv);
 
         // Spin the runtime into a native thread
         thread::spawn(move || {
@@ -123,7 +125,7 @@ impl Minerva {
             &window,
             gtk_send,
             interface_send,
-            interface_receive,
+            gtk_interface_recv,
         );
 
         // Set the default parameters for the window
