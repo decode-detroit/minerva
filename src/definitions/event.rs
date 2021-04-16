@@ -119,7 +119,8 @@ impl ComingEvent {
 /// until the event should be triggered. Designed for passing events to the
 /// user interface.
 ///
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpcomingEvent {
     pub event: ItemPair,            // id and description of the event to launch
     pub start_time: NaiveDateTime,  // the original start time of the event

@@ -358,7 +358,8 @@ macro_rules! log {
 /// several of the variants described in the event update as they should not
 /// be displayed to the user.
 ///
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Notification {
     /// An error type of notification
     Error {

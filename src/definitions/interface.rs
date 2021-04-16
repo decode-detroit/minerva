@@ -24,13 +24,14 @@ use crate::definitions::*;
 // Import standard library features
 use std::sync::{Arc, Mutex, mpsc as std_mpsc};
 
-// Import Tokio features
+// Import Tokio and warp features
 use tokio::sync::mpsc;
+use warp::ws::Message;
 
 /// A structure to list a series of event buttons that are associated with one
 /// event group.
 ///
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct EventGroup {
     pub group_id: Option<ItemPair>, // the group id identifying and describing the group or None for the general group
     pub group_events: Vec<ItemPair>, // a vector of the events that belong in this group
@@ -67,6 +68,7 @@ pub enum WindowType {
 
 /// An enum to change one of the display settings of the user interface
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum DisplaySetting {
     /// A variant to change the fullscreen mode of the display
     FullScreen(bool),
@@ -154,7 +156,8 @@ pub enum InterfaceUpdate {
 
 /// An enum type to provide interface to the web interface (a subset of the InterfaceUpdates)
 ///
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum WebInterfaceUpdate {
     /// A variant to change the display settings
     ChangeSettings { display_setting: DisplaySetting },
@@ -189,6 +192,19 @@ pub enum WebInterfaceUpdate {
 
     /// A variant indicating that the event timeline should be updated.
     UpdateTimeline { events: Vec<UpcomingEvent> },
+}
+
+// Implement from<WebInterfaceUpdate> for Message)
+impl From<WebInterfaceUpdate> for Result<Message, warp::Error> {
+    fn from(update: WebInterfaceUpdate) -> Self {
+        // Try to serialize the update
+        match serde_json::to_string(&update) {
+            Ok(string) => Ok(Message::text(string)),
+            
+            // On failure, return an empty string (unable to convert the error)
+            _ => Ok(Message::text("")),
+        }
+    }
 }
 
 /// The stucture and methods to send updates to the user interface.

@@ -37,7 +37,7 @@ use warp::ws::{WebSocket, Message};
 
 // Import stream-related features
 use async_stream::stream;
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 
 // Import serde feaures
 use serde::de::DeserializeOwned;
@@ -255,7 +255,6 @@ impl From<StatusChange> for UserRequest {
 pub struct WebInterface {
     index_access: IndexAccess, // access point for the item index
     web_send: WebSend,         // send line to the system interface
-    interface_receive: mpsc::Receiver<WebInterfaceUpdate>, // receiving line for interface updates
 }
 
 // Implement key Web Interface functionality
@@ -263,26 +262,46 @@ impl WebInterface {
     /// A function to create a new web interface. The send channel should
     /// connect directly to the system interface.
     ///
-    pub fn new(index_access: IndexAccess, web_send: WebSend, interface_receive: mpsc::Receiver<WebInterfaceUpdate>) -> Self {
+    pub fn new(index_access: IndexAccess, web_send: WebSend) -> Self {
         // Return the new web interface and runtime handle
         WebInterface {
             index_access,
             web_send,
-            interface_receive,
         }
     }
 
     /// A method to listen for connections from the internet
     ///
-    pub async fn run(&mut self) {
-        // Spin up a thread to manage web socket requests
-        tokio::spawn(|| {
-                                // Add the tx line to the listeners
-                                self.listeners.push(tx);
+    pub async fn run(&mut self, mut interface_receive: mpsc::Receiver<WebInterfaceUpdate>) {
+        // Create a channel for sending new listener handles
+        let (listener_send, mut listener_recv): (mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>, mpsc::Receiver<mpsc::Sender<Result<Message, warp::Error>>>) = mpsc::channel(128);
+        
+        // Spin up a thread to pass messages to all the web sockets
+        tokio::spawn(async move {
+            // Create a list of listeners
+            let mut listeners = Vec::new();
+            
+            // Loop until failure of one of the channels
+            loop {
+                // Check for updates on any line
+                tokio::select! {
+                    // A new listener handle
+                    Some(new_listener) = listener_recv.recv() => {
+                        // Add the tx line to the listeners
+                        listeners.push(new_listener);
+                    }
 
-                                // Indicate success
-                                Manager::handle_reply(&Ok(()), reply_channel);
-        })
+                    // Updates to the user interface
+                    Some(update) = interface_receive.recv() => {
+                        // For every listener, send the update
+                        for listener in listeners.iter() {
+                            // Send a message with the new entries
+                            listener.send(update.clone().into()).await.unwrap_or(()); // FIXME Discard broken channels
+                        }
+                    }
+                }     
+            }
+        });
         
         // Create the index filter
         let readme = warp::get()
@@ -291,7 +310,7 @@ impl WebInterface {
 
         // Create the wwebsocket filter
         let listen = warp::path("listen")
-            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_clone(listener_send.clone()))
             .and(warp::ws())
             .map(|sender, ws: warp::ws::Ws| {
                 // This will call the function if the handshake succeeds.
@@ -302,29 +321,29 @@ impl WebInterface {
         let all_event_change = warp::post()
             .and(warp::path("allEventChange"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<AllEventChange>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<AllEventChange>())
             .and_then(WebInterface::handle_request);
 
         // Create the all stop filter
         let all_stop = warp::path("allStop")
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_request(UserRequest::AllStop))
             .and_then(WebInterface::handle_request);
 
         // Create the broadcast event filter
         let broadcast_event = warp::path("broadcastEvent")
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<BroadcastEvent>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<BroadcastEvent>())
             .and_then(WebInterface::handle_request);
 
         // Create the clear queue filter
         let clear_queue = warp::post()
             .and(warp::path("clearQueue"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_request(UserRequest::ClearQueue))
             .and_then(WebInterface::handle_request);
 
@@ -332,7 +351,7 @@ impl WebInterface {
         let close = warp::post()
             .and(warp::path("close"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_request(UserRequest::Close))
             .and_then(WebInterface::handle_request);
 
@@ -340,56 +359,56 @@ impl WebInterface {
         let config_file = warp::post()
             .and(warp::path("configFile"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<ConfigFile>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<ConfigFile>())
             .and_then(WebInterface::handle_request);
 
         // Create the cue event filter
         let cue_event = warp::post()
             .and(warp::path("cueEvent"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<CueEvent>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<CueEvent>())
             .and_then(WebInterface::handle_request);
 
             // Create the debug mode filter
         let debug_mode = warp::post()
             .and(warp::path("debugMode"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<DebugMode>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<DebugMode>())
             .and_then(WebInterface::handle_request);
 
         // Create the edit filter
         let edit = warp::post()
             .and(warp::path("edit"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<Edit>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<Edit>())
             .and_then(WebInterface::handle_request);
 
         // Create the error log filter
         let error_log = warp::post()
             .and(warp::path("errorLog"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<ErrorLog>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<ErrorLog>())
             .and_then(WebInterface::handle_request);
 
         // Create the event change filter
         let event_change = warp::post()
             .and(warp::path("eventChange"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<EventChange>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<EventChange>())
             .and_then(WebInterface::handle_request);
 
         // Create the config file filter
         let game_log = warp::post()
             .and(warp::path("gameLog"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<ConfigFile>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<ConfigFile>())
             .and_then(WebInterface::handle_request);
 
         // Create the item information filter
@@ -404,15 +423,15 @@ impl WebInterface {
         let process_event = warp::post()
             .and(warp::path("processEvent"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<ProcessEvent>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<ProcessEvent>())
             .and_then(WebInterface::handle_request);
 
         // Create the redraw filter
         let redraw = warp::post()
             .and(warp::path("redraw"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
+            .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_request(UserRequest::Redraw))
             .and_then(WebInterface::handle_request);
 
@@ -420,28 +439,29 @@ impl WebInterface {
         let save_config = warp::post()
             .and(warp::path("saveConfig"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<SaveConfig>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<SaveConfig>())
             .and_then(WebInterface::handle_request);
 
         // Create the scene change filter
         let scene_change = warp::post()
             .and(warp::path("sceneChange"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<SceneChange>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<SceneChange>())
             .and_then(WebInterface::handle_request);
 
         // Create the config file filter
         let status_change = warp::post()
             .and(warp::path("statusChange"))
             .and(warp::path::end())
-            .and(WebInterface::with_sender(self.web_send.clone()))
-            .and(WebInterface::with::<StatusChange>())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<StatusChange>())
             .and_then(WebInterface::handle_request);
 
         // Combine the filters
         let routes = readme
+            .or(listen)
             .or(all_event_change)
             .or(all_stop)
             .or(broadcast_event)
@@ -527,12 +547,12 @@ impl WebInterface {
 
     /// A function to add a new websocket listener
     /// 
-    async fn add_listener(web_send: WebSend, socket: WebSocket) {
+    async fn add_listener(sender: mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>, socket: WebSocket) {
         // Split the socket into a sender and receiver
         let (ws_tx, mut ws_rx) = socket.split();
 
         // Use an unbounded channel to handle buffering and flushing of messages
-        let (tx, mut rx) = mpsc::unbounded_channel();
+        let (tx, mut rx) = mpsc::channel(128);
         let stream = stream! {
             while let Some(item) = rx.recv().await {
                 yield item;
@@ -545,21 +565,8 @@ impl WebInterface {
             stream.forward(ws_tx)
         );
         
-        // Send the tx line to the Manager
-        let (reply_tx, reply_rx) = oneshot::channel();
-        if let Err(_) = sender.send((Request::Listen { tx }, reply_tx)).await {
-            // Wait for the reply
-            match reply_rx.await {
-                Ok(result) => {
-                    if !result.is_success() {
-                        return;
-                    }
-                }
-            
-                // Exit on broken pipe
-                Err(_) => return,
-            }
-            
+        // Send the tx line to the listener list
+        if let Err(_) = sender.send(tx).await {
             // Drop the connection on failure
             return;
         }
@@ -569,17 +576,18 @@ impl WebInterface {
     }
 
     // A function to extract a helper type from the body of the message
-    fn with<T>() -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone
+    fn with_json<T>() -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone
     where T: Send + DeserializeOwned {
         // When accepting a body, we want a JSON body (reject huge payloads)
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
 
     // A function to add the web send to the filter
-    fn with_sender(
-        web_send: WebSend,
-    ) -> impl Filter<Extract = (WebSend,), Error = std::convert::Infallible> + Clone {
-        warp::any().map(move || web_send.clone())
+    fn with_clone<T>(
+        item: T,
+    ) -> impl Filter<Extract = (T,), Error = std::convert::Infallible> + Clone
+    where T: Send + Clone {
+        warp::any().map(move || item.clone())
     }
 
     // A function to add the index access to the filter

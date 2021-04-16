@@ -53,6 +53,20 @@
         console.log(json);
         document.getElementById("info").innerHTML = `Program Closed<br><br>`;
     }
+
+    // How to open the websocket to listen for database changes
+    const ws = new WebSocket('ws://' + location.host + '/listen');
+    
+    // The first message is the full database. All subsequent messages are single-entry updates.
+    ws.onmessage = async function(msg) {
+      let data = JSON.parse(msg.data)
+      console.log(data);
+    };
+    
+    // Not needed unless we're worred about disconnection and want to reconnect
+    ws.onclose = function() {
+      document.getElementById("info").innerHTML = 'WebSocket Disconnected!';
+    };
     </script>
 </head>
 <body>
