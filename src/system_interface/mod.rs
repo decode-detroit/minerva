@@ -32,8 +32,6 @@ use crate::definitions::*;
 use self::event_handler::EventHandler;
 use self::logging::Logger;
 use self::system_connection::SystemConnection;
-#[cfg(feature = "media-out")]
-use crate::definitions::LaunchWindow;
 
 // Import standard library features
 use std::env;
@@ -276,10 +274,9 @@ impl SystemInterface {
             InternalUpdate::NewVideo(video_stream) => {
                 // Pass the stream to the user interface
                 self.interface_send
-                    .send(LaunchWindow {
+                    .send(InterfaceUpdate::LaunchWindow {
                         window_type: WindowType::Video(video_stream),
-                    })
-                    .unwrap_or(());
+                    }).await;
             }
 
             // Pass an event to the event_handler

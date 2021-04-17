@@ -302,11 +302,6 @@ impl WebInterface {
                 }     
             }
         });
-        
-        // Create the index filter
-        let readme = warp::get()
-            .and(warp::path::end())
-            .and(warp::fs::file("./index.html"));
 
         // Create the wwebsocket filter
         let listen = warp::path("listen")
@@ -459,9 +454,13 @@ impl WebInterface {
             .and(WebInterface::with_json::<StatusChange>())
             .and_then(WebInterface::handle_request);
 
+
+        // Create the main page filter
+        let main_page = warp::get()
+            .and(warp::fs::dir("./public/"));
+
         // Combine the filters
-        let routes = readme
-            .or(listen)
+        let routes = listen
             .or(all_event_change)
             .or(all_stop)
             .or(broadcast_event)
@@ -479,7 +478,8 @@ impl WebInterface {
             .or(redraw)
             .or(save_config)
             .or(scene_change)
-            .or(status_change);
+            .or(status_change)
+            .or(main_page);
 
         // Handle incoming requests
         warp::serve(routes).run(([127, 0, 0, 1], 64637)).await;
