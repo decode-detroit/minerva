@@ -2,37 +2,73 @@
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
+.logo {
+  width: calc(50px + 8vmin);
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.header {
+  background-color: #2f343e;
+  position: fixed;
+  z-index: 100;
+  width: 100%;
+  height: calc(30px + 1vmin);
+  border-bottom: 1px solid #464c5a;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: left;
+  font-size: calc(8px + 1vmin);
+  box-shadow: 0 0px 5px 3px #0a0c0e77;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.viewBox {
+  position: absolute;
+  height: 100vh;
+  width: 100vw;
+  border: 2px solid #0a0c0e;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.editArea {
+  position: absolute;
+  background-color: #21242a;
+  background-image: radial-gradient(circle at 10px 10px, #464c5a 1px, transparent 0);
+  background-size: 20px 20px;
+  height: 500%;
+  width: 500%;
+}
+
+.smallDialog {
+  position: absolute;
+  z-index: 10;
+  min-height: calc(75px + 10vmin);
+  min-width: calc(75px + 10vmin);
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+}
+
+.smallDialog h3 {
+  background-color: #0074a3;
+  border-radius: 6px 6px 0 0;
+  font-size: calc(6px + 0.8vmin);
+  margin-top: 0;
+  padding: 0.3rem;
+}
+
+.verticalList {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  align-items: flex-start;
+  justify-content: flex-start;
 }
 
-.App-link {
-  color: #61dafb;
+.smallDialog .verticalList div {
+  font-size: calc(6px + 0.8vmin);
+  margin-left: 0.7rem;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* Driving color choice: 282c34 */
