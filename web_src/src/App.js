@@ -5,7 +5,7 @@ import './App.css';
 
 function App() {
   return (
-    <div className="App">
+    <div className="app">
       <div className="header">
         <img src={logoWide} className="logo" alt="logo" />
         <EditMenu></EditMenu>

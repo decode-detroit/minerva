@@ -353,8 +353,8 @@ pub enum WebReply {
     // A variant that contains the complete item list
     #[serde(rename_all = "camelCase")]
     AllItems {
-        is_valid: bool,                   // a flag to indicate the result of the request
-        all_items: Option<Vec<ItemPair>>, // the list of all items, if found
+        is_valid: bool,             // a flag to indicate the result of the request
+        all_items: Vec<ItemPair>, // the list of all items, if found
     },
 
     // A variant that contains scene detail

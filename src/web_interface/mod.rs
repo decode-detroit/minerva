@@ -320,6 +320,13 @@ impl WebInterface {
             .and(WebInterface::with_json::<AllEventChange>())
             .and_then(WebInterface::handle_request);
 
+        // Create the all items filter
+        let all_items = warp::get()
+        .and(warp::path("allItems"))
+        .and(warp::path::end())
+        .and(WebInterface::with_index(self.index_access.clone()))
+        .and_then(WebInterface::handle_all_items);
+
         // Create the all stop filter
         let all_stop = warp::path("allStop")
             .and(warp::path::end())
@@ -403,7 +410,7 @@ impl WebInterface {
             .and(warp::path("gameLog"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<ConfigFile>())
+            .and(WebInterface::with_json::<GameLog>())
             .and_then(WebInterface::handle_request);
 
         // Create the item information filter
@@ -462,6 +469,7 @@ impl WebInterface {
         // Combine the filters
         let routes = listen
             .or(all_event_change)
+            .or(all_items)
             .or(all_stop)
             .or(broadcast_event)
             .or(clear_queue)
@@ -522,6 +530,26 @@ impl WebInterface {
                 http::StatusCode::INTERNAL_SERVER_ERROR,
             ));
         }
+    }
+
+    /// A function to handle all item requests (processed by the index)
+    /// 
+    async fn handle_all_items(
+        index_access: IndexAccess,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        // Get the item pair from the index
+        let all_items = index_access
+            .get_all()
+            .await;
+
+        // Return the item pair (even if it is the default)
+        return Ok(warp::reply::with_status(
+            warp::reply::json(&WebReply::AllItems {
+                is_valid: true,
+                all_items,
+            }),
+            http::StatusCode::OK,
+        ));
     }
 
     /// A function to handle get item requests (processed by the index)

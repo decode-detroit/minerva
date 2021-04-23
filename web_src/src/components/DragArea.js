@@ -9,6 +9,7 @@ export class ViewBox extends React.PureComponent {
     // Collect props and set initial state
     super(props);
     this.state = {
+      itemList: [], // list of all configuration items
       cursorX: 0, // starting point of the cursor
       cursorY: 0,
       isMenuVisible: false, // flag to show the context menu
@@ -42,13 +43,29 @@ export class ViewBox extends React.PureComponent {
 
     return false;
   }
+
+  // On render, pull the full item list
+  componentDidUpdate() {
+    fetch(`/allItems`)
+    .then(response => {
+      return response.json()
+    })
+    .then(json => {
+      console.log(json);
+
+      // Save the list to the state
+      this.setState({
+        list: json.items
+      })
+    });
+  }
   
   // Render the edit area inside the viewbox
   render() {
     return (
       <div className="viewBox" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
         <EditArea></EditArea>
-        {this.state.isMenuVisible && <SmallDialog left={this.state.cursorX} top={this.state.cursorY} title={"Open Item"} children={[<Link text={"New Item"}></Link>, <Link text={"Existing Item"}></Link>]}></SmallDialog>}
+        {this.state.isMenuVisible && <SmallDialog left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)} title={"Open Item"} children={[<Link text={"New Item"}></Link>, <Link text={"Existing Item"}></Link>]}></SmallDialog>}
       </div>
     );
   }
@@ -133,4 +150,20 @@ export class EditArea extends React.PureComponent {
         <div className="editArea" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}></div>
     )
   }
+}
+
+
+// Helper functions for calculating dialog offset
+function vh(v) {
+  var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+  return (v * h) / 100;
+}
+
+function vw(v) {
+  var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+  return (v * w) / 100;
+}
+
+function vmin(v) {
+  return Math.min(vh(v), vw(v));
 }
