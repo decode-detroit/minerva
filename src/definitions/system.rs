@@ -152,11 +152,12 @@ pub enum Modification {
     },
 }
 
-/// An enum to specify the type of information request
+/// An enum to specify the type of detail request
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum RequestType {
+pub enum DetailType {
     /// A variant for the description of an item
+    /// NOTE: This variant will be retired
     Description { item_id: ItemId },
 
     /// A variant for the event associated with an item
@@ -169,6 +170,7 @@ pub enum RequestType {
     Scene { item_id: ItemId },
 
     /// A variant for the list of all items
+    /// NOTE: This vailant will be retired
     Items,
 }
 
@@ -290,6 +292,9 @@ pub enum UserRequest {
     /// A special variant to switch to or from debug mode for the program.
     DebugMode(bool),
 
+    /// A variant to provide details as requested by the web interface
+    Detail { detail_type: DetailType },
+
     /// A variant to modify the underlying configuration
     Edit { modifications: Vec<Modification> },
 
@@ -321,10 +326,10 @@ pub enum UserRequest {
     Redraw,
 
     /// A variant that requests information from the system and directs it
-    /// to a specific spot on the window
-    Request {
+    /// to a specific spot on the window NOTE: This variant will be retired.
+    GtkRequest {
         reply_to: DisplayComponent,
-        request: RequestType,
+        request: DetailType,
     },
 
     /// A variant that provides a new configuration file to save the current
@@ -360,8 +365,8 @@ pub enum WebReply {
     // A variant that contains scene detail
     #[serde(rename_all = "camelCase")]
     Scene {
-        is_valid: bool,                  // a flag to indicate the result of the request
-        scene: Option<DescriptiveScene>, // the scene detail, if found
+        is_valid: bool,         // a flag to indicate the result of the request
+        scene: Option<Scene>,   // the scene detail, if found
     },
 
     // A variant that contains status detail
@@ -422,148 +427,3 @@ impl WebReply {
         }
     }
 }
-
-/*
-/// The stucture and methods to send updates to the user interface.
-///
-#[cfg(not(test))]
-#[derive(Clone, Debug)]
-pub struct IndexAccess {
-    index_send: mpsc::Sender<IndexUpdate>, // the line to pass internal updates to the system interface
-}
-
-// Implement the key features of the index access
-#[cfg(not(test))]
-impl IndexAccess {
-    /// A function to create a new Index Access
-    ///
-    /// The function returns the Index Access structure and the index
-    /// receive channel which will return the provided updates.
-    ///
-    pub fn new() -> (IndexAccess, mpsc::Receiver<IndexUpdate>) {
-        // Create the new channel
-        let (index_send, receive) = mpsc::channel(256);
-
-        // Create and return both new items
-        (IndexAccess { index_send }, receive)
-    }
-
-    /// A method to send a new index to the item index
-    ///
-    pub async fn send_index(&self, new_index: DescriptionMap) {
-        self.index_send
-            .send(IndexUpdate::NewIndex { new_index })
-            .await
-            .unwrap_or(());
-    }
-
-    /// A method to remove an item from the index
-    /// Returns true if the item was found and false otherwise.
-    ///
-    pub async fn _remove_item(&self, item_id: ItemId) -> bool {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::UpdateDescription {
-                item_id: item_id.clone(),
-                new_description: None,
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return false
-            return false;
-        }
-
-        // Wait for the reply
-        rx.await.unwrap_or(false)
-    }
-
-    /// A method to add or update the description in the item index
-    /// Returns true if the item was not previously defined and false otherwise.
-    ///
-    pub async fn update_description(
-        &self,
-        item_id: ItemId,
-        new_description: ItemDescription,
-    ) -> bool {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::UpdateDescription {
-                item_id: item_id.clone(),
-                new_description: Some(new_description.clone()),
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return false
-            return false;
-        }
-
-        // Wait for the reply
-        rx.await.unwrap_or(false)
-    }
-
-    /// A method to get the description from the item index
-    ///
-    pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::GetDescription {
-                item_id: item_id.clone(),
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return default
-            return ItemDescription::new_default();
-        }
-
-        // Wait for the reply
-        rx.await.unwrap_or(ItemDescription::new_default())
-    }
-
-    /// A method to get the item pair from the item index
-    ///
-    pub async fn get_pair(&self, item_id: &ItemId) -> ItemPair {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::GetPair {
-                item_id: item_id.clone(),
-                reply_line,
-            })
-            .await
-        {
-            // On failure, return default
-            return ItemPair::new_default(item_id.id());
-        }
-
-        // Wait for the reply
-        rx.await.unwrap_or(ItemPair::new_default(item_id.id()))
-    }
-
-    /// A method to get all pairs from the item index
-    ///
-    pub async fn get_all(&self) -> Vec<ItemPair> {
-        // Send the message and wait for the reply
-        let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
-            .index_send
-            .send(IndexUpdate::GetAll { reply_line })
-            .await
-        {
-            // On failure, return none
-            return Vec::new();
-        }
-
-        // Wait for the reply
-        rx.await.unwrap_or(Vec::new())
-    }
-}*/

@@ -371,12 +371,12 @@ impl EditMultiState {
         }
 
         // Request the description associated with the current id
-        gtk_send.send(UserRequest::Request {
+        gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditMultiStateStatus {
                 is_left: self.is_left,
                 position: None,
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: current.clone(),
             },
         });
@@ -477,12 +477,12 @@ impl EditMultiState {
         }
 
         // Request the description associated with the id
-        gtk_send.send(UserRequest::Request {
+        gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditMultiStateStatus {
                 is_left,
                 position: Some(position),
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: state_id.clone(),
             },
         });
@@ -776,45 +776,45 @@ impl EditCountedState {
         }
 
         // Request the current id description
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("current"),
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: current.clone(),
             },
         });
 
         // Request the trigger id description
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("trigger"),
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: trigger.clone(),
             },
         });
 
         // Request the antitrigger id description
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("antitrigger"),
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: antitrigger.clone(),
             },
         });
 
         // Request the reset id description
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditCountedStateStatus {
                 is_left: self.is_left,
                 state_type: String::from("reset"),
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: reset.clone(),
             },
         });

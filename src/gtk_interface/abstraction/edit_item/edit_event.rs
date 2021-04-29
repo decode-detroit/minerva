@@ -880,12 +880,12 @@ impl EditNewScene {
         }
 
         // Request the description associated with the id
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditNewScene,
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: new_scene.clone(),
             },
         });
@@ -967,12 +967,12 @@ impl EditModifyStatus {
                 }
 
                 // Request the state data associated with the status
-                gtk_send.send(UserRequest::Request {
+                gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left,
                         variant: EditActionElement::EditModifyStatus { is_status: false }
                     },
-                    request: RequestType::Status { item_id: item_pair.get_id() },
+                    request: DetailType::Status { item_id: item_pair.get_id() },
                 });
 
                 // Serialize the item pair data
@@ -1044,23 +1044,23 @@ impl EditModifyStatus {
         }
 
         // Request the description associated with the status
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditModifyStatus { is_status: true },
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: status_id.clone(),
             },
         });
 
         // Request the state data associated with the status
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditModifyStatus { is_status: false },
             },
-            request: RequestType::Status {
+            request: DetailType::Status {
                 item_id: status_id.clone(),
             },
         });
@@ -1073,12 +1073,12 @@ impl EditModifyStatus {
         if let Some(status) = status {
             // Go through each allowed state and request its description
             for state_id in status.allowed().drain(..) {
-                self.gtk_send.send(UserRequest::Request {
+                self.gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditModifyStatus { is_status: false },
                     },
-                    request: RequestType::Description {
+                    request: DetailType::Description {
                         item_id: state_id.clone(),
                     },
                 });
@@ -1244,12 +1244,12 @@ impl EditCueEvent {
         }
 
         // Request the description associated with the event id
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditCueEvent,
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: event_delay.id(),
             },
         });
@@ -1395,12 +1395,12 @@ impl EditCancelEvent {
         }
 
         // Request the description associated with the id
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::EditCancelEvent,
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: event.clone(),
             },
         });
@@ -1612,12 +1612,12 @@ impl EditSaveData {
                 }
 
                 // Request the description associated with the id
-                self.gtk_send.send(UserRequest::Request {
+                self.gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSaveData,
                     },
-                    request: RequestType::Description {
+                    request: DetailType::Description {
                         item_id: event_id.clone(),
                     },
                 });
@@ -1637,12 +1637,12 @@ impl EditSaveData {
                 }
 
                 // Request the description associated with the id
-                self.gtk_send.send(UserRequest::Request {
+                self.gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSaveData,
                     },
-                    request: RequestType::Description {
+                    request: DetailType::Description {
                         item_id: event_id.clone(),
                     },
                 });
@@ -1936,12 +1936,12 @@ impl EditSendData {
                 }
 
                 // Request the description associated with the id
-                self.gtk_send.send(UserRequest::Request {
+                self.gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSendData,
                     },
-                    request: RequestType::Description {
+                    request: DetailType::Description {
                         item_id: event_id.clone(),
                     },
                 });
@@ -1961,12 +1961,12 @@ impl EditSendData {
                 }
 
                 // Request the description associated with the id
-                self.gtk_send.send(UserRequest::Request {
+                self.gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditActionElement {
                         is_left: self.is_left,
                         variant: EditActionElement::EditSendData,
                     },
-                    request: RequestType::Description {
+                    request: DetailType::Description {
                         item_id: event_id.clone(),
                     },
                 });
@@ -2128,9 +2128,9 @@ impl EditSelectEvent {
                 }));
 
                 // Send a request to get the data associated with the status
-                gtk_send.send(UserRequest::Request {
+                gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditActionElement { is_left, variant: EditActionElement::SelectEventStates },
-                    request: RequestType::Status { item_id: item_pair.get_id(), },
+                    request: DetailType::Status { item_id: item_pair.get_id(), },
                 });
             }
         }));
@@ -2180,7 +2180,7 @@ impl EditSelectEvent {
         self.clear();
 
         // Send the request to update the status description
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription {
@@ -2188,7 +2188,7 @@ impl EditSelectEvent {
                     is_event: false,
                 },
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: status_id.clone(),
             },
         });
@@ -2284,7 +2284,7 @@ impl EditSelectEvent {
         }
 
         // Request the event description
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription {
@@ -2292,13 +2292,13 @@ impl EditSelectEvent {
                     is_event: true,
                 },
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: event_id.clone(),
             },
         });
 
         // Request the state description
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditActionElement {
                 is_left: self.is_left,
                 variant: EditActionElement::SelectEventDescription {
@@ -2306,7 +2306,7 @@ impl EditSelectEvent {
                     is_event: false,
                 },
             },
-            request: RequestType::Description {
+            request: DetailType::Description {
                 item_id: state_id.clone(),
             },
         });

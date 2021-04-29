@@ -1,5 +1,5 @@
 import React from 'react';
-import { SmallDialog } from './Dialogs';
+import { EventDialog, SmallDialog } from './Dialogs';
 import { Link } from './TextComponents';
 
 // A box to contain the draggable edit area
@@ -65,7 +65,7 @@ export class ViewBox extends React.PureComponent {
     return (
       <div className="viewBox" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
         <EditArea></EditArea>
-        {this.state.isMenuVisible && <SmallDialog left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)} title={"Open Item"} children={[<Link text={"New Item"}></Link>, <Link text={"Existing Item"}></Link>]}></SmallDialog>}
+        {this.state.isMenuVisible && <SmallDialog left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)} title={"Add Item"} children={[<Link text={"New Event"}></Link>, <Link text={"Existing Event"}></Link>, <Link text={"New Status"}></Link>,  <Link text={"Existing Status"}></Link>,  <Link text={"New Scene"}></Link>]}></SmallDialog>}
       </div>
     );
   }
@@ -114,7 +114,7 @@ export class EditArea extends React.PureComponent {
     e.preventDefault();
 
     // Update the state
-    this.setState((state, props) => {
+    this.setState((state) => {
       // Calculate change from old cursor position
       let changeX = state.cursorX - e.clientX;
       let changeY = state.cursorY - e.clientY;
@@ -138,7 +138,7 @@ export class EditArea extends React.PureComponent {
   }
   
   // Function to respond to releasing the mouse
-  handleMouseClose(e) {
+  handleMouseClose() {
     // Stop moving when mouse button is released
     document.onmousemove = null;
     document.onmouseup = null;
@@ -147,7 +147,9 @@ export class EditArea extends React.PureComponent {
   // Render the draggable edit area
   render() {
     return (
-        <div className="editArea" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}></div>
+        <div className="editArea" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
+          <EventDialog id={101} left={300} top={300}></EventDialog>
+        </div>
     )
   }
 }

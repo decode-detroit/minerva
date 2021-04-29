@@ -97,7 +97,22 @@ struct GameLog {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct GetEvent {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GetItem {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GetScene {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GetStatus {
     id: u32,
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -125,6 +140,16 @@ struct StatusChange {
 }
 
 // Implement FromStr for helper data types
+impl FromStr for GetEvent {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(GetEvent { id })
+    }
+}
 impl FromStr for GetItem {
     // Interpret errors as ParseIntError
     type Err = ParseIntError;
@@ -133,6 +158,26 @@ impl FromStr for GetItem {
         // Parse as a u32 and return the result
         let id = s.parse::<u32>()?;
         Ok(GetItem { id })
+    }
+}
+impl FromStr for GetScene {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(GetScene { id })
+    }
+}
+impl FromStr for GetStatus {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(GetStatus { id })
     }
 }
 
@@ -214,6 +259,33 @@ impl From<GameLog> for UserRequest {
     fn from(game_log: GameLog) -> Self {
         UserRequest::GameLog {
             filepath: PathBuf::from(game_log.filename),
+        }
+    }
+}
+impl From<GetEvent> for UserRequest {
+    fn from(get_event: GetEvent) -> Self {
+        UserRequest::Detail {
+            detail_type: DetailType::Event {
+                item_id: ItemId::new_unchecked(get_event.id),
+            }
+        }
+    }
+}
+impl From<GetScene> for UserRequest {
+    fn from(get_scene: GetScene) -> Self {
+        UserRequest::Detail {
+            detail_type: DetailType::Scene {
+                item_id: ItemId::new_unchecked(get_scene.id),
+            }
+        }
+    }
+}
+impl From<GetStatus> for UserRequest {
+    fn from(get_status: GetStatus) -> Self {
+        UserRequest::Detail {
+            detail_type: DetailType::Status {
+                item_id: ItemId::new_unchecked(get_status.id),
+            }
         }
     }
 }
@@ -405,12 +477,20 @@ impl WebInterface {
             .and(WebInterface::with_json::<EventChange>())
             .and_then(WebInterface::handle_request);
 
-        // Create the config file filter
+        // Create the game log filter
         let game_log = warp::post()
             .and(warp::path("gameLog"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_json::<GameLog>())
+            .and_then(WebInterface::handle_request);
+
+        // Create the get event filter
+        let get_event = warp::get()
+            .and(warp::path("getEvent"))
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(warp::path::param::<GetEvent>())
+            .and(warp::path::end())
             .and_then(WebInterface::handle_request);
 
         // Create the item information filter
@@ -420,6 +500,22 @@ impl WebInterface {
             .and(warp::path::param::<GetItem>())
             .and(warp::path::end())
             .and_then(WebInterface::handle_get_item);
+
+        // Create the get scene filter
+        let get_scene = warp::get()
+            .and(warp::path("getScene"))
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(warp::path::param::<GetScene>())
+            .and(warp::path::end())
+            .and_then(WebInterface::handle_request);
+
+        // Create the get status filter
+        let get_status = warp::get()
+            .and(warp::path("getStatus"))
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(warp::path::param::<GetStatus>())
+            .and(warp::path::end())
+            .and_then(WebInterface::handle_request);
 
         // Create the process event filter
         let process_event = warp::post()
@@ -481,7 +577,10 @@ impl WebInterface {
             .or(error_log)
             .or(event_change)
             .or(game_log)
+            .or(get_event)
             .or(get_item)
+            .or(get_scene)
+            .or(get_status)
             .or(process_event)
             .or(redraw)
             .or(save_config)

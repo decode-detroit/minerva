@@ -151,9 +151,9 @@ impl EditWindow {
     //
     pub fn refresh_all(&self) {
         // Refresh the available items
-        self.gtk_send.send(UserRequest::Request {
+        self.gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::ItemList,
-            request: RequestType::Items,
+            request: DetailType::Items,
         });
 
         // Try to get a copy of the current id for the left editor
@@ -445,9 +445,9 @@ impl EditItemAbstraction {
             gtk_send.send(UserRequest::Edit { modifications });
 
             // Refresh the item list
-            gtk_send.send(UserRequest::Request {
+            gtk_send.send(UserRequest::GtkRequest {
                 reply_to: DisplayComponent::ItemList,
-                request: RequestType::Items,
+                request: DetailType::Items,
             });
 
             // Refresh the item
@@ -503,33 +503,33 @@ impl EditItemAbstraction {
     //
     fn refresh_item(item_id: ItemId, is_left: bool, gtk_send: &GtkSend) {
         // Request new data for each component
-        gtk_send.send(UserRequest::Request {
+        gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditItemOverview {
                 is_left,
                 variant: EditItemElement::ItemDescription,
             },
-            request: RequestType::Description { item_id },
+            request: DetailType::Description { item_id },
         });
-        gtk_send.send(UserRequest::Request {
+        gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditItemOverview {
                 is_left,
                 variant: EditItemElement::Details,
             },
-            request: RequestType::Event { item_id },
+            request: DetailType::Event { item_id },
         });
-        gtk_send.send(UserRequest::Request {
+        gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditItemOverview {
                 is_left,
                 variant: EditItemElement::Details,
             },
-            request: RequestType::Scene { item_id },
+            request: DetailType::Scene { item_id },
         });
-        gtk_send.send(UserRequest::Request {
+        gtk_send.send(UserRequest::GtkRequest {
             reply_to: DisplayComponent::EditItemOverview {
                 is_left,
                 variant: EditItemElement::Details,
             },
-            request: RequestType::Status { item_id },
+            request: DetailType::Status { item_id },
         });
     }
 
@@ -714,9 +714,9 @@ impl ItemList {
             gtk_send.send(UserRequest::Edit { modifications });
 
             // Refresh the item list
-            gtk_send.send(UserRequest::Request {
+            gtk_send.send(UserRequest::GtkRequest {
                 reply_to: DisplayComponent::ItemList,
-                request: RequestType::Items,
+                request: DetailType::Items,
             });
         }));
 
@@ -1046,12 +1046,12 @@ impl EditOverview {
                 }
 
                 // Request the allowed states
-                gtk_send.send(UserRequest::Request {
+                gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditItemOverview {
                         is_left,
                         variant: EditItemElement::Status { state: None },
                     },
-                    request: RequestType::Status { item_id: item_pair.get_id() }
+                    request: DetailType::Status { item_id: item_pair.get_id() }
                 });
 
                 // Serialize the item pair data
@@ -1450,12 +1450,12 @@ impl EditOverview {
                         }
 
                         // Send a request to update the group description
-                        self.gtk_send.send(UserRequest::Request {
+                        self.gtk_send.send(UserRequest::GtkRequest {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Group,
                             },
-                            request: RequestType::Description {
+                            request: DetailType::Description {
                                 item_id: id.clone(),
                             },
                         });
@@ -1511,25 +1511,25 @@ impl EditOverview {
                             *status_data = new_status.clone();
                         }
                         // Send a request to update the status description
-                        self.gtk_send.send(UserRequest::Request {
+                        self.gtk_send.send(UserRequest::GtkRequest {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Status { state: None },
                             },
-                            request: RequestType::Description {
+                            request: DetailType::Description {
                                 item_id: new_status.clone(),
                             },
                         });
 
                         // Send a request to get the states associated with the status
-                        self.gtk_send.send(UserRequest::Request {
+                        self.gtk_send.send(UserRequest::GtkRequest {
                             reply_to: DisplayComponent::EditItemOverview {
                                 is_left: self.is_left,
                                 variant: EditItemElement::Status {
                                     state: Some(new_state.clone()),
                                 },
                             },
-                            request: RequestType::Status {
+                            request: DetailType::Status {
                                 item_id: new_status.clone(),
                             },
                         });
@@ -1579,12 +1579,12 @@ impl EditOverview {
         if let Some(status) = status {
             // Go through each allowed state and request its description
             for state_id in status.allowed().drain(..) {
-                self.gtk_send.send(UserRequest::Request {
+                self.gtk_send.send(UserRequest::GtkRequest {
                     reply_to: DisplayComponent::EditItemOverview {
                         is_left: self.is_left,
                         variant: EditItemElement::State,
                     },
-                    request: RequestType::Description {
+                    request: DetailType::Description {
                         item_id: state_id.clone(),
                     },
                 });

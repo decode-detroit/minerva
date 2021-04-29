@@ -429,52 +429,11 @@ impl Config {
     }
 
     /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
-    /// the method returns the scene. Otherwise, it returns None. FIXME Replace with ItemId version
+    /// the method returns the scene. Otherwise, it returns None.
     ///
-    pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
-        // Check if the given item id corresponds to a scene
-        match self.all_scenes.get(&item_id) {
-            // If it doesn't correspond to a scene, return none
-            None => None,
-
-            // If it does match, get the items and optional key map
-            Some(scene) => {
-                // Compile a list of the events as item pairs
-                let mut events = Vec::new();
-                for item_id in scene.events.iter() {
-                    events.push(self.index_access.get_pair(&item_id).await);
-                }
-
-                // Sort the items in order
-                events.sort_unstable();
-
-                // Check to see if a key map was specified
-                match &scene.key_map {
-                    // If the key map exists, reverse it
-                    Some(key_map) => {
-                        // Create an empty key map
-                        let mut map = FnvHashMap::default();
-
-                        // Iterate through the key map for this scene
-                        for (key, item_id) in key_map.iter() {
-                            // Combine the item pair and key value
-                            map.insert(key.clone(), self.index_access.get_pair(&item_id).await);
-                        }
-                        // Return the Scene with the reversed key map
-                        Some(DescriptiveScene {
-                            events,
-                            key_map: Some(map),
-                        })
-                    }
-
-                    // Otherwise, return the DescriptiveScene with no key map
-                    None => Some(DescriptiveScene {
-                        events,
-                        key_map: None,
-                    }),
-                }
-            }
-        }
+    pub async fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
+        // Return the scene, if found, and return a copy
+        self.all_scenes.get(item_id).map(|scene| scene.clone())
     }
 
     /// A method to return a list of all available items in the current scene.

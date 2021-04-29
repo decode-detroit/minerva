@@ -242,7 +242,7 @@ impl EventHandler {
 
     /// A method to return a scene with available events and optional keymap, given
     /// an item id
-    pub async fn get_scene(&self, item_id: ItemId) -> Option<DescriptiveScene> {
+    pub async fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
         // Return a scene corresponding to the id, or None if none
         self.config.get_scene(item_id).await
     }

@@ -37,24 +37,32 @@
   width: 500%;
 }
 
-.smallDialog {
+.dialog {
   position: absolute;
-  z-index: 10;
-  min-height: calc(75px + 10vmin);
-  min-width: calc(75px + 10vmin);
+  z-index: 1;
   background-color: #2f343e;
   border: 1px solid #868fa2;
   border-radius: 6px;
   box-shadow: 2px 2px 5px 3px #0a0c0e;
 }
 
-.smallDialog h3 {
+.dialog h3 {
   text-align: center;
-  background-color: #0074a3;
   border-radius: 6px 6px 0 0;
   font-size: calc(6px + 0.8vmin);
   margin-top: 0;
   padding: 0.3rem;
+  padding-top: calc(0.3rem + 8px + 1vmin);
+  font-weight: bold;
+}
+
+.dialog h3::after {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  top: 0.3rem;
+  font-size: calc(5px + 0.7vmin);
+  font-weight: lighter;
 }
 
 .verticalList {
@@ -64,9 +72,36 @@
   justify-content: flex-start;
 }
 
+.smallDialog {
+  z-index: 10;
+  min-height: calc(75px + 10vmin);
+  min-width: calc(75px + 10vmin);
+}
+
+.smallDialog h3 {
+  background-color: #0074a3;
+}
+
+.smallDialog h3::after {
+  content: "Menu";
+}
+
 .smallDialog .verticalList div {
   font-size: calc(6px + 0.8vmin);
   margin-left: 0.7rem;
+}
+
+.eventDialog {
+  min-height: calc(75px + 10vmin);
+  min-width: calc(75px + 10vmin);
+}
+
+.eventDialog h3 {
+  background-color: #008106;
+}
+
+.eventDialog h3::after {
+  content: "Event";
 }
 
 /* Driving color choice: 282c34 */

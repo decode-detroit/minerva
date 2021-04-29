@@ -41,6 +41,9 @@ use std::path::PathBuf;
 // Import Tokio features
 use tokio::sync::mpsc;
 
+// Import FNV HashMap
+use fnv::FnvHashMap;
+
 // Import the failure features
 use failure::Error as FailureError;
 
@@ -182,6 +185,21 @@ impl SystemInterface {
                     // The unpacking was a success
                     UnpackResult::Success => {
                         request.reply_to.send(WebReply::success()).unwrap_or(());
+                    }
+
+                    // The unpacking yielded an event
+                    UnpackResult::SuccessWithEvent(event) => {
+                        request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event) }).unwrap_or(());
+                    }
+
+                    // The unpacking yeilded a status
+                    UnpackResult::SuccessWithStatus(status) => {
+                        request.reply_to.send(WebReply::Status { is_valid: true, status: Some(status) }).unwrap_or(());
+                    }
+
+                    // The unpacking yeilded a scene
+                    UnpackResult::SuccessWithScene(scene) => {
+                        request.reply_to.send(WebReply::Scene { is_valid: true, scene: Some(scene) }).unwrap_or(());
                     }
 
                     // The unpacking was a failure
@@ -481,6 +499,62 @@ impl SystemInterface {
                 self.is_debug_mode = mode;
             }
 
+            // Reqpond with a detail about a particular item
+            UserRequest::Detail { detail_type } => {
+                // If the event handler exists
+                if let Some(mut handler) = self.event_handler.take() {
+                    // Placeholder for the final result
+                    let mut result = UnpackResult::Failure("Invalid Web Request.".into());
+
+                    // Match the type of information request
+                    match detail_type {
+                        // Reply to a request for the event
+                        DetailType::Event { item_id } => {
+                            // Try to get the event
+                            if let Some(event) = handler.get_event(&item_id).await {
+                                result = UnpackResult::SuccessWithEvent(event);
+                            } else {
+                                result = UnpackResult::Failure("Event Not Found.".into());
+                            }
+                        }
+
+                        // Reply to a request for the status
+                        DetailType::Status { item_id } => {
+                            // Try to get the scene
+                            if let Some(status) = handler.get_status(&item_id) {
+                                result = UnpackResult::SuccessWithStatus(status);
+                            } else {
+                                result = UnpackResult::Failure("Status Not Found.".into());
+                            }
+                        }
+
+                        // Reply to a request for the scene
+                        DetailType::Scene { item_id } => {
+                            // Try to get the scene
+                            if let Some(scene) = handler.get_scene(&item_id).await {
+                                result = UnpackResult::SuccessWithScene(scene);
+                            } else {
+                                result = UnpackResult::Failure("Scene Not Found.".into());
+                            }
+                        }
+
+                        // For other types, warn of an internal error
+                        _ => log!(warn &mut self.internal_send => "Invalid Web Request."), // FIXME to  be removed
+                    }
+
+                    // Put the handler back
+                    self.event_handler = Some(handler);
+
+                    // Return the result
+                    return result;
+
+                // Otherwise noity the user that a configuration failed to load
+                } else {
+                    log!(warn &mut self.internal_send => "Information Unavailable. No Active Configuration.");
+                    return UnpackResult::Failure("No active configuration.".into());
+                }
+            }
+
             // Modify the underlying configuration
             UserRequest::Edit { mut modifications } => {
                 // Check to see if there is an active configuration
@@ -531,6 +605,7 @@ impl SystemInterface {
                 // Raise a warning that there is no active configuration
                 } else {
                     log!(warn &mut self.internal_send => "Change Not Saved: There Is No Active Configuration.");
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
@@ -580,6 +655,7 @@ impl SystemInterface {
                 // Otherwise notify the user that a configuration faild to load
                 } else {
                     log!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
@@ -623,13 +699,13 @@ impl SystemInterface {
             }
 
             // Reply to the request for information
-            UserRequest::Request { reply_to, request } => {
+            UserRequest::GtkRequest { reply_to, request } => {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Match the type of information request
                     match request {
                         // Reply to a request for the item description
-                        RequestType::Description { item_id } => {
+                        DetailType::Description { item_id } => {
                             // Collect the description of the item
                             let description = self.index_access.get_description(&item_id).await;
 
@@ -647,7 +723,7 @@ impl SystemInterface {
                         }
 
                         // Reply to a request for the event
-                        RequestType::Event { item_id } => {
+                        DetailType::Event { item_id } => {
                             // Try to get the event
                             let event = handler.get_event(&item_id).await;
 
@@ -660,7 +736,7 @@ impl SystemInterface {
                         }
 
                         // Reply to a request for all the configuration items
-                        RequestType::Items => {
+                        DetailType::Items => {
                             // Collect all the items from the configuration
                             let items = self.index_access.get_all().await;
 
@@ -673,9 +749,51 @@ impl SystemInterface {
                         }
 
                         // Reply to a request for all the events in a scene
-                        RequestType::Scene { item_id } => {
+                        DetailType::Scene { item_id } => {
                             // Collect all the items from the configuration
-                            let scene = handler.get_scene(item_id).await;
+                            let scene = match handler.get_scene(&item_id).await {
+
+                                // If it doesn't correspond to a scene, return none
+                                None => None,
+
+                                // If it does match, get the items and optional key map
+                                Some(scene) => {
+                                    // Compile a list of the events as item pairs
+                                    let mut events = Vec::new();
+                                    for item_id in scene.events.iter() {
+                                        events.push(self.index_access.get_pair(&item_id).await);
+                                    }
+
+                                    // Sort the items in order
+                                    events.sort_unstable();
+
+                                    // Check to see if a key map was specified
+                                    match &scene.key_map {
+                                        // If the key map exists, reverse it
+                                        Some(key_map) => {
+                                            // Create an empty key map
+                                            let mut map = FnvHashMap::default();
+
+                                            // Iterate through the key map for this scene
+                                            for (key, item_id) in key_map.iter() {
+                                                // Combine the item pair and key value
+                                                map.insert(key.clone(), self.index_access.get_pair(&item_id).await);
+                                            }
+                                            // Return the Scene with the reversed key map
+                                            Some(DescriptiveScene {
+                                                events,
+                                                key_map: Some(map),
+                                            })
+                                        }
+
+                                        // Otherwise, return the DescriptiveScene with no key map
+                                        None => Some(DescriptiveScene {
+                                            events,
+                                            key_map: None,
+                                        }),
+                                    }
+                                }
+                            };
 
                             // Send it back to the user interface
                             self.interface_send
@@ -685,7 +803,7 @@ impl SystemInterface {
                                 }).await;
                         }
                         // Reply to a request for the status
-                        RequestType::Status { item_id } => {
+                        DetailType::Status { item_id } => {
                             // Try to get the status
                             let status = handler.get_status(&item_id);
 
@@ -920,6 +1038,15 @@ impl SystemInterface {
 enum UnpackResult {
     // A variant for successful unpacking
     Success,
+
+    // A variant for successful unpacking with an event
+    SuccessWithEvent(Event),
+
+    // A variant for successful unpacking with a status
+    SuccessWithStatus(Status),
+
+    // A variant for successful unpacking with a scene
+    SuccessWithScene(Scene),
 
     // A variant for unsuccessful unpacking
     Failure(String),

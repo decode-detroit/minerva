@@ -605,9 +605,9 @@ impl TriggerDialog {
         // Connect the update description function to the spin button
         event_spin.connect_property_value_notify(clone!(gtk_send => move |spin| {
             // Request a new description from the system
-            gtk_send.send(UserRequest::Request {
+            gtk_send.send(UserRequest::GtkRequest {
                 reply_to: DisplayComponent::TriggerDialog,
-                request: RequestType::Description {
+                request: DetailType::Description {
                     item_id: ItemId::new_unchecked(spin.get_value() as u32),
                 }
             });
