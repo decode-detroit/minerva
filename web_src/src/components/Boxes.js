@@ -1,7 +1,8 @@
 import React from 'react';
+import { Action, ReceiveNode } from './Nodes';
 
-// A small dialog with a title and list of elements
-export class SmallDialog extends React.PureComponent {
+// A menu box with a title and list of elements
+export class MenuBox extends React.PureComponent {
    // Class constructor
    constructor(props) {
     // Collect props
@@ -19,14 +20,14 @@ export class SmallDialog extends React.PureComponent {
     e.stopPropagation();
   }
   
-  // Return the completed dialog
+  // Return the completed box
   render() {
     // Compose any items into a list
     const children = this.props.children.map((child) => child);
     
-    // Return the dialog 
+    // Return the box
     return (
-      <div className="smallDialog dialog" style={{ left: `${this.props.left}px`, top: `${this.props.top}px` }} onMouseDown={this.handleMouseDown}>
+      <div className="box menuBox" style={{ left: `${this.props.left}px`, top: `${this.props.top}px` }} onMouseDown={this.handleMouseDown}>
         <h3>{this.props.title}</h3>
         <div className="verticalList">{children}</div>
       </div>
@@ -34,8 +35,8 @@ export class SmallDialog extends React.PureComponent {
   }
 }
 
-// An event dialog with an event and event detail
-export class EventDialog extends React.PureComponent {
+// An event box with an event and event detail
+export class EventBox extends React.PureComponent {
   // Class constructor
   constructor(props) {
     // Collect props
@@ -51,6 +52,7 @@ export class EventDialog extends React.PureComponent {
         id: 0,
         description: "Loading ...",
       },
+      eventActions: [], // placeholder for the read data
     }
 
     // Bind the various functions
@@ -117,7 +119,7 @@ export class EventDialog extends React.PureComponent {
 
   // Helper function to update the event information
   updateEvent() {
-    // Fetch the details of the event
+    // Fetch the description of the event
     fetch(`/getItem/${this.props.id}`)
     .then(response => {
       return response.json()
@@ -127,6 +129,21 @@ export class EventDialog extends React.PureComponent {
       if (json.item.isValid) {
         this.setState({
           itemPair: json.item.itemPair,
+        });
+      }
+    });
+
+    // Fetch the detail of the event
+    fetch(`getEvent/${this.props.id}`)
+    .then(response => {
+      return response.json()
+    })
+    .then(json => {
+      // If valid, save the result to the state
+      console.log(json);
+      if (json.event.isValid) {
+        this.setState({
+          eventActions: json.event.event,
         });
       }
     });
@@ -152,12 +169,18 @@ export class EventDialog extends React.PureComponent {
     }
   }*/
  
-  // Return the completed dialog
+  // Return the completed box
   render() {
-    // Return the dialog 
+    // Compose any actions into a list
+    const children = this.state.eventActions.map((action) => <Action action={action}></Action>);
+
+    // Return the box
     return (
-      <div className="eventDialog dialog" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
+      <div className="box eventBox" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
         <h3>{this.state.itemPair.description} ({this.state.itemPair.id})</h3>
+        <ReceiveNode type="event"></ReceiveNode>
+        <h4>Actions:</h4>
+        <div className="verticalList">{children}</div>
       </div>
     );
   }

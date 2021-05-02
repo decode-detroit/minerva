@@ -1,5 +1,5 @@
 .logo {
-  width: calc(50px + 8vmin);
+  width: 7rem;
   pointer-events: none;
 }
 
@@ -8,20 +8,20 @@
   position: fixed;
   z-index: 100;
   width: 100%;
-  height: calc(30px + 1vmin);
+  height: 2.5rem;
   border-bottom: 1px solid #464c5a;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: left;
-  font-size: calc(8px + 1vmin);
+  font-size: 1rem;
   box-shadow: 0 0px 5px 3px #0a0c0e77;
 }
 
-.viewBox {
+.viewArea {
   position: absolute;
-  top: calc(30px + 1vmin);
-  height: calc(100vh - 30px - 1vmin);
+  top: 2.5rem;
+  height: calc(100vh - 2.5rem);
   width: 100vw;
   border: 2px solid #0a0c0e;
   border-radius: 10px;
@@ -37,32 +37,62 @@
   width: 500%;
 }
 
-.dialog {
+.box {
   position: absolute;
   z-index: 1;
   background-color: #2f343e;
   border: 1px solid #868fa2;
   border-radius: 6px;
   box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 0.9rem;
 }
 
-.dialog h3 {
+.box h3 {
   text-align: center;
   border-radius: 6px 6px 0 0;
-  font-size: calc(6px + 0.8vmin);
-  margin-top: 0;
+  margin: 0;
   padding: 0.3rem;
-  padding-top: calc(0.3rem + 8px + 1vmin);
+  padding-top: 1.2rem;
+  font-size: 1rem;
   font-weight: bold;
 }
 
-.dialog h3::after {
+.box h3::after {
   position: absolute;
   width: 100%;
   left: 0;
   top: 0.3rem;
-  font-size: calc(5px + 0.7vmin);
+  font-size: 0.8rem;
   font-weight: lighter;
+}
+
+.box h4 {
+  text-align: left;
+  margin: 0;
+  padding: 0.3rem;
+}
+
+.box>.node {
+  position: absolute;
+  top: 0.2rem;
+  left: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.node.event {
+  background-color: #008106;
+}
+
+.node.status {
+  background-color: #0074a3;
+}
+
+.node.scene {
+  background-color: #e2660f;
 }
 
 .verticalList {
@@ -70,38 +100,75 @@
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
+  padding: 0.7rem;
+  padding-top: 0;
 }
 
-.smallDialog {
-  z-index: 10;
-  min-height: calc(75px + 10vmin);
-  min-width: calc(75px + 10vmin);
-}
-
-.smallDialog h3 {
-  background-color: #0074a3;
-}
-
-.smallDialog h3::after {
-  content: "Menu";
-}
-
-.smallDialog .verticalList div {
-  font-size: calc(6px + 0.8vmin);
+.verticalList div {
   margin-left: 0.7rem;
 }
 
-.eventDialog {
-  min-height: calc(75px + 10vmin);
-  min-width: calc(75px + 10vmin);
+.menuBox {
+  z-index: 10;
 }
 
-.eventDialog h3 {
+.menuBox h3 {
+  background-color: #4d5564;
+}
+
+.menuBox h3::after {
+  content: "Menu";
+}
+
+.menuBox>div {
+  padding: 0.7rem;
+  padding-top: 0;
+}
+
+.eventBox {
+  min-height: 10rem;
+  min-width: 15rem;
+}
+
+.eventBox h3 {
   background-color: #008106;
 }
 
-.eventDialog h3::after {
+.eventBox h3::after {
   content: "Event";
+}
+
+.action {
+  background-color: #4d5564;
+  position: relative;
+  width: 100%;
+  border-radius: 3px;
+  padding: 0.3rem;
+  margin-bottom: 0.2rem;
+}
+
+.action>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.statusBox {
+  min-height: 10rem;
+  min-width: 15rem;
+}
+
+.statusBox h3 {
+  background-color: #0074a3;
+}
+
+.statusBox h3::after {
+  content: "Status";
 }
 
 /* Driving color choice: 282c34 */

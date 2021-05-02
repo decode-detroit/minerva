@@ -1,9 +1,9 @@
 import React from 'react';
-import { EventDialog, SmallDialog } from './Dialogs';
-import { Link } from './TextComponents';
+import { MenuBox, EventBox } from './Boxes';
+import { Link } from './Nodes';
 
 // A box to contain the draggable edit area
-export class ViewBox extends React.PureComponent {
+export class ViewArea extends React.PureComponent {
   // Class constructor
   constructor(props) {
     // Collect props and set initial state
@@ -63,9 +63,9 @@ export class ViewBox extends React.PureComponent {
   // Render the edit area inside the viewbox
   render() {
     return (
-      <div className="viewBox" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
+      <div className="viewArea" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
         <EditArea></EditArea>
-        {this.state.isMenuVisible && <SmallDialog left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)} title={"Add Item"} children={[<Link text={"New Event"}></Link>, <Link text={"Existing Event"}></Link>, <Link text={"New Status"}></Link>,  <Link text={"Existing Status"}></Link>,  <Link text={"New Scene"}></Link>]}></SmallDialog>}
+        {this.state.isMenuVisible && <MenuBox left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)} title={"Add Item"} children={[<Link text={"New Event"}></Link>, <Link text={"Existing Event"}></Link>, <Link text={"New Status"}></Link>,  <Link text={"Existing Status"}></Link>,  <Link text={"New Scene"}></Link>]}></MenuBox>}
       </div>
     );
   }
@@ -148,14 +148,15 @@ export class EditArea extends React.PureComponent {
   render() {
     return (
         <div className="editArea" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
-          <EventDialog id={101} left={300} top={300}></EventDialog>
+          <EventBox id={101} left={300} top={300}></EventBox>
+          <EventBox id={202} left={300} top={310}></EventBox>
         </div>
     )
   }
 }
 
 
-// Helper functions for calculating dialog offset
+// Helper functions for calculating box offset
 function vh(v) {
   var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
   return (v * h) / 100;

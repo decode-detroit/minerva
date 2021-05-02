@@ -1,6 +1,6 @@
 import logoWide from './logo_wide.png';
 import { EditMenu } from './components/Menu.js';
-import { ViewBox } from './components/DragArea.js';
+import { ViewArea } from './components/DragArea.js';
 import './App.css';
 
 function App() {
@@ -10,7 +10,7 @@ function App() {
         <img src={logoWide} className="logo" alt="logo" />
         <EditMenu></EditMenu>
       </div>
-      <ViewBox></ViewBox>
+      <ViewArea></ViewArea>
     </div>
   );
 }
