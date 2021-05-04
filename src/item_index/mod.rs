@@ -103,7 +103,22 @@ impl ItemIndex {
 
             // If it is a request for all the items
             Some(IndexUpdate::GetAll { reply_line }) => {
-                // Create an empty items vector
+                // Create a copy of the item ids
+                let mut items = Vec::new();
+                for item in self.index.keys() {
+                    items.push(item.clone());
+                }
+
+                // Sort the items by item id
+                items.sort_unstable();
+
+                // Reply with the result
+                reply_line.send(items).unwrap_or(());
+            }
+
+            // If it is a request for all the item pairs
+            Some(IndexUpdate::GetAllPairs { reply_line }) => {
+                // Create a copy of the item ids
                 let mut items = Vec::new();
                 for (item, description) in self.index.iter() {
                     items.push(ItemPair::from_item(item.clone(), description.clone()));

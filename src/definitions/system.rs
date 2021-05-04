@@ -156,6 +156,10 @@ pub enum Modification {
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DetailType {
+    /// A variant for the list of all scenes
+    /// NOTE: Consider moving this to the index module (see AllItems)
+    AllScenes,
+
     /// A variant for the description of an item
     /// NOTE: This variant will be retired
     Description { item_id: ItemId },
@@ -348,18 +352,32 @@ pub enum UserRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WebReply {
+    // A variant that contains event detail
+    #[serde(rename_all = "camelCase")]
+    Event {
+        is_valid: bool,       // a flag to indicate the result of the request
+        event: Option<Event>, // the event detail, if found
+    },
+
+    // A variant that contains item detail
+    #[serde(rename_all = "camelCase")]
+    Item {
+        is_valid: bool,      // a flag to indicate the result of the request
+        item_pair: ItemPair, // the item pair
+    },
+
+    // A variant that contains an item list
+    #[serde(rename_all = "camelCase")]
+    Items {
+        is_valid: bool,         // a flag to indicate the result of the request
+        items: Vec<ItemId>,     // the list of all items, if found
+    },
+
     // A variant for replies with no specific content
     #[serde(rename_all = "camelCase")]
     Generic {
         is_valid: bool,  // a flag to indicate the result of the request
         message: String, // a message describing the success or failure
-    },
-
-    // A variant that contains the complete item list
-    #[serde(rename_all = "camelCase")]
-    AllItems {
-        is_valid: bool,             // a flag to indicate the result of the request
-        all_items: Vec<ItemPair>, // the list of all items, if found
     },
 
     // A variant that contains scene detail
@@ -374,20 +392,6 @@ pub enum WebReply {
     Status {
         is_valid: bool,         // a flag to indicate the result of the request
         status: Option<Status>, // the status detail, if found
-    },
-
-    // A variant that contains event detail
-    #[serde(rename_all = "camelCase")]
-    Event {
-        is_valid: bool,       // a flag to indicate the result of the request
-        event: Option<Event>, // the event detail, if found
-    },
-
-    // A variant that contains item detail
-    #[serde(rename_all = "camelCase")]
-    Item {
-        is_valid: bool,      // a flag to indicate the result of the request
-        item_pair: ItemPair, // the item pair
     },
 }
 
@@ -418,12 +422,12 @@ impl WebReply {
     ///
     pub fn is_success(&self) -> bool {
         match self {
-            &WebReply::Generic { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::AllItems { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Scene { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Status { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Event { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Item { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Items { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Generic { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Scene { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Status { ref is_valid, .. } => is_valid.clone(),
         }
     }
 }

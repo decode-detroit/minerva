@@ -15,7 +15,7 @@
   align-items: center;
   justify-content: left;
   font-size: 1rem;
-  box-shadow: 0 0px 5px 3px #0a0c0e77;
+  box-shadow: 0 0 5px 3px #0a0c0e77;
 }
 
 .viewArea {
@@ -26,6 +26,89 @@
   border: 2px solid #0a0c0e;
   border-radius: 10px;
   overflow: hidden;
+}
+
+.sceneMenu {
+  position: absolute;
+  top: calc(2.5rem - 1px);
+  display: flex;
+  z-index: 101;
+  padding: 0.3rem;
+  background-color: #2f343e;
+  border-radius: 0 0 6px 0;
+  border-right: 1px solid #464c5a;
+  border-bottom: 1px solid #464c5a;
+  box-shadow: 5px 5px 5px -2px #0a0c0e77;
+  font-size: 1rem;
+}
+
+.sceneMenu .title {
+  padding: 0.3rem;
+  margin: 0;
+  font-weight: normal;
+}
+
+.sceneMenu .select {
+  appearance: none;
+  position: relative;
+  color: #efefef;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 0;
+  padding: 0.3rem;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.addMenu {
+  position: absolute;
+  z-index: 10;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 0.9rem;
+}
+
+.addMenu .title {
+  background-color: #4d5564;
+  text-align: center;
+  margin: 0;
+  padding: 0.3rem;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.addMenu .searchBar {
+  appearance: none;
+  position: relative;
+  color: #efefef;
+  background-color: #2f343e;
+  border: none;
+  border-top: 1px solid #868fa2;
+  border-bottom: 1px solid #868fa2;
+  border-radius: 0;
+  outline: none;
+  padding: 0.3rem;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.verticalScroll {
+  overflow-y: auto;
+  max-height: 50vh;
+  padding: 0.7rem;
+}
+
+.verticalScroll>div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-bottom: 0.7rem;
+  margin-left: 0.7rem;
 }
 
 .editArea {
@@ -47,7 +130,7 @@
   font-size: 0.9rem;
 }
 
-.box h3 {
+.box .title {
   text-align: center;
   border-radius: 6px 6px 0 0;
   margin: 0;
@@ -57,7 +140,7 @@
   font-weight: bold;
 }
 
-.box h3::after {
+.box .title::after {
   position: absolute;
   width: 100%;
   left: 0;
@@ -66,7 +149,7 @@
   font-weight: lighter;
 }
 
-.box h4 {
+.box .subtitle {
   text-align: left;
   margin: 0;
   padding: 0.3rem;
@@ -108,33 +191,16 @@
   margin-left: 0.7rem;
 }
 
-.menuBox {
-  z-index: 10;
-}
-
-.menuBox h3 {
-  background-color: #4d5564;
-}
-
-.menuBox h3::after {
-  content: "Menu";
-}
-
-.menuBox>div {
-  padding: 0.7rem;
-  padding-top: 0;
-}
-
 .eventBox {
   min-height: 10rem;
   min-width: 15rem;
 }
 
-.eventBox h3 {
+.eventBox .title {
   background-color: #008106;
 }
 
-.eventBox h3::after {
+.eventBox .title::after {
   content: "Event";
 }
 
@@ -163,11 +229,11 @@
   min-width: 15rem;
 }
 
-.statusBox h3 {
+.statusBox .title {
   background-color: #0074a3;
 }
 
-.statusBox h3::after {
+.statusBox .title::after {
   content: "Status";
 }
 

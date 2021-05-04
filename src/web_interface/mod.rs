@@ -394,10 +394,18 @@ impl WebInterface {
 
         // Create the all items filter
         let all_items = warp::get()
-        .and(warp::path("allItems"))
-        .and(warp::path::end())
-        .and(WebInterface::with_index(self.index_access.clone()))
-        .and_then(WebInterface::handle_all_items);
+            .and(warp::path("allItems"))
+            .and(warp::path::end())
+            .and(WebInterface::with_index(self.index_access.clone()))
+            .and_then(WebInterface::handle_all_items);
+
+        // Create the all scenes filter
+        let all_scenes = warp::get()
+            .and(warp::path("allScenes"))
+            .and(warp::path::end())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_request(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
+            .and_then(WebInterface::handle_request);
 
         // Create the all stop filter
         let all_stop = warp::path("allStop")
@@ -566,6 +574,7 @@ impl WebInterface {
         let routes = listen
             .or(all_event_change)
             .or(all_items)
+            .or(all_scenes)
             .or(all_stop)
             .or(broadcast_event)
             .or(clear_queue)
@@ -637,15 +646,15 @@ impl WebInterface {
         index_access: IndexAccess,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         // Get the item pair from the index
-        let all_items = index_access
+        let items = index_access
             .get_all()
             .await;
 
         // Return the item pair (even if it is the default)
         return Ok(warp::reply::with_status(
-            warp::reply::json(&WebReply::AllItems {
+            warp::reply::json(&WebReply::Items {
                 is_valid: true,
-                all_items,
+                items,
             }),
             http::StatusCode::OK,
         ));

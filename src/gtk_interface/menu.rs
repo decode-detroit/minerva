@@ -288,7 +288,7 @@ impl MenuAbstraction {
             }
         }));
 
-        // Create the jump to dialog action
+        // Create the shortcuts dialog action
         let shortcuts = gio::SimpleAction::new("shortcuts", None);
         let interface_clone = interface_send.clone();
         shortcuts.connect_activate(move |_, _| {

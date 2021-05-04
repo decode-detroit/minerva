@@ -52,8 +52,13 @@ pub enum IndexUpdate {
         reply_line: oneshot::Sender<ItemPair>,
     },
 
-    /// A variant to receive all the pairs from the item index
+    /// A variant to receive all the ids from the item index
     GetAll {
+        reply_line: oneshot::Sender<Vec<ItemId>>,
+    },
+
+    /// A variant to receive all the pairs from the item index
+    GetAllPairs {
         reply_line: oneshot::Sender<Vec<ItemPair>>,
     },
 }
@@ -183,14 +188,32 @@ impl IndexAccess {
         rx.await.unwrap_or(ItemPair::new_default(item_id.id()))
     }
 
-    /// A method to get all pairs from the item index
+    /// A method to get all ids from the item index
     ///
-    pub async fn get_all(&self) -> Vec<ItemPair> {
+    pub async fn get_all(&self) -> Vec<ItemId> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
         if let Err(_) = self
             .index_send
             .send(IndexUpdate::GetAll { reply_line })
+            .await
+        {
+            // On failure, return none
+            return Vec::new();
+        }
+
+        // Wait for the reply
+        rx.await.unwrap_or(Vec::new())
+    }
+
+    /// A method to get all pairs from the item index
+    ///
+    pub async fn get_all_pairs(&self) -> Vec<ItemPair> {
+        // Send the message and wait for the reply
+        let (reply_line, rx) = oneshot::channel();
+        if let Err(_) = self
+            .index_send
+            .send(IndexUpdate::GetAllPairs { reply_line })
             .await
         {
             // On failure, return none

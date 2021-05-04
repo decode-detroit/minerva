@@ -689,7 +689,7 @@ impl Config {
     ///
     pub async fn to_config(&self, mut config_file: &File) {
         // Assemble the event set from the item index and events
-        let mut item_index = self.index_access.get_all().await;
+        let mut item_index = self.index_access.get_all_pairs().await;
         let mut event_set = FnvHashMap::default();
         // Look through the item index
         for item_pair in item_index.drain(..) {

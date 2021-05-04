@@ -177,9 +177,29 @@ impl IndexAccess {
         ItemPair::new_default(item_id.id())
     }
 
+    /// A method to get all ids from the item index
+    ///
+    pub async fn get_all(&self) -> Vec<ItemId> {
+        // Create an empty items vector
+        let mut items = Vec::new();
+
+        // Lock access
+        if let Ok(index) = self.index.lock() {
+            for item in index.keys() {
+                items.push(item.clone());
+            }
+        }
+
+        // Sort the items by item id
+        items.sort_unstable();
+
+        // Return the result
+        items
+    }
+
     /// A method to get all pairs from the item index
     ///
-    pub async fn get_all(&self) -> Vec<ItemPair> {
+    pub async fn get_all_pairs(&self) -> Vec<ItemPair> {
         // Create an empty items vector
         let mut items = Vec::new();
 

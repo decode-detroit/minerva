@@ -1,40 +1,6 @@
 import React from 'react';
 import { Action, ReceiveNode } from './Nodes';
 
-// A menu box with a title and list of elements
-export class MenuBox extends React.PureComponent {
-   // Class constructor
-   constructor(props) {
-    // Collect props
-    super(props);
-
-    // Bind the various functions
-    this.handleMouseDown = this.handleMouseDown.bind(this);
-  }
-  
-  // Function to prevent clicks from continuing
-  handleMouseDown(e) {
-    // Prevent the default event handler and propogation
-    e = e || window.event;
-    e.preventDefault();
-    e.stopPropagation();
-  }
-  
-  // Return the completed box
-  render() {
-    // Compose any items into a list
-    const children = this.props.children.map((child) => child);
-    
-    // Return the box
-    return (
-      <div className="box menuBox" style={{ left: `${this.props.left}px`, top: `${this.props.top}px` }} onMouseDown={this.handleMouseDown}>
-        <h3>{this.props.title}</h3>
-        <div className="verticalList">{children}</div>
-      </div>
-    );
-  }
-}
-
 // An event box with an event and event detail
 export class EventBox extends React.PureComponent {
   // Class constructor
@@ -64,9 +30,8 @@ export class EventBox extends React.PureComponent {
 
   // Function to respond to clicking the area
   handleMouseDown(e) {
-    // Prevent any other event handlers
+    // Prevent propogation
     e = e || window.event;
-    e.preventDefault();
     e.stopPropagation();
    
     // Connect the mouse event handlers to the document
@@ -118,35 +83,34 @@ export class EventBox extends React.PureComponent {
   }
 
   // Helper function to update the event information
-  updateEvent() {
-    // Fetch the description of the event
-    fetch(`/getItem/${this.props.id}`)
-    .then(response => {
-      return response.json()
-    })
-    .then(json => {
+  async updateEvent() {
+    try {
+      // Fetch the description of the event
+      let response = await fetch(`/getItem/${this.props.id}`);
+      const json = await response.json();
+
       // If valid, save the result to the state
       if (json.item.isValid) {
         this.setState({
           itemPair: json.item.itemPair,
         });
       }
-    });
 
-    // Fetch the detail of the event
-    fetch(`getEvent/${this.props.id}`)
-    .then(response => {
-      return response.json()
-    })
-    .then(json => {
+      // Fetch the detail of the event
+      response = await fetch(`getEvent/${this.props.id}`);
+      const json2 = await response.json();
+
       // If valid, save the result to the state
-      console.log(json);
-      if (json.event.isValid) {
+      if (json2.event.isValid) {
         this.setState({
-          eventActions: json.event.event,
+          eventActions: json2.event.event,
         });
       }
-    });
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
   }
 
   // On initial load, pull the location and event information
@@ -160,26 +124,18 @@ export class EventBox extends React.PureComponent {
     // Pull the new event information
     this.updateEvent();
   }
-
-  // Every time the id is updated, pull the event information
-  /*componentDidUpdate(prevProps) {
-    // If the id has not changed, exit FIXME this will need to be removed
-    if (this.props.id !== prevProps.id) {
-      this.updateEvent();
-    }
-  }*/
  
   // Return the completed box
   render() {
     // Compose any actions into a list
-    const children = this.state.eventActions.map((action) => <Action action={action}></Action>);
+    const children = this.state.eventActions.map((action) => <Action key={action.toString()} action={action} createConnector={this.props.createConnector}></Action>);
 
     // Return the box
     return (
       <div className="box eventBox" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
-        <h3>{this.state.itemPair.description} ({this.state.itemPair.id})</h3>
-        <ReceiveNode type="event"></ReceiveNode>
-        <h4>Actions:</h4>
+        <div className="title">{this.state.itemPair.description} ({this.state.itemPair.id})</div>
+        <ReceiveNode id={`receive-node-${this.state.itemPair.id}`} type="event"></ReceiveNode>
+        <div className="subtitle">Actions:</div>
         <div className="verticalList">{children}</div>
       </div>
     );

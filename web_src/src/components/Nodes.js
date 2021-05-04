@@ -1,51 +1,43 @@
 import React from 'react';
 
-// A simple link element
-export function Link(props) {
-  // Return the completed link
-  return (
-    <div>{props.text}</div>
-  );
-}
-
 // An action list element
 export class Action extends React.PureComponent {
-  // Class constructor
   constructor(props) {
     // Collect props and set initial state
     super(props);
+
+    // Create a node reference
+    this.node = React.createRef();
 
     // Bind the various functions
     /*this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseClose = this.handleMouseClose.bind(this);*/
   }
+  
+  // Create any connectors on load
+  componentDidMount() {
+    // Identify all the connections
+    let connections = [];
+    // Switch based on the props
+    if (this.props.action.hasOwnProperty(`NewScene`)) {
+      connections.push({type: "scene", id: this.props.action.NewScene.new_scene.id});
+    }
 
-  // Function to respond to clicking the area
-  /*handleMouseDown(e) {
-    // Prevent any other event handlers
-    e = e || window.event;
-    e.preventDefault();
-   
-    // Connect the mouse event handlers to the document
-    document.onmousemove = this.handleMouseMove;
-    document.onmouseup = this.handleMouseClose;
-
-    // Save the cursor position, hide the menu
-    this.setState({
-      cursorX: e.clientX,
-      cursorY: e.clientY,
+    // Create each connection
+    connections.forEach((connection) => {
+      this.props.createConnector(connection.type, this.node.current, connection.id);
     });
-  }*/
+  }
 
-  // Render the draggable edit area
+  // Render the event action
   render() {
     // Switch based on the props
     if (this.props.action.hasOwnProperty(`NewScene`)) {
       return (
         <div className="action">
           New Scene
-          <SendNode type="scene"></SendNode>
+          <SendNode ref={this.node} type="scene"></SendNode>
         </div>
       );
     
@@ -54,7 +46,7 @@ export class Action extends React.PureComponent {
       return (
         <div className="action">
           Modify Status
-          <SendNode type="status"></SendNode>
+          <SendNode ref={this.node} type="status"></SendNode>
         </div>
       );
     
@@ -63,7 +55,7 @@ export class Action extends React.PureComponent {
       return (
         <div className="action">
           Cue Event
-          <SendNode type="event"></SendNode>
+          <SendNode ref={this.node} type="event"></SendNode>
         </div>
       );
     
@@ -72,7 +64,7 @@ export class Action extends React.PureComponent {
       return (
         <div className="action">
           Cancel Event
-          <SendNode type="event"></SendNode>
+          <SendNode ref={this.node} type="event"></SendNode>
         </div>
       );
     
@@ -97,7 +89,7 @@ export class Action extends React.PureComponent {
       return (
         <div className="action">
           Select Event
-          <SendNode type="status"></SendNode>
+          <SendNode ref={this.node} type="status"></SendNode>
         </div>
       );
     }
@@ -110,17 +102,21 @@ export class Action extends React.PureComponent {
 }
 
 // A receive Node element
-export function ReceiveNode(props) {
-  // Return the completed link
-  return (
-    <div className={`node ${props.type}`} ></div>
-  );
+export class ReceiveNode extends React.PureComponent {  
+  // Render the completed link
+  render() {
+    return (
+      <div className={`node ${this.props.type}`} ></div>
+    );
+  }
 }
 
 // A send Node element
-export function SendNode(props) {
-  // Return the completed link
-  return (
-    <div className={`node ${props.type}`} ></div>
-  );
+export class SendNode extends React.PureComponent {
+  // Render the completed link
+  render() {
+    return (
+      <div className={`node ${this.props.type}`} ></div>
+    );
+  }
 }

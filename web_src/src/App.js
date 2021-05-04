@@ -1,6 +1,6 @@
 import logoWide from './logo_wide.png';
-import { EditMenu } from './components/Menu.js';
-import { ViewArea } from './components/DragArea.js';
+import { EditMenu } from './components/Menus.js';
+import { ViewArea } from './components/EditArea.js';
 import './App.css';
 
 function App() {
@@ -12,7 +12,7 @@ function App() {
       </div>
       <ViewArea></ViewArea>
     </div>
-  );
+  )
 }
 
 export default App;

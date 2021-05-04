@@ -192,6 +192,11 @@ impl SystemInterface {
                         request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event) }).unwrap_or(());
                     }
 
+                    // The unpacking yeilded items
+                    UnpackResult::SuccessWithItems(items) => {
+                        request.reply_to.send(WebReply::Items { is_valid: true, items }).unwrap_or(());
+                    }
+
                     // The unpacking yeilded a status
                     UnpackResult::SuccessWithStatus(status) => {
                         request.reply_to.send(WebReply::Status { is_valid: true, status: Some(status) }).unwrap_or(());
@@ -508,6 +513,12 @@ impl SystemInterface {
 
                     // Match the type of information request
                     match detail_type {
+                        // Reply to a request for the scenes FIXME Consider moving this to the index
+                        DetailType::AllScenes => {
+                            // Get the scene list
+                            result = UnpackResult::SuccessWithItems(handler.get_scenes());
+                        }
+                        
                         // Reply to a request for the event
                         DetailType::Event { item_id } => {
                             // Try to get the event
@@ -738,7 +749,7 @@ impl SystemInterface {
                         // Reply to a request for all the configuration items
                         DetailType::Items => {
                             // Collect all the items from the configuration
-                            let items = self.index_access.get_all().await;
+                            let items = self.index_access.get_all_pairs().await;
 
                             // Send it back to the user interface
                             self.interface_send
@@ -802,6 +813,7 @@ impl SystemInterface {
                                     reply: ReplyType::Scene { scene },
                                 }).await;
                         }
+
                         // Reply to a request for the status
                         DetailType::Status { item_id } => {
                             // Try to get the status
@@ -814,6 +826,9 @@ impl SystemInterface {
                                     reply: ReplyType::Status { status },
                                 }).await;
                         }
+
+                        // Ignore other requests
+                        _ => (),
                     }
 
                     // Put the handler back
@@ -1042,11 +1057,14 @@ enum UnpackResult {
     // A variant for successful unpacking with an event
     SuccessWithEvent(Event),
 
-    // A variant for successful unpacking with a status
-    SuccessWithStatus(Status),
+    // A variant for successful unpacking with items
+    SuccessWithItems(Vec<ItemId>),
 
     // A variant for successful unpacking with a scene
     SuccessWithScene(Scene),
+
+    // A variant for successful unpacking with a status
+    SuccessWithStatus(Status),
 
     // A variant for unsuccessful unpacking
     Failure(String),
