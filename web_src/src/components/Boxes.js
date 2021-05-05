@@ -1,8 +1,9 @@
 import React from 'react';
 import { Action, ReceiveNode } from './Nodes';
+import { stopPropogation } from './functions';
 
-// An event box with an event and event detail
-export class EventBox extends React.PureComponent {
+// An item box to select the appropriate sub-box
+export class ItemBox extends React.PureComponent {
   // Class constructor
   constructor(props) {
     // Collect props
@@ -18,21 +19,20 @@ export class EventBox extends React.PureComponent {
         id: 0,
         description: "Loading ...",
       },
-      eventActions: [], // placeholder for the read data
+      type: "",
     }
 
     // Bind the various functions
-    this.updateEvent = this.updateEvent.bind(this);
+    this.updateItem = this.updateItem.bind(this);
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.handleChange = this.handleChange.bind(this);
   }
-
+  
   // Function to respond to clicking the area
   handleMouseDown(e) {
-    // Prevent propogation
-    e = e || window.event;
-    e.stopPropagation();
+    stopPropogation();
    
     // Connect the mouse event handlers to the document
     document.onmousemove = this.handleMouseMove;
@@ -82,11 +82,11 @@ export class EventBox extends React.PureComponent {
     document.onmouseup = null;
   }
 
-  // Helper function to update the event information
-  async updateEvent() {
+  // Helper function to update the item information
+  async updateItem() {
     try {
-      // Fetch the description of the event
-      let response = await fetch(`/getItem/${this.props.id}`);
+      // Fetch the description of the status
+      let response = await fetch(`getItem/${this.props.id}`);
       const json = await response.json();
 
       // If valid, save the result to the state
@@ -96,14 +96,14 @@ export class EventBox extends React.PureComponent {
         });
       }
 
-      // Fetch the detail of the event
-      response = await fetch(`getEvent/${this.props.id}`);
+      // Check to see if the item is a scene
+      response = await fetch(`getType/${this.props.id}`);
       const json2 = await response.json();
 
       // If valid, save the result to the state
-      if (json2.event.isValid) {
+      if (json2.generic.isValid) {
         this.setState({
-          eventActions: json2.event.event,
+          type: json2.generic.message,
         });
       }
     
@@ -113,7 +113,7 @@ export class EventBox extends React.PureComponent {
     }
   }
 
-  // On initial load, pull the location and event information
+  // On initial load, pull the location and item information
   componentDidMount() {
     // Set the starting location
     this.setState({
@@ -121,23 +121,169 @@ export class EventBox extends React.PureComponent {
       top: this.props.top,
     })
 
+    // Pull the item information
+    this.updateItem();
+  }
+
+  // Function to handle new text in the input
+  handleChange(e) {
+    // Extract the value
+    let value = e.target.value;
+
+    // Replace the existing description
+    this.setState(prevState => ({
+      itemPair: {...prevState.itemPair, description: value},
+    }));
+
+    // FIXME save the changes every few seconds
+  }
+ 
+  // Return the selected box
+  render() {
+    // Return the item box
+    return (
+      <>
+        {this.state.type !== "" &&
+          <div className={`box ${this.state.type}Box ${this.props.isFocus ? 'focus' : ''}`} style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
+            <div className="title">
+              <input type="text" value={this.state.itemPair.description} size={this.state.itemPair.description.length > 30 ? this.state.itemPair.description.length - 10 : 20} onInput={this.handleChange}></input>
+              <div>({this.state.itemPair.id})</div>
+            </div>
+            <ReceiveNode id={`receive-node-${this.state.itemPair.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
+            {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene}/>}
+            {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
+            {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
+          </div>
+        }
+      </>
+    );
+  }
+}
+
+// A scene box with an scene and scene detail
+export class SceneFragment extends React.PureComponent {
+  // Return the fragment
+  render() {
+    return (
+      <div className="divButton" onClick={() => {this.props.changeScene(this.props.id)}}>View This Scene</div>
+    );
+  }
+}
+
+// A statue box with a status and status detail
+export class StatusFragment extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      status: {},
+    }
+
+    // Bind the various functions
+    this.updateStatus = this.updateStatus.bind(this);
+  }
+
+  // Helper function to update the status information
+  async updateStatus() {
+    try {
+      // Fetch the detail of the status
+      const response = await fetch(`getStatus/${this.props.id}`);
+      const json = await response.json();
+
+      // If valid, save the result to the state
+      if (json.status.isValid) {
+        this.setState({
+          status: json.status.status,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // On initial load, pull the status information
+  componentDidMount() {
+    // Pull the new status information
+    this.updateStatus();
+  }
+ 
+  // Return the fragment
+  render() {
+    // Compose any actions into a list
+    //const children = this.state.eventActions.map((action) => <Action key={action.toString()} action={action} createConnector={this.props.createConnector}></Action>);
+
+    // If the status is a multistate
+
+    // Return the fragment
+    return (
+      <>
+        <div className="subtitle">States:</div>
+        <div className="verticalList"></div>
+      </>
+    );
+  }
+}
+
+// An event box with an event and event detail
+export class EventFragment extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      eventActions: [], // placeholder for the read data
+    }
+
+    // Bind the various functions
+    this.updateEvent = this.updateEvent.bind(this);
+  }
+
+  // Helper function to update the event information
+  async updateEvent() {
+    try {
+      // Fetch the detail of the event
+      const response = await fetch(`getEvent/${this.props.id}`);
+      const json = await response.json();
+
+      // If valid, save the result to the state
+      if (json.event.isValid) {
+        this.setState({
+          eventActions: json.event.event,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log(`Server inaccessible: ${this.props.id}`); // FIXME
+    }
+  }
+
+  // On initial load, pull the event information
+  componentDidMount() {
     // Pull the new event information
     this.updateEvent();
   }
+
+
  
-  // Return the completed box
+  // Return the fragment
   render() {
     // Compose any actions into a list
-    const children = this.state.eventActions.map((action) => <Action key={action.toString()} action={action} createConnector={this.props.createConnector}></Action>);
+    const children = this.state.eventActions.map((action) => <Action key={action.toString()} action={action} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}></Action>);
 
-    // Return the box
+    // Return the fragment
     return (
-      <div className="box eventBox" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
-        <div className="title">{this.state.itemPair.description} ({this.state.itemPair.id})</div>
-        <ReceiveNode id={`receive-node-${this.state.itemPair.id}`} type="event"></ReceiveNode>
+      <>
         <div className="subtitle">Actions:</div>
         <div className="verticalList">{children}</div>
-      </div>
+      </>
     );
   }
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { EventBox } from './Boxes';
+import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu } from './Menus';
 
 // A box to contain the draggable edit area
@@ -10,7 +10,8 @@ export class ViewArea extends React.PureComponent {
     super(props);
     this.state = {
       sceneId: -1, // the current scene id
-      itemList: [], // list of all shown items
+      idList: [], // list of all shown item ids
+      focusId: 0, // the highlighted item box
       connections: [], // list of all connectors
       cursorX: 0, // starting point of the cursor
       cursorY: 0,
@@ -23,11 +24,13 @@ export class ViewArea extends React.PureComponent {
     this.changeScene = this.changeScene.bind(this);
     this.refresh = this.refresh.bind(this);
     this.addItem = this.addItem.bind(this);
+    this.addItemToScene = this.addItemToScene.bind(this);
     this.createConnector = this.createConnector.bind(this);
+    this.grabFocus = this.grabFocus.bind(this);
   }
   
   // Function to respond to clicking the area
-  handleMouseDown(e) {
+  handleMouseDown() {
     // Hide the menu
     this.setState({
       isMenuVisible: false,
@@ -55,17 +58,41 @@ export class ViewArea extends React.PureComponent {
     // Save the change
     this.setState({
       sceneId: id,
-    })
+    });
   }
 
-  // Function to add a specific item to the item list, if not present
+  // Function to hide the menu and add an item to the scene and the viewport FIXME also add to scene
+  addItemToScene(id) {
+    // FIXME add the item to current scene
+
+    // Add the item to the viewarea
+    this.addItem(id);
+
+    // Close the add menu
+    this.setState({
+      isMenuVisible: false,
+    });
+  }
+
+  // Function to add a specific item to the viewarea, if not present
   addItem(id) {
     // Add the item to the list, if missing
-    if (!this.state.itemList.includes(id)) {
+    if (!this.state.idList.includes(id)) {
       this.setState({
-        itemList: [...this.state.itemList, {id: id}],
+        idList: [...this.state.idList, id],
       });
     } 
+  }
+
+  // Function to grab focus for a specific item box
+  grabFocus(id) {
+    // Make sure the item exists
+    this.addItem(id);
+    
+    // Save the focus id
+    this.setState({
+      focusId: id,
+    })
   }
 
   // Function to create a new connector between boxes
@@ -79,7 +106,7 @@ export class ViewArea extends React.PureComponent {
     })
   }
 
-  // Did update function to trigger refresh of itemList
+  // Did update function to trigger refresh of idList
   async componentDidUpdate(prevProps, prevState) {
     if (prevState.sceneId !== this.state.sceneId) {
       this.refresh();
@@ -91,7 +118,7 @@ export class ViewArea extends React.PureComponent {
     // Check for the empty scene
     if (parseInt(this.state.sceneId) === -1) {
       this.setState({
-        itemList: [], // reset the item list
+        idList: [], // reset the item list
         connections: [], // reset the connectors
       });
     
@@ -99,13 +126,17 @@ export class ViewArea extends React.PureComponent {
     } else {
       try {
         // Fetch and convert the data
-        const response = await fetch(`/getScene/${this.state.sceneId}`)
+        const response = await fetch(`getScene/${this.state.sceneId}`)
         const json = await response.json();
 
         // If valid, save the result to the state
         if (json.scene.isValid) {
+          // Strip ids from the items
+          let ids = json.scene.scene.events.map((item) => item.id);
+          ids.sort();
+
           this.setState({
-            itemList: json.scene.scene.events,
+            idList: ids,
             connections: [], // reset the connectors
           });
         }
@@ -121,10 +152,10 @@ export class ViewArea extends React.PureComponent {
   render() {
     return (
       <>
-        <SceneMenu changeScene={this.changeScene}></SceneMenu>
+        <SceneMenu value={this.state.sceneId} changeScene={this.changeScene}/>
         <div className="viewArea" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
-          <EditArea itemList={this.state.itemList} connections={this.state.connections} createConnector={this.createConnector}></EditArea>
-          {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)}></AddMenu>}
+          <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene}/>
+          {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)} addItem={this.addItemToScene}/>}
         </div>
       </>
     );
@@ -207,12 +238,13 @@ export class EditArea extends React.PureComponent {
   // Render the draggable edit area
   render() {
     // Create a box for each event
-    const boxes = this.props.itemList.map((item) => <EventBox key={item.id.toString()} left={100} top={100} id={item.id} createConnector={this.props.createConnector}></EventBox>);
+    let offset = 0;
+    const boxes = this.props.idList.map((id) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} left={100 + 275 * parseInt(offset / 6)} top={100 + 100 * ((offset++) % 6)} id={id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} changeScene={this.props.changeScene}/>);
     
     // Render the event boxes
     return (
       <div className="editArea" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
-        <LineArea connections={this.props.connections}></LineArea>
+        <LineArea connections={this.props.connections}/>
         {boxes}
       </div>
     )

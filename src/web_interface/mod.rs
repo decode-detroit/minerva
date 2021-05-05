@@ -117,6 +117,11 @@ struct GetStatus {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct GetType {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ProcessEvent {
     event_id: u32,
     check_scene: bool,
@@ -178,6 +183,16 @@ impl FromStr for GetStatus {
         // Parse as a u32 and return the result
         let id = s.parse::<u32>()?;
         Ok(GetStatus { id })
+    }
+}
+impl FromStr for GetType {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(GetType { id })
     }
 }
 
@@ -285,6 +300,15 @@ impl From<GetStatus> for UserRequest {
         UserRequest::Detail {
             detail_type: DetailType::Status {
                 item_id: ItemId::new_unchecked(get_status.id),
+            }
+        }
+    }
+}
+impl From<GetType> for UserRequest {
+    fn from(get_type: GetType) -> Self {
+        UserRequest::Detail {
+            detail_type: DetailType::Type {
+                item_id: ItemId::new_unchecked(get_type.id),
             }
         }
     }
@@ -525,6 +549,14 @@ impl WebInterface {
             .and(warp::path::end())
             .and_then(WebInterface::handle_request);
 
+        // Create the get status filter
+        let get_type = warp::get()
+            .and(warp::path("getType"))
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(warp::path::param::<GetType>())
+            .and(warp::path::end())
+            .and_then(WebInterface::handle_request);
+
         // Create the process event filter
         let process_event = warp::post()
             .and(warp::path("processEvent"))
@@ -590,6 +622,7 @@ impl WebInterface {
             .or(get_item)
             .or(get_scene)
             .or(get_status)
+            .or(get_type)
             .or(process_event)
             .or(redraw)
             .or(save_config)

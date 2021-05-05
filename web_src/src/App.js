@@ -8,9 +8,9 @@ function App() {
     <div className="app">
       <div className="header">
         <img src={logoWide} className="logo" alt="logo" />
-        <EditMenu></EditMenu>
+        <EditMenu/>
       </div>
-      <ViewArea></ViewArea>
+      <ViewArea/>
     </div>
   )
 }

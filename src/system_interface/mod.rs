@@ -192,17 +192,22 @@ impl SystemInterface {
                         request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event) }).unwrap_or(());
                     }
 
-                    // The unpacking yeilded items
+                    // The unpacking yielded items
                     UnpackResult::SuccessWithItems(items) => {
                         request.reply_to.send(WebReply::Items { is_valid: true, items }).unwrap_or(());
                     }
 
-                    // The unpacking yeilded a status
+                    // The unpacking yielded a message
+                    UnpackResult::SuccessWithMessage(message) => {
+                        request.reply_to.send(WebReply::Generic { is_valid: true, message }).unwrap_or(());
+                    }
+
+                    // The unpacking yielded a status
                     UnpackResult::SuccessWithStatus(status) => {
                         request.reply_to.send(WebReply::Status { is_valid: true, status: Some(status) }).unwrap_or(());
                     }
 
-                    // The unpacking yeilded a scene
+                    // The unpacking yielded a scene
                     UnpackResult::SuccessWithScene(scene) => {
                         request.reply_to.send(WebReply::Scene { is_valid: true, scene: Some(scene) }).unwrap_or(());
                     }
@@ -546,6 +551,20 @@ impl SystemInterface {
                                 result = UnpackResult::SuccessWithScene(scene);
                             } else {
                                 result = UnpackResult::Failure("Scene Not Found.".into());
+                            }
+                        }
+
+                        // Reply to a request for item type
+                        DetailType::Type { item_id } => {
+                            // Check to see if there is a scene
+                            if let Some(_) = handler.get_scene(&item_id).await {
+                                result = UnpackResult::SuccessWithMessage("scene".into());
+                            } else if let Some(_) = handler.get_status(&item_id) {
+                                result = UnpackResult::SuccessWithMessage("status".into());
+                            } else if let Some(_) = handler.get_event(&item_id).await {
+                                result = UnpackResult::SuccessWithMessage("event".into());
+                            } else {
+                                result = UnpackResult::Failure("none".into());
                             }
                         }
 
@@ -1059,6 +1078,9 @@ enum UnpackResult {
 
     // A variant for successful unpacking with items
     SuccessWithItems(Vec<ItemId>),
+
+    // A variant for successful unpacking with message
+    SuccessWithMessage(String),
 
     // A variant for successful unpacking with a scene
     SuccessWithScene(Scene),

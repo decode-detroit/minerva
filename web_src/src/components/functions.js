@@ -4,3 +4,10 @@ export async function asyncForEach(array, callback) {
         await callback(array[index], index, array);
     }
 }
+
+// Helper function to prevent clicks from continuing
+export function stopPropogation(e) {
+    // Prevent propogation
+    e = e || window.event;
+    e.stopPropagation();
+}

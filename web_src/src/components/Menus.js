@@ -1,5 +1,5 @@
 import React from 'react';
-import { asyncForEach } from './functions';
+import { asyncForEach, stopPropogation } from './functions';
 
 // A menu for the edit items
 export class EditMenu extends React.PureComponent {  
@@ -28,7 +28,6 @@ export class AddMenu extends React.PureComponent {
     }
  
     // Bind the various functions
-    this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleChange = this.handleChange.bind(this);
   }
 
@@ -36,7 +35,7 @@ export class AddMenu extends React.PureComponent {
   async componentDidMount() {
     try {
       // Fetch all items and process the response
-      let response = await fetch(`/allItems`);
+      let response = await fetch(`allItems`);
       const json = await response.json();
 
       // If the response is valid
@@ -45,7 +44,7 @@ export class AddMenu extends React.PureComponent {
         let list = [];
         await asyncForEach(json.items.items, async (item) => {
           // Fetch the description of the item
-          response = await fetch(`/getItem/${item.id}`);
+          response = await fetch(`getItem/${item.id}`);
           const json2 = await response.json();
 
           // If valid, save the id and description
@@ -68,13 +67,6 @@ export class AddMenu extends React.PureComponent {
       console.log("Server inaccessible.");
     }
   }
- 
-  // Function to prevent clicks from continuing
-  handleMouseDown(e) {
-    // Prevent propogation
-    e = e || window.event;
-    e.stopPropagation();
-  }
 
   // Function to handle typing the input
   handleChange(e) {
@@ -95,11 +87,11 @@ export class AddMenu extends React.PureComponent {
   // Return the completed box
   render() {
     // Compose the filtered items into a visible list
-    let list = this.state.filtered.map((item) => <div>{item.description}</div>)
+    let list = this.state.filtered.map((item) => <div className="divButton" onClick={() => {this.props.addItem(item.id)}}>{item.description}</div>)
     
     // Return the box
     return (
-      <div className="addMenu" style={{ left: `${this.props.left}px`, top: `${this.props.top}px` }} onMouseDown={this.handleMouseDown}>
+      <div className="addMenu" style={{ left: `${this.props.left}px`, top: `${this.props.top}px` }} onMouseDown={stopPropogation}>
         <div className="title">Add/Show Item</div>
         <input className="searchBar" type="text" placeholder="Type to search ..." value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">

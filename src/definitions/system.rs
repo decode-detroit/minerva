@@ -173,6 +173,9 @@ pub enum DetailType {
     /// A variant for the list of all events in a scene
     Scene { item_id: ItemId },
 
+    /// A variant for the item type
+    Type { item_id: ItemId },
+
     /// A variant for the list of all items
     /// NOTE: This vailant will be retired
     Items,

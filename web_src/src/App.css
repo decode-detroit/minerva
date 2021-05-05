@@ -75,6 +75,7 @@
   background-color: #4d5564;
   text-align: center;
   margin: 0;
+  border-radius: 6px 6px 0 0;
   padding: 0.3rem;
   font-size: 1rem;
   font-weight: bold;
@@ -91,6 +92,7 @@
   border-radius: 0;
   outline: none;
   padding: 0.3rem;
+  font-family: Inter, sans-serif;
   font-size: 1rem;
   cursor: pointer;
   line-height: 1;
@@ -111,6 +113,18 @@
   margin-left: 0.7rem;
 }
 
+.verticalScroll .divButton {
+  width: 100%;
+  padding: 0.2rem;
+  border-bottom: 1px solid #868fa2;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.verticalScroll .divButton:hover {
+  outline: #efefef88 solid 2px;
+}
+
 .editArea {
   position: absolute;
   background-color: #21242a;
@@ -128,16 +142,50 @@
   border-radius: 6px;
   box-shadow: 2px 2px 5px 3px #0a0c0e;
   font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.box.focus {
+  z-index: 2;
+  opacity: 1;
 }
 
 .box .title {
   text-align: center;
-  border-radius: 6px 6px 0 0;
+  border-radius: 6px;
   margin: 0;
   padding: 0.3rem;
   padding-top: 1.2rem;
   font-size: 1rem;
   font-weight: bold;
+}
+
+.box.focus .title {
+  border-radius: 6px 6px 0 0;
+}
+
+.box .title>input {
+  appearance: none;
+  color: #efefef;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  padding: 0;
+  font-family: Inter, sans-serif;
+  font-size: 1rem;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.box.focus .title>input {
+  border-bottom: 1px solid #efefef;
+}
+
+.box .title>div {
+  font-size: 0.9rem;
 }
 
 .box .title::after {
@@ -164,6 +212,7 @@
   border: 1px solid #868fa2;
   border-radius: 50%;
   box-shadow: 0px 0px 5px 0px #0a0c0e;
+  cursor: pointer;
 }
 
 .node.event {
@@ -175,7 +224,7 @@
 }
 
 .node.scene {
-  background-color: #e2660f;
+  background-color: #b2500c;
 }
 
 .verticalList {
@@ -187,12 +236,44 @@
   padding-top: 0;
 }
 
-.verticalList div {
-  margin-left: 0.7rem;
+.sceneBox {
+  min-width: 15rem;
+}
+
+.sceneBox .title {
+  background-color: #b2500c;
+}
+
+.sceneBox .title::after {
+  content: "Scene";
+}
+
+.sceneBox .divButton {
+  width: 100%;
+  padding: 0.3rem;
+  border-radius: 0 0 6px 6px;
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.sceneBox .divButton:hover {
+  outline: #efefef88 solid 2px;
+}
+
+.statusBox {
+  min-width: 15rem;
+}
+
+.statusBox .title {
+  background-color: #0074a3;
+}
+
+.statusBox .title::after {
+  content: "Status";
 }
 
 .eventBox {
-  min-height: 10rem;
   min-width: 15rem;
 }
 
@@ -210,7 +291,17 @@
   width: 100%;
   border-radius: 3px;
   padding: 0.3rem;
+  margin-left: 0.7rem;
   margin-bottom: 0.2rem;
+  cursor: pointer;
+}
+
+.action .openStatus {
+  position: absolute;
+  top: 0;
+  right: 1rem;
+  padding: 0.2rem;
+  font-size: 1rem;
 }
 
 .action>.node {
@@ -222,19 +313,6 @@
   border: 1px solid #868fa2;
   border-radius: 50%;
   box-shadow: 0px 0px 5px 0px #0a0c0e;
-}
-
-.statusBox {
-  min-height: 10rem;
-  min-width: 15rem;
-}
-
-.statusBox .title {
-  background-color: #0074a3;
-}
-
-.statusBox .title::after {
-  content: "Status";
 }
 
 /* Driving color choice: 282c34 */
