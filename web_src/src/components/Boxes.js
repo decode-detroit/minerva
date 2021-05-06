@@ -22,6 +22,9 @@ export class ItemBox extends React.PureComponent {
       type: "",
     }
 
+    // The timeout to save changes, if set
+    this.saveTimeout = null;
+
     // Bind the various functions
     this.updateItem = this.updateItem.bind(this);
     this.handleMouseDown = this.handleMouseDown.bind(this);
@@ -135,7 +138,30 @@ export class ItemBox extends React.PureComponent {
       itemPair: {...prevState.itemPair, description: value},
     }));
 
-    // FIXME save the changes every few seconds
+    // CLear the existing timeout, if it exists
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    // Save the changes after a second pause
+    let editItem = {
+      modifications: [{
+        modifyItem: {
+          itemPair: {...this.state.itemPair, description: value},
+        },
+      }],
+    };
+    this.saveTimeout = setTimeout(async () => {
+      const response = await fetch(`/edit`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(editItem),
+      });
+      const json = await response.json(); //extract JSON from the http response
+      console.log(json); // FIXME
+    }, 1000);
   }
  
   // Return the selected box
@@ -144,7 +170,7 @@ export class ItemBox extends React.PureComponent {
     return (
       <>
         {this.state.type !== "" &&
-          <div className={`box ${this.state.type}Box ${this.props.isFocus ? 'focus' : ''}`} style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
+          <div className={`box ${this.state.type} ${this.props.isFocus ? 'focus' : ''}`} style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
             <div className="title">
               <input type="text" value={this.state.itemPair.description} size={this.state.itemPair.description.length > 30 ? this.state.itemPair.description.length - 10 : 20} onInput={this.handleChange}></input>
               <div>({this.state.itemPair.id})</div>
@@ -265,18 +291,33 @@ export class EventFragment extends React.PureComponent {
     }
   }
 
+  // Helper function to change an event action FIXME
+  changeAction(index, action) {    
+    // Save the new state
+    this.setState((prevState) => {
+      let newActions = prevState.eventActions;
+      newActions[index] = action;
+
+      console.log("New" + eventActions)
+      return {
+        eventActions: newActions,
+      };
+    });
+
+    // FIXME send the change to the server
+  }
+
   // On initial load, pull the event information
   componentDidMount() {
     // Pull the new event information
     this.updateEvent();
   }
 
-
- 
   // Return the fragment
   render() {
     // Compose any actions into a list
-    const children = this.state.eventActions.map((action) => <Action key={action.toString()} action={action} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}></Action>);
+    console.log(this.state.eventActions);
+    const children = this.state.eventActions.map((action, index) => <Action key={action.toString()} action={action} grabFocus={this.props.grabFocus} changeAction={(newAction) => {this.changeAction(index, newAction)}} createConnector={this.props.createConnector}></Action>);
 
     // Return the fragment
     return (

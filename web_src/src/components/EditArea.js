@@ -1,6 +1,7 @@
 import React from 'react';
 import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu } from './Menus';
+import { vh, vw } from './functions';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -155,7 +156,7 @@ export class ViewArea extends React.PureComponent {
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene}/>
         <div className="viewArea" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
           <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene}/>
-          {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY - 30 - vmin(1)} addItem={this.addItemToScene}/>}
+          {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene}/>}
         </div>
       </>
     );
@@ -271,19 +272,4 @@ export class LineArea extends React.PureComponent {
       </svg>
     )
   }
-}
-
-// Helper functions for calculating box offset
-function vh(v) {
-  var h = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
-  return (v * h) / 100;
-}
-
-function vw(v) {
-  var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-  return (v * w) / 100;
-}
-
-function vmin(v) {
-  return Math.min(vh(v), vw(v));
 }

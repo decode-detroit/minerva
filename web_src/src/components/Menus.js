@@ -91,8 +91,8 @@ export class AddMenu extends React.PureComponent {
     
     // Return the box
     return (
-      <div className="addMenu" style={{ left: `${this.props.left}px`, top: `${this.props.top}px` }} onMouseDown={stopPropogation}>
-        <div className="title">Add/Show Item</div>
+      <div className="addMenu" style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onMouseDown={stopPropogation}>
+        <div className="title">Add Item</div>
         <input className="searchBar" type="text" placeholder="Type to search ..." value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">
           <div>{list}</div>

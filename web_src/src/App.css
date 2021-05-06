@@ -150,7 +150,7 @@
   opacity: 1;
 }
 
-.box .title {
+.box>.title {
   text-align: center;
   border-radius: 6px;
   margin: 0;
@@ -160,11 +160,11 @@
   font-weight: bold;
 }
 
-.box.focus .title {
+.box.focus>.title {
   border-radius: 6px 6px 0 0;
 }
 
-.box .title>input {
+.box>.title>input {
   appearance: none;
   color: #efefef;
   background: transparent;
@@ -180,15 +180,15 @@
   line-height: 1;
 }
 
-.box.focus .title>input {
+.box.focus>.title>input {
   border-bottom: 1px solid #efefef;
 }
 
-.box .title>div {
+.box>.title>div {
   font-size: 0.9rem;
 }
 
-.box .title::after {
+.box>.title::after {
   position: absolute;
   width: 100%;
   left: 0;
@@ -236,19 +236,19 @@
   padding-top: 0;
 }
 
-.sceneBox {
+.box.scene {
   min-width: 15rem;
 }
 
-.sceneBox .title {
+.box.scene>.title {
   background-color: #b2500c;
 }
 
-.sceneBox .title::after {
+.box.scene>.title::after {
   content: "Scene";
 }
 
-.sceneBox .divButton {
+.box.scene .divButton {
   width: 100%;
   padding: 0.3rem;
   border-radius: 0 0 6px 6px;
@@ -257,31 +257,31 @@
   cursor: pointer;
 }
 
-.sceneBox .divButton:hover {
+.box.scene .divButton:hover {
   outline: #efefef88 solid 2px;
 }
 
-.statusBox {
+.box.status {
   min-width: 15rem;
 }
 
-.statusBox .title {
+.box.status>.title {
   background-color: #0074a3;
 }
 
-.statusBox .title::after {
+.box.status>.title::after {
   content: "Status";
 }
 
-.eventBox {
+.box.event {
   min-width: 15rem;
 }
 
-.eventBox .title {
+.box.event>.title {
   background-color: #008106;
 }
 
-.eventBox .title::after {
+.box.event>.title::after {
   content: "Event";
 }
 
@@ -313,6 +313,17 @@
   border: 1px solid #868fa2;
   border-radius: 50%;
   box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.action .actionDetail {
+  background-color: #2f343e;
+  padding: 0.3rem;
+  margin-left: 0.7rem;
+}
+
+.action .editNote {
+  text-align: right;
+  font-size: 0.7rem;
 }
 
 /* Driving color choice: 282c34 */

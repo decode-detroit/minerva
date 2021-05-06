@@ -1,5 +1,6 @@
 import React from 'react';
 import { stopPropogation } from './functions';
+import { AddMenu } from './Menus';
 
 // An action list element
 export class Action extends React.PureComponent {
@@ -18,7 +19,7 @@ export class Action extends React.PureComponent {
     // Switch based on the props
     if (this.props.action.hasOwnProperty(`NewScene`)) {
       return (
-        <NewScene newScene={this.props.action.NewScene} grabFocus={this.props.grabFocus}/>
+        <NewScene newScene={this.props.action.NewScene} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
       );
     
     // Modify Status
@@ -71,15 +72,69 @@ export class Action extends React.PureComponent {
 
 // A new scene action
 export class NewScene extends React.PureComponent {
-  // On load, make the connection
-  //this.props.createConnector(connection.type, this.node.current, connection.id);
-  //connections.push({type: "scene", id: this.props.action.NewScene.new_scene.id});
-  //connections.push({type: "status", id: this.props.action.ModifyStatus.status_id.id});
-  
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      isMenuVisible: false,
+      description: "Loading ...",
+    }
+
+    // Bind the various functions
+    this.updateItem = this.updateItem.bind(this);
+  }
+
+  // Helper function to update the item information
+  async updateItem() {
+    try {
+      // Fetch the description of the status
+      let response = await fetch(`getItem/${this.props.newScene.new_scene.id}`);
+      const json = await response.json();
+
+      // If valid, save the result to the state
+      if (json.item.isValid) {
+        this.setState({
+          description: json.item.itemPair.description,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // A function to change the item selected
+
+
+  // On initial load, pull the description of the scene
+  componentDidMount() {
+    this.updateItem();
+  }
+
   // Render the completed action
   render() {
     return (
-      <ActionFragment title="New Scene" nodeType="scene" focusOn={() => this.props.grabFocus(this.props.newScene.new_scene.id)} content={<div>{this.props.newScene.new_scene.id}</div>}/>
+      <>
+        <ActionFragment title="New Scene" nodeType="scene" focusOn={() => this.props.grabFocus(this.props.newScene.new_scene.id)} content={
+          <div className="actionDetail" onClick={(e) => {stopPropogation(e); this.setState({ isMenuVisible: true })}}>
+            {this.state.description}
+            <div className="editNote">Click To Change</div>
+          </div>
+        }/>
+        {this.state.isMenuVisible && <AddMenu left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
+          NewScene: {
+            newScene: {
+              new_scene: {
+                id: id
+              }
+            }
+          }
+        })}}/>}
+      </>
     );
   }
 }
