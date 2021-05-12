@@ -80,7 +80,7 @@ impl MenuAbstraction {
         file_menu.append_item(&gio::MenuItem::new_section(None, &config_section));
         file_menu.append_item(&gio::MenuItem::new_section(None, &quit_section));
 
-        // Organize the edit section of the menu
+        // Organize the run section of the menu
         settings_section.append(Some("_Fullscreen"), Some("app.fullscreen"));
         settings_section.append(Some("_Debug Mode"), Some("app.debug_mode"));
         settings_section.append(Some("_Large Font"), Some("app.large_font"));
@@ -93,7 +93,8 @@ impl MenuAbstraction {
         run_menu.append_item(&gio::MenuItem::new_section(None, &settings_section));
         run_menu.append_item(&gio::MenuItem::new_section(None, &window_section));
 
-        // Organize the run section of the menu
+        // Organize the edit section of the menu
+        edit_section.append(Some("New Edit Window"), Some("app.new_edit"));
         edit_section.append(Some("_Edit Mode"), Some("app.edit_mode"));
         edit_section.append(Some("Save Config"), Some("app.save_config"));
         modify_section.append(Some("New Scene"), Some("app.new_scene"));
@@ -339,6 +340,13 @@ impl MenuAbstraction {
                 });
         });
 
+        // Create the new edit link action
+        let new_edit = gio::SimpleAction::new("new_edit", None);
+        new_edit.connect_activate(move |_, _| {
+            // Send the user to the help page
+            gtk::show_uri(None, "http://localhost:64637", 0).unwrap_or(());
+        });
+
         // Create the edit mode action (toggles availability of the other edit actions)
         let edit = gio::SimpleAction::new_stateful("edit_mode", None, &false.to_variant());
 
@@ -529,6 +537,7 @@ impl MenuAbstraction {
         application.add_action(&debug);
         application.add_action(&font);
         application.add_action(&contrast);
+        application.add_action(&new_edit);
         application.add_action(&edit);
         application.add_action(&list_audio);
         application.add_action(&shortcuts);

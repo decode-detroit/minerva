@@ -1,6 +1,6 @@
 import React from 'react';
 import { Action, ReceiveNode } from './Nodes';
-import { stopPropogation } from './functions';
+import { stopPropogation, saveModification } from './functions';
 
 // An item box to select the appropriate sub-box
 export class ItemBox extends React.PureComponent {
@@ -99,15 +99,29 @@ export class ItemBox extends React.PureComponent {
         });
       }
 
-      // Check to see if the item is a scene
-      response = await fetch(`getType/${this.props.id}`);
-      const json2 = await response.json();
-
-      // If valid, save the result to the state
-      if (json2.generic.isValid) {
-        this.setState({
-          type: json2.generic.message,
-        });
+      // Check to see the item type
+      try {
+        response = await fetch(`getType/${this.props.id}`);
+        
+        // Catch if the item has no valid type
+        if (response.status === 400) {
+          this.setState({
+            type: "none",
+          })
+        
+        } else {
+          // If valid, save the result to the state
+          const json2 = await response.json();
+          if (json2.generic.isValid) {
+            this.setState({
+              type: json2.generic.message,
+            });
+          }
+        }
+      
+      // Revert to no type
+      } catch {
+        
       }
     
     // Ignore errors
@@ -152,15 +166,13 @@ export class ItemBox extends React.PureComponent {
       }],
     };
     this.saveTimeout = setTimeout(async () => {
-      const response = await fetch(`/edit`, {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(editItem),
-      });
-      const json = await response.json(); //extract JSON from the http response
-      console.log(json); // FIXME
+      fetch(`/edit`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editItem),
+      }); // Ignore errors
     }, 1000);
   }
  
@@ -179,8 +191,26 @@ export class ItemBox extends React.PureComponent {
             {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene}/>}
             {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
             {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
+            {this.props.isFocus && this.state.type === "none" && <BlankFragment id={this.props.id} updateItem={this.updateItem}/>}
           </div>
         }
+      </>
+    );
+  }
+}
+
+// An empty box with no type
+export class BlankFragment extends React.PureComponent {
+  // Return the fragment
+  render() {
+    return (
+      <>
+        <div className="subtitle">Choose Item Type</div>
+        <div className="typeChooser">
+          <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: [], }}]; saveModification(modifications); this.props.updateItem()}}>Event</div>
+          <div className="divButton status" onClick={() => {}}>Status</div>
+          <div className="divButton scene" onClick={() => {}}>Scene</div>
+        </div>
       </>
     );
   }
@@ -269,6 +299,7 @@ export class EventFragment extends React.PureComponent {
 
     // Bind the various functions
     this.updateEvent = this.updateEvent.bind(this);
+    this.changeAction = this.changeAction.bind(this);
   }
 
   // Helper function to update the event information
@@ -291,20 +322,26 @@ export class EventFragment extends React.PureComponent {
     }
   }
 
-  // Helper function to change an event action FIXME
+  // Helper function to change an event action
   changeAction(index, action) {    
     // Save the new state
     this.setState((prevState) => {
       let newActions = prevState.eventActions;
       newActions[index] = action;
 
-      console.log("New" + eventActions)
+      // Save the changes
+      let modifications = [{
+        modifyEvent: {
+          itemId: { id: this.props.id },
+          event: newActions,
+        },
+      }];
+      saveModification(modifications);
+
       return {
-        eventActions: newActions,
+        eventActions: [...newActions],
       };
     });
-
-    // FIXME send the change to the server
   }
 
   // On initial load, pull the event information
@@ -316,8 +353,7 @@ export class EventFragment extends React.PureComponent {
   // Return the fragment
   render() {
     // Compose any actions into a list
-    console.log(this.state.eventActions);
-    const children = this.state.eventActions.map((action, index) => <Action key={action.toString()} action={action} grabFocus={this.props.grabFocus} changeAction={(newAction) => {this.changeAction(index, newAction)}} createConnector={this.props.createConnector}></Action>);
+    const children = this.state.eventActions.map((action, index) => <Action key={action.toString()} action={action} grabFocus={this.props.grabFocus} changeAction={(newAction) => {this.changeAction(index, newAction)}} createConnector={this.props.createConnector}/>);
 
     // Return the fragment
     return (

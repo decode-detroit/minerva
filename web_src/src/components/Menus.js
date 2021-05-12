@@ -1,5 +1,5 @@
 import React from 'react';
-import { asyncForEach, stopPropogation } from './functions';
+import { asyncForEach, stopPropogation, saveModification } from './functions';
 
 // A menu for the edit items
 export class EditMenu extends React.PureComponent {  
@@ -91,12 +91,13 @@ export class AddMenu extends React.PureComponent {
     
     // Return the box
     return (
-      <div className="addMenu" style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onMouseDown={stopPropogation}>
+      <div className="addMenu" style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
         <div className="title">Add Item</div>
         <input className="searchBar" type="text" placeholder="Type to search ..." value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">
           <div>{list}</div>
         </div>
+        <div className="addButton" onClick={() => {let id = 1000; while (this.state.unfiltered.some((value) => value.id === id)) { id++ }; let modifications = [{ modifyItem: { itemPair: { id: id, description: "No Description", display: "Hidden" }}}]; saveModification(modifications); this.props.addItem(id)}}>+</div>
       </div>
     );
   }

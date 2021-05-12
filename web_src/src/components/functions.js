@@ -1,3 +1,18 @@
+// Function to pass modifications to the system
+export function saveModification(modifications) {
+  // Save the changes
+  let editItem = {
+    modifications: modifications,
+  };
+  fetch(`/edit`, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(editItem),
+  }); // Ignore errors
+}
+
 // Helper function for asyncronous forEach
 export async function asyncForEach(array, callback) {
   for (let index = 0; index < array.length; index++) {

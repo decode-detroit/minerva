@@ -98,6 +98,16 @@
   line-height: 1;
 }
 
+.addMenu .addButton {
+  text-align: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.3rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
 .verticalScroll {
   overflow-y: auto;
   max-height: 50vh;
@@ -137,6 +147,7 @@
 .box {
   position: absolute;
   z-index: 1;
+  min-width: 15rem;
   background-color: #2f343e;
   border: 1px solid #868fa2;
   border-radius: 6px;
@@ -227,6 +238,10 @@
   background-color: #b2500c;
 }
 
+.node.none {
+  background-color: #4d5564;
+}
+
 .verticalList {
   display: flex;
   flex-direction: column;
@@ -234,10 +249,6 @@
   justify-content: flex-start;
   padding: 0.7rem;
   padding-top: 0;
-}
-
-.box.scene {
-  min-width: 15rem;
 }
 
 .box.scene>.title {
@@ -261,20 +272,12 @@
   outline: #efefef88 solid 2px;
 }
 
-.box.status {
-  min-width: 15rem;
-}
-
 .box.status>.title {
   background-color: #0074a3;
 }
 
 .box.status>.title::after {
   content: "Status";
-}
-
-.box.event {
-  min-width: 15rem;
 }
 
 .box.event>.title {
@@ -323,7 +326,48 @@
 
 .action .editNote {
   text-align: right;
-  font-size: 0.7rem;
+  font-size: 0.5rem;
+}
+
+.box.none>.title {
+  background-color: #4d5564;
+}
+
+.box.none>.title::after {
+  content: "New Item";
+}
+
+.box.none .typeChooser {
+  display: flex;
+  flex-direction: row;
+}
+
+.box.none .divButton {
+  width: 33.33%;
+  padding: 0.3rem;
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.box.none .divButton.event {
+  background-color: #008106;
+  border-radius: 0 0 0 6px;
+}
+
+.box.none .divButton.status {
+  background-color: #0074a3;
+  border-radius: 0;
+}
+
+.box.none .divButton.scene {
+  background-color: #b2500c;
+  border-radius: 0 0 6px 0;
+}
+
+.box.none .divButton:hover {
+  outline: #efefef88 solid 2px;
+  z-index: 3;
 }
 
 /* Driving color choice: 282c34 */
