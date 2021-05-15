@@ -1,5 +1,5 @@
 import React from 'react';
-import { Action, ReceiveNode } from './Nodes';
+import { Action, ReceiveNode } from './Actions';
 import { stopPropogation, saveModification } from './functions';
 
 // An item box to select the appropriate sub-box
@@ -100,28 +100,14 @@ export class ItemBox extends React.PureComponent {
       }
 
       // Check to see the item type
-      try {
-        response = await fetch(`getType/${this.props.id}`);
-        
-        // Catch if the item has no valid type
-        if (response.status === 400) {
-          this.setState({
-            type: "none",
-          })
-        
-        } else {
-          // If valid, save the result to the state
-          const json2 = await response.json();
-          if (json2.generic.isValid) {
-            this.setState({
-              type: json2.generic.message,
-            });
-          }
-        }
-      
-      // Revert to no type
-      } catch {
-        
+      response = await fetch(`getType/${this.props.id}`);
+      const json2 = await response.json();
+
+      // If valid, save the result to the state
+      if (json2.generic.isValid) {
+        this.setState({
+          type: json2.generic.message,
+        });
       }
     
     // Ignore errors
@@ -191,7 +177,7 @@ export class ItemBox extends React.PureComponent {
             {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene}/>}
             {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
             {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
-            {this.props.isFocus && this.state.type === "none" && <BlankFragment id={this.props.id} updateItem={this.updateItem}/>}
+            {this.props.isFocus && (this.state.type === "label" || this.state.type === "none") && <BlankFragment id={this.props.id} updateItem={this.updateItem}/>}
           </div>
         }
       </>
@@ -299,6 +285,7 @@ export class EventFragment extends React.PureComponent {
 
     // Bind the various functions
     this.updateEvent = this.updateEvent.bind(this);
+    this.addAction = this.addAction.bind(this);
     this.changeAction = this.changeAction.bind(this);
   }
 
@@ -322,12 +309,20 @@ export class EventFragment extends React.PureComponent {
     }
   }
 
-  // Helper function to change an event action
-  changeAction(index, action) {    
-    // Save the new state
+  // Helper function to add a new event action
+  addAction() {
+    // Save the change action
     this.setState((prevState) => {
-      let newActions = prevState.eventActions;
-      newActions[index] = action;
+      // Copy the existing action list and add a blank action
+      let newActions = [...prevState.eventActions, {
+        CueEvent: {
+          event: {
+            event_id: {
+              id: 0
+            }
+          }
+        }
+      }];
 
       // Save the changes
       let modifications = [{
@@ -338,6 +333,39 @@ export class EventFragment extends React.PureComponent {
       }];
       saveModification(modifications);
 
+      // Update the local state
+      return {
+        eventActions: [...newActions],
+      };
+    });
+  }
+
+  // Helper function to change an event action
+  changeAction(index, action) {
+    // Save the change action
+    this.setState((prevState) => {
+      // Copy the existing action list
+      let newActions = prevState.eventActions;
+
+      // If an action was specified, replace it
+      if (action) {
+        newActions[index] = action;
+
+      // Otherwise, remove that index number
+      } else {
+        newActions.splice(index, 1);
+      }
+
+      // Save the changes
+      let modifications = [{
+        modifyEvent: {
+          itemId: { id: this.props.id },
+          event: newActions,
+        },
+      }];
+      saveModification(modifications);
+
+      // Update the local state
       return {
         eventActions: [...newActions],
       };
@@ -360,6 +388,7 @@ export class EventFragment extends React.PureComponent {
       <>
         <div className="subtitle">Actions:</div>
         <div className="verticalList">{children}</div>
+        <div className="addButton" onClick={this.addAction}>+</div>
       </>
     );
   }

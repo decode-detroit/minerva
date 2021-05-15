@@ -156,7 +156,7 @@ export class ViewArea extends React.PureComponent {
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene}/>
         <div className="viewArea" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
           <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene}/>
-          {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene}/>}
+          {this.state.isMenuVisible && <AddMenu type="none" left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene}/>}
         </div>
       </>
     );

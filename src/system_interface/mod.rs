@@ -527,7 +527,7 @@ impl SystemInterface {
                         // Reply to a request for the event
                         DetailType::Event { item_id } => {
                             // Try to get the event
-                            if let Some(event) = handler.get_event(&item_id).await {
+                            if let Some(event) = handler.get_event(&item_id) {
                                 result = UnpackResult::SuccessWithEvent(event);
                             } else {
                                 result = UnpackResult::Failure("Event Not Found.".into());
@@ -547,7 +547,7 @@ impl SystemInterface {
                         // Reply to a request for the scene
                         DetailType::Scene { item_id } => {
                             // Try to get the scene
-                            if let Some(scene) = handler.get_scene(&item_id).await {
+                            if let Some(scene) = handler.get_scene(&item_id) {
                                 result = UnpackResult::SuccessWithScene(scene);
                             } else {
                                 result = UnpackResult::Failure("Scene Not Found.".into());
@@ -557,14 +557,20 @@ impl SystemInterface {
                         // Reply to a request for item type
                         DetailType::Type { item_id } => {
                             // Check to see if there is a scene
-                            if let Some(_) = handler.get_scene(&item_id).await {
+                            if let Some(_) = handler.get_scene(&item_id) {
                                 result = UnpackResult::SuccessWithMessage("scene".into());
+                            // Check to see if there is a status
                             } else if let Some(_) = handler.get_status(&item_id) {
                                 result = UnpackResult::SuccessWithMessage("status".into());
-                            } else if let Some(_) = handler.get_event(&item_id).await {
+                            // Check to see if there is an event
+                            } else if let Some(_) = handler.get_event(&item_id) {
                                 result = UnpackResult::SuccessWithMessage("event".into());
+                            // Check to see if the item has a description
+                            } else if self.index_access.is_listed(&item_id).await {
+                                result = UnpackResult::SuccessWithMessage("label".into());
+                            // Otherwise, return none
                             } else {
-                                result = UnpackResult::Failure("none".into());
+                                result = UnpackResult::SuccessWithMessage("none".into());
                             }
                         }
 
@@ -755,7 +761,7 @@ impl SystemInterface {
                         // Reply to a request for the event
                         DetailType::Event { item_id } => {
                             // Try to get the event
-                            let event = handler.get_event(&item_id).await;
+                            let event = handler.get_event(&item_id);
 
                             // Send an update with the event (or None)
                             self.interface_send
@@ -781,7 +787,7 @@ impl SystemInterface {
                         // Reply to a request for all the events in a scene
                         DetailType::Scene { item_id } => {
                             // Collect all the items from the configuration
-                            let scene = match handler.get_scene(&item_id).await {
+                            let scene = match handler.get_scene(&item_id) {
 
                                 // If it doesn't correspond to a scene, return none
                                 None => None,

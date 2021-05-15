@@ -201,13 +201,13 @@ impl EventHandler {
     ///
     /// # Errors
     ///
-    /// This method will raise an error if the provided id was not found in
+    /// This method will return None if the provided id was not found in
     /// configuration. This usually indicates that the provided id was incorrect
     /// or that the configuration file is incomplete.
     ///
-    pub async fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
-        // Try to retrieve the event
-        self.config.try_event(event_id, false).await // do not check the scene
+    pub fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
+        // Try to get a copy of the event
+        self.config.get_event(event_id)
     }
 
     /// A method to return a copy of the status detail of the provided item id.
@@ -242,9 +242,9 @@ impl EventHandler {
 
     /// A method to return a scene with available events and optional keymap, given
     /// an item id
-    pub async fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
+    pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
         // Return a scene corresponding to the id, or None if none
-        self.config.get_scene(item_id).await
+        self.config.get_scene(item_id)
     }
 
     /// A method to return a list of all available items in the current scene.
@@ -414,9 +414,9 @@ impl EventHandler {
     ///
     /// # Errors
     ///
-    /// This method will not raise any errors. If the module encounters an
-    /// inconsistency when trying to process an event, it will raise a warning
-    /// and otherwise continue processing events.
+    /// This method will raise an error if the event was not found. If the
+    /// module encounters an inconsistency when trying to process an event,
+    /// it will raise a warning and otherwise continue processing events.
     ///
     pub async fn process_event(
         &mut self,

@@ -83,6 +83,14 @@ impl ItemIndex {
                     .unwrap_or(());
             }
 
+            // If if is an existance request
+            Some(IndexUpdate::GetExistance {
+                item_id,
+                reply_line,
+            }) => {
+                reply_line.send(self.index.contains_key(&item_id)).unwrap_or(());
+            }
+
             // If it is a description request
             Some(IndexUpdate::GetDescription {
                 item_id,
@@ -258,9 +266,9 @@ mod tests {
         // Delete a description and verify the change
         assert_eq!(true, index_access._remove_item(id1).await);
         assert_eq!(
-            ItemDescription::new_default(),
-            index_access.get_description(&id1).await
+            false,
+            index_access.is_listed(&id1).await
         );
-        assert_eq!(vec!(pair2)[0], index_access.get_all().await[0]);
+        assert_eq!(vec!(id2)[0], index_access.get_all().await[0]);
     }
 }

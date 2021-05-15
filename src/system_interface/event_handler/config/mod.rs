@@ -431,7 +431,7 @@ impl Config {
     /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
     /// the method returns the scene. Otherwise, it returns None.
     ///
-    pub async fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
+    pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
         // Return the scene, if found, and return a copy
         self.all_scenes.get(item_id).map(|scene| scene.clone())
     }
@@ -637,6 +637,19 @@ impl Config {
     ///
     /// # Errors
     ///
+    /// This function will return None if the provided id was not found in
+    /// the configuration. This usually indicates that the provided id was incorrect
+    /// or a problem with the underlying configuration file.
+    ///
+    pub fn get_event(&mut self, id: &ItemId) -> Option<Event> {
+        // Try to return a copy of the event
+        self.events.get(id).map(|event| event.clone())
+    }
+
+    /// A method to return the event based on the event id.
+    ///
+    /// # Errors
+    ///
     /// This function will raise an error if the provided id was not found in
     /// the configuration. This usually indicates a problem with the underlying
     /// configuration file.
@@ -660,9 +673,9 @@ impl Config {
         }
 
         // Try to return the event
-        match self.events.get(id) {
+        match self.get_event(id) {
             // Return the found event
-            Some(event) => Some(event.clone()),
+            Some(event) => Some(event),
 
             // Return None if the id doesn't exist
             None => {

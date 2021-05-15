@@ -43,14 +43,30 @@ export class AddMenu extends React.PureComponent {
         // Get the detail of each item
         let list = [];
         await asyncForEach(json.items.items, async (item) => {
+          // Check to see the item type
+          let response = await fetch(`getType/${item.id}`);
+          let type = "none";
+
+          // If type is valid, save it
+          const json = await response.json();
+          if (json.generic.isValid) {
+            type = json.generic.message;
+          }
+          
+          // If the add menu type isn't none and this type doesn't match
+          if (this.props.type !== "none" && this.props.type !== type) {
+            return; // return early
+          }
+          
           // Fetch the description of the item
           response = await fetch(`getItem/${item.id}`);
           const json2 = await response.json();
 
-          // If valid, save the id and description
+          // If description is valid, save the id, type, and description
           if (json2.item.isValid) {
             list.push({
               id: item.id,
+              type: type,
               description: json2.item.itemPair.description,
             });
           }
@@ -87,11 +103,11 @@ export class AddMenu extends React.PureComponent {
   // Return the completed box
   render() {
     // Compose the filtered items into a visible list
-    let list = this.state.filtered.map((item) => <div className="divButton" onClick={() => {this.props.addItem(item.id)}}>{item.description}</div>)
+    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={() => {this.props.addItem(item.id)}}>{item.description}</div>)
     
     // Return the box
     return (
-      <div className="addMenu" style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
+      <div className={`addMenu ${this.props.type}`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
         <div className="title">Add Item</div>
         <input className="searchBar" type="text" placeholder="Type to search ..." value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">

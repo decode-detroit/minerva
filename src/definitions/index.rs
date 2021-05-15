@@ -40,6 +40,12 @@ pub enum IndexUpdate {
         reply_line: oneshot::Sender<bool>,
     },
 
+    /// A variant to receive a bool from the item index
+    GetExistance {
+        item_id: ItemId,
+        reply_line: oneshot::Sender<bool>,
+    },
+
     /// A variant to receive a description from the item index
     GetDescription {
         item_id: ItemId,
@@ -134,6 +140,27 @@ impl IndexAccess {
             .send(IndexUpdate::UpdateDescription {
                 item_id: item_id.clone(),
                 new_description: Some(new_description.clone()),
+                reply_line,
+            })
+            .await
+        {
+            // On failure, return false
+            return false;
+        }
+
+        // Wait for the reply
+        rx.await.unwrap_or(false)
+    }
+
+    /// A method to see if an item exists in the index
+    ///
+    pub async fn is_listed(&self, item_id: &ItemId) -> bool {
+        // Send the message and wait for the reply
+        let (reply_line, rx) = oneshot::channel();
+        if let Err(_) = self
+            .index_send
+            .send(IndexUpdate::GetExistance {
+                item_id: item_id.clone(),
                 reply_line,
             })
             .await

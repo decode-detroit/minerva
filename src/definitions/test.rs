@@ -145,6 +145,19 @@ impl IndexAccess {
         false
     }
 
+    /// A method to see if an item is listed in the index
+    /// 
+    pub async fn is_listed(&self, item_id: &ItemId) -> bool {
+        // Lock access
+        if let Ok(index) = self.index.lock() {
+            // Check to see if the key exists
+            return index.contains_key(item_id);
+        }
+
+        // Otherwise, return false
+        false
+    }
+
     /// A method to get the description from the item index
     ///
     pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
