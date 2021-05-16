@@ -155,8 +155,14 @@ pub enum DataType {
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum EventAction {
-    /// A variant indicating a complete change in scene.
-    NewScene { new_scene: ItemId },
+    /// A variant that links to one or more events to cancel. All upcoming
+    /// events that match the specified id(s) will be cancelled.
+    CancelEvent { event: ItemId },
+
+    /// A variant that links to one event to add to the queue These events may
+    /// be triggered immediately when delay is None, or after a delay if delay
+    /// is Some(delay).
+    CueEvent { event: EventDelay },
 
     /// A variant used to change current status of the target status.
     ModifyStatus {
@@ -164,22 +170,12 @@ pub enum EventAction {
         new_state: ItemId,
     },
 
-    /// A variant that links to one event to add to the queue These events may
-    /// be triggered immediately when delay is None, or after a delay if delay
-    /// is Some(delay).
-    CueEvent { event: EventDelay },
-
-    /// A variant that links to one or more events to cancel. All upcoming
-    /// events that match the specified id(s) will be cancelled.
-    CancelEvent { event: ItemId },
+    /// A variant indicating a complete change in scene.
+    NewScene { new_scene: ItemId },
 
     /// A variant which contains a vector of data to save in the current game
     /// logging file.
     SaveData { data: DataType },
-
-    /// A variant which contains a type of data to include with the event
-    /// when broadcast to the system
-    SendData { data: DataType },
 
     /// A variant which selects an event based on the state of the indicated
     /// status.
@@ -187,6 +183,10 @@ pub enum EventAction {
         status_id: ItemId,
         event_map: FnvHashMap<ItemId, ItemId>,
     },
+
+    /// A variant which contains a type of data to include with the event
+    /// when broadcast to the system
+    SendData { data: DataType },
 }
 
 /// A convenient type definition to specify each event

@@ -33,17 +33,13 @@ export class Action extends React.PureComponent {
     // Save Data
     } else if (this.props.action.hasOwnProperty(`SaveData`)) {
       return (
-        <div className="action">
-          Save Data (not available)
-        </div>
+        <SaveData saveData={this.props.action.SaveData} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
       );
     
     // Send Data
     } else if (this.props.action.hasOwnProperty(`SendData`)) {
       return (
-        <div className="action">
-          Send Data (not available)
-        </div>
+        <SendData sendData={this.props.action.SendData} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
       );
 
     // Select Event
@@ -360,6 +356,26 @@ export class SelectEvent extends React.PureComponent {
   render() {
     return (
       <ActionFragment title="Select Event" nodeType="status" focusOn={() => this.props.grabFocus(this.props.selectEvent.status_id.id)} changeAction={this.props.changeAction} content={<div>{this.props.selectEvent.status_id.id}</div>}/>
+    );
+  }
+}
+
+// A save data action
+export class SaveData extends React.PureComponent {  
+  // Render the completed action
+  render() {
+    return (
+      <ActionFragment title="Save Data" nodeType="event" focusOn={() => {}} changeAction={this.props.changeAction} content={<div>Not Yet Available</div>}/>
+    );
+  }
+}
+
+// A send data action
+export class SendData extends React.PureComponent {  
+  // Render the completed action
+  render() {
+    return (
+      <ActionFragment title="Send Data" nodeType="event" focusOn={() => {}} changeAction={this.props.changeAction} content={<div>Not Yet Available</div>}/>
     );
   }
 }

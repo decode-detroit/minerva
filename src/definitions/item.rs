@@ -179,6 +179,7 @@ pub enum DisplayType {
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
         spotlight: Option<u32>,
+        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
     },
 
     /// A variant to indicatie items which to be displayed with a specific group
@@ -202,6 +203,7 @@ pub enum DisplayType {
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
         spotlight: Option<u32>,
+        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
     },
 
     /// A variant for items which are displayed with a particular group (if
@@ -222,6 +224,7 @@ pub enum DisplayType {
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
         spotlight: Option<u32>,
+        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
     },
 
     /// A variant for items which are to be displayed as a label in the control
@@ -239,6 +242,7 @@ pub enum DisplayType {
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
         spotlight: Option<u32>,
+        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
     },
 
     /// A variant for items which are only to be displayed as a label (not as an
@@ -256,6 +260,7 @@ pub enum DisplayType {
         highlight: Option<(u8, u8, u8)>,
         highlight_state: Option<(ItemId, ItemId)>,
         spotlight: Option<u32>,
+        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
     },
 
     /// Items which should not be displayed. Typically this includes items
@@ -263,7 +268,9 @@ pub enum DisplayType {
     /// user. If this item is a label, it will be given default position
     /// (std::u32::MAX) and text color.
     ///
-    Hidden,
+    Hidden {
+        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
+    },
 }
 
 // Reexport the display type variants
@@ -297,7 +304,7 @@ impl ItemDescription {
     pub fn new_default() -> ItemDescription {
         ItemDescription {
             description: "No Description.".to_string(),
-            display: DisplayType::Hidden,
+            display: DisplayType::Hidden{ edit_location: None },
         }
     }
 }
@@ -514,7 +521,7 @@ impl ItemPair {
         ItemPair {
             id: ALL_STOP,
             description: "ALL STOP".to_string(),
-            display: Hidden,
+            display: Hidden { edit_location: None },
         }
     }
 }
@@ -577,10 +584,10 @@ mod tests {
     #[test]
     fn compare_ids() {
         // Create several events
-        let id = ItemPair::new(1, "One Event", Hidden).unwrap();
+        let id = ItemPair::new(1, "One Event", Hidden { edit_location: None }).unwrap();
         let same_id = id.clone();
-        let different_description = ItemPair::new(1, "Different Description", Hidden).unwrap();
-        let different_id = ItemPair::new(2, "Two Event", Hidden).unwrap();
+        let different_description = ItemPair::new(1, "Different Description", Hidden { edit_location: None }).unwrap();
+        let different_id = ItemPair::new(2, "Two Event", Hidden { edit_location: None }).unwrap();
 
         // Compare the events
         assert_eq!(id, same_id);

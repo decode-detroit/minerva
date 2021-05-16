@@ -13,6 +13,84 @@ export class EditMenu extends React.PureComponent {
   }
 }
 
+// A menu for the scene selection
+export class SceneMenu extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props and set initial state
+    super(props);
+    this.state = {
+      sceneList: [{id: -1, description: "Any"}],
+      flag: true,
+    }
+
+    // Bind functions
+    this.handleChange = this.handleChange.bind(this);
+  }
+
+  // On render, pull the full scene list
+  async componentDidMount() {
+    try {
+      // Fetch all scenes and process the response
+      let response = await fetch(`/allScenes`);
+      const json = await response.json();
+
+      // If the response is valid
+      if (json.items.isValid) {
+        // Get the detail of each item
+        let sceneList = [{id: -1, description: "Any"}];
+        await asyncForEach(json.items.items, async (item) => {
+          // Fetch the description of the item
+          response = await fetch(`/getItem/${item.id}`);
+          const json2 = await response.json();
+
+          // If valid, save the id and description
+          if (json2.item.isValid) {
+            sceneList.push({
+              id: item.id,
+              description: json2.item.itemPair.description,
+            });
+          }
+        });
+
+        // Save the result to the state and prompt refresh
+        this.setState({
+          sceneList: sceneList,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // Control the view of the component
+  handleChange(e) {
+    // Pass the change upstream
+    this.props.changeScene(e.target.value);
+  }
+  
+  // Render the scene menu
+  render() {
+    // Compose the list of options
+    let options = this.state.sceneList.map((scene) => <option key={scene.id.toString()} value={scene.id}>{scene.description}</option>);
+    options.sort((first, second) => { return first.id - second.id } );
+
+    // Return the complete menu
+    return (
+      <div className="sceneMenu">
+        <div className="title">
+          Show Items From Scene:
+        </div>
+        <select className="select" value={this.props.value} onChange={this.handleChange}>
+          {options}
+        </select>
+      </div>
+    );
+  }
+}
+
 // An add menu with a search bar
 export class AddMenu extends React.PureComponent {
   // Class constructor
@@ -31,7 +109,7 @@ export class AddMenu extends React.PureComponent {
     this.handleChange = this.handleChange.bind(this);
   }
 
-  // On load, get the list of potential items
+  // On load, get the list of potential items FIXME Show loading animation until all items ready
   async componentDidMount() {
     try {
       // Fetch all items and process the response
@@ -119,79 +197,29 @@ export class AddMenu extends React.PureComponent {
   }
 }
 
-// A menu for the scene selection
-export class SceneMenu extends React.PureComponent {
-  // Class constructor
-  constructor(props) {
-    // Collect props and set initial state
-    super(props);
-    this.state = {
-      sceneList: [{id: -1, description: "Any"}],
-      flag: true,
-    }
 
-    // Bind functions
-    this.handleChange = this.handleChange.bind(this);
-  }
-
-  // On render, pull the full scene list
-  async componentDidMount() {
-    try {
-      // Fetch all scenes and process the response
-      let response = await fetch(`/allScenes`);
-      const json = await response.json();
-
-      // If the response is valid
-      if (json.items.isValid) {
-        // Get the detail of each item
-        let sceneList = [{id: -1, description: "Any"}];
-        await asyncForEach(json.items.items, async (item) => {
-          // Fetch the description of the item
-          response = await fetch(`/getItem/${item.id}`);
-          const json2 = await response.json();
-
-          // If valid, save the id and description
-          if (json2.item.isValid) {
-            sceneList.push({
-              id: item.id,
-              description: json2.item.itemPair.description,
-            });
-          }
-        });
-
-        // Save the result to the state and prompt refresh
-        this.setState({
-          sceneList: sceneList,
-        });
-      }
-    
-    // Ignore errors
-    } catch {
-      console.log("Server inaccessible.");
-    }
-  }
-
-  // Control the view of the component
-  handleChange(e) {
-    // Pass the change upstream
-    this.props.changeScene(e.target.value);
-  }
-  
-  // Render the scene menu
+// An add action menu
+export class AddActionMenu extends React.PureComponent {
+  // Return the completed box
   render() {
-    // Compose the list of options
-    let options = this.state.sceneList.map((scene) => <option key={scene.id.toString()} value={scene.id}>{scene.description}</option>);
-    options.sort((first, second) => { return first.id - second.id } );
+    // Compose the list of possible action types
+    let actionList = [
+      <div className="addActionButton" onClick={() => {this.props.addAction({ CancelEvent: { event: { id: 0 }}})}}>Cancel Event</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ CueEvent: { event: { event_id: { id: 0 }}}})}}>Cue Event</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ ModifyStatus: { status_id: { id: 0 }, new_state: { id: 0 }}})}}>Modify Status</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ NewScene: { new_scene: { id: 0 }}})}}>New Scene</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ SaveData: { data: { StaticString: { string: "" }}}})}}>SaveData</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ SelectEvent: { status_id: { id: 0 }, event_map: {}, }})}}>SelectEvent</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ SendData: { data: { StaticString: { string: "" }}}})}}>SendData</div>
+    ];
 
-    // Return the complete menu
+    // Return the box
     return (
-      <div className="sceneMenu">
-        <div className="title">
-          Show Items From Scene:
+      <div className={`addActionMenu`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
+        <div className="title">Add Action</div>
+        <div className="verticalList">
+          {actionList}
         </div>
-        <select className="select" value={this.props.value} onChange={this.handleChange}>
-          {options}
-        </select>
       </div>
     );
   }

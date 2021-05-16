@@ -1340,6 +1340,7 @@ impl EditOverview {
                         highlight,
                         highlight_state,
                         spotlight,
+                        ..
                     } => {
                         // Change the visible options
                         self.display_type.set_active_id(Some("displaycontrol"));
@@ -1360,6 +1361,7 @@ impl EditOverview {
                         highlight,
                         highlight_state,
                         spotlight,
+                        ..
                     } => {
                         // Change the visible options
                         self.display_type.set_active_id(Some("displaywith"));
@@ -1381,6 +1383,7 @@ impl EditOverview {
                         highlight,
                         highlight_state,
                         spotlight,
+                        ..
                     } => {
                         // Change the visible options
                         self.display_type.set_active_id(Some("displaydebug"));
@@ -1401,6 +1404,7 @@ impl EditOverview {
                         highlight,
                         highlight_state,
                         spotlight,
+                        ..
                     } => {
                         // Change the visible options
                         self.display_type.set_active_id(Some("labelcontrol"));
@@ -1420,6 +1424,7 @@ impl EditOverview {
                         highlight,
                         highlight_state,
                         spotlight,
+                        ..
                     } => {
                         // Change the visible options
                         self.display_type.set_active_id(Some("labelhidden"));
@@ -1433,7 +1438,7 @@ impl EditOverview {
                     }
 
                     // the Hidden variant
-                    Hidden => {
+                    Hidden { .. } => {
                         self.display_type.set_active_id(Some("hidden"));
                     }
                 }
@@ -1684,6 +1689,7 @@ impl EditOverview {
                 highlight,
                 highlight_state,
                 spotlight,
+                edit_location: None,
             },
 
             // Compose the DisplayWith type
@@ -1697,6 +1703,7 @@ impl EditOverview {
                         highlight,
                         highlight_state,
                         spotlight,
+                        edit_location: None,
                     }
 
                 // Fallback to DisplayControl
@@ -1707,6 +1714,7 @@ impl EditOverview {
                         highlight,
                         highlight_state,
                         spotlight,
+                        edit_location: None,
                     }
                 }
             }
@@ -1725,6 +1733,7 @@ impl EditOverview {
                     highlight,
                     highlight_state,
                     spotlight,
+                    edit_location: None,
                 }
             }
 
@@ -1735,6 +1744,7 @@ impl EditOverview {
                 highlight,
                 highlight_state,
                 spotlight,
+                edit_location: None,
             },
 
             // Compose the LabelHidden type
@@ -1744,10 +1754,11 @@ impl EditOverview {
                 highlight,
                 highlight_state,
                 spotlight,
+                edit_location: None,
             },
 
             // For the hidden type
-            _ => Hidden,
+            _ => Hidden { edit_location: None, },
         };
 
         // Return the complete Item Description

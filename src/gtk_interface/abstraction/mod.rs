@@ -194,7 +194,7 @@ impl InterfaceAbstraction {
             top_element,
             full_status,
             current_window: (
-                ItemPair::new_unchecked(1, "", Hidden),
+                ItemPair::new_unchecked(1, "", Hidden { edit_location: None }),
                 Vec::new(),
                 Vec::new(),
             ),

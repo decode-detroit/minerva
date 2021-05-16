@@ -1,7 +1,7 @@
 import React from 'react';
 import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu } from './Menus';
-import { vh, vw } from './functions';
+import { saveModification, vh, vw } from './functions';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -62,12 +62,19 @@ export class ViewArea extends React.PureComponent {
     });
   }
 
-  // Function to hide the menu and add an item to the scene and the viewport FIXME also add to scene
+  // Function to hide the menu and add an item to the scene and the viewport
   addItemToScene(id) {
-    // FIXME add the item to current scene
+    // Add the item to the viewarea (returns combined id list)
+    let ids = this.addItem(id);
+  
+    // If not in the empty scene
+    if (parseInt(this.state.sceneId) !== -1) {
+      // Convert to item ids
+      let events = ids.map((id) => {return { id: id }});
 
-    // Add the item to the viewarea
-    this.addItem(id);
+      // Submit the modification to the scene
+      saveModification([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { events: events, }}}]); // FIXME copy key map
+    }
 
     // Close the add menu
     this.setState({
@@ -82,7 +89,13 @@ export class ViewArea extends React.PureComponent {
       this.setState({
         idList: [...this.state.idList, id],
       });
-    } 
+
+      // Return the combined list
+      return [...this.state.idList, id];
+    }
+
+    // Return the list (already includes the id)
+    return this.state.idList;
   }
 
   // Function to grab focus for a specific item box

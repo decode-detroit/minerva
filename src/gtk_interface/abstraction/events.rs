@@ -366,7 +366,7 @@ impl EventAbstraction {
             // Find the corresponding current state
             let state = gtk::Label::new(Some("Not Available"));
             if let Some(&StatusDescription { ref current, .. }) = full_status.get(
-                &ItemPair::from_item(status.get_id(), ItemDescription::new("", Hidden)),
+                &ItemPair::from_item(status.get_id(), ItemDescription::new("", Hidden { edit_location: None })),
             ) {
                 // See if there is an existing spotlight expiration for this state
                 let expiration = match spotlight_control.get(&current.get_id()) {

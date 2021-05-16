@@ -1,6 +1,7 @@
 import React from 'react';
 import { Action, ReceiveNode } from './Actions';
-import { stopPropogation, saveModification } from './functions';
+import { stopPropogation, saveModification, getLocation, changeLocation } from './functions';
+import { AddActionMenu } from './Menus';
 
 // An item box to select the appropriate sub-box
 export class ItemBox extends React.PureComponent {
@@ -83,6 +84,29 @@ export class ItemBox extends React.PureComponent {
     // Stop moving when mouse button is released
     document.onmousemove = null;
     document.onmouseup = null;
+
+    // Clear the existing timeout, if it exists
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    // Replace the existing location
+    this.setState((prevState) =>  {
+      // Update the location
+      let newItemPair = changeLocation(prevState.itemPair, prevState.left, prevState.top);
+
+      // Save the changes
+      saveModification([{
+        modifyItem: {
+          itemPair: newItemPair,
+        },
+      }]);
+
+      // Update the state
+      return {
+        itemPair: newItemPair,
+      }
+    });
   }
 
   // Helper function to update the item information
@@ -94,9 +118,21 @@ export class ItemBox extends React.PureComponent {
 
       // If valid, save the result to the state
       if (json.item.isValid) {
-        this.setState({
-          itemPair: json.item.itemPair,
-        });
+        // Extract the location, if available
+        let location = getLocation(json.item.itemPair);
+        if (location) {
+          this.setState({
+            itemPair: json.item.itemPair,
+            left: location.left,
+            top: location.top,
+          });
+        
+        // If not location, just save the itemPair
+        } else {
+          this.setState({
+            itemPair: json.item.itemPair,
+          });
+        }
       }
 
       // Check to see the item type
@@ -144,21 +180,13 @@ export class ItemBox extends React.PureComponent {
     }
 
     // Save the changes after a second pause
-    let editItem = {
-      modifications: [{
-        modifyItem: {
-          itemPair: {...this.state.itemPair, description: value},
-        },
-      }],
-    };
-    this.saveTimeout = setTimeout(async () => {
-      fetch(`/edit`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(editItem),
-      }); // Ignore errors
+    let modifications = [{
+      modifyItem: {
+        itemPair: {...this.state.itemPair, description: value},
+      },
+    }];
+    this.saveTimeout = setTimeout(() => {
+      saveModification(modifications);
     }, 1000);
   }
  
@@ -194,8 +222,8 @@ export class BlankFragment extends React.PureComponent {
         <div className="subtitle">Choose Item Type</div>
         <div className="typeChooser">
           <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: [], }}]; saveModification(modifications); this.props.updateItem()}}>Event</div>
-          <div className="divButton status" onClick={() => {}}>Status</div>
-          <div className="divButton scene" onClick={() => {}}>Scene</div>
+          <div className="divButton status" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; saveModification(modifications); this.props.updateItem()}}>Status</div>
+          <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { events: [], }}}]; saveModification(modifications); this.props.updateItem()}}>Scene</div>
         </div>
       </>
     );
@@ -281,6 +309,7 @@ export class EventFragment extends React.PureComponent {
     // Set initial state
     this.state = {
       eventActions: [], // placeholder for the read data
+      isMenuVisible: false,
     }
 
     // Bind the various functions
@@ -305,24 +334,16 @@ export class EventFragment extends React.PureComponent {
     
     // Ignore errors
     } catch {
-      console.log(`Server inaccessible: ${this.props.id}`); // FIXME
+      console.log("Server inaccessible.");
     }
   }
 
   // Helper function to add a new event action
-  addAction() {
+  addAction(action) {
     // Save the change action
     this.setState((prevState) => {
       // Copy the existing action list and add a blank action
-      let newActions = [...prevState.eventActions, {
-        CueEvent: {
-          event: {
-            event_id: {
-              id: 0
-            }
-          }
-        }
-      }];
+      let newActions = [...prevState.eventActions, action];
 
       // Save the changes
       let modifications = [{
@@ -336,6 +357,7 @@ export class EventFragment extends React.PureComponent {
       // Update the local state
       return {
         eventActions: [...newActions],
+        isMenuVisible: false,
       };
     });
   }
@@ -388,7 +410,10 @@ export class EventFragment extends React.PureComponent {
       <>
         <div className="subtitle">Actions:</div>
         <div className="verticalList">{children}</div>
-        <div className="addButton" onClick={this.addAction}>+</div>
+        <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
+          +
+          {this.state.isMenuVisible && <AddActionMenu addAction={this.addAction}/>}
+        </div>
       </>
     );
   }

@@ -136,7 +136,9 @@ event_set:
   # Introduction Scene
   ? id: 100
     description: Introduction
-    display: Hidden
+    display:
+      Hidden:
+        edit_location: ~
   : []
   ? id: 101
     description: Next Scene
@@ -151,7 +153,9 @@ event_set:
           id: 200
   ? id: 110
     description: Click Below to Change Scenes
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
 
   # Event Scene
   ? id: 200
@@ -219,7 +223,9 @@ event_set:
             id: 203
   ? id: 203
     description: An Event
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
   : []
   ? id: 204
     description: Cancel Upcoming Events
@@ -250,7 +256,9 @@ event_set:
   : []
   ? id: 210
     description: That's an Event! Try Again ...
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
 
   # Status Scene
   ? id: 300
@@ -284,7 +292,9 @@ event_set:
           : id: 304
   ? id: 303
     description: Add Delayed Events
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: [300, 500]
   : - CueEvent:
         event:
           delay:
@@ -301,11 +311,15 @@ event_set:
             id: 304
   ? id: 304
     description: Empty Event
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
   : []
   ? id: 310
     description: "This Is A Status:"
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
   ? id: 311
     description: "On"
     display:
@@ -344,7 +358,9 @@ event_set:
           id: 312
   ? id: 320
     description: Change The Event
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
   ? id: 321
     description: Trigger Delayed Events
     display:
@@ -418,7 +434,9 @@ event_set:
         data: UserString
   ? id: 410
     description: Send & Save Data
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
 
   # Media Scene
   ? id: 500
@@ -459,5 +477,7 @@ event_set:
   : []
   ? id: 510
     description: You Can Play Media As Well
-    display: Hidden
+    display: 
+      Hidden:
+        edit_location: ~
 

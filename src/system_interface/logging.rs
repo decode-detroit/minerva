@@ -353,11 +353,11 @@ mod tests {
         let mut index = DescriptionMap::default();
         index.insert(
             ItemId::new_unchecked(3),
-            ItemDescription::new("Test Broadcast", Hidden),
+            ItemDescription::new("Test Broadcast", Hidden { edit_location: None }),
         );
         index.insert(
             ItemId::new_unchecked(4),
-            ItemDescription::new("Test Event", Hidden),
+            ItemDescription::new("Test Event", Hidden { edit_location: None }),
         );
         index_access.send_index(index).await;
 

@@ -145,7 +145,7 @@ impl StatusDialog {
                 if let Ok(id_number) = id_str.parse::<u32>() {
 
                     // Try to compose the id into an item
-                    if let Some(id) = ItemPair::new(id_number, "", Hidden) {
+                    if let Some(id) = ItemPair::new(id_number, "", Hidden { edit_location: None }) {
 
                         // Get a copy of the full status
                         if let Ok(full_status) = protected_status.try_borrow() {

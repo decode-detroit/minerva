@@ -195,6 +195,7 @@ pub fn decorate_label(
             highlight_state,
             spotlight,
             position,
+            ..
         }
         | DisplayWith {
             color,
@@ -218,6 +219,7 @@ pub fn decorate_label(
             highlight_state,
             spotlight,
             position,
+            ..
         }
         | LabelHidden {
             color,
@@ -225,6 +227,7 @@ pub fn decorate_label(
             highlight_state,
             spotlight,
             position,
+            ..
         } => {
             // Define the default markup
             let mut markup = format!("<span size='{}'>{}</span>", font_size, text);
@@ -257,7 +260,7 @@ pub fn decorate_label(
                 if let Some((status_id, state_id)) = highlight_state {
                     // Find the corresponding status
                     if let Some(&StatusDescription { ref current, .. }) = full_status.get(
-                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden)),
+                        &ItemPair::from_item(status_id, ItemDescription::new("", Hidden { edit_location: None })),
                     ) {
                         // If the current id matches the state id
                         if state_id == current.get_id() {
@@ -292,7 +295,7 @@ pub fn decorate_label(
         }
 
         // Otherwise, use the default color and position
-        Hidden => {
+        Hidden { .. } => {
             label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             return None;
         }
@@ -329,7 +332,7 @@ pub fn color_label(label: &gtk::Label, text: &str, display: DisplayType, font_si
         }
 
         // Otherwise, use the default color and position
-        Hidden => {
+        Hidden { .. } => {
             label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
         }
     }
