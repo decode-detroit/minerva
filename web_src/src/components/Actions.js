@@ -1,6 +1,7 @@
 import React from 'react';
 import { stopPropogation } from './functions';
 import { AddMenu } from './Menus';
+import { SendNode } from './Nodes';
 
 // An action list element
 export class Action extends React.PureComponent {
@@ -404,26 +405,6 @@ export class ActionFragment extends React.PureComponent {
         <SendNode type={this.props.nodeType} onMouseDown={(e) => {stopPropogation(e); this.props.focusOn()}}/>
         {this.state.open && this.props.content}
       </div>
-    );
-  }
-}
-
-// A receive Node element
-export class ReceiveNode extends React.PureComponent {  
-  // Render the completed node
-  render() {
-    return (
-      <div className={`node ${this.props.type}`} onMouseDown={this.props.onMouseDown}></div>
-    );
-  }
-}
-
-// A send Node element
-export class SendNode extends React.PureComponent {
-  // Render the completed node
-  render() {
-    return (
-      <div className={`node ${this.props.type}`} onMouseDown={this.props.onMouseDown}></div>
     );
   }
 }

@@ -1,5 +1,7 @@
 import React from 'react';
-import { Action, ReceiveNode } from './Actions';
+import { Action } from './Actions';
+import { ReceiveNode } from './Nodes';
+import { State } from './States';
 import { stopPropogation, saveModification, getLocation, changeLocation } from './functions';
 import { AddActionMenu } from './Menus';
 
@@ -281,22 +283,28 @@ export class StatusFragment extends React.PureComponent {
     // Pull the new status information
     this.updateStatus();
   }
- 
+
   // Return the fragment
   render() {
-    // Compose any actions into a list
-    //const children = this.state.eventActions.map((action) => <Action key={action.toString()} action={action} createConnector={this.props.createConnector}></Action>);
-
-    // If the status is a multistate
+    // Compose any states into a list
+    let children = [];
+    if (this.state.status.hasOwnProperty(`MultiState`)) {
+      children = this.state.status.MultiState.allowed.map((state, index) => <State key={state.toString()} state={state} grabFocus={this.props.grabFocus} changeState={(newState) => {this.changeState(index, newState)}} createConnector={this.props.createConnector} />);
+    }
 
     // Return the fragment
     return (
       <>
-        <div className="subtitle">States:</div>
-        <div className="verticalList"></div>
+        <div className="subtitle">Status:</div>
+        <div className="verticalList">{children}</div>
+        <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
+          +
+          {this.state.isMenuVisible && "State Menu"}
+        </div>
       </>
     );
   }
+  //<AddActionMenu addAction={this.addAction}/>}
 }
 
 // An event box with an event and event detail
