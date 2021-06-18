@@ -381,12 +381,31 @@
   font-size: 0.5rem;
 }
 
-.action .delay {
+.actionDetail .additionalInfo {
+  position: relative;
   padding-top: .3rem;
   border-top: 1px solid #efefef;
 }
 
-.actionDetail>.delay>input {
+.actionDetail>.additionalInfo>.additionalInfoDetail {
+  background-color: #4d5564;
+  padding: 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.7rem;
+}
+
+.additionalInfo>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.actionDetail>.additionalInfo input {
   appearance: none;
   color: #efefef;
   background: transparent;

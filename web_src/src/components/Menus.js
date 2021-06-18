@@ -208,9 +208,9 @@ export class AddActionMenu extends React.PureComponent {
       <div className="addActionButton" onClick={() => {this.props.addAction({ CueEvent: { event: { event_id: { id: 0 }}}})}}>Cue Event</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ ModifyStatus: { status_id: { id: 0 }, new_state: { id: 0 }}})}}>Modify Status</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ NewScene: { new_scene: { id: 0 }}})}}>New Scene</div>,
-      <div className="addActionButton" onClick={() => {this.props.addAction({ SaveData: { data: { StaticString: { string: "" }}}})}}>SaveData</div>,
-      <div className="addActionButton" onClick={() => {this.props.addAction({ SelectEvent: { status_id: { id: 0 }, event_map: {}, }})}}>SelectEvent</div>,
-      <div className="addActionButton" onClick={() => {this.props.addAction({ SendData: { data: { StaticString: { string: "" }}}})}}>SendData</div>
+      <div className="addActionButton" onClick={() => {this.props.addAction({ SelectEvent: { status_id: { id: 0 }, event_map: {}, }})}}>Select Event</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ SaveData: { data: { StaticString: { string: "" }}}})}}>Save Data</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ SendData: { data: { StaticString: { string: "" }}}})}}>Send Data</div>
     ];
 
     // Return the box

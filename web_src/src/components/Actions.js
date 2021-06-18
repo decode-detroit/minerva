@@ -127,11 +127,96 @@ export class NewScene extends React.PureComponent {
 }
 
 // A modify status action
-export class ModifyStatus extends React.PureComponent {  
+export class ModifyStatus extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      isStatusMenuVisible: false,
+      isStateMenuVisible: false,
+      description: "Loading ...",
+      stateDescription: "Loading ...",
+    }
+
+    // The timeout to save changes, if set
+    this.saveTimeout = null;
+
+    // Bind the various functions
+    this.updateItems = this.updateItems.bind(this);
+  }
+
+  // Helper function to update the item information
+  async updateItems() {
+    try {
+      // Fetch the description of the status
+      let response = await fetch(`getItem/${this.props.modifyStatus.status_id.id}`);
+      const json1 = await response.json();
+
+      // Fetch the description of the state
+      response = await fetch(`getItem/${this.props.modifyStatus.new_state.id}`);
+      const json2 = await response.json();
+
+      // If both are valid, save the result to the state
+      if (json1.item.isValid && json2.item.isValid) {
+        this.setState({
+          description: json1.item.itemPair.description,
+          stateDescription: json2.item.itemPair.description,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // On initial load, pull the description of the scene
+  componentDidMount() {
+    this.updateItems();
+  }
+
+  // On change of item id, pull the description of the scene
+  componentDidUpdate(prevProps, prevState) {
+    // Update the item descriptions, if either changed
+    if ((this.props.modifyStatus.status_id.id !== prevProps.modifyStatus.status_id.id) || (this.props.modifyStatus.new_state.id !== prevProps.modifyStatus.new_state.id)) {
+      this.updateItems();
+    }
+  }
+
   // Render the completed action
   render() {
     return (
-      <ActionFragment title="Modify Status" nodeType="status" focusOn={() => this.props.grabFocus(this.props.modifyStatus.status_id.id)}  changeAction={this.props.changeAction} content={<div>{this.props.modifyStatus.status_id.id}</div>}/>
+      <>
+        <ActionFragment title="Modify Status" nodeType="status" focusOn={() => this.props.grabFocus(this.props.modifyStatus.status_id.id)} changeAction={this.props.changeAction} content={
+          <div className="actionDetail" onClick={stopPropogation}>
+            <div onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>{this.state.description}</div>
+            <div className="editNote" onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>Click To Change</div>
+            <div className="additionalInfo">New State:
+              <div className="additionalInfoDetail" onClick={() => {this.setState(prevState => ({ isStateMenuVisible: !prevState.isStateMenuVisible }))}}>{this.state.stateDescription}</div>
+              <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.modifyStatus.new_state.id)}}/>
+            </div>
+            {this.state.isStatusMenuVisible && <AddMenu type="status" left={200} top={100} addItem={(id) => {this.setState({ isStatusMenuVisible: false }); this.props.changeAction({
+              ModifyStatus: {
+                status_id: {
+                  id: id,
+                },
+                new_state: this.props.modifyStatus.new_state,
+              }
+            })}}/>}
+            {this.state.isStateMenuVisible && <AddMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isStateMenuVisible: false }); this.props.changeAction({
+              ModifyStatus: {
+                status_id: this.props.modifyStatus.status_id,
+                new_state: {
+                  id: id,
+                },
+              }
+            })}}/>}
+          </div>
+        }/>
+      </>
     );
   }
 }
@@ -271,7 +356,7 @@ export class CueEvent extends React.PureComponent {
           <div className="actionDetail" onClick={stopPropogation}>
             <div onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>{this.state.description}</div>
             <div className="editNote" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>Click To Change</div>
-            <div className="delay">Delay 
+            <div className="additionalInfo">Delay 
               <input type="number" min="0" value={this.state.delay} onInput={this.handleChange}></input> Seconds
             </div>
             {this.state.isMenuVisible && <AddMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.updateAction(id)}}/>}
