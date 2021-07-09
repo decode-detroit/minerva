@@ -57,6 +57,7 @@ pub struct EventHandler {
     internal_send: InternalSend, // sending line for event updates and timed events
     queue: Queue,                // current event queue
     config: Config,              // current configuration
+    config_path: PathBuf,        // current configuration path
     backup: BackupHandler,       // current backup server
 }
 
@@ -91,7 +92,7 @@ impl EventHandler {
         log_failure: bool,
     ) -> Result<EventHandler, Error> {
         // Attempt to open the configuration file
-        let config_file = match File::open(config_path) {
+        let config_file = match File::open(config_path.clone()) {
             Ok(file) => file,
             Err(_) => {
                 // Only log failure if the flag is set
@@ -164,6 +165,7 @@ impl EventHandler {
             internal_send: internal_send,
             queue,
             config,
+            config_path,
             backup,
         })
     }
@@ -195,6 +197,13 @@ impl EventHandler {
     pub async fn backup_events(&mut self, events: Vec<ComingEvent>) {
         // Backup the coming events
         self.backup.backup_events(events).await;
+    }
+
+    /// A method to return a copy of the current path for the configuration.
+    ///
+    pub fn get_config_path(&self) -> String {
+        // Return a copy of the pathbuf (assumes valid UTF-8)
+        self.config_path.to_str().unwrap_or("").to_string()
     }
 
     /// A method to return a copy of the event for the provided id.

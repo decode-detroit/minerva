@@ -1,3 +1,25 @@
+// Function to save the current configuration
+export async function autoSave() {
+  // Retrieve the configuation path
+  const response = await fetch(`getConfigPath`);
+  const json = await response.json();
+
+  // If valid, save configuration
+  if (json.generic.isValid) {
+    // Save the configuration
+    let saveConfig = {
+      filename: json.generic.message,
+    };
+    fetch(`/saveConfig`, {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(saveConfig),
+    }); // Ignore errors
+  }
+}
+
 // Function to pass modifications to the system
 export function saveModification(modifications) {
   // Save the changes

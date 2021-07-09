@@ -1,13 +1,14 @@
 import React from 'react';
-import { asyncForEach, stopPropogation, saveModification } from './functions';
+import { autoSave, asyncForEach, stopPropogation, saveModification } from './functions';
 
 // A menu for the edit items
 export class EditMenu extends React.PureComponent {  
   // Render the edit menu
   render() {
     return (
-      <div className="menu-item">
-        <div>Minerva | Edit Mode</div>
+      <div className="editMenu">
+        <div>Minerva</div>
+        <div class="saveButton" onClick={autoSave}>Save</div>
       </div>
     );
   }
@@ -103,13 +104,17 @@ export class AddMenu extends React.PureComponent {
       value: null,
       unfiltered: [],
       filtered: [],
+      ready: false,
     }
+
+    // Create the search ref
+    this.search = React.createRef();
  
     // Bind the various functions
     this.handleChange = this.handleChange.bind(this);
   }
 
-  // On load, get the list of potential items FIXME Show loading animation until all items ready
+  // On load, get the list of potential items
   async componentDidMount() {
     try {
       // Fetch all items and process the response
@@ -153,7 +158,11 @@ export class AddMenu extends React.PureComponent {
         // Save the result to the state
         this.setState({
           unfiltered: list,
+          ready: true,
         });
+
+        // Grab focus on the search input
+        this.search.current.focus();
       }
     
     // Ignore errors
@@ -187,11 +196,25 @@ export class AddMenu extends React.PureComponent {
     return (
       <div className={`addMenu ${this.props.type}`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
         <div className="title">Add Item</div>
-        <input className="searchBar" type="text" placeholder="Type to search ..." value={this.state.value} onInput={this.handleChange}></input>
+        <input className="searchBar" ref={this.search} type="text" placeholder={this.state.ready ? "Type to search ..." : "  Loading ...  "} disabled={!this.state.ready} value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">
           <div>{list}</div>
         </div>
-        <div className="addButton" onClick={() => {let id = 1000; while (this.state.unfiltered.some((value) => value.id === id)) { id++ }; let modifications = [{ modifyItem: { itemPair: { id: id, description: "No Description", display: "Hidden" }}}]; saveModification(modifications); this.props.addItem(id)}}>+</div>
+        {this.state.ready && <div className="addButton" onClick={() => {
+          let id = 1000;
+          while (this.state.unfiltered.some((value) => value.id === id)) { id++ };
+          let modifications = [{
+            modifyItem: {
+              itemPair: {
+                id: id,
+                description: "No Description",
+                display: {
+                  Hidden: {
+                    edit_location: [this.props.left, this.props.top]
+          }}}}}];
+          saveModification(modifications);
+          this.props.addItem(id)}}>+</div>
+        }
       </div>
     );
   }

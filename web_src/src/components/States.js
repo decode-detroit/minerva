@@ -54,7 +54,7 @@ export class State extends React.PureComponent {
     return (
       <>
         <div className="state" onClick={() => {this.setState(prevState => ({open: !prevState.open}))}}>
-          <div className="deleteState" onClick={(e) => {stopPropogation(e); this.props.changeState()}}>X</div>
+          <div className="deleteState" onClick={(e) => {stopPropogation(e); this.props.removeState()}}>X</div>
           {this.state.description}
           <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.state.id)}}/>
         </div>

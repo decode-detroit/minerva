@@ -437,7 +437,7 @@ impl WebInterface {
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_request(UserRequest::AllStop))
             .and_then(WebInterface::handle_request);
-
+        
         // Create the broadcast event filter
         let broadcast_event = warp::path("broadcastEvent")
             .and(warp::path::end())
@@ -515,6 +515,13 @@ impl WebInterface {
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_json::<GameLog>())
+            .and_then(WebInterface::handle_request);
+
+        // Create the get config path filter
+        let get_config_path = warp::get()
+            .and(warp::path("getConfigPath"))
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_request(UserRequest::ConfigPath))
             .and_then(WebInterface::handle_request);
 
         // Create the get event filter
@@ -618,6 +625,7 @@ impl WebInterface {
             .or(error_log)
             .or(event_change)
             .or(game_log)
+            .or(get_config_path)
             .or(get_event)
             .or(get_item)
             .or(get_scene)

@@ -18,6 +18,18 @@
   box-shadow: 0 0 5px 3px #0a0c0e77;
 }
 
+.editMenu {
+  display: flex;
+}
+
+.saveButton {
+  background-color: #007fb0;
+  padding: 1px 20px;
+  border-radius: 3px;
+  margin: 0 20px;
+  cursor: pointer;
+}
+
 .viewArea {
   position: absolute;
   top: 2.5rem;
@@ -425,6 +437,7 @@
   position: absolute;
   top: 0;
   left: 8rem;
+  width: 160px;
   z-index: 10;
   background-color: #2f343e;
   border: 1px solid #868fa2;

@@ -486,6 +486,18 @@ impl SystemInterface {
                 }
             }
 
+            // Return the name of the current configuration file, if available
+            UserRequest::ConfigPath => {
+                // Try to get the config name
+                if let Some(ref handler) = self.event_handler {
+                    return UnpackResult::SuccessWithMessage(handler.get_config_path());
+
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
+                }
+            }
+
             // Cue an event
             UserRequest::CueEvent { event_delay } => {
                 // If the event handler exists

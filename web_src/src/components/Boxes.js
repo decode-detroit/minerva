@@ -3,7 +3,7 @@ import { Action } from './Actions';
 import { ReceiveNode } from './Nodes';
 import { State } from './States';
 import { stopPropogation, saveModification, getLocation, changeLocation } from './functions';
-import { AddActionMenu } from './Menus';
+import { AddMenu, AddActionMenu } from './Menus';
 
 // An item box to select the appropriate sub-box
 export class ItemBox extends React.PureComponent {
@@ -278,6 +278,72 @@ export class StatusFragment extends React.PureComponent {
     }
   }
 
+  // Helper function to add a new state
+  addState(id) {
+    if (this.state.status.hasOwnProperty(`MultiState`)) {
+      // Save the new state id
+      this.setState((prevState) => {
+        // Compose the new status
+        let newStatus = { MultiState:
+          {...prevState.status.MultiState, allowed: [...prevState.status.MultiState.allowed, {id: id}]}
+        };
+
+        // Save the changes
+        let modifications = [{
+          modifyStatus: {
+            itemId: { id: this.props.id },
+            status: newStatus,
+          },
+        }];
+        saveModification(modifications);
+
+        // Update the local state
+        return {
+          status: newStatus,
+        };
+      });
+    
+    // Ignore types other than multistate
+    } else {
+      console.error("This feature not yet implemented.");
+    }
+  }
+
+  // Helper function to remove a state
+  removeState(index) {
+    if (this.state.status.hasOwnProperty(`MultiState`)) {
+      // Save the new state id
+      this.setState((prevState) => {
+        // Remove the state from the allowed list
+        let newAllowed = [...prevState.status.MultiState.allowed];
+        newAllowed.splice(index, 1);
+
+        // Compose the new status
+        let newStatus = { MultiState:
+          {...prevState.status.MultiState, allowed: newAllowed}
+        };
+
+        // Save the changes
+        let modifications = [{
+          modifyStatus: {
+            itemId: { id: this.props.id },
+            status: newStatus,
+          },
+        }];
+        saveModification(modifications);
+
+        // Update the local state
+        return {
+          status: newStatus,
+        };
+      });
+    
+    // Ignore types other than multistate
+    } else {
+      console.error("This feature not yet implemented.");
+    }
+  }
+
   // On initial load, pull the status information
   componentDidMount() {
     // Pull the new status information
@@ -289,7 +355,7 @@ export class StatusFragment extends React.PureComponent {
     // Compose any states into a list
     let children = [];
     if (this.state.status.hasOwnProperty(`MultiState`)) {
-      children = this.state.status.MultiState.allowed.map((state, index) => <State key={state.toString()} state={state} grabFocus={this.props.grabFocus} changeState={(newState) => {this.changeState(index, newState)}} createConnector={this.props.createConnector} />);
+      children = this.state.status.MultiState.allowed.map((state, index) => <State key={state.toString()} state={state} grabFocus={this.props.grabFocus} removeState={() => {this.removeState(index)}} createConnector={this.props.createConnector} />);
     }
 
     // Return the fragment
@@ -298,13 +364,12 @@ export class StatusFragment extends React.PureComponent {
         <div className="subtitle">Status:</div>
         <div className="verticalList">{children}</div>
         <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
-          +
-          {this.state.isMenuVisible && "State Menu"}
+          {this.state.isMenuVisible ? `-` : `+`}
+          {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} addItem={(id) => {this.setState({ isMenuVisible: false }); this.addState(id)}}/>}
         </div>
       </>
     );
   }
-  //<AddActionMenu addAction={this.addAction}/>}
 }
 
 // An event box with an event and event detail
@@ -375,7 +440,7 @@ export class EventFragment extends React.PureComponent {
     // Save the change action
     this.setState((prevState) => {
       // Copy the existing action list
-      let newActions = prevState.eventActions;
+      let newActions = [...prevState.eventActions];
 
       // If an action was specified, replace it
       if (action) {
@@ -419,8 +484,8 @@ export class EventFragment extends React.PureComponent {
         <div className="subtitle">Actions:</div>
         <div className="verticalList">{children}</div>
         <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
-          +
-          {this.state.isMenuVisible && <AddActionMenu addAction={this.addAction}/>}
+          {this.state.isMenuVisible ? `-` : `+`}
+          {this.state.isMenuVisible && <AddActionMenu left={180} top={60} addAction={this.addAction}/>}
         </div>
       </>
     );

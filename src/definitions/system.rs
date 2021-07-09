@@ -125,7 +125,9 @@ pub struct WebRequest {
 pub enum Modification {
     /// A modification to add an item or modify an existing one
     #[serde(rename_all = "camelCase")]
-    ModifyItem { item_pair: ItemPair },
+    ModifyItem {
+        item_pair: ItemPair
+    },
 
     /// A modification to add an event, modify an existing one, or delete it
     /// (if None provided)
@@ -291,6 +293,10 @@ pub enum UserRequest {
     /// A variant that provides a new configuration file for the system interface.
     /// If None is provided as the filepath, no configuration will be loaded.
     ConfigFile { filepath: Option<PathBuf> },
+
+    /// A variant that retrieves the path of the current configuration file.
+    /// If there is no active configuration, this request will throw an error.
+    ConfigPath,
 
     /// A variant that cues a new event with the given item id. The event
     /// will trigger after the specified delay has passed.
