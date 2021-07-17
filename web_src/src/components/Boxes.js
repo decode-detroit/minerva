@@ -2,7 +2,7 @@ import React from 'react';
 import { Action } from './Actions';
 import { ReceiveNode } from './Nodes';
 import { State } from './States';
-import { stopPropogation, saveModification, getLocation, changeLocation } from './functions';
+import { stopPropogation, getLocation, changeLocation } from './functions';
 import { AddMenu, AddActionMenu } from './Menus';
 
 // An item box to select the appropriate sub-box
@@ -98,7 +98,7 @@ export class ItemBox extends React.PureComponent {
       let newItemPair = changeLocation(prevState.itemPair, prevState.left, prevState.top);
 
       // Save the changes
-      saveModification([{
+      this.props.saveModifications([{
         modifyItem: {
           itemPair: newItemPair,
         },
@@ -188,7 +188,7 @@ export class ItemBox extends React.PureComponent {
       },
     }];
     this.saveTimeout = setTimeout(() => {
-      saveModification(modifications);
+      this.props.saveModifications(modifications);
     }, 1000);
   }
  
@@ -204,10 +204,10 @@ export class ItemBox extends React.PureComponent {
               <div>({this.state.itemPair.id})</div>
             </div>
             <ReceiveNode id={`receive-node-${this.state.itemPair.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
-            {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene}/>}
-            {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
-            {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector}/>}
-            {this.props.isFocus && (this.state.type === "label" || this.state.type === "none") && <BlankFragment id={this.props.id} updateItem={this.updateItem}/>}
+            {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
+            {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
+            {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
+            {this.props.isFocus && (this.state.type === "label" || this.state.type === "none") && <BlankFragment id={this.props.id} updateItem={this.updateItem} saveModifications={this.props.saveModifications}/>}
           </div>
         }
       </>
@@ -223,9 +223,9 @@ export class BlankFragment extends React.PureComponent {
       <>
         <div className="subtitle">Choose Item Type</div>
         <div className="typeChooser">
-          <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: [], }}]; saveModification(modifications); this.props.updateItem()}}>Event</div>
-          <div className="divButton status" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; saveModification(modifications); this.props.updateItem()}}>Status</div>
-          <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { events: [], }}}]; saveModification(modifications); this.props.updateItem()}}>Scene</div>
+          <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: [], }}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Event</div>
+          <div className="divButton status" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Status</div>
+          <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { events: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Scene</div>
         </div>
       </>
     );
@@ -295,7 +295,7 @@ export class StatusFragment extends React.PureComponent {
             status: newStatus,
           },
         }];
-        saveModification(modifications);
+        this.props.saveModifications(modifications);
 
         // Update the local state
         return {
@@ -330,7 +330,7 @@ export class StatusFragment extends React.PureComponent {
             status: newStatus,
           },
         }];
-        saveModification(modifications);
+        this.props.saveModifications(modifications);
 
         // Update the local state
         return {
@@ -365,7 +365,7 @@ export class StatusFragment extends React.PureComponent {
         <div className="verticalList">{children}</div>
         <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
           {this.state.isMenuVisible ? `-` : `+`}
-          {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} addItem={(id) => {this.setState({ isMenuVisible: false }); this.addState(id)}}/>}
+          {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} addItem={(id) => {this.setState({ isMenuVisible: false }); this.addState(id)}} saveModifications={this.props.saveModifications}/>}
         </div>
       </>
     );
@@ -425,7 +425,7 @@ export class EventFragment extends React.PureComponent {
           event: newActions,
         },
       }];
-      saveModification(modifications);
+      this.props.saveModifications(modifications);
 
       // Update the local state
       return {
@@ -458,7 +458,7 @@ export class EventFragment extends React.PureComponent {
           event: newActions,
         },
       }];
-      saveModification(modifications);
+      this.props.saveModifications(modifications);
 
       // Update the local state
       return {

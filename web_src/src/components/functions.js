@@ -21,7 +21,7 @@ export async function autoSave() {
 }
 
 // Function to pass modifications to the system
-export function saveModification(modifications) {
+export function saveEdits(modifications) {
   // Save the changes
   let editItem = {
     modifications: modifications,

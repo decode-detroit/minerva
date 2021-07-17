@@ -1,7 +1,7 @@
 import React from 'react';
 import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu } from './Menus';
-import { saveModification, vh, vw } from './functions';
+import { vh, vw } from './functions';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -73,7 +73,7 @@ export class ViewArea extends React.PureComponent {
       let events = ids.map((id) => {return { id: id }});
 
       // Submit the modification to the scene
-      saveModification([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { events: events, }}}]); // FIXME copy key map
+      this.props.saveModifications([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { events: events, }}}]); // FIXME copy key map
     }
 
     // Close the add menu
@@ -168,8 +168,8 @@ export class ViewArea extends React.PureComponent {
       <>
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene}/>
         <div className="viewArea" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
-          <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene}/>
-          {this.state.isMenuVisible && <AddMenu type="none" left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene}/>}
+          <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} saveModifications={this.props.saveModifications}/>
+          {this.state.isMenuVisible && <AddMenu type="none" left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
         </div>
       </>
     );
@@ -253,7 +253,7 @@ export class EditArea extends React.PureComponent {
   render() {
     // Create a box for each event
     let offset = 0;
-    const boxes = this.props.idList.map((id) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} left={100 + 275 * parseInt(offset / 6)} top={100 + 100 * ((offset++) % 6)} id={id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} changeScene={this.props.changeScene}/>);
+    const boxes = this.props.idList.map((id) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} left={100 + 275 * parseInt(offset / 6)} top={100 + 100 * ((offset++) % 6)} id={id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>);
     
     // Render the event boxes
     return (

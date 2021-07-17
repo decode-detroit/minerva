@@ -23,11 +23,16 @@
 }
 
 .saveButton {
-  background-color: #007fb0;
+  background-color: #0074a3;
   padding: 1px 20px;
   border-radius: 3px;
   margin: 0 20px;
   cursor: pointer;
+}
+
+.saveButton.inactive {
+  background-color: #464c5a;
+  cursor: auto;
 }
 
 .viewArea {
@@ -130,6 +135,10 @@
   cursor: pointer;
   font-size: 1.2rem;
   font-weight: bold;
+}
+
+.addButton .subtitle {
+  font-size: 0.7rem;
 }
 
 .verticalScroll {

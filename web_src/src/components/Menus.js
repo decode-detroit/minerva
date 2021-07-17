@@ -1,14 +1,20 @@
 import React from 'react';
-import { autoSave, asyncForEach, stopPropogation, saveModification } from './functions';
+import { autoSave, asyncForEach, stopPropogation } from './functions';
 
 // A menu for the edit items
 export class EditMenu extends React.PureComponent {  
+  // Class constructor
+  constructor(props) {
+    // Collect props and set initial state
+    super(props);
+  }
+
   // Render the edit menu
   render() {
     return (
       <div className="editMenu">
         <div>Minerva</div>
-        <div class="saveButton" onClick={autoSave}>Save</div>
+        <div class={"saveButton" + (this.props.saved ? " inactive" : "")} onClick={() => {autoSave(); this.props.markSaved()}}>Save</div>
       </div>
     );
   }
@@ -212,8 +218,8 @@ export class AddMenu extends React.PureComponent {
                   Hidden: {
                     edit_location: [this.props.left, this.props.top]
           }}}}}];
-          saveModification(modifications);
-          this.props.addItem(id)}}>+</div>
+          this.props.saveModifications(modifications);
+          this.props.addItem(id)}}>+<div className="subtitle">Add New</div></div>
         }
       </div>
     );

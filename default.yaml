@@ -111,6 +111,7 @@ status_map:
       allowed:
         - id: 311
         - id: 312
+        - id: 324
       no_change_silent: false
   ? id: 320
   : MultiState:
@@ -165,7 +166,9 @@ event_set:
         highlight: ~
         highlight_state: ~
         spotlight: ~
-        edit_location: ~
+        edit_location:
+          - 379
+          - 93
   : []
   ? id: 504
     description: Play Background Audio
@@ -200,7 +203,9 @@ event_set:
         highlight: ~
         highlight_state: ~
         spotlight: ~
-        edit_location: ~
+        edit_location:
+          - 654
+          - 94
   : - ModifyStatus:
         status_id:
           id: 320
@@ -220,7 +225,9 @@ event_set:
         highlight: ~
         highlight_state: ~
         spotlight: ~
-        edit_location: ~
+        edit_location:
+          - 379
+          - 195
   : - ModifyStatus:
         status_id:
           id: 310
@@ -250,7 +257,9 @@ event_set:
         highlight: ~
         highlight_state: ~
         spotlight: ~
-        edit_location: ~
+        edit_location:
+          - 373
+          - 397
   : []
   ? id: 302
     description: Variable Event
@@ -466,7 +475,7 @@ event_set:
         spotlight: ~
         edit_location:
           - 375
-          - 300
+          - 299
   : - ModifyStatus:
         status_id:
           id: 310
