@@ -142,11 +142,6 @@ export class AddMenu extends React.PureComponent {
             type = json.generic.message;
           }
           
-          // If the add menu type isn't none and this type doesn't match
-          if (this.props.type !== "none" && this.props.type !== type) {
-            return; // return early
-          }
-          
           // Fetch the description of the item
           response = await fetch(`getItem/${item.id}`);
           const json2 = await response.json();
@@ -167,13 +162,173 @@ export class AddMenu extends React.PureComponent {
           ready: true,
         });
 
-        // Grab focus on the search input
-        this.search.current.focus();
+        // Try to grab focus on the search input
+        try {
+          this.search.current.focus();
+        } catch {
+          // the window was closed before it finished loading
+        }
       }
     
     // Ignore errors
     } catch {
-      console.log("Server inaccessible.");
+      console.log(`Server inaccessible.`);
+    }
+  }
+
+  // Function to handle typing the input
+  handleChange(e) {
+    // Grab the value
+    let value = e.target.value;
+    
+    // Calculate the filtered list
+    let filtered = this.state.unfiltered.filter(item => {
+      return (item.description.toLowerCase().includes(value.toLowerCase()));
+    });
+    
+    this.setState({
+      value: e.target.value,
+      filtered: filtered,
+    });
+  }
+ 
+  // Return the completed box
+  render() {
+    // Compose the filtered items into a visible list
+    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={() => {this.props.addItem(item.id)}}>{item.description}</div>)
+    
+    // Return the box
+    return (
+      <div className={`addMenu`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
+        <div className="title">Add Item To Scene</div>
+        <input className="searchBar" ref={this.search} type="text" placeholder={this.state.ready ? "Type to search ..." : "  Loading ...  "} disabled={!this.state.ready} value={this.state.value} onInput={this.handleChange}></input>
+        <div className="verticalScroll">
+          <div>{list}</div>
+        </div>
+        {this.state.ready && <div className="addButton" onClick={() => {
+          // Find the next unused ID
+          let id = 1000;
+          while (this.state.unfiltered.some((value) => value.id === id)) { id++ };
+          
+          // Compose the item into a modification
+          let modifications = [{
+            modifyItem: {
+              itemPair: {
+                id: id,
+                description: "No Description",
+                display: {
+                  Hidden: {
+                    edit_location: [this.props.left, this.props.top]
+          }}}}}];
+          this.props.saveModifications(modifications);
+
+          // Make the item visible in this scene
+          this.props.addItem(id)}}>+<div className="description">Add New</div></div>
+        }
+      </div>
+    );
+  }
+}
+
+// A select menu with a search bar
+export class SelectMenu extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      value: null,
+      unfiltered: [],
+      filtered: [],
+      ready: false,
+    }
+
+    // Create the search ref
+    this.search = React.createRef();
+ 
+    // Bind the various functions
+    this.handleChange = this.handleChange.bind(this);
+  }
+
+  // On load, get the list of potential items
+  async componentDidMount() {
+    try {
+      // Check if a list was provided
+      let items = [];
+      if (this.props.hasOwnProperty(`items`)) {
+        items = this.props.items;
+        
+      // Otherwise, fetch all items and process the response
+      } else {
+        let response = await fetch(`allItems`);
+        const json = await response.json();
+        
+        // Try to read these items
+        if (json.items.isValid) {
+          items = json.items.items;
+        } else {
+          console.log(`Server inaccessible.`);
+          return;
+        }
+      }
+
+      // Get the detail of each item
+      let list = [];
+      await asyncForEach(items, async (item) => {
+        // Check to see the item type
+        let response = await fetch(`getType/${item.id}`);
+        let type = "none";
+
+        // If type is valid, save it
+        const json = await response.json();
+        if (json.generic.isValid) {
+          type = json.generic.message;
+        }
+        
+        // If the add menu type isn't none and this type doesn't match
+        if (this.props.type !== "none" && this.props.type !== type) {
+          return; // return early
+        }
+        
+        // Fetch the description of the item
+        response = await fetch(`getItem/${item.id}`);
+        const json2 = await response.json();
+
+        // If description is valid, save the id, type, and description
+        if (json2.item.isValid) {
+          list.push({
+            id: item.id,
+            type: type,
+            description: json2.item.itemPair.description,
+          });
+        }
+      });
+
+      // If a list was provided, show it immediately
+      let filtered = [];
+      if (this.props.hasOwnProperty(`items`)) {
+        filtered = [...list];
+      }
+
+      // Save the result to the state
+      this.setState({
+        unfiltered: list,
+        filtered: filtered,
+        ready: true,
+      });
+
+      // Try to grab focus on the search input
+      try {
+        this.search.current.focus();
+      } catch {
+        // the window was closed before it finished loading
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log(`Server inaccessible.`);
     }
   }
 
@@ -201,31 +356,15 @@ export class AddMenu extends React.PureComponent {
     // Return the box
     return (
       <div className={`addMenu ${this.props.type}`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
-        <div className="title">Add Item</div>
+        <div className="title">Select Item</div>
         <input className="searchBar" ref={this.search} type="text" placeholder={this.state.ready ? "Type to search ..." : "  Loading ...  "} disabled={!this.state.ready} value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">
           <div>{list}</div>
         </div>
-        {this.state.ready && <div className="addButton" onClick={() => {
-          let id = 1000;
-          while (this.state.unfiltered.some((value) => value.id === id)) { id++ };
-          let modifications = [{
-            modifyItem: {
-              itemPair: {
-                id: id,
-                description: "No Description",
-                display: {
-                  Hidden: {
-                    edit_location: [this.props.left, this.props.top]
-          }}}}}];
-          this.props.saveModifications(modifications);
-          this.props.addItem(id)}}>+<div className="subtitle">Add New</div></div>
-        }
       </div>
     );
   }
 }
-
 
 // An add action menu
 export class AddActionMenu extends React.PureComponent {

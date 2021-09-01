@@ -1,6 +1,6 @@
 import React from 'react';
 import { stopPropogation } from './functions';
-import { AddMenu } from './Menus';
+import { SelectMenu } from './Menus';
 import { SendNode } from './Nodes';
 
 // An action list element
@@ -10,25 +10,25 @@ export class Action extends React.PureComponent {
     // Switch based on the props
     if (this.props.action.hasOwnProperty(`NewScene`)) {
       return (
-        <NewScene newScene={this.props.action.NewScene} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} saveModifications={this.props.saveModifications}/>
+        <NewScene newScene={this.props.action.NewScene} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
       );
     
     // Modify Status
     } else if (this.props.action.hasOwnProperty(`ModifyStatus`)) {
       return (
-        <ModifyStatus modifyStatus={this.props.action.ModifyStatus} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} saveModifications={this.props.saveModifications}/>
+        <ModifyStatus modifyStatus={this.props.action.ModifyStatus} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
       );
     
     // Cue Event
     } else if (this.props.action.hasOwnProperty(`CueEvent`)) {
       return (
-        <CueEvent cueEvent={this.props.action.CueEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} saveModifications={this.props.saveModifications}/>
+        <CueEvent cueEvent={this.props.action.CueEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
       );
     
     // Cancel Event
     } else if (this.props.action.hasOwnProperty(`CancelEvent`)) {
       return (
-        <CancelEvent cancelEvent={this.props.action.CancelEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} saveModifications={this.props.saveModifications}/>
+        <CancelEvent cancelEvent={this.props.action.CancelEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
       );
     
     // Save Data
@@ -112,7 +112,7 @@ export class NewScene extends React.PureComponent {
           <div className="actionDetail" onClick={(e) => {stopPropogation(e); this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
             {this.state.description}
             <div className="editNote">Click To Change</div>
-            {this.state.isMenuVisible && <AddMenu type="scene" left={200} top={100} saveModifications={this.props.saveModifications} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
+            {this.state.isMenuVisible && <SelectMenu type="scene" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
               NewScene: {
                 new_scene: {
                   id: id
@@ -139,6 +139,7 @@ export class ModifyStatus extends React.PureComponent {
       isStateMenuVisible: false,
       description: "Loading ...",
       stateDescription: "Loading ...",
+      validStates: [],
     }
 
     // The timeout to save changes, if set
@@ -159,11 +160,16 @@ export class ModifyStatus extends React.PureComponent {
       response = await fetch(`getItem/${this.props.modifyStatus.new_state.id}`);
       const json2 = await response.json();
 
-      // If both are valid, save the result to the state
-      if (json1.item.isValid && json2.item.isValid) {
+      // Fetch the valid states for the status
+      response = await fetch(`getStatus/${this.props.modifyStatus.status_id.id}`);
+      const json3 = await response.json();
+
+      // If all three are valid, save the result to the state
+      if (json1.item.isValid && json2.item.isValid && json3.status.isValid) {
         this.setState({
           description: json1.item.itemPair.description,
           stateDescription: json2.item.itemPair.description,
+          validStates: [...json3.status.status.MultiState.allowed], // extract ids from states
         });
       }
     
@@ -198,7 +204,7 @@ export class ModifyStatus extends React.PureComponent {
               <div className="additionalInfoDetail" onClick={() => {this.setState(prevState => ({ isStateMenuVisible: !prevState.isStateMenuVisible }))}}>{this.state.stateDescription}</div>
               <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.modifyStatus.new_state.id)}}/>
             </div>
-            {this.state.isStatusMenuVisible && <AddMenu type="status" left={200} top={100} saveModifications={this.props.saveModifications} addItem={(id) => {this.setState({ isStatusMenuVisible: false }); this.props.changeAction({
+            {this.state.isStatusMenuVisible && <SelectMenu type="status" left={200} top={100} addItem={(id) => {this.setState({ isStatusMenuVisible: false }); this.props.changeAction({
               ModifyStatus: {
                 status_id: {
                   id: id,
@@ -206,7 +212,7 @@ export class ModifyStatus extends React.PureComponent {
                 new_state: this.props.modifyStatus.new_state,
               }
             })}}/>}
-            {this.state.isStateMenuVisible && <AddMenu type="event" left={200} top={100} saveModifications={this.props.saveModifications} addItem={(id) => {this.setState({ isStateMenuVisible: false }); this.props.changeAction({
+            {this.state.isStateMenuVisible && <SelectMenu type="event" items={this.state.validStates} left={200} top={100} addItem={(id) => {this.setState({ isStateMenuVisible: false }); this.props.changeAction({
               ModifyStatus: {
                 status_id: this.props.modifyStatus.status_id,
                 new_state: {
@@ -359,7 +365,7 @@ export class CueEvent extends React.PureComponent {
             <div className="additionalInfo">Delay 
               <input type="number" min="0" value={this.state.delay} onInput={this.handleChange}></input> Seconds
             </div>
-            {this.state.isMenuVisible && <AddMenu type="event" left={200} top={100} saveModifications={this.props.saveModifications} addItem={(id) => {this.setState({ isMenuVisible: false }); this.updateAction(id)}}/>}
+            {this.state.isMenuVisible && <SelectMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.updateAction(id)}}/>}
           </div>
         }/>
       </>
@@ -422,7 +428,7 @@ export class CancelEvent extends React.PureComponent {
           <div className="actionDetail" onClick={(e) => {stopPropogation(e); this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
             {this.state.description}
             <div className="editNote">Click To Change</div>
-            {this.state.isMenuVisible && <AddMenu type="event" left={200} top={100} saveModifications={this.props.saveModifications} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
+            {this.state.isMenuVisible && <SelectMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
               CancelEvent: {
                 event: {
                   id: id
@@ -438,10 +444,95 @@ export class CancelEvent extends React.PureComponent {
 
 // A select event action
 export class SelectEvent extends React.PureComponent {  
+   // Class constructor
+   constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      isStatusMenuVisible: false,
+      isStateMenuVisible: false,
+      description: "Loading ...",
+      stateDescription: "Loading ...",
+    }
+
+    // The timeout to save changes, if set
+    this.saveTimeout = null;
+
+    // Bind the various functions
+    this.updateItems = this.updateItems.bind(this);
+  }
+
+  // Helper function to update the item information
+  async updateItems() {
+    try {
+      // Fetch the description of the status
+      let response = await fetch(`getItem/${this.props.modifyStatus.status_id.id}`);
+      const json1 = await response.json();
+
+      // Fetch the description of the state
+      response = await fetch(`getItem/${this.props.modifyStatus.new_state.id}`);
+      const json2 = await response.json();
+
+      // If both are valid, save the result to the state
+      if (json1.item.isValid && json2.item.isValid) {
+        this.setState({
+          description: json1.item.itemPair.description,
+          stateDescription: json2.item.itemPair.description,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // On initial load, pull the description of the scene
+  componentDidMount() {
+    this.updateItems();
+  }
+
+  // On change of item id, pull the description of the scene
+  componentDidUpdate(prevProps, prevState) {
+    // Update the item descriptions, if either changed
+    if ((this.props.modifyStatus.status_id.id !== prevProps.modifyStatus.status_id.id) || (this.props.modifyStatus.new_state.id !== prevProps.modifyStatus.new_state.id)) {
+      this.updateItems();
+    }
+  }
+
   // Render the completed action
   render() {
     return (
-      <ActionFragment title="Select Event" nodeType="status" focusOn={() => this.props.grabFocus(this.props.selectEvent.status_id.id)} changeAction={this.props.changeAction} content={<div>{this.props.selectEvent.status_id.id}</div>}/>
+      <>
+        <ActionFragment title="Select Event" nodeType="status" focusOn={() => this.props.grabFocus(this.props.modifyStatus.status_id.id)} changeAction={this.props.changeAction} content={
+          <div className="actionDetail" onClick={stopPropogation}>
+            <div onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>{this.state.description}</div>
+            <div className="editNote" onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>Click To Change</div>
+            <div className="additionalInfo">New State:
+              <div className="additionalInfoDetail" onClick={() => {this.setState(prevState => ({ isStateMenuVisible: !prevState.isStateMenuVisible }))}}>{this.state.stateDescription}</div>
+              <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.modifyStatus.new_state.id)}}/>
+            </div>
+            {this.state.isStatusMenuVisible && <SelectMenu type="status" left={200} top={100} addItem={(id) => {this.setState({ isStatusMenuVisible: false }); this.props.changeAction({
+              ModifyStatus: {
+                status_id: {
+                  id: id,
+                },
+                new_state: this.props.modifyStatus.new_state,
+              }
+            })}}/>}
+            {this.state.isStateMenuVisible && <SelectMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isStateMenuVisible: false }); this.props.changeAction({
+              ModifyStatus: {
+                status_id: this.props.modifyStatus.status_id,
+                new_state: {
+                  id: id,
+                },
+              }
+            })}}/>}
+          </div>
+        }/>
+      </>
     );
   }
 }
