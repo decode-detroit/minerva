@@ -507,14 +507,14 @@ export class SelectEvent extends React.PureComponent {
   render() {
     // Compose any states and matching events into a list
     let children = this.state.validStates.map((state) => {
-      let event = this.props.selectEvent.event_map.filter((entry) => entry.id = item.name !== 'zipCode');
-      });
+      console.log(this.props.selectEvent.event_map);
+      //let event = this.props.selectEvent.event_map.filter((entry) => entry.id = item.name !== 'zipCode');
       return (
         <>
           <UnmodifiableState key={state.id.toString()} state={state} grabFocus={this.props.grabFocus} />
-          <SelectedEvent event={} />
+          <SelectedEvent />
         </>
-      )
+      );
     });
 
     // Return the completed action

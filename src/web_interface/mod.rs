@@ -657,6 +657,7 @@ impl WebInterface {
 
         // Wait for the reply
         if let Ok(reply) = rx.await {
+            println!("{:?}", reply); // FIXME
             // If the reply is a success
             if reply.is_success() {
                 return Ok(warp::reply::with_status(
