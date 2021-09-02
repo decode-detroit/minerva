@@ -283,6 +283,13 @@
   font-weight: bold;
 }
 
+.disableSelect {
+  -webkit-user-select: none;  
+  -moz-user-select: none;    
+  -ms-user-select: none;      
+  user-select: none;
+}
+
 .node.event {
   background-color: #008106;
 }
