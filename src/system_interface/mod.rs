@@ -189,7 +189,7 @@ impl SystemInterface {
 
                     // The unpacking yielded an event
                     UnpackResult::SuccessWithEvent(event) => {
-                        request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event) }).unwrap_or(());
+                        request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event.into()) }).unwrap_or(());
                     }
 
                     // The unpacking yielded items
@@ -633,6 +633,17 @@ impl SystemInterface {
                             // Add or modify the event
                             Modification::ModifyEvent { item_id, event } => {
                                 handler.edit_event(item_id, event).await;
+                            }
+                            // Add or modify the event (web-safe)
+                            Modification::ModifyWebEvent { item_id, event } => {
+                                // Convert the web event to a regular event
+                                let converted_event: Option<Event> = match event {
+                                    Some(event) => Some(event.into()),
+                                    _ => None,
+                                };
+
+                                // Handle the modification
+                                handler.edit_event(item_id, converted_event).await;
                             }
 
                             // Add or modify the status

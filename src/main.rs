@@ -48,6 +48,9 @@ use std::thread;
 #[macro_use]
 extern crate failure;
 
+// Import tracing features
+use tracing_subscriber;
+
 // Import GTK and GIO libraries
 use self::gio::prelude::*;
 use self::gtk::prelude::*;
@@ -147,6 +150,9 @@ impl Minerva {
 /// to allow GTK+ to work its startup magic.
 ///
 fn main() {
+    // Initialize tracing FIXME Consider using this for easier debugging
+    tracing_subscriber::fmt::init();
+    
     // Create the gtk application window. Failure results in immediate panic!
     let application = gtk::Application::new(None, gio::ApplicationFlags::empty())
         .expect("Initialization Failed For Unknown Reasons.");

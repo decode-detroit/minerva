@@ -137,6 +137,14 @@ pub enum Modification {
         event: Option<Event>,
     },
 
+    /// A modification to add an event (web-safe), modify an existing one, or delete it
+    /// (if None provided)
+    #[serde(rename_all = "camelCase")]
+    ModifyWebEvent {
+        item_id: ItemId,
+        event: Option<WebEvent>,
+    },
+
     /// A modification to add a status, modify an existing one, or delete it
     /// (if None provided)
     #[serde(rename_all = "camelCase")]
@@ -365,7 +373,7 @@ pub enum WebReply {
     #[serde(rename_all = "camelCase")]
     Event {
         is_valid: bool,       // a flag to indicate the result of the request
-        event: Option<Event>, // the event detail, if found
+        event: Option<WebEvent>, // the event detail, if found
     },
 
     // A variant that contains item detail

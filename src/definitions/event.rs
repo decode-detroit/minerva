@@ -189,9 +189,130 @@ pub enum EventAction {
     SendData { data: DataType },
 }
 
+/// An web-safe (JSON readable) enum with various action options for each event.
+///
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub enum WebEventAction {
+    /// A variant that links to one or more events to cancel. All upcoming
+    /// events that match the specified id(s) will be cancelled.
+    CancelEvent { event: ItemId },
+
+    /// A variant that links to one event to add to the queue These events may
+    /// be triggered immediately when delay is None, or after a delay if delay
+    /// is Some(delay).
+    CueEvent { event: EventDelay },
+
+    /// A variant used to change current status of the target status.
+    ModifyStatus {
+        status_id: ItemId,
+        new_state: ItemId,
+    },
+
+    /// A variant indicating a complete change in scene.
+    NewScene { new_scene: ItemId },
+
+    /// A variant which contains a vector of data to save in the current game
+    /// logging file.
+    SaveData { data: DataType },
+
+    /// A variant which selects an event based on the state of the indicated
+    /// status.
+    SelectEvent {
+        status_id: ItemId,
+        event_map: FnvHashMap<u32, ItemId>,
+    },
+
+    /// A variant which contains a type of data to include with the event
+    /// when broadcast to the system
+    SendData { data: DataType },
+}
+
+// Implement conversions to and from WebEventAction
+impl From<EventAction> for WebEventAction {
+    fn from(event_action: EventAction) -> Self {
+        match event_action {
+            // Convert keys to u32 for Select Event
+            EventAction::SelectEvent { status_id, mut event_map } => {
+                // Remap the ItemIds as u32
+                let mut new_event_map = FnvHashMap::default();
+                for (key, value) in event_map.drain() {
+                    new_event_map.insert(key.id(), value);
+                }
+
+                // Return the completed select event
+                WebEventAction::SelectEvent { status_id, event_map: new_event_map }
+            }
+
+            // Leave the rest untouched
+            EventAction::CancelEvent { event } => WebEventAction::CancelEvent { event },
+            EventAction::CueEvent { event } => WebEventAction::CueEvent { event },
+            EventAction::ModifyStatus { status_id, new_state } => WebEventAction::ModifyStatus { status_id, new_state },
+            EventAction::NewScene { new_scene } => WebEventAction::NewScene { new_scene },
+            EventAction::SaveData { data } => WebEventAction::SaveData { data },
+            EventAction::SendData { data } => WebEventAction::SendData { data },
+        }
+    }
+}
+impl From<WebEventAction> for EventAction {
+    fn from(web_event_action: WebEventAction) -> Self {
+        match web_event_action {
+            // Convert keys to ItemId for Select Event
+            WebEventAction::SelectEvent { status_id, mut event_map } => {
+                // Remap the ItemIds as u32
+                let mut new_event_map = FnvHashMap::default();
+                for (key, value) in event_map.drain() {
+                    new_event_map.insert(ItemId::new_unchecked(key), value); // Possible injection attack surface (i.e. an id over 29 bits). Minimal consequenses of this attack
+                }
+
+                // Return the completed select event
+                EventAction::SelectEvent { status_id, event_map: new_event_map }
+            }
+
+            // Leave the rest untouched
+            WebEventAction::CancelEvent { event } => EventAction::CancelEvent { event },
+            WebEventAction::CueEvent { event } => EventAction::CueEvent { event },
+            WebEventAction::ModifyStatus { status_id, new_state } => EventAction::ModifyStatus { status_id, new_state },
+            WebEventAction::NewScene { new_scene } => EventAction::NewScene { new_scene },
+            WebEventAction::SaveData { data } => EventAction::SaveData { data },
+            WebEventAction::SendData { data } => EventAction::SendData { data },
+        }
+    }
+}
+
+
 /// A convenient type definition to specify each event
 ///
 pub type Event = Vec<EventAction>;
+
+/// A convenient web-safe structure definition to specify each event
+/// (Rust doesn't allow trait definitions for two implicit types)
+///
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+pub struct WebEvent {
+    actions: Vec<WebEventAction>,
+}
+
+// Implement conversions to and from WebEvent
+impl From<Event> for WebEvent {
+    fn from(mut event: Event) -> Self {
+        // Convert each action to the opposite type and return the result
+        let mut actions = Vec::new();
+        for action in event.drain(..) {
+            actions.push(action.into());
+        }
+        WebEvent { actions }
+    }
+}
+impl From<WebEvent> for Event {
+    fn from(mut web_event: WebEvent) -> Self {
+        // Convert each action to the opposite type and return the result
+        let mut event = Event::new();
+        for action in web_event.actions.drain(..) {
+            event.push(action.into());
+        }
+        event
+    }
+}
 
 // Reexport the event action type variants
 pub use self::EventAction::{

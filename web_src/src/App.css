@@ -518,6 +518,70 @@
   box-shadow: 0px 0px 5px 0px #0a0c0e;
 }
 
+.unmodifiableState {
+  background-color: #4d5564;
+  position: relative;
+  width: calc(100% + 0.7rem);
+  border-radius: 3px;
+  padding: 0.3rem;
+  margin-left: 0rem;
+  margin-bottom: 0.2rem;
+  cursor: pointer;
+}
+
+.unmodifiableState .deleteState {
+  position: absolute;
+  background-color: #4d5564;
+  top: 0;
+  left: -1.1rem;
+  padding: 0.36rem;
+  border-radius: 3px 0 0 3px;
+  font-size: 0.8rem;
+}
+
+.unmodifiableState>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.selectedEvent {
+  background-color: #4d5564;
+  position: relative;
+  width: calc(100% - 1.3rem);
+  border-radius: 3px;
+  padding: 0.3rem;
+  margin-left: 2rem;
+  margin-bottom: 0.2rem;
+  cursor: pointer;
+}
+
+.selectedEvent .deleteEvent {
+  position: absolute;
+  background-color: #4d5564;
+  top: 0;
+  left: -1.1rem;
+  padding: 0.36rem;
+  border-radius: 3px 0 0 3px;
+  font-size: 0.8rem;
+}
+
+.selectedEvent>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: -0.5rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
 .box.none>.title {
   background-color: #4d5564;
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { stopPropogation } from './functions';
 import { SelectMenu } from './Menus';
-import { UnmodifiableState } from './States';
+import { UnmodifiableState, SelectedEvent } from './States';
 import { SendNode } from './Nodes';
 
 // An action list element
@@ -449,15 +449,14 @@ export class SelectEvent extends React.PureComponent {
 
     // Set initial state
     this.state = {
-      isStatusMenuVisible: false,
-      //isStateMenuVisible: false,
+      isMenuVisible: false,
       description: "Loading ...",
       validStates: [],
-      //stateDescription: "Loading ...",
     }
 
     // Bind the various functions
     this.updateItems = this.updateItems.bind(this);
+    this.changeSelectedEvent = this.changeSelectedEvent.bind(this);
   }
 
   // Helper function to update the item information
@@ -471,16 +470,11 @@ export class SelectEvent extends React.PureComponent {
       response = await fetch(`getStatus/${this.props.selectEvent.status_id.id}`);
       const json2 = await response.json();
 
-      // Fetch the description of the state
-      /*response = await fetch(`getItem/${this.props.modifyStatus.new_state.id}`);
-      const json2 = await response.json();*/
-
       // If both are valid, save the result to the state
-      if (json1.item.isValid) { // FIXME} && json2.item.isValid) {
+      if (json1.item.isValid && json2.status.isValid) {
         this.setState({
           description: json1.item.itemPair.description,
           validStates: [...json2.status.status.MultiState.allowed],
-          //stateDescription: json2.item.itemPair.description,
         });
       }
     
@@ -488,6 +482,23 @@ export class SelectEvent extends React.PureComponent {
     } catch {
       console.log("Server inaccessible.");
     }
+  }
+
+  // Helper function to change the event associated with a specific state
+  changeSelectedEvent(stateId, eventId) {
+    this.props.changeAction({
+      SelectEvent: {
+        status_id: {
+          id: this.props.selectEvent.status_id.id, // Keep the status id the same
+        },
+        event_map: {
+          ...this.props.selectEvent.event_map, 
+          [stateId]: {
+            id: eventId,
+          },
+        }
+      }
+    });
   }
 
   // On initial load, pull the description of the scene
@@ -498,7 +509,7 @@ export class SelectEvent extends React.PureComponent {
   // On change of item id, pull the description of the scene
   componentDidUpdate(prevProps, prevState) {
     // Update the item descriptions, if either changed
-    if ((this.props.selectEvent.status_id.id !== prevProps.selectEvent.status_id.id)) { // Or if something else changed) {
+    if ((this.props.selectEvent.status_id.id !== prevProps.selectEvent.status_id.id)) {
       this.updateItems();
     }
   }
@@ -507,12 +518,24 @@ export class SelectEvent extends React.PureComponent {
   render() {
     // Compose any states and matching events into a list
     let children = this.state.validStates.map((state) => {
-      console.log(this.props.selectEvent.event_map);
-      //let event = this.props.selectEvent.event_map.filter((entry) => entry.id = item.name !== 'zipCode');
+      // Otherwise, look through the event map
+      for (const [key, value] of Object.entries(this.props.selectEvent.event_map)) {
+        // If there is an entry for this state
+        if (parseInt(key) === state.id) {
+          return (
+            <>
+              <UnmodifiableState key={state.id.toString()} state={state} grabFocus={this.props.grabFocus} />
+              <SelectedEvent key={value.id.toString()} event={value} grabFocus={this.props.grabFocus} changeEvent={(eventId) => {this.changeSelectedEvent(state.id, eventId)}} />
+            </>
+          );
+        }
+      }
+       
+      // Otherwise, use a placeholder
       return (
         <>
           <UnmodifiableState key={state.id.toString()} state={state} grabFocus={this.props.grabFocus} />
-          <SelectedEvent />
+          <SelectedEvent key={state.id.toString() + '-blankEvent'} event={ { id: 0 } } grabFocus={this.props.grabFocus}  changeEvent={(eventId) => {this.changeSelectedEvent(state.id, eventId)}} />
         </>
       );
     });
@@ -522,10 +545,10 @@ export class SelectEvent extends React.PureComponent {
       <>
         <ActionFragment title="Select Event" nodeType="status" focusOn={() => this.props.grabFocus(this.props.selectEvent.status_id.id)} changeAction={this.props.changeAction} content={
           <div className="actionDetail" onClick={stopPropogation}>
-            <div onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>{this.state.description}</div>
-            <div className="editNote" onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>Click To Change</div>
+            <div onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>{this.state.description}</div>
+            <div className="editNote" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>Click To Change</div>
             <div className="verticalList">{children}</div>
-            {this.state.isStatusMenuVisible && <SelectMenu type="status" left={200} top={100} addItem={(id) => {this.setState({ isStatusMenuVisible: false }); this.props.changeAction({
+            {this.state.isMenuVisible && <SelectMenu type="status" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
               SelectEvent: {
                 status_id: {
                   id: id,
@@ -539,24 +562,6 @@ export class SelectEvent extends React.PureComponent {
     );
   }
 }
-
-
-
-/*
-<div className="additionalInfo">New State:
-              <div className="additionalInfoDetail" onClick={() => {this.setState(prevState => ({ isStateMenuVisible: !prevState.isStateMenuVisible }))}}>{this.state.stateDescription}</div>
-              <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.modifyStatus.new_state.id)}}/>
-            </div>
-
-{this.state.isStateMenuVisible && <SelectMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isStateMenuVisible: false }); this.props.changeAction({
-              ModifyStatus: {
-                status_id: this.props.modifyStatus.status_id,
-                new_state: {
-                  id: id,
-                },
-              }
-            })}}/>}
-*/
 
 // A save data action
 export class SaveData extends React.PureComponent {  
@@ -606,64 +611,3 @@ export class ActionFragment extends React.PureComponent {
   }
 }
 
-// A Selected Event object
-class SelectedEvent extends React.PureComponent {
-  // Class constructor
-  constructor(props) {
-    // Collect props
-    super(props);
-
-    // Set initial state
-    this.state = {
-      description: "Loading ...",
-    }
-
-    // Bind the various functions
-    this.updateItem = this.updateItem.bind(this);
-  }
-
-  // Helper function to update the item information
-  async updateItem() {
-    try {
-      // Fetch the description of the item
-      let response = await fetch(`getItem/${this.props.event.id}`);
-      const json = await response.json();
-
-      // If valid, save the result to the state
-      if (json.item.isValid) {
-        this.setState({
-          description: json.item.itemPair.description,
-        });
-      }
-    
-    // Ignore errors
-    } catch {
-      console.log("Server inaccessible.");
-    }
-  }
-
-  // On initial load, update descriptions
-  componentDidMount() {
-    this.updateItem();
-  }
-
-  // On change of item id, update descriptions
-  componentDidUpdate(prevProps, prevState) {
-    // Update the item description, if it changed
-    if (this.props.event.id !== prevProps.event.id) {
-      this.updateItem();
-    }
-  }
-
-  // Render the completed action
-  render() {
-    return (
-      <>
-        <div className="selectedEvent">
-          {this.state.description}
-          <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.event.id)}}/>
-        </div>
-      </>
-    );
-  }
-}

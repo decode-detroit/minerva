@@ -402,7 +402,7 @@ impl ItemPair {
     /// ALL_STOP id.
     ///
     #[cfg(feature = "no_can_limit")]
-    pub fn new(id: u32, description: &str, display: DisplayType) -> ItemPair {
+    pub fn new(id: u32, description: &str, display: DisplayType) -> Option<ItemPair> {
         // Verify id does not conflict with all stop
         if id == ALL_STOP {
             return None;
