@@ -254,6 +254,19 @@
   font-weight: lighter;
 }
 
+.box>.title .deleteMenu {
+  width: 100%;
+  left: 0;
+  top: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: lighter;
+  cursor: pointer;
+}
+
+.box>.title .deleteMenu:hover {
+  outline: #efefef88 solid 2px;
+}
+
 .box .subtitle {
   text-align: left;
   margin: 0;

@@ -202,6 +202,9 @@ export class ItemBox extends React.PureComponent {
             <div className="title">
               <input type="text" value={this.state.itemPair.description} size={this.state.itemPair.description.length > 30 ? this.state.itemPair.description.length - 10 : 20} onInput={this.handleChange}></input>
               <div className="disableSelect">({this.state.itemPair.id})</div>
+              {this.props.isFocus && <div className="deleteMenu">
+                <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>Remove From Scene</div>
+              </div>}
             </div>
             <ReceiveNode id={`receive-node-${this.state.itemPair.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
             {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
