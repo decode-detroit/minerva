@@ -12,7 +12,7 @@ export class ViewArea extends React.PureComponent {
     this.state = {
       sceneId: -1, // the current scene id
       idList: [], // list of all shown item ids
-      focusId: 0, // the highlighted item box
+      focusId: -1, // the highlighted item box
       connections: [], // list of all connectors
       cursorX: 0, // starting point of the cursor
       cursorY: 0,
@@ -37,6 +37,7 @@ export class ViewArea extends React.PureComponent {
     // Hide the menu
     this.setState({
       isMenuVisible: false,
+      focusId: -1,
     });
   }
 
@@ -220,10 +221,12 @@ export class ViewArea extends React.PureComponent {
   render() {
     return (
       <>
-        <SceneMenu value={this.state.sceneId} changeScene={this.changeScene}/>
+        <SceneMenu value={this.state.sceneId} changeScene={this.changeScene} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
-          <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications}/>
-          {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
+          {this.state.sceneId !== -1 && <>
+            <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications}/>
+            {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
+          </>}
         </div>
       </>
     );
@@ -239,6 +242,7 @@ export class EditArea extends React.PureComponent {
     this.state = {
       left: 0, // horizontal offset of the area
       top: 0, // vertical offest of the area
+      zoom: 1, // zoom scaling for the edit window
       cursorX: 0, // starting point of the cursor
       cursorY: 0,
     }
@@ -247,6 +251,7 @@ export class EditArea extends React.PureComponent {
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.handleWheel = this.handleWheel.bind(this);
   }
 
   // Function to respond to clicking the area
@@ -259,7 +264,7 @@ export class EditArea extends React.PureComponent {
     document.onmousemove = this.handleMouseMove;
     document.onmouseup = this.handleMouseClose;
 
-    // Save the cursor position, hide the menu
+    // Save the cursor position, deselect any focus
     this.setState({
       cursorX: e.clientX,
       cursorY: e.clientY,
@@ -303,6 +308,44 @@ export class EditArea extends React.PureComponent {
     document.onmouseup = null;
   }
 
+  // Function to respond to wheel events
+  handleWheel(event) {
+    // Zoom out
+    if (event.deltaY > 0) {
+      this.setState(prevState => {
+        // Decrement the zoom
+        let newZoom = prevState.zoom - (event.deltaY / 5000);
+        
+        // Check bounds
+        if (newZoom < 0.5) {
+          newZoom = 0.5;
+        }
+
+        // Update
+        return ({
+          zoom: newZoom,
+        })
+      });
+    
+    // Zoom in
+    } else {
+      this.setState(prevState => {
+        // Decrement the zoom
+        let newZoom = prevState.zoom - (event.deltaY / 5000);
+        
+        // Check bounds
+        if (newZoom > 1) {
+          newZoom = 1;
+        }
+
+        // Update
+        return ({
+          zoom: newZoom,
+        })
+      });
+    }
+  }
+
   // Render the draggable edit area
   render() {
     // Create a box for each event
@@ -311,7 +354,7 @@ export class EditArea extends React.PureComponent {
     
     // Render the event boxes
     return (
-      <div className="editArea" style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={this.handleMouseDown}>
+      <div className="editArea" style={{ left: `calc(${this.state.left}px - (250% * ${1 - this.state.zoom}))`, top: `calc(${this.state.top}px - (250% * ${1 - this.state.zoom}))`, transform: `scale(${this.state.zoom})` }} onMouseDown={this.handleMouseDown} onWheel={this.handleWheel}>
         <LineArea connections={this.props.connections}/>
         {boxes}
       </div>

@@ -160,6 +160,17 @@ pub enum Modification {
         item_id: ItemId,
         scene: Option<Scene>,
     },
+
+    /// A modification to remove an item and any event, scene, or status connected to it
+    /// 
+    /// # WARNING
+    /// 
+    /// This does not remove dangling references to the item that may appear in other items.
+    /// 
+    #[serde(rename_all = "camelCase")]
+    RemoveItem {
+        item_id: ItemId
+    },
 }
 
 /// An enum to specify the type of detail request

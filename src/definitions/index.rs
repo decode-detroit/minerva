@@ -105,7 +105,7 @@ impl IndexAccess {
     /// A method to remove an item from the index
     /// Returns true if the item was found and false otherwise.
     ///
-    pub async fn _remove_item(&self, item_id: ItemId) -> bool {
+    pub async fn remove_item(&self, item_id: ItemId) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
         if let Err(_) = self

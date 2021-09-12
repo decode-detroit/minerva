@@ -18,12 +18,10 @@ export class ItemBox extends React.PureComponent {
       top: 0, // vertical offest of the area
       cursorX: 0, // starting point of the cursor
       cursorY: 0,
-      itemPair: { // placeholder for the real data
-        id: 0,
-        description: "Loading ...",
-      },
+      description: "Loading ...", // placeholder for the real data
+      display: {},
       type: "",
-    }
+    };
 
     // The timeout to save changes, if set
     this.saveTimeout = null;
@@ -95,7 +93,7 @@ export class ItemBox extends React.PureComponent {
     // Replace the existing location
     this.setState((prevState) =>  {
       // Update the location
-      let newItemPair = changeLocation(prevState.itemPair, prevState.left, prevState.top);
+      let newItemPair = changeLocation({ id: this.props.id, description: prevState.description, display: prevState.display }, prevState.left, prevState.top);
 
       // Save the changes
       this.props.saveModifications([{
@@ -124,7 +122,8 @@ export class ItemBox extends React.PureComponent {
         let location = getLocation(json.item.itemPair);
         if (location) {
           this.setState({
-            itemPair: json.item.itemPair,
+            description: json.item.itemPair.description,
+            display: json.item.itemPair.display,
             left: location.left,
             top: location.top,
           });
@@ -132,7 +131,8 @@ export class ItemBox extends React.PureComponent {
         // If not location, just save the itemPair
         } else {
           this.setState({
-            itemPair: json.item.itemPair,
+            description: json.item.itemPair.description,
+            display: json.item.itemPair.display,
           });
         }
       }
@@ -173,7 +173,7 @@ export class ItemBox extends React.PureComponent {
 
     // Replace the existing description
     this.setState(prevState => ({
-      itemPair: {...prevState.itemPair, description: value},
+      description: value,
     }));
 
     // CLear the existing timeout, if it exists
@@ -184,7 +184,7 @@ export class ItemBox extends React.PureComponent {
     // Save the changes after a second pause
     let modifications = [{
       modifyItem: {
-        itemPair: {...this.state.itemPair, description: value},
+        itemPair: { id: this.props.id, description: value, display: this.state.display },
       },
     }];
     this.saveTimeout = setTimeout(() => {
@@ -200,13 +200,13 @@ export class ItemBox extends React.PureComponent {
         {this.state.type !== "" &&
           <div className={`box ${this.state.type} ${this.props.isFocus ? 'focus' : ''}`} style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
             <div className="title">
-              <input type="text" value={this.state.itemPair.description} size={this.state.itemPair.description.length > 30 ? this.state.itemPair.description.length - 10 : 20} onInput={this.handleChange}></input>
-              <div className="disableSelect">({this.state.itemPair.id})</div>
-              {this.props.isFocus && <div className="deleteMenu">
+              <input type="text" value={this.state.description} size={this.state.description.length > 30 ? this.state.description.length - 10 : 20} onInput={this.handleChange}></input>
+              <div className="disableSelect">({this.props.id})</div>
+              {this.props.isFocus && <div className="deleteMenu disableSelect">
                 <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>Remove From Scene</div>
               </div>}
             </div>
-            <ReceiveNode id={`receive-node-${this.state.itemPair.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
+            <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
             {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
             {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
             {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}

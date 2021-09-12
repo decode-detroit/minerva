@@ -45,6 +45,63 @@
   overflow: hidden;
 }
 
+.deleteConfirmMenu {
+  position: absolute;
+  z-index: 10;
+  width: 200px;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 0.9rem;
+}
+
+.deleteConfirmMenu .title {
+  background-color: #a84646;
+  text-align: center;
+  margin: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 0.3rem;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.deleteConfirmMenu .subtitle {
+  background-color: #4d5564;
+  text-align: center;
+  margin: 0;
+  border-radius: 0;
+  padding: 0.3rem 0.3rem 0 0.3rem;
+  font-size: 1rem;
+}
+
+.deleteConfirmMenu .id {
+  background-color: #4d5564;
+  text-align: center;
+  margin: 0;
+  border-radius: 0;
+  padding: 0 0.3rem 0.3rem 0.3rem;
+  font-size: 0.7rem;
+}
+
+.deleteConfirmMenu .deleteConfirm {
+  background-color: #a84646;
+}
+
+.multiButton {
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.multiButton>div {
+  padding: 0.3rem;
+  cursor: pointer;
+}
+
+.multiButton>div:hover {
+  outline: #efefef88 solid 2px;
+}
+
 .sceneMenu {
   position: absolute;
   top: calc(2.5rem - 1px);
@@ -76,6 +133,12 @@
   font-size: 1rem;
   cursor: pointer;
   line-height: 1;
+}
+
+.deleteScene {
+  font-size: 0.7rem;
+  padding: 0 0.7rem;
+  cursor: pointer;
 }
 
 .addMenu {
@@ -263,7 +326,7 @@
   cursor: pointer;
 }
 
-.box>.title .deleteMenu:hover {
+.box>.title .deleteMenu>div:hover {
   outline: #efefef88 solid 2px;
 }
 

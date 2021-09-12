@@ -264,7 +264,7 @@ mod tests {
         assert_eq!(desc2, index_access.get_description(&id1).await);
 
         // Delete a description and verify the change
-        assert_eq!(true, index_access._remove_item(id1).await);
+        assert_eq!(true, index_access.remove_item(id1).await);
         assert_eq!(
             false,
             index_access.is_listed(&id1).await

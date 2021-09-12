@@ -622,11 +622,11 @@ impl SystemInterface {
                                     )
                                     .await
                                 {
-                                    log!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
+                                    log!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
 
                                 // If not, notify that the item was updated
                                 } else {
-                                    log!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
+                                    log!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
                                 }
                             }
 
@@ -654,6 +654,22 @@ impl SystemInterface {
                             // Add or modify the scene
                             Modification::ModifyScene { item_id, scene } => {
                                 handler.edit_scene(item_id, scene).await;
+                            }
+
+                            // Remove an item and its event, status, or scene
+                            Modification::RemoveItem { item_id } => {
+                                // Remove any event, status, or scene
+                                handler.edit_event(item_id, None).await;
+                                handler.edit_status(item_id, None).await;
+                                handler.edit_scene(item_id, None).await;
+
+                                // Get the description
+                                let description = self.index_access.get_description(&item_id).await;
+
+                                // Remove the entry in the item index
+                                if self.index_access.remove_item(item_id).await  {
+                                    log!(update &self.internal_send => "Item Deleted: {}", description);
+                                } // ignore errors
                             }
                         }
                     }

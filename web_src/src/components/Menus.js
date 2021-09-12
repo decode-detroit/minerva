@@ -1,6 +1,77 @@
 import React from 'react';
 import { autoSave, asyncForEach, stopPropogation } from './functions';
 
+// A menu pop-up for deleting items
+export class DeleteMenu extends React.PureComponent {  
+  // Class constructor
+  constructor(props) {
+    // Collect props and set initial state
+    super(props);
+
+    // Set initial state
+    this.state = {
+      description: "Loading ...",
+    };
+
+    // Bind the various functions
+    this.updateItem = this.updateItem.bind(this);
+    this.deleteItem = this.deleteItem.bind(this);
+  }
+
+  // Helper function to update the item information
+  async updateItem() {
+    try {
+      // Fetch the description of the status
+      let response = await fetch(`getItem/${this.props.id}`);
+      const json = await response.json();
+
+      // If valid, save the result to the state
+      if (json.item.isValid) {
+        // Save the itemPair
+        this.setState({
+          description: json.item.itemPair.description,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // Helper function to remove all data associated with an item id
+  deleteItem() {
+    // Save the change
+    let modifications = [{
+      removeItem: {
+        itemId: { id: this.props.id },
+      },
+    }];
+    this.props.saveModifications(modifications);
+  }
+
+  // On initial load, pull item information
+  componentDidMount() {
+    // Pull the item information
+    this.updateItem();
+  }
+
+  // Render the edit menu
+  render() {
+    return (
+      <div className="deleteConfirmMenu">
+        <div className="title">Are you sure you want to delete this item?</div>
+        <div className="subtitle disableSelect">{this.state.description}</div>
+        <div className="id disableSelect">({this.props.id})</div>
+        <div className="multiButton">
+          <div onClick={this.props.closeMenu}>Cancel</div>
+          <div className="deleteConfirm" onClick={() => {this.deleteItem(); this.props.closeMenu()}}>Confirm</div>
+        </div>
+      </div>
+    );
+  }
+}
+
 // A menu for the edit items
 export class EditMenu extends React.PureComponent {  
   // Class constructor
@@ -27,8 +98,10 @@ export class SceneMenu extends React.PureComponent {
     // Collect props and set initial state
     super(props);
     this.state = {
-      sceneList: [{id: -1, description: "Any"}],
+      sceneList: [{id: -1, description: " "}],
       flag: true,
+      isDeleteVisible: false,
+      deleteId: -1,
     }
 
     // Bind functions
@@ -45,7 +118,7 @@ export class SceneMenu extends React.PureComponent {
       // If the response is valid
       if (json.items.isValid) {
         // Get the detail of each item
-        let sceneList = [{id: -1, description: "Any"}];
+        let sceneList = [{id: -1, description: " "}];
         await asyncForEach(json.items.items, async (item) => {
           // Fetch the description of the item
           response = await fetch(`/getItem/${item.id}`);
@@ -75,7 +148,10 @@ export class SceneMenu extends React.PureComponent {
   // Control the view of the component
   handleChange(e) {
     // Pass the change upstream
-    this.props.changeScene(e.target.value);
+    this.props.changeScene(parseInt(e.target.value));
+
+    // Save the delete id
+    this.setState({ deleteId: parseInt(e.target.value) });
   }
   
   // Render the scene menu
@@ -87,12 +163,14 @@ export class SceneMenu extends React.PureComponent {
     // Return the complete menu
     return (
       <div className="sceneMenu">
-        <div className="title">
-          Show Items From Scene:
-        </div>
+        <div className="title">Show Items From Scene:</div>
         <select className="select" value={this.props.value} onChange={this.handleChange}>
           {options}
         </select>
+        <div className="deleteScene" onMouseDown={() => {this.setState({ isDeleteVisible: true })}}>
+          Delete<br/>Scene
+          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
+        </div>
       </div>
     );
   }
@@ -392,3 +470,4 @@ export class AddActionMenu extends React.PureComponent {
     );
   }
 }
+

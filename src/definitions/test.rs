@@ -118,7 +118,7 @@ impl IndexAccess {
     /// A method to remove an item from the index
     /// Returns true if the item was found and false otherwise.
     ///
-    pub async fn _remove_item(&self, item_id: ItemId) -> bool {
+    pub async fn remove_item(&self, item_id: ItemId) -> bool {
         // Lock access
         if let Ok(index) = self.index.lock() {
             return IndexAccess::modify_item(index, item_id, None);
