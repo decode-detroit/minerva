@@ -76,9 +76,6 @@ pub enum DisplaySetting {
     /// A variant to change the debug mode of the display
     DebugMode(bool),
 
-    /// A variant to change the edit mode of the display
-    EditMode(bool),
-
     /// A variant to change the font size of the display
     LargeFont(bool),
 

@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "0.9.3"
+version = "0.9.4"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Interactive Show Control Software"
 license = "GPL-3.0-or-later"
@@ -16,9 +16,11 @@ fnv = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 serde_json = "1.0"
-gdk = "^0"
-gdk-pixbuf = "0.9"
-glib = "0.10"
+gtk = "0.14"
+gdk = "0.14"
+gio = "0.14"
+gdk-pixbuf = "0.14"
+glib = "0.14"
 cairo-rs = "^0"
 redis = "0.21"
 serial = "0.4"
@@ -32,14 +34,6 @@ async-stream = "0.3"
 futures-util = "0.3"
 tracing = "0.1"
 tracing-subscriber = "0.2"
-
-[dependencies.gtk]
-version = "0.9"
-features = ["v3_16"]
-
-[dependencies.gio]
-version = ""
-features = ["v2_44"]
 
 [features]
 no_can_limit = []

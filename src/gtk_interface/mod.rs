@@ -38,6 +38,7 @@ use self::menu::MenuAbstraction;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::mpsc;
+use std::time::Duration;
 
 // Import GTK and GDK libraries
 use glib;
@@ -45,7 +46,7 @@ use gtk;
 use gtk::prelude::*;
 
 // Define user interface constants
-const REFRESH_RATE: u32 = 100; // the display refresh rate in milliseconds
+const REFRESH_RATE: u64 = 100; // the display refresh rate in milliseconds
 
 /// A structure to contain the user interface and handle all updates to the
 /// to the interface.
@@ -97,7 +98,7 @@ impl GtkInterface {
             user_interface.check_updates(&interface_receive);
             Continue(true) // continue looking for updates indefinitely
         });
-        glib::timeout_add_local(REFRESH_RATE, update_interface); // triggers once every 100ms
+        glib::timeout_add_local(Duration::from_millis(REFRESH_RATE), update_interface); // triggers once every 100ms
 
         // Return the new GtkInterface
         user_interface
@@ -165,12 +166,6 @@ impl GtkInterface {
                             interface.select_debug(is_debug);
                             self.gtk_send.send(UserRequest::DebugMode(is_debug));
                             self.gtk_send.send(UserRequest::Redraw);
-                        }
-
-                        // Change the edit mode of the display
-                        DisplaySetting::EditMode(is_edit) => {
-                            // Switch the interface edit mode
-                            interface.select_edit(is_edit);
                         }
 
                         // Change the font size of the display
@@ -241,10 +236,8 @@ impl GtkInterface {
                             interface.update_trigger(reply);
                         }
 
-                        // Pass the reply to the edit window
-                        _ => {
-                            interface.update_edit_item(reply_to, reply);
-                        }
+                        // Ignore all other messages
+                        _ => (),
                     }
                 }
 

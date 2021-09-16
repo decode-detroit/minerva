@@ -41,9 +41,8 @@ use fnv;
 
 // Import GTK and GDK libraries
 #[cfg(feature = "media-out")]
-use self::gdk::{Cursor, WindowExt};
+use gdk::Cursor;
 use self::gtk::prelude::*;
-use gdk;
 use gtk;
 
 // Import Gstreamer Library
@@ -126,7 +125,7 @@ impl StatusDialog {
         status_selection.connect_changed(clone!(state_box, state_map => move |dropdown| {
 
             // Remove all the existing items in the state box and vector
-            let to_remove = state_box.get_children();
+            let to_remove = state_box.children();
             for item in to_remove {
                 unsafe {
                     item.destroy();
@@ -139,7 +138,7 @@ impl StatusDialog {
             map.clear();
 
             // Identify and forward the selected event
-            if let Some(id_str) = dropdown.get_active_id() {
+            if let Some(id_str) = dropdown.active_id() {
 
                 // Try to parse the requested id
                 if let Ok(id_number) = id_str.parse::<u32>() {
@@ -179,7 +178,7 @@ impl StatusDialog {
 
                                 // Set the current state
                                 if let Some(num) = map.get(&current.get_id()) {
-                                    if let Some(child) = state_box.get_child_at_index(num.clone()) {
+                                    if let Some(child) = state_box.child_at_index(num.clone()) {
                                         state_box.select_child(&child);
                                     }
                                 }
@@ -196,7 +195,7 @@ impl StatusDialog {
         }
 
         // Access the content area and add the dropdown
-        let content = dialog.get_content_area();
+        let content = dialog.content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
 
@@ -230,7 +229,7 @@ impl StatusDialog {
             if id == gtk::ResponseType::Ok {
 
                 // Identify and forward the selected status
-                if let Some(id_status) = status_selection.get_active_id() {
+                if let Some(id_status) = status_selection.active_id() {
 
                     // Try to parse the requested id
                     if let Ok(status_number) = id_status.parse::<u32>() {
@@ -240,10 +239,10 @@ impl StatusDialog {
 
                             // Identify and forward the selected state
                             let mut state = ItemId::new_unchecked(0);
-                            for child in state_box.get_selected_children() {
+                            for child in state_box.selected_children() {
 
                                 // Match the child to the id number
-                                let index = child.get_index();
+                                let index = child.index();
                                 for (id, num) in map.iter() {
                                     if *num == index {
                                         state = id.clone();
@@ -319,7 +318,7 @@ impl JumpDialog {
         }
 
         // Access the content area and add the dropdown
-        let content = dialog.get_content_area();
+        let content = dialog.content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
 
@@ -344,7 +343,7 @@ impl JumpDialog {
             if id == gtk::ResponseType::Ok {
 
                 // Identify and forward the selected scene
-                if let Some(id_scene) = scene_selection.get_active_id() {
+                if let Some(id_scene) = scene_selection.active_id() {
 
                     // Try to parse the requested id
                     if let Ok(scene_number) = id_scene.parse::<u32>() {
@@ -413,7 +412,7 @@ impl ShortcutsDialog {
         dialog.set_position(gtk::WindowPosition::Center);
 
         // Access the content area and add the primary grid
-        let content = dialog.get_content_area();
+        let content = dialog.content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
 
@@ -431,25 +430,21 @@ impl ShortcutsDialog {
         separator.set_halign(gtk::Align::Fill);
         grid.attach(&separator, 0, 1, 2, 1);
 
-        // Populate the grid with any shortcuts
+        // Populate the grid with any shortcuts // FIXME Doesn't currently pull information about key names
         let mut count = 2;
         for (key, id) in self.key_map.iter() {
             // Add the event description
             let description = clean_text(&id.description, DESCRIPTION_LIMIT, false, false, true);
             grid.attach(&gtk::Label::new(Some(&description)), 1, count, 1, 1);
 
-            // Add the shortcut description
-            let key = match gdk::keyval_name(key.clone()) {
+            // Add the shortcut description FIXME
+            let key = String::from("FIXME: Not Implemented");
+            
+            /* match gdk_sys::gdk_keyval_name(key.clone()) {
                 Some(gstring) => String::from(gstring),
                 None => String::from("Invalid Key Code"),
-            };
-            grid.attach(
-                &gtk::Label::new(Some(&format!("  {}  ", key))),
-                0,
-                count,
-                1,
-                1,
-            );
+            };*/
+            grid.attach(&gtk::Label::new(Some(&format!("  {}  ", key))), 0, count, 1, 1);
 
             // Increment the count
             count = count + 1;
@@ -511,7 +506,7 @@ impl ShortcutsDialog {
                 // Attach the handler
                 self.window.connect_key_press_event(move |_, key_press| {
                     // Check to see if it matches one of our events
-                    if let Some(id) = key_clone.get(&key_press.get_keyval()) {
+                    if let Some(id) = key_clone.get(&key_press.keyval()) {
                         send_clone.send(UserRequest::ProcessEvent {
                             event: id.get_id(),
                             check_scene: true,
@@ -561,7 +556,7 @@ impl TriggerDialog {
         dialog.set_position(gtk::WindowPosition::Center);
 
         // Access the content area and add the dropdown
-        let content = dialog.get_content_area();
+        let content = dialog.content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
 
@@ -603,12 +598,12 @@ impl TriggerDialog {
         self.description_label = Some(event_description.clone());
 
         // Connect the update description function to the spin button
-        event_spin.connect_property_value_notify(clone!(gtk_send => move |spin| {
+        event_spin.connect_value_notify(clone!(gtk_send => move |spin| {
             // Request a new description from the system
             gtk_send.send(UserRequest::GtkRequest {
                 reply_to: DisplayComponent::TriggerDialog,
                 request: DetailType::Description {
-                    item_id: ItemId::new_unchecked(spin.get_value() as u32),
+                    item_id: ItemId::new_unchecked(spin.value() as u32),
                 }
             });
         }));
@@ -661,11 +656,11 @@ impl TriggerDialog {
         // Make changes to the interface when trigger now is changed
         now_checkbox.connect_toggled(clone!(broadcast_checkbox, scene_checkbox, delay_separator, delay_label, minutes_label, seconds_label, minutes_spin, seconds_spin => move | checkbox | {
             // Make the other two checkboxes visible
-            if checkbox.get_active() {
+            if checkbox.is_active() {
                 broadcast_checkbox.show();
 
                 // Check to make sure broadcast isn't selected
-                if !broadcast_checkbox.get_active() {
+                if !broadcast_checkbox.is_active() {
                     scene_checkbox.show();
                 }
 
@@ -695,7 +690,7 @@ impl TriggerDialog {
         // Make sure the scene checkbox is hidden when broadcast is selected
         broadcast_checkbox.connect_toggled(clone!(scene_checkbox => move | checkbox | {
             // Make sure the checkbox is hidden
-            if checkbox.get_active() {
+            if checkbox.is_active() {
                 scene_checkbox.hide();
 
             // Otherwise show it
@@ -709,10 +704,10 @@ impl TriggerDialog {
             // Notify the system of the event change
             if id == gtk::ResponseType::Ok {
                 // If trigger now is not selected, send a delayed event
-                if !now_checkbox.get_active() {
+                if !now_checkbox.is_active() {
                     // Extract the delay times
-                    let minutes = minutes_spin.get_value() as u32;
-                    let seconds = seconds_spin.get_value() as u32;
+                    let minutes = minutes_spin.value() as u32;
+                    let seconds = seconds_spin.value() as u32;
 
                     // Compose the new delay
                     let mut delay = None;
@@ -721,14 +716,14 @@ impl TriggerDialog {
                     }
 
                     // Send the new event
-                    gtk_send.send(UserRequest::CueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.get_value() as u32))});
+                    gtk_send.send(UserRequest::CueEvent { event_delay: EventDelay::new(delay, ItemId::new_unchecked(event_spin.value() as u32))});
 
                 // If broadcast is selected, send a broadcast event
-                } else if broadcast_checkbox.get_active() {
-                    gtk_send.send(UserRequest::BroadcastEvent { event_id: ItemId::new_unchecked(event_spin.get_value() as u32), data: None});
+                } else if broadcast_checkbox.is_active() {
+                    gtk_send.send(UserRequest::BroadcastEvent { event_id: ItemId::new_unchecked(event_spin.value() as u32), data: None});
 
                 // Otherwise, send the event to be processed by the system
-                } else { gtk_send.send(UserRequest::ProcessEvent { event: ItemId::new_unchecked(event_spin.get_value() as u32), check_scene: scene_checkbox.get_active(), broadcast: true});
+                } else { gtk_send.send(UserRequest::ProcessEvent { event: ItemId::new_unchecked(event_spin.value() as u32), check_scene: scene_checkbox.is_active(), broadcast: true});
                 }
             }
 
@@ -800,7 +795,7 @@ impl PromptStringDialog {
         dialog.set_position(gtk::WindowPosition::Center);
 
         // Access the content area and add the dropdown
-        let content = dialog.get_content_area();
+        let content = dialog.content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
 
@@ -831,9 +826,9 @@ impl PromptStringDialog {
             if id == gtk::ResponseType::Ok {
 
                 // Extract the completed text
-                let start = buffer.get_start_iter();
-                let end = buffer.get_end_iter();
-                if let Some(gtext) = buffer.get_text(&start, &end, false) {
+                let start = buffer.start_iter();
+                let end = buffer.end_iter();
+                if let Some(gtext) = buffer.text(&start, &end, false) {
 
                     // Convert the text into bytes
                     let mut bytes = gtext.to_string().into_bytes();
@@ -914,7 +909,7 @@ impl VideoWindow {
     pub fn clear_all(&mut self) {
         // Destroy any open windows
         for (_, overlay) in self.overlay_map.drain() {
-            if let Some(window) = overlay.get_parent() {
+            if let Some(window) = overlay.parent() {
                 unsafe {
                     window.destroy();
                 }
@@ -954,7 +949,7 @@ impl VideoWindow {
             let video_overlay = &video_stream.video_overlay;
 
             // Try to get a copy of the GDk window
-            let gdk_window = match video_area.get_window() {
+            let gdk_window = match video_area.window() {
                 Some(window) => window,
                 None => {
                     println!("Unable to get current window for video overlay.");
@@ -963,8 +958,8 @@ impl VideoWindow {
             };
 
             // Set the window cursor to blank
-            let display = gdk_window.get_display();
-            let cursor = Cursor::new_for_display(&display, gdk::CursorType::BlankCursor);
+            let display = gdk_window.display();
+            let cursor = Cursor::for_display(&display, gdk::CursorType::BlankCursor);
             gdk_window.set_cursor(Some(&cursor));
 
             // Check to make sure the window is native
@@ -974,7 +969,7 @@ impl VideoWindow {
             }
 
             // Extract the display type of the window
-            let display_type = gdk_window.get_display().get_type().name();
+            let display_type = gdk_window.display().type_().name();
 
             // Switch based on the platform
             #[cfg(target_os = "linux")]
@@ -1060,7 +1055,7 @@ impl VideoWindow {
         background.connect_draw(|_, cr| {
             // Draw the background black
             cr.set_source_rgb(0.0, 0.0, 0.0);
-            cr.paint();
+            cr.paint().unwrap_or(());
             Inhibit(true)
         });
 
@@ -1074,7 +1069,7 @@ impl VideoWindow {
             // Try to get the channel map
             if let Ok(map) = channel_map.try_borrow() {
                 // Look up the name in the channel map
-                if let Some(allocation) = map.get(&widget.get_widget_name().to_string()) {
+                if let Some(allocation) = map.get(&widget.widget_name().to_string()) {
                     // Return the completed allocation
                     return Some(allocation.clone());
                 }

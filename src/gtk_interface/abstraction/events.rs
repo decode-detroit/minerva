@@ -177,14 +177,14 @@ impl EventAbstraction {
     ///
     pub fn clear(&mut self) {
         // Remove all the the children from the left and right grids
-        let to_remove = self.left_grid.get_children();
+        let to_remove = self.left_grid.children();
         for item in to_remove {
             item.hide(); // necessary for proper functioning of the spotlight feature
             unsafe {
                 item.destroy();
             }
         }
-        let to_remove = self.right_grid.get_children();
+        let to_remove = self.right_grid.children();
         for item in to_remove {
             item.hide(); // necessary for proper functioning of the spotlight feature
             unsafe {
@@ -193,7 +193,7 @@ impl EventAbstraction {
         }
 
         // Remove all the children in the side panel grid
-        let to_remove = self.side_panel.get_children();
+        let to_remove = self.side_panel.children();
         for item in to_remove {
             item.hide(); // necessary for proper functioning of the spotlight feature
             unsafe {

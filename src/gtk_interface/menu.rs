@@ -95,11 +95,6 @@ impl MenuAbstraction {
 
         // Organize the edit section of the menu
         edit_section.append(Some("New Edit Window"), Some("app.new_edit"));
-        edit_section.append(Some("_Edit Mode"), Some("app.edit_mode"));
-        edit_section.append(Some("Save Config"), Some("app.save_config"));
-        modify_section.append(Some("New Scene"), Some("app.new_scene"));
-        modify_section.append(Some("New Status"), Some("app.new_status"));
-        modify_section.append(Some("New Event"), Some("app.new_event"));
         modify_section.append(Some("List Audio Devices"), Some("app.list_audio"));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &edit_section));
         edit_menu.append_item(&gio::MenuItem::new_section(None, &modify_section));
@@ -132,7 +127,7 @@ impl MenuAbstraction {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
-                    if let Some(filepath) = chooser.get_filename() {
+                    if let Some(filepath) = chooser.filename() {
                         gtk_send.send(UserRequest::ConfigFile { filepath: Some(filepath), });
                     }
                 }
@@ -162,7 +157,7 @@ impl MenuAbstraction {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
-                    if let Some(filepath) = chooser.get_filename() {
+                    if let Some(filepath) = chooser.filename() {
                         gtk_send.send(UserRequest::GameLog { filepath, });
                     }
                 }
@@ -192,7 +187,7 @@ impl MenuAbstraction {
 
                 // Notify the system of the new configuration file
                 if id == gtk::ResponseType::Ok {
-                    if let Some(filepath) = chooser.get_filename() {
+                    if let Some(filepath) = chooser.filename() {
                         gtk_send.send(UserRequest::ErrorLog { filepath, });
                     }
                 }
@@ -228,7 +223,7 @@ impl MenuAbstraction {
         fullscreen.connect_activate(clone!(interface_send => move |checkbox, _| {
 
             // Update the fullscreen status of the window
-            if let Some(state) = checkbox.get_state() {
+            if let Some(state) = checkbox.state() {
 
                 // Default to false if unable to get the current state of checkbox
                 let is_fullscreen = state.get().unwrap_or(false);
@@ -245,7 +240,7 @@ impl MenuAbstraction {
         let debug = gio::SimpleAction::new_stateful("debug_mode", None, &false.to_variant());
         debug.connect_activate(clone!(interface_send => move |checkbox, _| {
             // Update the debug status of the program
-            if let Some(state) = checkbox.get_state() {
+            if let Some(state) = checkbox.state() {
                 // Default to false if unable to get the current state of checkbox
                 let is_debug = state.get().unwrap_or(false);
 
@@ -261,7 +256,7 @@ impl MenuAbstraction {
         let font = gio::SimpleAction::new_stateful("large_font", None, &false.to_variant());
         font.connect_activate(clone!(interface_send => move |checkbox, _| {
             // Update the font size of the program
-            if let Some(state) = checkbox.get_state() {
+            if let Some(state) = checkbox.state() {
                 // Default to false if unable to get the current state of checkbox
                 let is_large = state.get().unwrap_or(false);
 
@@ -277,7 +272,7 @@ impl MenuAbstraction {
         let contrast = gio::SimpleAction::new_stateful("contrast", None, &false.to_variant());
         contrast.connect_activate(clone!(interface_send => move |checkbox, _| {
             // Update the high contrast state of the program
-            if let Some(state) = checkbox.get_state() {
+            if let Some(state) = checkbox.state() {
                 // Default to false if unable to get the current state of checkbox
                 let is_hc = state.get().unwrap_or(false);
 
@@ -347,95 +342,6 @@ impl MenuAbstraction {
             gtk::show_uri(None, "http://localhost:64637", 0).unwrap_or(());
         });
 
-        // Create the edit mode action (toggles availability of the other edit actions)
-        let edit = gio::SimpleAction::new_stateful("edit_mode", None, &false.to_variant());
-
-        // Create the save game configuration action
-        let save_config = gio::SimpleAction::new("save_config", None);
-        save_config.connect_activate(clone!(window, gtk_send, edit => move |_, _| {
-
-            // Check if we're in edit mode
-            if let Some(state) = edit.get_state() {
-
-                // Get the current state of the checkbox
-                let is_edit = state.get().unwrap_or(false);
-                if is_edit {
-
-                    // Creaate and launch a new save config chooser dialog
-                    let dialog = gtk::FileChooserDialog::new(Some("Save Config To File"), Some(&window), gtk::FileChooserAction::Save);
-                    dialog.set_position(gtk::WindowPosition::Center);
-
-                    // Connect the close event for when the dialog is complete
-                    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
-                    dialog.add_button("Confirm", gtk::ResponseType::Ok);
-                    dialog.connect_response(clone!(gtk_send => move |chooser, id| {
-
-                        // Notify the system of the new configuration file
-                        if id == gtk::ResponseType::Ok {
-                            if let Some(filepath) = chooser.get_filename() {
-                                gtk_send.send(UserRequest::SaveConfig { filepath, });
-                            }
-                        }
-
-                        // Close the window either way
-                        unsafe {
-                            chooser.destroy();
-                        }
-                    }));
-
-                    // Show the dialog
-                    dialog.show_all();
-                }
-            }
-        }));
-
-        // Create the new scene dialog action
-        let new_scene = gio::SimpleAction::new("new_scene", None);
-        new_scene.connect_activate(clone!(edit => move |_, _| {
-
-            // Check if we're in edit mode
-            if let Some(state) = edit.get_state() {
-
-                // Get the current state of the checkbox
-                let is_edit = state.get().unwrap_or(false);
-                if is_edit {
-
-                    // Launch the scene dialog
-                    // FIXME user_interface.launch_new_scene_dialog(&window);
-                }
-            }
-        }));
-
-        // Create the new status dialog action
-        let new_status = gio::SimpleAction::new("new_status", None);
-        new_status.connect_activate(clone!(edit => move |_, _| {
-            // Check if we're in edit mode
-            if let Some(state) = edit.get_state() {
-                // Get the current state of the checkbox
-                let is_edit = state.get().unwrap_or(false);
-                if is_edit {
-
-                    // Launch the status dialog
-                    // FIXME user_interface.launch_new_status_dialog(&window);
-                }
-            }
-        }));
-
-        // Create the new event dialog action
-        let new_event = gio::SimpleAction::new("new_event", None);
-        new_event.connect_activate(clone!(edit => move |_, _| {
-            // Check if we're in edit mode
-            if let Some(state) = edit.get_state() {
-                // Get the current state of the checkbox
-                let is_edit = state.get().unwrap_or(false);
-                if is_edit {
-
-                    // Launch the edit event dialog
-                    // FIXME user_interface.launch_new_event_dialog();
-                }
-            }
-        }));
-
         // Create the list audio devices action
         let list_audio = gio::SimpleAction::new("list_audio", None);
         list_audio.connect_activate(|_, _| {
@@ -456,39 +362,6 @@ impl MenuAbstraction {
                 println!("Error: This feature requires 'aplay'.");
             }
         });
-
-        // Connect the edit mode action
-        edit.connect_activate(clone!(interface_send, application, save_config, new_event, new_status, new_scene => move |checkbox, _| {
-
-            // Update the edit status of the program
-            if let Some(state) = checkbox.get_state() {
-
-                // Swap the current state of the checkbox
-                let is_edit = !state.get().unwrap_or(true);
-
-                // Update the rest of the interface (to the opposite of the current state)
-                interface_send.sync_send(InterfaceUpdate::ChangeSettings { display_setting: DisplaySetting::EditMode(is_edit) });
-
-                // Swap the checkbox state
-                checkbox.change_state(&(is_edit).to_variant());
-
-                // Change the availability of the other actions
-                if is_edit {
-                    // Enable the other actions
-                    application.add_action(&save_config);
-                    application.add_action(&new_event);
-                    application.add_action(&new_status);
-                    application.add_action(&new_scene);
-
-                // Otherwise disable the other actions
-                } else {
-                    application.remove_action("save_config");
-                    application.remove_action("new_event");
-                    application.remove_action("new_status");
-                    application.remove_action("new_scene");
-                }
-            }
-        }));
 
         // Create the help dialog action
         let help = gio::SimpleAction::new("help", None);
@@ -538,7 +411,6 @@ impl MenuAbstraction {
         application.add_action(&font);
         application.add_action(&contrast);
         application.add_action(&new_edit);
-        application.add_action(&edit);
         application.add_action(&list_audio);
         application.add_action(&shortcuts);
         application.add_action(&jump);

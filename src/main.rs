@@ -41,7 +41,6 @@ use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
 
 // Import standard library features
-use std::env::args;
 use std::thread;
 
 // Import failure features
@@ -54,9 +53,9 @@ use tracing_subscriber;
 // Import GTK and GIO libraries
 use self::gio::prelude::*;
 use self::gtk::prelude::*;
-use self::gtk::SettingsExt;
 use gio;
 use gtk;
+use gtk::traits::SettingsExt;
 
 // Import tokio features
 use tokio::runtime::Runtime;
@@ -79,9 +78,9 @@ impl Minerva {
     ///
     pub fn build_program(application: &gtk::Application) {
         // Load the gtk theme for this application
-        if let Some(settings) = gtk::Settings::get_default() {
-            settings.set_property_gtk_theme_name(Some(GTK_THEME));
-            settings.set_property_gtk_font_name(Some(FONT));
+        if let Some(settings) = gtk::Settings::default() {
+            settings.set_gtk_theme_name(Some(GTK_THEME));
+            settings.set_gtk_font_name(Some(FONT));
         }
 
         // Create the tokio runtime
@@ -154,8 +153,7 @@ fn main() {
     tracing_subscriber::fmt::init();
     
     // Create the gtk application window. Failure results in immediate panic!
-    let application = gtk::Application::new(None, gio::ApplicationFlags::empty())
-        .expect("Initialization Failed For Unknown Reasons.");
+    let application = gtk::Application::new(None, gio::ApplicationFlags::empty());
 
     // Create the program and launch the background thread
     application.connect_startup(move |gtk_app| {
@@ -166,5 +164,5 @@ fn main() {
     application.connect_activate(|_| {});
 
     // Run the application until all the windows are closed
-    application.run(&args().collect::<Vec<_>>());
+    application.run();
 }

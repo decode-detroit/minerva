@@ -25,6 +25,7 @@ use crate::definitions::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::u32::MAX as U32_MAX;
+use std::time::Duration;
 
 // Import GTK library
 use glib;
@@ -32,7 +33,7 @@ use gtk;
 use gtk::prelude::*;
 
 // Define module constants
-const FLASH_RATE: u32 = 700;
+const FLASH_RATE: u64 = 700;
 
 /// A macro to make moving clones into closures more convenient
 ///
@@ -285,7 +286,7 @@ pub fn decorate_label(
                         let spotlight_update = clone!(label, markup, highlight_markup, expiration => move || {
                             spotlight_label(label.clone(), markup.clone(), highlight_markup.clone(), expiration.clone())
                         });
-                        glib::timeout_add_local(FLASH_RATE, spotlight_update);
+                        glib::timeout_add_local(Duration::from_millis(FLASH_RATE), spotlight_update);
                     }
                 }
             }
@@ -298,42 +299,6 @@ pub fn decorate_label(
         Hidden { .. } => {
             label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
             return None;
-        }
-    }
-}
-
-/// A helper function to properly color label for editing purposes. The function
-/// sets the markup for the existing label and returns the position from
-/// the DisplayType, if it exists.
-///
-/// This function assumes that the text has already been cleaned and sized.
-///
-pub fn color_label(label: &gtk::Label, text: &str, display: DisplayType, font_size: u32) {
-    // Decorate based on the display type
-    match display {
-        // Match the display control variant
-        DisplayControl { color, .. }
-        | DisplayWith { color, .. }
-        | DisplayDebug { color, .. }
-        | LabelControl { color, .. }
-        | LabelHidden { color, .. } => {
-            // Define the default markup
-            let mut markup = format!("<span size='{}'>{}</span>", font_size, text);
-
-            // Set the markup color, if specified
-            if let Some((red, green, blue)) = color {
-                markup = format!(
-                    "<span color='#{:02X}{:02X}{:02X}' size='{}'>{}</span>",
-                    red, green, blue, font_size, text
-                );
-            }
-            // Set the markup (using the default above if no color was specified)
-            label.set_markup(&markup);
-        }
-
-        // Otherwise, use the default color and position
-        Hidden { .. } => {
-            label.set_markup(&format!("<span size='{}'>{}</span>", font_size, text));
         }
     }
 }
@@ -419,35 +384,4 @@ fn spotlight_label(
 
     // Stop the closure on failure
     Continue(false)
-}
-
-/// A macro that allows the user to set a widget as a drag source,
-/// or a drag destination
-///
-macro_rules! drag {
-    // Set a widget as a drag source
-    (source $widget:expr) => {{
-        $widget.drag_source_set(
-            gdk::ModifierType::MODIFIER_MASK,
-            &vec![gtk::TargetEntry::new(
-                "STRING",
-                gtk::TargetFlags::SAME_APP,
-                10,
-            )],
-            gdk::DragAction::COPY,
-        );
-    }};
-
-    // Set a widget as a drag destination
-    (dest $widget:expr) => {{
-        $widget.drag_dest_set(
-            gtk::DestDefaults::ALL,
-            &vec![gtk::TargetEntry::new(
-                "STRING",
-                gtk::TargetFlags::SAME_APP,
-                10,
-            )],
-            gdk::DragAction::COPY,
-        );
-    }};
 }

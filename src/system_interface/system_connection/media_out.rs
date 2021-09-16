@@ -319,7 +319,7 @@ impl MediaOut {
         loop_media: Arc<Mutex<Option<String>>>,
     ) -> Result<(), Error> {
         // Try to access the playbin bus
-        let bus = match playbin.get_bus() {
+        let bus = match playbin.bus() {
             Some(bus) => bus,
             None => return Err(format_err!("Unable to set loop media: Invalid bus.")),
         };
@@ -461,7 +461,7 @@ impl Drop for MediaOut {
                 .unwrap_or(gst::StateChangeSuccess::Success);
 
             // Try to remove the bus signal watch
-            if let Some(bus) = channel.playbin.get_bus() {
+            if let Some(bus) = channel.playbin.bus() {
                 bus.remove_watch().unwrap_or(());
             }
         }

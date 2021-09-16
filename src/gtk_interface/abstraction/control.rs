@@ -69,7 +69,7 @@ impl ControlAbstraction {
         grid.set_row_spacing(10); // add some space between the rows
 
         // Format the whole grid
-        grid.set_property_width_request(300);
+        grid.set_width_request(300);
         grid.set_hexpand(false);
         grid.set_vexpand(false);
         grid.set_valign(gtk::Align::Fill);
@@ -100,7 +100,7 @@ impl ControlAbstraction {
         notification_area.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
 
         // Format the scrolling window
-        notification_area.set_property_height_request(200);
+        notification_area.set_height_request(200);
         notification_area.set_hexpand(true);
         notification_area.set_vexpand(true);
         notification_area.set_halign(gtk::Align::Start);
@@ -251,7 +251,7 @@ impl ControlAbstraction {
         // Clear the existing notifications in the list
         loop {
             // Iterate through the notifications in the list
-            match self.notification_area_list.get_row_at_index(0) {
+            match self.notification_area_list.row_at_index(0) {
                 // Extract each row and the corresponding notification
                 Some(row) => {
                     // As each row is removed, the next row moves to index zero

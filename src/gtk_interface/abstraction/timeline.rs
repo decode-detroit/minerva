@@ -220,7 +220,7 @@ impl TimelineAdjustment {
                 };
 
                 // Identify the selected ID and adjust accordingly
-                if let Some(id) = dropdown.get_active_id() {
+                if let Some(id) = dropdown.active_id() {
 
                     // If all events are selected
                     if id == "all" {
@@ -259,7 +259,7 @@ impl TimelineAdjustment {
         }
 
         // Access the content area and add the spin buttons
-        let content = dialog.get_content_area();
+        let content = dialog.content_area();
         let grid = gtk::Grid::new();
         content.add(&grid);
 
@@ -297,23 +297,23 @@ impl TimelineAdjustment {
                 };
 
                 // Identify and forward the selected event
-                if let Some(id) = selection.get_active_id() {
+                if let Some(id) = selection.active_id() {
 
                     // If set to the all event
                     if id == "all" {
                         // Use the information to create the time adjustment
-                        let adjustment = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
+                        let adjustment = Duration::from_secs((minutes.value() as u64) * 60 + (seconds.value() as u64));
 
                         // Send an all event update to the system
                         gtk_send.send(UserRequest::AllEventChange {
                             adjustment,
-                            is_negative: cancel_checkbox.get_active(),
+                            is_negative: cancel_checkbox.is_active(),
                         });
 
                     // Look for the corresponding event
                     } else if let Some(event) = events.get(id.as_str()) {
                         // If the event was selected to be canceled
-                        if cancel_checkbox.get_active() {
+                        if cancel_checkbox.is_active() {
                             // Send an event update to the system
                             gtk_send.send(UserRequest::EventChange {
                                 event_id: event.event.get_id(),
@@ -327,7 +327,7 @@ impl TimelineAdjustment {
                             let elapsed = Local::now().naive_local().signed_duration_since(event.start_time).to_std().ok().unwrap_or(Duration::from_millis(0));
                             
                             // Use that information to create the new duration
-                            let mut new_delay = Duration::from_secs((minutes.get_value() as u64) * 60 + (seconds.get_value() as u64));
+                            let mut new_delay = Duration::from_secs((minutes.value() as u64) * 60 + (seconds.value() as u64));
                             new_delay += elapsed;
 
                             // Send an event update to the system
@@ -438,7 +438,7 @@ impl TimelineAbstraction {
         timeline_area.show_all();
 
         // Format the area to be the correct size
-        timeline_area.set_property_height_request(TIMELINE_HEIGHT as i32);
+        timeline_area.set_height_request(TIMELINE_HEIGHT as i32);
         timeline_area.set_hexpand(true);
         timeline_area.set_vexpand(false);
         timeline_area.set_halign(gtk::Align::Fill);
@@ -459,10 +459,10 @@ impl TimelineAbstraction {
         timeline_area.connect_button_press_event(clone!(window => move |area, press| {
 
             // Get the drawable width
-            let width = area.get_allocation().width as f64;
+            let width = area.allocation().width as f64;
 
             // Get the event position
-            let (x, _) = press.get_position();
+            let (x, _) = press.position();
 
             // Try to get a copy of the timeline events
             let mut event_id = None;
@@ -648,10 +648,10 @@ impl TimelineAbstraction {
     ) -> Inhibit {
         // Draw the background dark grey
         cr.set_source_rgb(0.05, 0.05, 0.05);
-        cr.paint();
+        cr.paint().unwrap_or(());
 
         // Get and set the size of the window allocation
-        let allocation = area.get_allocation();
+        let allocation = area.allocation();
         let (width, height) = (allocation.width as f64, allocation.height as f64); // create shortcuts
         cr.scale(width, height);
 
@@ -677,18 +677,18 @@ impl TimelineAbstraction {
         cr.set_line_width(2.0 / height); // 2 pixels wide
         cr.move_to(0.0, 0.75);
         cr.line_to(1.0, 0.75);
-        cr.stroke();
+        cr.stroke().unwrap_or(());
 
         // Draw the current time line
         cr.set_source_rgb(1.0, 1.0, 1.0);
         cr.set_line_width(2.0 / width); // 2 pixels wide
         cr.move_to(NOW_LOCATION, 0.0);
         cr.line_to(NOW_LOCATION, 1.0);
-        cr.stroke();
+        cr.stroke().unwrap_or(());
 
         // Add the current time to the timeline
         cr.move_to(NOW_LOCATION, 0.95);
-        cr.show_text(format!(" {}", Local::now().format("%T")).as_str());
+        cr.show_text(format!(" {}", Local::now().format("%T")).as_str()).unwrap_or(());
 
         // Calculate the time subdivisions
         let duration_secs = info.duration.as_secs();
@@ -729,11 +729,11 @@ impl TimelineAbstraction {
             // Draw the subdivision
             cr.move_to(offset, 0.0);
             cr.line_to(offset, 1.0);
-            cr.stroke();
+            cr.stroke().unwrap_or(());
 
             // Add a time label
             cr.move_to(offset, 0.95);
-            cr.show_text(format!(" {} {}", count * increment, label).as_str());
+            cr.show_text(format!(" {} {}", count * increment, label).as_str()).unwrap_or(());
 
             // Increment the count
             count = count + 1.0;
@@ -980,7 +980,7 @@ impl TimelineAbstraction {
         cr.set_line_width(line_width / width);
         cr.move_to(location, 0.0);
         cr.line_to(location, 0.75);
-        cr.stroke();
+        cr.stroke().unwrap_or(());
 
         // If the event is in focus
         if event.in_focus {
@@ -988,39 +988,39 @@ impl TimelineAbstraction {
             cr.set_line_width(1.0 / TIMELINE_HEIGHT); // 1 pixel
             cr.move_to(location, 0.01);
             cr.line_to(location + (LABEL_SIZE / width), 0.01);
-            cr.stroke();
+            cr.stroke().unwrap_or(());
             cr.move_to(location, 0.72);
             cr.line_to(location + (LABEL_SIZE / width), 0.72);
-            cr.stroke();
+            cr.stroke().unwrap_or(());
             cr.set_line_width(1.0 / width); // 1 pixel
             cr.move_to(location + (LABEL_SIZE / width), 0.0);
             cr.line_to(location + (LABEL_SIZE / width), 0.72);
-            cr.stroke();
+            cr.stroke().unwrap_or(());
 
             // Draw the background of the flag
             cr.set_source_rgb(0.05, 0.05, 0.05);
             cr.set_line_width(0.7);
             cr.move_to(location + (2.0 / width), 0.36);
             cr.line_to(location + ((LABEL_SIZE - 2.0) / width), 0.36);
-            cr.stroke();
+            cr.stroke().unwrap_or(());
 
             // Write the event text and the remaining time
             cr.set_source_rgb(1.0, 1.0, 1.0);
             cr.move_to(location + (4.0 / width), 0.22);
             let text = clean_text(&event.event.description(), label_limit, false, false, false);
-            cr.show_text(&text.as_str());
+            cr.show_text(&text.as_str()).unwrap_or(());
 
             // If there is a remaining time, add that as well
             if let Some((min, sec)) = event.remaining() {
                 cr.move_to(location + (4.0 / width), 0.45);
-                cr.show_text(format!("In {:02}:{:02}", min, sec).as_str());
+                cr.show_text(format!("In {:02}:{:02}", min, sec).as_str()).unwrap_or(());
 
                 // Show what time the event will happen
                 let now = Local::now();
                 let future_time =
                     now + ChronoDuration::minutes(min as i64) + ChronoDuration::seconds(sec as i64);
                 cr.move_to(location + (4.0 / width), 0.68);
-                cr.show_text(format!("At {}", future_time.format("%H:%M")).as_str());
+                cr.show_text(format!("At {}", future_time.format("%H:%M")).as_str()).unwrap_or(());
             }
         }
     }

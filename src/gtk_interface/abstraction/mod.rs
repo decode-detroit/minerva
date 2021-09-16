@@ -22,7 +22,6 @@
 
 // Define private submodules
 mod control;
-mod edit_item;
 mod events;
 mod operation_dialogs;
 mod timeline;
@@ -42,7 +41,6 @@ use self::timeline::TimelineAbstraction;
 use super::utils::clean_text;
 #[cfg(feature = "media-out")]
 use crate::definitions::VideoStream;
-use edit_item::EditWindow;
 
 // Import standard library features
 use std::cell::RefCell;
@@ -69,14 +67,13 @@ const LARGE_FONT: u32 = 14000; // equivalent to 10pt
 pub struct InterfaceAbstraction {
     system_send: GtkSend, // a copy of system send held in the interface abstraction
     interface_send: InterfaceSend, // a copy of the interface send
-    top_element: gtk::Stack, // the stack that contains the operations and edit grids
+    top_element: gtk::Grid, // the element that contains the operations grid
     full_status: Rc<RefCell<FullStatus>>, // a copy of the current full status of the system
     current_window: (ItemPair, Vec<ItemPair>, EventWindow), // a copy of the event window
     timeline: TimelineAbstraction, // the abstraction for the timeline
     control: ControlAbstraction, // the abstraction for the user control window
     events: EventAbstraction, // the abstraction for the event window
     notification_bar: gtk::Statusbar, // the notification bar at the bottom of the window
-    edit_item: EditWindow, // the edit window
     jump_dialog: JumpDialog, // the jump dialog
     status_dialog: StatusDialog, // the status dialog
     shortcuts_dialog: ShortcutsDialog, // the shortcuts dialog
@@ -91,26 +88,15 @@ impl InterfaceAbstraction {
     /// A function to create a return a new interface abstraction to hold the
     /// gtk elements of the program.
     ///
-    /// # Note
-    ///
-    /// These elements are in the process of rapid iteration and should not be
-    /// relied upon for any future stability (even names may change to improve
-    /// clarity).
-    ///
     pub fn new(
         system_send: &GtkSend,
         interface_send: &InterfaceSend,
         window: &gtk::ApplicationWindow,
     ) -> InterfaceAbstraction {
-        // Create the top-level element of the program, a stack to hold both
-        // operations and edit elements
-        let top_element = gtk::Stack::new();
-
         // Populate the operations view
         //
         // Create the operations grid to hold all the operations elements
         let operations_grid = gtk::Grid::new();
-        top_element.add_named(&operations_grid, "ops");
 
         // Set the features of the operations grid
         operations_grid.set_column_homogeneous(false); // Allow everything to adjust
@@ -167,13 +153,7 @@ impl InterfaceAbstraction {
         operations_grid.attach(&side_scroll, 0, 2, 1, 1);
 
         // Show the stack and all elements of the operations grid
-        top_element.show_all();
-
-        // Populate the edit view
-        //
-        // Create the edit item window and add it to the stack
-        let edit_item = EditWindow::new(window, system_send, interface_send);
-        top_element.add_named(edit_item.get_top_element(), "edit");
+        operations_grid.show_all();
 
         // Create internal storage for the full status of the system
         let full_status = Rc::new(RefCell::new(FullStatus::default()));
@@ -191,7 +171,7 @@ impl InterfaceAbstraction {
         InterfaceAbstraction {
             system_send: system_send.clone(),
             interface_send: interface_send.clone(),
-            top_element,
+            top_element: operations_grid,
             full_status,
             current_window: (
                 ItemPair::new_unchecked(1, "", Hidden { edit_location: None }),
@@ -202,7 +182,6 @@ impl InterfaceAbstraction {
             control,
             events,
             notification_bar,
-            edit_item,
             jump_dialog,
             status_dialog,
             shortcuts_dialog,
@@ -217,34 +196,8 @@ impl InterfaceAbstraction {
     /// A method to return a reference to the top element of the interface,
     /// currently primary grid.
     ///
-    pub fn get_top_element(&self) -> &gtk::Stack {
+    pub fn get_top_element(&self) -> &gtk::Grid {
         &self.top_element
-    }
-
-    /// A method to change the user interface to and from edit mode.
-    ///
-    pub fn select_edit(&mut self, is_edit: bool) {
-        // Switch to edit mode
-        if is_edit {
-            // Change the visible window
-            self.top_element
-                .set_visible_child_full("edit", gtk::StackTransitionType::SlideUp);
-
-            // Diable shortcuts
-            self.shortcuts_dialog.enable_shortcuts(false);
-
-            // Refresh the available items
-            self.edit_item.refresh_all();
-
-        // Otherwise, switch to operations mode
-        } else {
-            // Change the visible window
-            self.top_element
-                .set_visible_child_full("ops", gtk::StackTransitionType::SlideDown);
-
-            // Enable shortcuts
-            self.shortcuts_dialog.enable_shortcuts(true);
-        }
     }
 
     /// A method to change the notification level to (or from) debug. If
@@ -332,14 +285,6 @@ impl InterfaceAbstraction {
                 &self.interface_send,
             );
         }
-    }
-
-    // Methods to update the edit item abstraction
-    //
-    /// A method to pass information updates to the edit item window
-    ///
-    pub fn update_edit_item(&self, reply_to: DisplayComponent, reply: ReplyType) {
-        self.edit_item.update_info(reply_to, reply);
     }
 
     /// A method to update the status bar
