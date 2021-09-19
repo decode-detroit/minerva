@@ -1,5 +1,5 @@
 import React from 'react';
-import { autoSave, asyncForEach, stopPropogation } from './functions';
+import { asyncForEach, stopPropogation } from './functions';
 
 // A menu pop-up for deleting items
 export class DeleteMenu extends React.PureComponent {  
@@ -85,7 +85,8 @@ export class EditMenu extends React.PureComponent {
     return (
       <div className="editMenu">
         <div>Minerva</div>
-        <div class={"saveButton" + (this.props.saved ? " inactive" : "")} onClick={() => {autoSave(); this.props.markSaved()}}>Save</div>
+        <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>
+        <div class={"saveButton" + (this.props.saved ? " inactive" : "")} onClick={this.props.saveFile}>Save</div>
       </div>
     );
   }

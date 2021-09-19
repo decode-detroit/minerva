@@ -48,9 +48,6 @@ use tokio::time::sleep;
 // Import the failure features
 use failure::Error;
 
-// Import program constants
-use super::POLLING_RATE; // the polling rate for the system
-
 // Define communication constants
 enum ReadResult {
     // A variant for a successful event read
@@ -400,8 +397,12 @@ impl SystemConnection {
     ) {
         // Run the loop until there is an error or instructed to quit
         loop {
-            // Save the start time of the loop
-            let loop_start = Instant::now();
+            // Check for updates from system connections or the system interface
+            tokio::select!{
+
+
+
+            }
 
             // Read all results from the system connections
             let mut results = Vec::new();
@@ -510,8 +511,11 @@ impl SystemConnection {
 /// event connection across all event connection types.
 ///
 trait EventConnection {
-    /// The read event method
-    fn read_events(&mut self) -> Vec<ReadResult>;
+    /// The event available to read method (cancellation safe)
+    async fn event_available(&mut self) -> bool;
+    
+    /// The read event method (not necessarily cancellation safe)
+    async fn read_event(&mut self) -> Vec<ReadResult>;
 
     /// The write event method (does not check duplicates)
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;

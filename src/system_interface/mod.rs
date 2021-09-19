@@ -48,7 +48,6 @@ use fnv::FnvHashMap;
 use failure::Error as FailureError;
 
 // Define module constants
-const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
 const DEFAULT_FILE: &str = "default"; // the default configuration filename
 const LOG_FOLDER: &str = "log/"; // the default log folder
 const ERROR_LOG: &str = "debug_log.txt"; // the default logging filename
