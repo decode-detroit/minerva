@@ -399,7 +399,7 @@ impl WebInterface {
             }
         });
 
-        // Create the wwebsocket filter
+        // Create the websocket filter
         let listen = warp::path("listen")
             .and(WebInterface::with_clone(listener_send.clone()))
             .and(warp::ws())
@@ -432,14 +432,16 @@ impl WebInterface {
             .and_then(WebInterface::handle_request);
 
         // Create the all stop filter
-        let all_stop = warp::path("allStop")
+        let all_stop = warp::post()
+            .and(warp::path("allStop"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_request(UserRequest::AllStop))
             .and_then(WebInterface::handle_request);
         
         // Create the broadcast event filter
-        let broadcast_event = warp::path("broadcastEvent")
+        let broadcast_event = warp::post()
+            .and(warp::path("broadcastEvent"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_json::<BroadcastEvent>())
@@ -607,13 +609,13 @@ impl WebInterface {
 
         // Create the main page filter
         let main_page = warp::get()
-            .and(warp::fs::dir("./public/"));
+            .and(warp::fs::dir("./public/")); 
 
         // Combine the filters
         let routes = listen
             .or(all_event_change)
             .or(all_items)
-            .or(all_scenes)
+            .or(all_scenes)    
             .or(all_stop)
             .or(broadcast_event)
             .or(clear_queue)
