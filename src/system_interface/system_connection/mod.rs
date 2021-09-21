@@ -41,12 +41,13 @@ use self::zmq_comm::{ZmqBind, ZmqConnect};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-
-// Import Tokio features
-use tokio::time::sleep;
+use std::thread;
 
 // Import the failure features
 use failure::Error;
+
+// Import program constants
+use super::POLLING_RATE; // the polling rate for the system
 
 // Define communication constants
 enum ReadResult {
@@ -359,10 +360,9 @@ impl SystemConnection {
             // Spin a new thread with the connection(s)
             let (conn_send, conn_recv) = mpsc::channel();
             let internal_send = self.internal_send.clone();
-            tokio::spawn(async move {
+            thread::spawn(move || {
                 // Loop indefinitely
-                SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier)
-                    .await;
+                SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier);
             });
 
             // Update the system connection
@@ -389,7 +389,7 @@ impl SystemConnection {
 
     /// An internal function to run a loop of the system connection
     ///
-    async fn run_loop(
+    fn run_loop(
         mut connections: Vec<LiveConnection>,
         internal_send: InternalSend,
         conn_recv: mpsc::Receiver<ConnectionUpdate>,
@@ -397,13 +397,9 @@ impl SystemConnection {
     ) {
         // Run the loop until there is an error or instructed to quit
         loop {
-            // Check for updates from system connections or the system interface
-            tokio::select!{
-
-
-
-            }
-
+            // Save the start time of the loop
+            let loop_start = Instant::now();
+            
             // Read all results from the system connections
             let mut results = Vec::new();
             for connection in connections.iter_mut() {
@@ -428,29 +424,57 @@ impl SystemConnection {
                             // Verify the game id is correct
                             if identity == game_id {
                                 // Send the event to the program
-                                internal_send.send_event(id, true, false).await;
-                            // don't broadcast
+                                internal_send.blocking_send(InternalUpdate::ProcessEvent {
+                                    event: id,
+                                    check_scene: true,
+                                    broadcast: false,
+                                }); // don't broadcast
                             // FIXME Handle incoming data
 
                             // Otherwise send a notification of an incorrect game number
                             } else {
-                                log!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
+                                // Format the warning string
+                                let tmp = format!("Game Id Does Not Match. Event Ignored. ({})", id);
+
+                                // Send the warning to the mpsc line
+                                internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Warning(tmp, None)));
+                                
+                                // FIXME Move to an async context to use log!
+                                // log!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
                             }
 
                         // Otherwise, send the event to the program
                         } else {
-                            internal_send.send_event(id, true, false).await; // don't broadcast
+                            internal_send.blocking_send(InternalUpdate::ProcessEvent {
+                                event: id,
+                                check_scene: true,
+                                broadcast: false,
+                            }); // don't broadcast
                         }
                     }
 
                     // For a write error, notify the system
-                    ReadResult::WriteError(error) => {
-                        log!(err &internal_send => "Communication Write Error: {}", error);
+                    ReadResult::WriteError(error) => {                        
+                        // Format the error string
+                        let tmp = format!("Communication Write Error: {}", error);
+
+                        // Send the warning to the mpsc line
+                        internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+                        
+                        // FIXME Move to an async context to use log!
+                        // log!(err &internal_send => "Communication Write Error: {}", error);
                     }
 
                     // For a read error, notify the system
                     ReadResult::ReadError(error) => {
-                        log!(err &internal_send => "Communication Read Error: {}", error);
+                        // Format the error string
+                        let tmp = format!("Communication Read Error: {}", error);
+
+                        // Send the warning to the mpsc line
+                        internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+                        
+                        // FIXME Move to an async context to use log!
+                        // log!(err &internal_send => "Communication Read Error: {}", error);
                     }
                 }
             }
@@ -477,13 +501,27 @@ impl SystemConnection {
                         // Catch any write errors
                         if let Err(error1) = connection.write_event(id, game_id, data2) {
                             // Throw the error
-                            log!(err &internal_send => "Communication Error: {}", error1);
+                            // Format the error string
+                            let tmp = format!("Communication Error: {}", error1);
+
+                            // Send the warning to the mpsc line
+                            internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+                            
+                            // FIXME Move to an async context to use log!
+                            // log!(err &internal_send => "Communication Error: {}", error1);
 
                             // Wait a little bit and try again
-                            sleep(Duration::from_millis(POLLING_RATE)).await;
+                            thread::sleep(Duration::from_millis(POLLING_RATE));
                             if let Err(error2) = connection.write_event(id, game_id, data2) {
                                 // If failed twice in a row, notify the system
-                                log!(err &internal_send => "Persistent Communication Error: {}", error2);
+                                // Format the error string
+                                let tmp = format!("Persistent Communication Error: {}", error2);
+
+                                // Send the warning to the mpsc line
+                                internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+
+                                // FIXME Move to an async context to use log!
+                                // log!(err &internal_send => "Persistent Communication Error: {}", error2);
                             }
                         }
                     }
@@ -499,7 +537,7 @@ impl SystemConnection {
 
             // Make sure that some time elapses in each loop
             if Duration::from_millis(POLLING_RATE) > loop_start.elapsed() {
-                sleep(Duration::from_millis(POLLING_RATE)).await;
+                thread::sleep(Duration::from_millis(POLLING_RATE));
             }
         }
     }
@@ -511,11 +549,8 @@ impl SystemConnection {
 /// event connection across all event connection types.
 ///
 trait EventConnection {
-    /// The event available to read method (cancellation safe)
-    async fn event_available(&mut self) -> bool;
-    
-    /// The read event method (not necessarily cancellation safe)
-    async fn read_event(&mut self) -> Vec<ReadResult>;
+    /// The read event method
+    fn read_events(&mut self) -> Vec<ReadResult>;
 
     /// The write event method (does not check duplicates)
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;

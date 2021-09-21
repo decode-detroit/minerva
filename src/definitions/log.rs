@@ -173,6 +173,15 @@ impl InternalSend {
             .await
             .unwrap_or(());
     }
+
+    /// A method to send an update in an sync context
+    /// 
+    /// # Note
+    /// This method will panic if used inside an async context.
+    /// 
+    pub fn blocking_send(&self, update: InternalUpdate) {
+        self.internal_send.blocking_send(update).unwrap_or(());
+    }
 }
 
 /// An enum for logging changes to the game. Most changes in the system interface
@@ -336,10 +345,8 @@ macro_rules! log {
     // Take a mpsc line and update type of event update
     (update $line:expr => $($arg:tt)*) => ({
         // Import necessary features
-        use crate::definitions::LogUpdate;
-
-        // Import the standard library
         use std::fmt::Write;
+        use crate::definitions::LogUpdate;
 
         // Attempt to format the string
         let mut s = String::new();
