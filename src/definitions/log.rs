@@ -138,22 +138,22 @@ impl InternalSend {
 
     /// A method to pass a new video stream to the user interface
     ///
+    /// # Note
+    /// This method will panic if used inside an async context.
+    /// 
     #[cfg(feature = "media-out")]
-    pub async fn send_new_video(&self, video_stream: VideoStream) {
-        self.internal_send
-            .send(InternalUpdate::NewVideo(Some(video_stream)))
-            .await
-            .unwrap_or(());
+    pub fn send_new_video(&self, video_stream: VideoStream) {
+        self.internal_send.blocking_send(InternalUpdate::NewVideo(Some(video_stream))).unwrap_or(());
     }
 
     /// A method to clear all video streams from the user interface
     ///
+    /// # Note
+    /// This method will panic if used inside an async context.
+    /// 
     #[cfg(feature = "media-out")]
-    pub async fn send_clear_videos(&self) {
-        self.internal_send
-            .send(InternalUpdate::NewVideo(None))
-            .await
-            .unwrap_or(());
+    pub fn send_clear_videos(&self) {
+        self.internal_send.blocking_send(InternalUpdate::NewVideo(None)).unwrap_or(());
     }
 
     // A method to trigger a refresh of the user interface

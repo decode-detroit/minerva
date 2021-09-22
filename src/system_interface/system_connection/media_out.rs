@@ -277,16 +277,13 @@ impl MediaOut {
                 };
 
                 // Send the new video stream to the user interface
-                let general_clone = internal_send.clone();
                 let video_stream = VideoStream {
                     window_number: video_window.window_number,
                     channel: media_cue.channel,
                     allocation,
                     video_overlay,
                 };
-                tokio::spawn(async move {
-                    general_clone.send_new_video(video_stream).await;
-                });
+                internal_send.send_new_video(video_stream);
             } // Otherwise, any window creation (if needed) is left to gstreamer
 
             // Create the loop media mutex and resolve the current loop
@@ -447,10 +444,7 @@ impl Drop for MediaOut {
     ///
     fn drop(&mut self) {
         // Destroy the video window
-        let general_clone = self.internal_send.clone();
-        tokio::spawn(async move {
-            general_clone.send_clear_videos().await;
-        });
+        self.internal_send.send_clear_videos();
 
         // For every playbin in the active channels
         for (_, channel) in self.channels.drain() {

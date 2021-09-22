@@ -18,6 +18,9 @@
 
 //! The main module of the minerva program which pulls from the other modules.
 
+// Allow deeper recursion testing for web server
+#![recursion_limit="256"]
+
 // Import YAML processing libraries
 #[macro_use]
 extern crate serde;
