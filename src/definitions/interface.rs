@@ -222,7 +222,7 @@ impl InterfaceSend {
     pub fn new() -> (Self, std_mpsc::Receiver<InterfaceUpdate>, mpsc::Receiver<WebInterfaceUpdate>) {
         // Create two new channels
         let (gtk_interface_send, gtk_receive) = std_mpsc::channel();
-        let (web_interface_send, web_receive) = mpsc::channel(128);
+        let (web_interface_send, web_receive) = mpsc::channel(256);
 
         // Create and return both new items
         (InterfaceSend { gtk_interface_send: Arc::new(Mutex::new(gtk_interface_send)), web_interface_send }, gtk_receive, web_receive)

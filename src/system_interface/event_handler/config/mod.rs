@@ -970,18 +970,11 @@ impl Config {
                         for state in allowed.iter() {
                             // If there is a matching event, verify that it exists
                             if let Some(target_event) = event_map.get(state) {
-                                // Verify that the event is listed in the current scene
-                                if !scene.events.contains(&target_event) {
-                                    log!(warn internal_send => "Event Group Contains Event, But It Is Not Listed In Scene: {}", &target_event);
-                                    // Do not flag as incorrect
-                                }
-
                                 // Verify that the event exists
                                 if !event_list.contains_key(&target_event) {
                                     log!(warn internal_send => "Event Group Contains Invalid Target Event: {}", &target_event);
                                     return false;
                                 }
-
                                 // If no event is specified, nothing is triggered
                             }
                         }

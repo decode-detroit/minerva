@@ -47,7 +47,7 @@ impl GtkSend {
     ///
     pub fn new() -> (Self, mpsc::Receiver<GtkRequest>) {
         // Create the new channel
-        let (gtk_send, receive) = mpsc::channel(128);
+        let (gtk_send, receive) = mpsc::channel(256);
 
         // Create and return both new items
         (GtkSend { gtk_send }, receive)
@@ -95,7 +95,7 @@ impl WebSend {
     ///
     pub fn new() -> (Self, mpsc::Receiver<WebRequest>) {
         // Create the new channel
-        let (web_send, receive) = mpsc::channel(128);
+        let (web_send, receive) = mpsc::channel(256);
 
         // Create and return both new items
         (WebSend { web_send }, receive)
