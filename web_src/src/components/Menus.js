@@ -78,6 +78,9 @@ export class EditMenu extends React.PureComponent {
   constructor(props) {
     // Collect props and set initial state
     super(props);
+    this.state = {
+      isMenuVisible: false,
+    }
   }
 
   // Render the edit menu
@@ -85,8 +88,9 @@ export class EditMenu extends React.PureComponent {
     return (
       <div className="editMenu">
         <div>Minerva</div>
-        <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>
-        <div class={"saveButton" + (this.props.saved ? " inactive" : "")} onClick={this.props.saveFile}>Save</div>
+        {!this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: true})}}>Edit Filename</div>}
+        {this.state.isMenuVisible && <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>}
+        <div class={"menuButton" + (this.props.saved ? " inactive" : "")} onClick={() => {this.setState({isMenuVisible: false}); this.props.saveFile()}}>Save</div>
       </div>
     );
   }
