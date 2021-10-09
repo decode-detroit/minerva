@@ -137,8 +137,8 @@ struct SaveConfig {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SaveStyle {
-    new_rule: String,
+struct SaveStyles {
+    new_rules: String,
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -606,10 +606,10 @@ impl WebInterface {
 
         // Create the save styles filter FIXME verify content
         let save_style = warp::post()
-            .and(warp::path("saveStyle"))
+            .and(warp::path("saveStyles"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<SaveStyle>())
+            .and(WebInterface::with_json::<SaveStyles>())
             .and_then(WebInterface::handle_save_style);
 
         // Create the scene change filter
@@ -786,7 +786,7 @@ impl WebInterface {
     /// A function to handle saving an updated stylesheet
     async fn handle_save_style(
         web_send: WebSend,
-        new_style: SaveStyle,
+        new_style: SaveStyles,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         // Get the configuration filename from the system
         let (reply_to, rx) = oneshot::channel();
@@ -819,7 +819,7 @@ impl WebInterface {
         let filename = format!("default.css"); //{}.css", file_root); // FIXME return to the custom filename
 
         // Add a newline to the front of the rule
-        let new_rule = format!("\n{}", new_style.new_rule); // WARNING: a source for possible injection attacks if exposed to the open internet.
+        let new_rule = format!("\n{}", new_style.new_rules); // WARNING: a source for possible injection attacks if exposed to the open internet.
         
         // Try to open the stylesheet filename
         if let Ok(mut file) = fs::OpenOptions::new().append(true).open(&filename).await {

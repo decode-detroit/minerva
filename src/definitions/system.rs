@@ -409,6 +409,7 @@ pub enum WebReply {
     },
 
     // A variant that contains a file path
+    #[serde(rename_all = "camelCase")]
     Path {
         is_valid: bool,   // a flag to indicate the result of the request
         filename: String, // the filename, including the file extension

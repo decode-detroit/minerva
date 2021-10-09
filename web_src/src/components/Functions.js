@@ -28,22 +28,25 @@ export function saveEdits(modifications) {
   }); // Ignore errors
 }
 
-// Function to save the style change
-export async function saveStyle(newRule) {
+// Function to save the style change to the local stylesheet
+export async function saveLocalStyle(newRule) {
   // Add the new rule to the local stylesheet
   let userStyles = document.getElementById("userStyles");
   userStyles.sheet.insertRule(newRule, userStyles.sheet.cssRules.length); // append to the end
-  
+}
+
+// Function to save the style change
+export async function saveStyles(newRules) {
   // Save the configuration
-  let saveStyle = {
-    newRule: newRule,
+  let saveStyles = {
+    newRules: newRules,
   };
-  fetch(`/saveStyle`, {
+  fetch(`/saveStyles`, {
     method: 'POST',
     headers: {
         'Content-Type': 'application/json',
     },
-    body: JSON.stringify(saveStyle),
+    body: JSON.stringify(saveStyles),
   }); // FIXME ignore errors
 }
 

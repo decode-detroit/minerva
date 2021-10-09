@@ -1,7 +1,7 @@
 import React from 'react';
 import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu } from './Menus';
-import { vh, vw, saveStyle } from './Functions';
+import { vh, vw } from './Functions';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -170,7 +170,7 @@ export class ViewArea extends React.PureComponent {
   // A function to save the new location of an item to the stylesheet
   saveLocation(id, left, top) {
     // Save the new style rule
-    saveStyle(`#scene-${this.state.sceneId} #id-${id} { left: ${left}px; top: ${top}px; }`);
+    this.props.saveStyle(`#scene-${this.state.sceneId} #id-${id}`, `{ left: ${left}px; top: ${top}px; }`);
   }
   
   // Function to create a new connector between boxes

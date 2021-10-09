@@ -2,7 +2,7 @@ import React from 'react';
 import logoWide from './logo_wide.png';
 import { EditMenu } from './components/Menus.js';
 import { ViewArea } from './components/EditArea.js';
-import { saveEdits, saveConfig } from './components/Functions';
+import { saveEdits, saveConfig, saveLocalStyle, saveStyles } from './components/Functions';
 import './App.css';
 
 // The top level class
@@ -16,12 +16,14 @@ export class App extends React.PureComponent {
     this.state = {
       saved: true,
       configFile: "",
+      newRules: {}, // any new style rules (not yet saved)
     }
 
     // Bind the various functions
     this.saveFile = this.saveFile.bind(this);
     this.saveModifications = this.saveModifications.bind(this);
     this.handleFileChange = this.handleFileChange.bind(this);
+    this.collectStyles = this.collectStyles.bind(this);
   }
 
   // Save any modification to the configuration
@@ -40,9 +42,17 @@ export class App extends React.PureComponent {
     // Save the configuration with the current filename
     saveConfig(this.state.configFile);
 
-    // Update the save state
+    // Save the style changes (automatically sets the filename)
+    let newRules = "";
+    for (let [selector, rule] of Object.entries(this.state.newRules)) {
+      newRules += `${selector} ${rule}\n`;
+    };
+    saveStyles(newRules)
+
+    // Update the save state and clear the rules
     this.setState({
       saved: true,
+      newRules: [],
     });
   }
 
@@ -54,11 +64,32 @@ export class App extends React.PureComponent {
     });
   }
 
+  // Function to collect the new style rules
+  collectStyles(newSelector, newRule) {
+    // Append the new rule to the local stylesheet
+    saveLocalStyle(`${newSelector} ${newRule}`);
+
+    // Append it to the current styles
+    this.setState((prevState) => {
+      // Add or update the rule
+      let newRules = {...prevState.newRules};
+      newRules[`${newSelector}`] = newRule;
+
+      // Return the update
+      return {
+        newRules: newRules,
+        saved: false,
+      };
+    });
+  }
+
   // On render, pull the configuration file path
   async componentDidMount() {
     // Retrieve the configuation path
     const response = await fetch(`getConfigPath`);
     const json = await response.json();
+
+    console.log(json);
 
     // If valid, save configuration
     if (json.path.isValid) {
@@ -76,7 +107,7 @@ export class App extends React.PureComponent {
           <img src={logoWide} className="logo" alt="logo" />
           <EditMenu saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} saveFile={this.saveFile} />
         </div>
-        <ViewArea saveModifications={this.saveModifications}/>
+        <ViewArea saveModifications={this.saveModifications} saveStyle={this.collectStyles} />
       </div>
     )
   }
