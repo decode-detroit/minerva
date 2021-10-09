@@ -1,5 +1,5 @@
 import React from 'react';
-import { asyncForEach, stopPropogation } from './functions';
+import { asyncForEach, stopPropogation } from './Functions';
 
 // A menu pop-up for deleting items
 export class DeleteMenu extends React.PureComponent {  
@@ -278,7 +278,7 @@ export class AddMenu extends React.PureComponent {
   // Return the completed box
   render() {
     // Compose the filtered items into a visible list
-    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={() => {this.props.addItem(item.id)}}>{item.description}</div>)
+    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={(e) => {this.props.addItem(item.id, e.clientX, e.clientY)}}>{item.description}</div>) // FIXME not quite the right location
     
     // Return the box
     return (

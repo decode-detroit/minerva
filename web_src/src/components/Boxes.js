@@ -2,7 +2,7 @@ import React from 'react';
 import { Action } from './Actions';
 import { ReceiveNode } from './Nodes';
 import { State } from './States';
-import { stopPropogation, getLocation, changeLocation } from './functions';
+import { stopPropogation, rem } from './Functions';
 import { AddMenu, AddActionMenu } from './Menus';
 
 // An item box to select the appropriate sub-box
@@ -42,8 +42,14 @@ export class ItemBox extends React.PureComponent {
     document.onmousemove = this.handleMouseMove;
     document.onmouseup = this.handleMouseClose;
 
+    // Get the current location
+    let left = e.target.parentNode.offsetLeft;
+    let top = e.target.parentNode.offsetTop;
+
     // Save the cursor position, hide the menu
     this.setState({
+      left: left,
+      top: top,
       cursorX: e.clientX,
       cursorY: e.clientY,
     });
@@ -85,28 +91,11 @@ export class ItemBox extends React.PureComponent {
     document.onmousemove = null;
     document.onmouseup = null;
 
-    // Clear the existing timeout, if it exists
-    if (this.saveTimeout) {
-      clearTimeout(this.saveTimeout);
-    }
+    // Save the updated location
+    this.props.saveLocation(this.props.id, this.state.left, this.state.top);
 
-    // Replace the existing location
-    this.setState((prevState) =>  {
-      // Update the location
-      let newItemPair = changeLocation({ id: this.props.id, description: prevState.description, display: prevState.display }, prevState.left, prevState.top);
-
-      // Save the changes
-      this.props.saveModifications([{
-        modifyItem: {
-          itemPair: newItemPair,
-        },
-      }]);
-
-      // Update the state
-      return {
-        itemPair: newItemPair,
-      }
-    });
+    // Clear the left and top state
+    this.setState({left: 0, top: 0});
   }
 
   // Helper function to update the item information
@@ -118,23 +107,11 @@ export class ItemBox extends React.PureComponent {
 
       // If valid, save the result to the state
       if (json.item.isValid) {
-        // Extract the location, if available
-        let location = getLocation(json.item.itemPair);
-        if (location) {
-          this.setState({
-            description: json.item.itemPair.description,
-            display: json.item.itemPair.display,
-            left: location.left,
-            top: location.top,
-          });
-        
-        // If not location, just save the itemPair
-        } else {
-          this.setState({
-            description: json.item.itemPair.description,
-            display: json.item.itemPair.display,
-          });
-        }
+        // Save the itemPair
+        this.setState({
+          description: json.item.itemPair.description,
+          display: json.item.itemPair.display,
+        });
       }
 
       // Check to see the item type
@@ -156,12 +133,6 @@ export class ItemBox extends React.PureComponent {
 
   // On initial load, pull the location and item information
   componentDidMount() {
-    // Set the starting location
-    this.setState({
-      left: this.props.left,
-      top: this.props.top,
-    })
-
     // Pull the item information
     this.updateItem();
   }
@@ -194,11 +165,15 @@ export class ItemBox extends React.PureComponent {
  
   // Return the selected box
   render() {
+    // Calculate the left and top offsets
+    let left = this.state.left ? `${this.state.left}px` : ``;
+    let top = this.state.top ? `${this.state.top}px` : ``;
+
     // Return the item box
     return (
       <>
         {this.state.type !== "" &&
-          <div className={`box ${this.state.type} ${this.props.isFocus ? 'focus' : ''}`} style={{ left: `${this.state.left}px`, top: `${this.state.top}px` }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
+          <div id={`id-${this.props.id}`} className={`box ${this.state.type} row${this.props.row} ${this.props.isFocus ? 'focus' : ''}`} style={{ left: left, top: top }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
             <div className="title">
               <input type="text" value={this.state.description} size={this.state.description.length > 30 ? this.state.description.length - 10 : 20} onInput={this.handleChange}></input>
               <div className="disableSelect">({this.props.id})</div>

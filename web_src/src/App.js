@@ -2,7 +2,7 @@ import React from 'react';
 import logoWide from './logo_wide.png';
 import { EditMenu } from './components/Menus.js';
 import { ViewArea } from './components/EditArea.js';
-import { saveEdits, saveConfig } from './components/functions';
+import { saveEdits, saveConfig } from './components/Functions';
 import './App.css';
 
 // The top level class
@@ -61,9 +61,9 @@ export class App extends React.PureComponent {
     const json = await response.json();
 
     // If valid, save configuration
-    if (json.generic.isValid) {
+    if (json.path.isValid) {
       this.setState({
-        configFile: json.generic.message,
+        configFile: json.path.path, // FIXME Allow for more subtlety
       });
     }
   }

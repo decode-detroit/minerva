@@ -201,9 +201,9 @@ impl EventHandler {
 
     /// A method to return a copy of the current path for the configuration.
     ///
-    pub fn get_config_path(&self) -> String {
-        // Return a copy of the pathbuf (assumes valid UTF-8)
-        self.config_path.to_str().unwrap_or("").to_string()
+    pub fn get_config_path(&self) -> PathBuf {
+        // Return a copy of the pathbuf
+        self.config_path.clone()
     }
 
     /// A method to return a copy of the event for the provided id.

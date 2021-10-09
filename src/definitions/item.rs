@@ -160,7 +160,8 @@ impl fmt::Display for ItemId {
 }
 
 /// This enum is a type to allow display information to fall into several types.
-///
+/// FIXME Remove the edit location from all the types
+/// 
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum DisplayType {
     /// A variant for items which are displayed in the top level control group.

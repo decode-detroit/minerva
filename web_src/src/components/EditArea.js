@@ -1,7 +1,7 @@
 import React from 'react';
 import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu } from './Menus';
-import { vh, vw } from './functions';
+import { vh, vw, saveStyle } from './Functions';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -30,6 +30,7 @@ export class ViewArea extends React.PureComponent {
     this.removeItemFromScene = this.removeItemFromScene.bind(this);
     this.createConnector = this.createConnector.bind(this);
     this.grabFocus = this.grabFocus.bind(this);
+    this.saveLocation = this.saveLocation.bind(this);
   }
   
   // Function to respond to clicking the area
@@ -79,7 +80,7 @@ export class ViewArea extends React.PureComponent {
   }
 
   // Function to hide the menu and add an item to the scene and the viewport
-  addItemToScene(id) {
+  addItemToScene(id, left, top) {
     // Add the item to the list, if missing
     this.setState(prevState => {
       // Add the id if not present
@@ -93,6 +94,9 @@ export class ViewArea extends React.PureComponent {
 
           // Submit the modification to the scene
           this.props.saveModifications([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { events: events, }}}]); // FIXME copy key map
+
+          // Save the location
+          this.saveLocation(id, left, top);
         }
         
         // Update the state
@@ -163,6 +167,12 @@ export class ViewArea extends React.PureComponent {
     });
   }
 
+  // A function to save the new location of an item to the stylesheet
+  saveLocation(id, left, top) {
+    // Save the new style rule
+    saveStyle(`#scene-${this.state.sceneId} #id-${id} { left: ${left}px; top: ${top}px; }`);
+  }
+  
   // Function to create a new connector between boxes
   createConnector(type, ref, id) {
     // Add the item, if it doesn't already exist
@@ -224,7 +234,7 @@ export class ViewArea extends React.PureComponent {
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onContextMenu={this.showContextMenu} onMouseDown={this.handleMouseDown}>
           {this.state.sceneId !== -1 && <>
-            <EditArea idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications}/>
+            <EditArea id={this.state.sceneId} idList={this.state.idList} focusId={this.state.focusId} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
             {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
           </>}
         </div>
@@ -349,14 +359,13 @@ export class EditArea extends React.PureComponent {
   // Render the draggable edit area
   render() {
     // Create a box for each event
-    let offset = 0;
-    const boxes = this.props.idList.map((id) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} left={100 + 275 * parseInt(offset / 6)} top={100 + 100 * ((offset++) % 6)} id={id} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
+    const boxes = this.props.idList.map((id, index) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} id={id} row={parseInt(index / 12)} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
     
     // Render the event boxes
     return (
-      <div className="editArea" style={{ left: `calc(${this.state.left}px - (250% * ${1 - this.state.zoom}))`, top: `calc(${this.state.top}px - (250% * ${1 - this.state.zoom}))`, transform: `scale(${this.state.zoom})` }} onMouseDown={this.handleMouseDown} onWheel={this.handleWheel}>
-        <LineArea connections={this.props.connections}/>
+      <div id={`scene-${this.props.id}`} className="editArea" style={{ left: `calc(${this.state.left}px - (250% * ${1 - this.state.zoom}))`, top: `calc(${this.state.top}px - (250% * ${1 - this.state.zoom}))`, transform: `scale(${this.state.zoom})` }} onMouseDown={this.handleMouseDown} onWheel={this.handleWheel}>
         {boxes}
+        <LineArea connections={this.props.connections}/>
       </div>
     )
   }

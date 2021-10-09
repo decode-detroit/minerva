@@ -383,7 +383,7 @@ pub enum WebReply {
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
     Event {
-        is_valid: bool,       // a flag to indicate the result of the request
+        is_valid: bool,          // a flag to indicate the result of the request
         event: Option<WebEvent>, // the event detail, if found
     },
 
@@ -397,8 +397,8 @@ pub enum WebReply {
     // A variant that contains an item list
     #[serde(rename_all = "camelCase")]
     Items {
-        is_valid: bool,         // a flag to indicate the result of the request
-        items: Vec<ItemId>,     // the list of all items, if found
+        is_valid: bool,     // a flag to indicate the result of the request
+        items: Vec<ItemId>, // the list of all items, if found
     },
 
     // A variant for replies with no specific content
@@ -408,11 +408,18 @@ pub enum WebReply {
         message: String, // a message describing the success or failure
     },
 
+    // A variant that contains a file path
+    Path {
+        is_valid: bool,   // a flag to indicate the result of the request
+        filename: String, // the filename, including the file extension
+        path: String, // 
+    },
+
     // A variant that contains scene detail
     #[serde(rename_all = "camelCase")]
     Scene {
-        is_valid: bool,         // a flag to indicate the result of the request
-        scene: Option<Scene>,   // the scene detail, if found
+        is_valid: bool,       // a flag to indicate the result of the request
+        scene: Option<Scene>, // the scene detail, if found
     },
 
     // A variant that contains status detail
@@ -454,6 +461,7 @@ impl WebReply {
             &WebReply::Item { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Items { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Generic { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Path { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Scene { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Status { ref is_valid, .. } => is_valid.clone(),
         }

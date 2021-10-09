@@ -1,5 +1,5 @@
 import React from 'react';
-import { stopPropogation } from './functions';
+import { stopPropogation } from './Functions';
 import { SelectMenu } from './Menus';
 import { UnmodifiableState, SelectedEvent } from './States';
 import { SendNode } from './Nodes';

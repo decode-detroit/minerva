@@ -37,6 +37,7 @@ use self::system_connection::SystemConnection;
 use std::env;
 use std::fs::DirBuilder;
 use std::path::PathBuf;
+use std::ffi::OsStr;
 
 // Import Tokio features
 use tokio::sync::mpsc;
@@ -200,6 +201,15 @@ impl SystemInterface {
                     // The unpacking yielded a message
                     UnpackResult::SuccessWithMessage(message) => {
                         request.reply_to.send(WebReply::Generic { is_valid: true, message }).unwrap_or(());
+                    }
+
+                    // The unpacking yielded a path
+                    UnpackResult::SuccessWithPath(path) => {
+                        request.reply_to.send(WebReply::Path {
+                            is_valid: true,
+                            filename: path.file_stem().unwrap_or_else(|| { OsStr::new("") }).to_str().unwrap_or("").to_string(),
+                            path: path.to_str().unwrap_or("").to_string(),
+                        }).unwrap_or(());
                     }
 
                     // The unpacking yielded a status
@@ -490,7 +500,7 @@ impl SystemInterface {
             UserRequest::ConfigPath => {
                 // Try to get the config name
                 if let Some(ref handler) = self.event_handler {
-                    return UnpackResult::SuccessWithMessage(handler.get_config_path());
+                    return UnpackResult::SuccessWithPath(handler.get_config_path());
 
                 // Otherwise, return a failure
                 } else {
@@ -1126,6 +1136,9 @@ enum UnpackResult {
 
     // A variant for successful unpacking with message
     SuccessWithMessage(String),
+
+    // A variant for successful unpacking with a path buffer
+    SuccessWithPath(PathBuf),
 
     // A variant for successful unpacking with a scene
     SuccessWithScene(Scene),

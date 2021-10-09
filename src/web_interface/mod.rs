@@ -22,6 +22,7 @@
 use crate::definitions::*;
 
 // Import standard library features
+use std::sync::Arc;
 use std::str::FromStr;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -31,6 +32,8 @@ use std::num::ParseIntError;
 use chrono::NaiveDateTime;
 
 // Import Tokio and warp features
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{mpsc, oneshot};
 use warp::{http, Filter};
 use warp::ws::{WebSocket, Message};
@@ -131,6 +134,11 @@ struct ProcessEvent {
 #[serde(rename_all = "camelCase")]
 struct SaveConfig {
     filename: String,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SaveStyle {
+    new_rule: String,
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -420,7 +428,7 @@ impl WebInterface {
         let all_items = warp::get()
             .and(warp::path("allItems"))
             .and(warp::path::end())
-            .and(WebInterface::with_index(self.index_access.clone()))
+            .and(WebInterface::with_clone(self.index_access.clone()))
             .and_then(WebInterface::handle_all_items);
 
         // Create the all scenes filter
@@ -428,7 +436,7 @@ impl WebInterface {
             .and(warp::path("allScenes"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_request(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
+            .and(WebInterface::with_clone(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
             .and_then(WebInterface::handle_request);
 
         // Create the all stop filter
@@ -436,7 +444,7 @@ impl WebInterface {
             .and(warp::path("allStop"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_request(UserRequest::AllStop))
+            .and(WebInterface::with_clone(UserRequest::AllStop))
             .and_then(WebInterface::handle_request);
         
         // Create the broadcast event filter
@@ -452,7 +460,7 @@ impl WebInterface {
             .and(warp::path("clearQueue"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_request(UserRequest::ClearQueue))
+            .and(WebInterface::with_clone(UserRequest::ClearQueue))
             .and_then(WebInterface::handle_request);
 
         // Create the close filter
@@ -460,7 +468,7 @@ impl WebInterface {
             .and(warp::path("close"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_request(UserRequest::Close))
+            .and(WebInterface::with_clone(UserRequest::Close))
             .and_then(WebInterface::handle_request);
 
         // Create the config file filter
@@ -523,7 +531,7 @@ impl WebInterface {
         let get_config_path = warp::get()
             .and(warp::path("getConfigPath"))
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_request(UserRequest::ConfigPath))
+            .and(WebInterface::with_clone(UserRequest::ConfigPath))
             .and_then(WebInterface::handle_request);
 
         // Create the get event filter
@@ -537,7 +545,7 @@ impl WebInterface {
         // Create the item information filter
         let get_item = warp::get()
             .and(warp::path("getItem"))
-            .and(WebInterface::with_index(self.index_access.clone()))
+            .and(WebInterface::with_clone(self.index_access.clone()))
             .and(warp::path::param::<GetItem>())
             .and(warp::path::end())
             .and_then(WebInterface::handle_get_item);
@@ -557,6 +565,12 @@ impl WebInterface {
             .and(warp::path::param::<GetStatus>())
             .and(warp::path::end())
             .and_then(WebInterface::handle_request);
+
+        // Create the get style filter
+        let get_styles = warp::get()
+            .and(warp::path("getStyles"))
+            .and(warp::path::end())
+            .and(warp::fs::file("default.css")); // FIXME change the filename to match the configuration
 
         // Create the get status filter
         let get_type = warp::get()
@@ -579,16 +593,24 @@ impl WebInterface {
             .and(warp::path("redraw"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_request(UserRequest::Redraw))
+            .and(WebInterface::with_clone(UserRequest::Redraw))
             .and_then(WebInterface::handle_request);
 
-        // Create the save config filter
+        // Create the save config filter FIXME verify filenames
         let save_config = warp::post()
             .and(warp::path("saveConfig"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_json::<SaveConfig>())
             .and_then(WebInterface::handle_request);
+
+        // Create the save styles filter FIXME verify content
+        let save_style = warp::post()
+            .and(warp::path("saveStyle"))
+            .and(warp::path::end())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<SaveStyle>())
+            .and_then(WebInterface::handle_save_style);
 
         // Create the scene change filter
         let scene_change = warp::post()
@@ -632,10 +654,12 @@ impl WebInterface {
             .or(get_item)
             .or(get_scene)
             .or(get_status)
+            .or(get_styles)
             .or(get_type)
             .or(process_event)
             .or(redraw)
             .or(save_config)
+            .or(save_style)
             .or(scene_change)
             .or(status_change)
             .or(main_page);
@@ -724,6 +748,104 @@ impl WebInterface {
         ));
     }
 
+    /// A function to handle getting the configuration stylesheet
+    /*async fn handle_get_styles(
+        web_send: WebSend,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        // Get the configuration filename from the system
+        let (reply_to, rx) = oneshot::channel();
+        web_send.send(reply_to, UserRequest::ConfigPath).await;
+
+        // Wait for the reply
+        let file_root;
+        if let Ok(reply) = rx.await {
+            // If the reply is a success
+            if let WebReply::Path { filename, .. } = reply { 
+                file_root = filename;
+
+            // Otherwise, note the error
+            } else {
+                return Err(warp::reject());
+            }
+
+        // Otherwise, note the error
+        } else {
+            return Err(warp::reject());
+        }
+
+        // Append the file ending
+        let filename = format!("{}.css", file_root);
+
+        // Return the file
+        let path: Arc<PathBuf> = Arc::new(filename.into());
+        warp::any()
+            .and(conditionals())
+            .and_then(|path, conditionals| file_reply(path, conditionals)).await
+    }*/
+
+    /// A function to handle saving an updated stylesheet
+    async fn handle_save_style(
+        web_send: WebSend,
+        new_style: SaveStyle,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        // Get the configuration filename from the system
+        let (reply_to, rx) = oneshot::channel();
+        web_send.send(reply_to, UserRequest::ConfigPath).await;
+
+        // Wait for the reply
+        let file_root;
+        if let Ok(reply) = rx.await {
+            // If the reply is a success
+            if let WebReply::Path { filename, .. } = reply { 
+                file_root = filename;
+
+            // Otherwise, note the error
+            } else {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&WebReply::failure("Unable to process request.")),
+                    http::StatusCode::INTERNAL_SERVER_ERROR,
+                ));
+            }
+
+        // Otherwise, note the error
+        } else {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&WebReply::failure("Unable to process request.")),
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        }
+
+        // Append the file ending
+        let filename = format!("default.css"); //{}.css", file_root); // FIXME return to the custom filename
+
+        // Add a newline to the front of the rule
+        let new_rule = format!("\n{}", new_style.new_rule); // WARNING: a source for possible injection attacks if exposed to the open internet.
+        
+        // Try to open the stylesheet filename
+        if let Ok(mut file) = fs::OpenOptions::new().append(true).open(&filename).await {
+            // Try to append the string to the file
+            if let Err(_) = file.write_all(&new_rule.as_bytes()).await { // FIXME Remove the original rule
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&WebReply::failure("Unable to write to file.")),
+                    http::StatusCode::INTERNAL_SERVER_ERROR,
+                ));
+            }
+        
+        // Otherwise, return failure
+        } else {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&WebReply::failure("Unable to open file.")),
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        }
+        
+        // Return the successful, temporary photo url
+        Ok(warp::reply::with_status(
+            warp::reply::json(&WebReply::success()),
+            http::StatusCode::CREATED,
+        ))
+    }
+
     /// A function to add a new websocket listener
     /// 
     async fn add_listener(sender: mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>, socket: WebSocket) {
@@ -757,7 +879,7 @@ impl WebInterface {
     // A function to extract a helper type from the body of the message
     fn with_json<T>() -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone
     where T: Send + DeserializeOwned {
-        // When accepting a body, we want a JSON body (reject huge payloads)
+        // When accepting a body, we want a JSON body (reject large payloads)
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
 
@@ -767,19 +889,5 @@ impl WebInterface {
     ) -> impl Filter<Extract = (T,), Error = std::convert::Infallible> + Clone
     where T: Send + Clone {
         warp::any().map(move || item.clone())
-    }
-
-    // A function to add the index access to the filter
-    fn with_index(
-        index_access: IndexAccess,
-    ) -> impl Filter<Extract = (IndexAccess,), Error = std::convert::Infallible> + Clone {
-        warp::any().map(move || index_access.clone())
-    }
-
-    // A function to add a specific request type to the filter
-    fn with_request(
-        request: UserRequest,
-    ) -> impl Filter<Extract = (UserRequest,), Error = std::convert::Infallible> + Clone {
-        warp::any().map(move || request.clone())
     }
 }
