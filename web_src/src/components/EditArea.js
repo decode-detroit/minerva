@@ -359,7 +359,7 @@ export class EditArea extends React.PureComponent {
   // Render the draggable edit area
   render() {
     // Create a box for each event
-    const boxes = this.props.idList.map((id, index) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} id={id} row={parseInt(index / 12)} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
+    const boxes = this.props.idList.map((id, index) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} id={id} row={parseInt(index / 12)} zoom={this.state.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
     
     // Render the event boxes
     return (

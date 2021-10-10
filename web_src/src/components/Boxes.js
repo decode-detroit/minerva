@@ -68,8 +68,8 @@ export class ItemBox extends React.PureComponent {
       let changeY = state.cursorY - e.clientY;
   
       // Calculate the new location
-      let left = state.left - changeX;
-      let top = state.top - changeY;
+      let left = state.left - parseInt(changeX / this.props.zoom);
+      let top = state.top - parseInt(changeY / this.props.zoom);
   
       // Enforce bounds on the new location
       left = (left >= 0) ? left : 0;
@@ -181,7 +181,7 @@ export class ItemBox extends React.PureComponent {
                 <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>Remove From Scene</div>
               </div>}
             </div>
-            <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
+            <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={(e) => {stopPropogation(e); this.handleMouseDown(e);}}/>
             {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
             {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
             {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}

@@ -89,8 +89,6 @@ export class App extends React.PureComponent {
     const response = await fetch(`getConfigPath`);
     const json = await response.json();
 
-    console.log(json);
-
     // If valid, save configuration
     if (json.path.isValid) {
       this.setState({
