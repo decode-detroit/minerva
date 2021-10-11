@@ -991,7 +991,7 @@ dependencies = [
 
 [[package]]
 name = "minerva"
-version = "0.9.5"
+version = "0.9.4"
 dependencies = [
  "async-stream",
  "byteorder",
