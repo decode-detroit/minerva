@@ -84,7 +84,7 @@ impl ItemIndex {
             }
 
             // If if is an existance request
-            Some(IndexUpdate::GetExistance {
+            Some(IndexUpdate::GetExistence {
                 item_id,
                 reply_line,
             }) => {
@@ -162,7 +162,7 @@ impl ItemIndex {
             if let Some(description) = self.index.get_mut(&item_id) {
                 // Update the description and notify the system
                 *description = new_description;
-                return false;
+                return false; // FIXME This is backwards. Should return true here and false down below
             }
 
             // Otherwise create a new item in the lookup

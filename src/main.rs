@@ -29,6 +29,7 @@ extern crate serde;
 #[macro_use]
 mod definitions;
 mod item_index;
+mod style_sheet;
 mod system_interface;
 #[macro_use]
 mod gtk_interface;
@@ -40,6 +41,7 @@ use crate::definitions::*;
 // Import other structures into this module
 use self::gtk_interface::GtkInterface;
 use self::item_index::ItemIndex;
+use self::style_sheet::StyleSheet;
 use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
 
@@ -69,6 +71,7 @@ const LOGO_WIDE: &str = "logo_wide.png";
 const GTK_THEME: &str = "Materia-dark";
 const FONT: &str = "Inter";
 const WINDOW_TITLE: &str = "Minerva";
+const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -97,16 +100,24 @@ impl Minerva {
             item_index.run().await;
         });
 
+        // Create the style sheet to process style requests
+        let (mut style_sheet, style_access) = StyleSheet::new();
+
+        // Run the style sheet in a new thread (needed here to allow the system interface to load)
+        runtime.spawn(async move {
+            style_sheet.run().await;
+        });
+
         // Launch the system interface to monitor and handle events
         let (interface_send, gtk_interface_recv, web_interface_recv) = InterfaceSend::new();
         let (system_interface, gtk_send, web_send) = runtime
             .block_on(async {
-                SystemInterface::new(index_access.clone(), interface_send.clone()).await
+                SystemInterface::new(index_access.clone(), style_access.clone(), interface_send.clone()).await
             })
             .expect("Unable To Create System Interface.");
 
         // Create a new web interface
-        let mut web_interface = WebInterface::new(index_access.clone(), web_send);
+        let mut web_interface = WebInterface::new(index_access.clone(), style_access.clone(), web_send);
 
         // Spin the runtime into a native thread
         thread::spawn(move || {

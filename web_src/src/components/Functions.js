@@ -28,18 +28,17 @@ export function saveEdits(modifications) {
   }); // Ignore errors
 }
 
-// Function to save the style change to the local stylesheet
-export async function saveLocalStyle(newRule) {
+// Function to save the style change
+export async function saveStyle(selector, rule) {
   // Add the new rule to the local stylesheet
   let userStyles = document.getElementById("userStyles");
-  userStyles.sheet.insertRule(newRule, userStyles.sheet.cssRules.length); // append to the end
-}
+  userStyles.sheet.insertRule(`${selector} ${rule}`, userStyles.sheet.cssRules.length); // append to the end
 
-// Function to save the style change
-export async function saveStyles(newRules) {
   // Save the configuration
+  let newStyles = {};
+  newStyles[`${selector}`] = `${rule}`;
   let saveStyles = {
-    newRules: newRules,
+    newStyles: newStyles,
   };
   fetch(`/saveStyles`, {
     method: 'POST',
@@ -77,4 +76,61 @@ export function vw(v) {
 
 export function vmin(v) {
   return Math.min(vh(v), vw(v));
+}
+
+// Helper function to extract the edit location from an itempair
+// WARNING: Transitional - will soon be removed
+export function getLocation(itemPair) {
+  // Placeholder values
+  let location = null;
+
+  // Match the display type on the itemPair
+  if (itemPair.display.DisplayControl && itemPair.display.DisplayControl.edit_location) {
+    location = { left: itemPair.display.DisplayControl.edit_location[0], top: itemPair.display.DisplayControl.edit_location[1] };
+  
+  } else if (itemPair.display.DisplayWith && itemPair.display.DisplayWith.edit_location) {
+    location = { left: itemPair.display.DisplayWith.edit_location[0], top: itemPair.display.DisplayWith.edit_location[1] };
+
+  } else if (itemPair.display.DisplayDebug && itemPair.display.DisplayDebug.edit_location) {
+    location = { left: itemPair.display.DisplayDebug.edit_location[0], top: itemPair.display.DisplayDebug.edit_location[1] };
+
+  } else if (itemPair.display.LabelControl && itemPair.display.LabelControl.edit_location) {
+    location = { left: itemPair.display.LabelControl.edit_location[0], top: itemPair.display.LabelControl.edit_location[1] };
+
+  } else if (itemPair.display.LabelHidden && itemPair.display.LabelHidden.edit_location) {
+    location = { left: itemPair.display.LabelHidden.edit_location[0], top: itemPair.display.LabelHidden.edit_location[1] };
+
+  } else if (itemPair.display.Hidden && itemPair.display.Hidden.edit_location) {
+    location = { left: itemPair.display.Hidden.edit_location[0], top: itemPair.display.Hidden.edit_location[1] };
+  }
+
+  // Return the location
+  return location;
+}
+
+// Helper function to update the edit location in an itempair
+// WARNING: Transitional - will soon be removed
+export function clearLocation(itemPair) {
+  // Match the display type on the itemPair
+  if (itemPair.display.DisplayControl) {
+    itemPair.display.DisplayControl.edit_location = null;
+  
+  } else if (itemPair.display.DisplayWith) {
+    itemPair.display.DisplayWith.edit_location = null;
+
+  } else if (itemPair.display.DisplayDebug) {
+    itemPair.display.DisplayDebug.edit_location = null;
+
+  } else if (itemPair.display.LabelControl) {
+    itemPair.display.LabelControl.edit_location = null;
+
+  } else if (itemPair.display.LabelHidden) {
+    itemPair.display.LabelHidden.edit_location = null;
+
+  } else if (itemPair.display.Hidden) {
+    itemPair.display.Hidden.edit_location = null;
+  }
+
+  // Return the location
+  return itemPair;
 }

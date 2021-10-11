@@ -36,7 +36,6 @@ use self::queue::Queue;
 use super::system_connection::ConnectionSet;
 
 // Import standard library features
-use std::fs::File;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -45,6 +44,7 @@ use chrono::NaiveDateTime;
 
 // Import Tokio features
 use tokio::time::sleep;
+use tokio::fs::File;
 
 // Import the failure features
 use failure::Error;
@@ -87,12 +87,13 @@ impl EventHandler {
     pub async fn new(
         config_path: PathBuf,
         index_access: IndexAccess,
+        style_access: StyleAccess,
         internal_send: InternalSend,
         interface_send: InterfaceSend,
         log_failure: bool,
     ) -> Result<EventHandler, Error> {
         // Attempt to open the configuration file
-        let config_file = match File::open(config_path.clone()) {
+        let config_file = match File::open(config_path.clone()).await {
             Ok(file) => file,
             Err(_) => {
                 // Only log failure if the flag is set
@@ -106,9 +107,10 @@ impl EventHandler {
         // Attempt to process the configuration file
         let mut config = Config::from_config(
             index_access,
+            style_access,
             internal_send.clone(),
             interface_send,
-            &config_file,
+            config_file,
         )
         .await?;
 
@@ -406,7 +408,7 @@ impl EventHandler {
     ///
     pub async fn save_config(&mut self, config_path: PathBuf) {
         // Attempt to open the new configuration file
-        let config_file = match File::create(config_path) {
+        let config_file = match File::create(config_path).await {
             Ok(file) => file,
             Err(_) => {
                 log!(err &self.internal_send => "Unable To Open Configuration File.");
@@ -415,7 +417,7 @@ impl EventHandler {
         };
 
         // Save the configuration to the provided file
-        self.config.to_config(&config_file).await;
+        self.config.to_config(config_file).await;
     }
 
     /// A method to process a new event in the event handler. If the event was

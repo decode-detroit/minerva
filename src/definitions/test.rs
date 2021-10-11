@@ -266,3 +266,182 @@ impl IndexAccess {
         false
     }
 }
+
+// Imports for the test structure below
+use crate::definitions::{StyleMap, StyleUpdate};
+
+/// A helper structure to easily test modules that need style access
+///
+pub struct StyleAccess {
+    style_map: Mutex<StyleMap>, // a database of selector/rule pairs
+}
+
+// Create a panic version of clone for this test module
+impl Clone for StyleAccess {
+    fn clone(&self) -> Self {
+        panic!("Test index access cannot be cloned!")
+    }
+}
+
+// Implement the key features of the test style access
+impl StyleAccess {
+    /// A function to create a new test Style Access
+    ///
+    /// The function returns the test Style Access structure which will
+    /// process updates like a real style sheet, but locally.
+    ///
+    pub fn new() -> (StyleAccess, mpsc::Receiver<StyleUpdate>) {
+        // Create the fake channel
+        let (_tx, receive) = mpsc::channel(8);
+
+        // Return the new test access point
+        (
+            StyleAccess {
+                style_map: Mutex::new(StyleMap::default()),
+            },
+            receive,
+        )
+    }
+
+    /// A method to send new styles to the style sheet
+    ///
+    pub async fn send_styles(&self, new_styles: StyleMap) {
+        // Lock access and swap the map
+        if let Ok(mut map) = self.style_map.lock() {
+            *map = new_styles;
+        }
+    }
+
+    /// A method to send new styles to the style sheet
+    ///
+    pub async fn add_styles(&self, mut new_styles: StyleMap) {
+        // Lock access and add each style to the map
+        if let Ok(mut map) = self.style_map.lock() {
+            for (selector, rule) in new_styles.drain() {
+                map.insert(selector, rule);
+            }
+        }
+    }
+
+    /// A method to remove an item from the map
+    /// Returns true if the item was found and false otherwise.
+    ///
+    pub async fn remove_rule(&self, selector: String) -> bool {
+        // Lock access
+        if let Ok(map) = self.style_map.lock() {
+            return StyleAccess::modify_rule(map, selector, None);
+        }
+
+        // Fallback
+        false
+    }
+
+    /// A method to add or update the rule in the map
+    /// Returns true if the operation was a success.
+    ///
+    pub async fn update_rule(
+        &self,
+        selector: String,
+        new_rule: String,
+    ) -> bool {
+        // Lock access
+        if let Ok(map) = self.style_map.lock() {
+            return StyleAccess::modify_rule(map, selector, Some(new_rule));
+        }
+
+        // Fallback
+        false
+    }
+
+    /// A method to see if a selector is listed in the style sheet
+    /// 
+    pub async fn is_listed(&self, selector: &String) -> bool {
+        // Lock access
+        if let Ok(map) = self.style_map.lock() {
+            // Check to see if the key exists
+            return map.contains_key(selector);
+        }
+
+        // Otherwise, return false
+        false
+    }
+
+    /// A method to get the rule from the style sheet
+    ///
+    pub async fn get_rule(&self, selector: &String) -> String {
+        // Lock access
+        if let Ok(map) = self.style_map.lock() {
+            // Return a rule based on the provided selector
+            if let Some(rule) = map.get(selector) {
+                // Return the description
+                return rule.clone();
+            }
+        }
+
+        // Otherwise, return the default
+        String::new()
+    }
+
+    /// A method to get all selectors from the style sheet
+    ///
+    pub async fn get_all_selectors(&self) -> Vec<String> {
+        // Create an empty selectors vector
+        let mut selectors = Vec::new();
+
+        // Lock access
+        if let Ok(map) = self.style_map.lock() {
+            for selector in map.keys() {
+                selectors.push(selector.clone());
+            }
+        }
+
+        // Sort the selectors
+        selectors.sort_unstable();
+
+        // Return the result
+        selectors
+    }
+
+    /// A method to get all rules from the style sheet
+    ///
+    pub async fn get_all_rules(&self) -> StyleMap {
+        // Return a copy of the style map
+        let mut map_copy = StyleMap::default();
+
+        // Lock access
+        if let Ok(map) = self.style_map.lock() {
+            map_copy = map.clone();
+        }
+
+        // Return the result
+        map_copy
+    }
+
+    /// A method to add, update, or remove a selector and rule
+    ///
+    /// # Note
+    ///
+    /// If the operation was a success, returns true.
+    ///
+    fn modify_rule(
+        mut map: MutexGuard<StyleMap>,
+        selector: String,
+        possible_rule: Option<String>,
+    ) -> bool {
+        // If the request is to modify the rule
+        if let Some(new_rule) = possible_rule {
+            // Update or create a new rule in the lookup
+            map.insert(selector, new_rule);
+            return true;
+        }
+
+        // Otherwise, try to remove the item
+        if let Some(_) = map.remove(&selector) {
+            // If the item exists
+            return true;
+        }
+
+        // Otherwise, return false
+        false
+    }
+}

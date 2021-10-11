@@ -21,19 +21,13 @@
 // Import crate definitions
 use crate::definitions::*;
 
-// Import standard library features
-use std::sync::Arc;
-use std::str::FromStr;
-use std::path::PathBuf;
-use std::time::Duration;
-use std::num::ParseIntError;
+// Define private submodules
+mod web_definitions;
 
-// Import Chrono features
-use chrono::NaiveDateTime;
+// Import the web definitions
+use self::web_definitions::*;
 
 // Import Tokio and warp features
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::{mpsc, oneshot};
 use warp::{http, Filter};
 use warp::ws::{WebSocket, Message};
@@ -45,319 +39,15 @@ use futures_util::StreamExt;
 // Import serde feaures
 use serde::de::DeserializeOwned;
 
-/// Helper data types to formalize request structure
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct AllEventChange {
-    adjustment_secs: u64,
-    adjustment_nanos: u64,
-    is_negative: bool,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct BroadcastEvent {
-    id: u32,
-    data: Option<u32>,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ConfigFile { 
-    filename: String,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct CueEvent {
-    id: u32,
-    secs: u64,
-    nanos: u64,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DebugMode {
-    is_debug: bool,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Edit {
-    modifications: Vec<Modification>,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ErrorLog {
-    filename: String,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct EventChange {
-    event_id: ItemId,
-    start_time: NaiveDateTime,
-    new_delay: Option<Duration>,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GameLog {
-    filename: String,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GetEvent {
-    id: u32,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GetItem {
-    id: u32,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GetScene {
-    id: u32,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GetStatus {
-    id: u32,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct GetType {
-    id: u32,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ProcessEvent {
-    event_id: u32,
-    check_scene: bool,
-    broadcast: bool,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SaveConfig {
-    filename: String,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SaveStyles {
-    new_rules: String,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SceneChange {
-    scene_id: u32,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct StatusChange {
-    status_id: u32,
-    state_id: u32,
-}
-
-// Implement FromStr for helper data types
-impl FromStr for GetEvent {
-    // Interpret errors as ParseIntError
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Parse as a u32 and return the result
-        let id = s.parse::<u32>()?;
-        Ok(GetEvent { id })
-    }
-}
-impl FromStr for GetItem {
-    // Interpret errors as ParseIntError
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Parse as a u32 and return the result
-        let id = s.parse::<u32>()?;
-        Ok(GetItem { id })
-    }
-}
-impl FromStr for GetScene {
-    // Interpret errors as ParseIntError
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Parse as a u32 and return the result
-        let id = s.parse::<u32>()?;
-        Ok(GetScene { id })
-    }
-}
-impl FromStr for GetStatus {
-    // Interpret errors as ParseIntError
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Parse as a u32 and return the result
-        let id = s.parse::<u32>()?;
-        Ok(GetStatus { id })
-    }
-}
-impl FromStr for GetType {
-    // Interpret errors as ParseIntError
-    type Err = ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // Parse as a u32 and return the result
-        let id = s.parse::<u32>()?;
-        Ok(GetType { id })
-    }
-}
-
-// Implement from for the helper data types
-impl From<AllEventChange> for UserRequest {
-    fn from(all_event_change: AllEventChange) -> Self {
-        // Create the duration
-        let adjustment = Duration::from_secs(all_event_change.adjustment_secs)
-            + Duration::from_nanos(all_event_change.adjustment_nanos);
-
-        // Return the request
-        UserRequest::AllEventChange {
-            adjustment,
-            is_negative: all_event_change.is_negative,
-        }
-    }
-}
-impl From<BroadcastEvent> for UserRequest {
-    fn from(broadcast_event: BroadcastEvent) -> Self {
-        UserRequest::BroadcastEvent {
-            event_id: ItemId::new_unchecked(broadcast_event.id),
-            data: broadcast_event.data,
-        }
-    }
-}
-impl From<ConfigFile> for UserRequest {
-    fn from(config_file: ConfigFile) -> Self {
-        UserRequest::ConfigFile {
-            filepath: Some(PathBuf::from(config_file.filename)),
-        }
-    }
-}
-impl From<CueEvent> for UserRequest {
-    fn from(cue_event: CueEvent) -> Self {
-        // Create the duration
-        let delay;
-        if cue_event.secs != 0 || cue_event.nanos != 0 {
-            delay =
-                Some(Duration::from_secs(cue_event.secs) + Duration::from_nanos(cue_event.nanos));
-        } else {
-            delay = None;
-        }
-
-        // Return the request
-        UserRequest::CueEvent {
-            event_delay: EventDelay::new(delay, ItemId::new_unchecked(cue_event.id)),
-        }
-    }
-}
-impl From<DebugMode> for UserRequest {
-    fn from(debug_mode: DebugMode) -> Self {
-        UserRequest::DebugMode(debug_mode.is_debug)
-    }
-}
-impl From<Edit> for UserRequest {
-    fn from(edit: Edit) -> Self {
-        UserRequest::Edit {
-            modifications: edit.modifications,
-        }
-    }
-}
-impl From<ErrorLog> for UserRequest {
-    fn from(error_log: ErrorLog) -> Self {
-        UserRequest::ErrorLog {
-            filepath: PathBuf::from(error_log.filename),
-        }
-    }
-}
-impl From<EventChange> for UserRequest {
-    fn from(event_change: EventChange) -> Self {
-        UserRequest::EventChange {
-            event_id: event_change.event_id,
-            start_time: event_change.start_time,
-            new_delay: event_change.new_delay,
-        }
-    }
-}
-impl From<GameLog> for UserRequest {
-    fn from(game_log: GameLog) -> Self {
-        UserRequest::GameLog {
-            filepath: PathBuf::from(game_log.filename),
-        }
-    }
-}
-impl From<GetEvent> for UserRequest {
-    fn from(get_event: GetEvent) -> Self {
-        UserRequest::Detail {
-            detail_type: DetailType::Event {
-                item_id: ItemId::new_unchecked(get_event.id),
-            }
-        }
-    }
-}
-impl From<GetScene> for UserRequest {
-    fn from(get_scene: GetScene) -> Self {
-        UserRequest::Detail {
-            detail_type: DetailType::Scene {
-                item_id: ItemId::new_unchecked(get_scene.id),
-            }
-        }
-    }
-}
-impl From<GetStatus> for UserRequest {
-    fn from(get_status: GetStatus) -> Self {
-        UserRequest::Detail {
-            detail_type: DetailType::Status {
-                item_id: ItemId::new_unchecked(get_status.id),
-            }
-        }
-    }
-}
-impl From<GetType> for UserRequest {
-    fn from(get_type: GetType) -> Self {
-        UserRequest::Detail {
-            detail_type: DetailType::Type {
-                item_id: ItemId::new_unchecked(get_type.id),
-            }
-        }
-    }
-}
-impl From<ProcessEvent> for UserRequest {
-    fn from(process_event: ProcessEvent) -> Self {
-        UserRequest::ProcessEvent {
-            event: ItemId::new_unchecked(process_event.event_id),
-            check_scene: process_event.check_scene,
-            broadcast: process_event.broadcast,
-        }
-    }
-}
-impl From<SaveConfig> for UserRequest {
-    fn from(save_config: SaveConfig) -> Self {
-        UserRequest::SaveConfig {
-            filepath: PathBuf::from(save_config.filename),
-        }
-    }
-}
-impl From<SceneChange> for UserRequest {
-    fn from(scene_change: SceneChange) -> Self {
-        UserRequest::SceneChange {
-            scene: ItemId::new_unchecked(scene_change.scene_id),
-        }
-    }
-}
-impl From<StatusChange> for UserRequest {
-    fn from(status_change: StatusChange) -> Self {
-        UserRequest::StatusChange {
-            status: ItemId::new_unchecked(status_change.status_id),
-            state: ItemId::new_unchecked(status_change.state_id),
-        }
-    }
-}
+// Import constants
+use crate::USER_STYLE_SHEET;
 
 /// A structure to contain the web interface and handle all updates to the
 /// to the interface.
 ///
 pub struct WebInterface {
     index_access: IndexAccess, // access point for the item index
+    style_access: StyleAccess, // access point for the style sheet
     web_send: WebSend,         // send line to the system interface
 }
 
@@ -366,10 +56,11 @@ impl WebInterface {
     /// A function to create a new web interface. The send channel should
     /// connect directly to the system interface.
     ///
-    pub fn new(index_access: IndexAccess, web_send: WebSend) -> Self {
+    pub fn new(index_access: IndexAccess, style_access: StyleAccess, web_send: WebSend) -> Self {
         // Return the new web interface and runtime handle
         WebInterface {
             index_access,
+            style_access,
             web_send,
         }
     }
@@ -484,7 +175,7 @@ impl WebInterface {
             .and(warp::path("cueEvent"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<CueEvent>())
+            .and(WebInterface::with_json::<WebCueEvent>())
             .and_then(WebInterface::handle_request);
 
             // Create the debug mode filter
@@ -568,9 +259,9 @@ impl WebInterface {
 
         // Create the get style filter
         let get_styles = warp::get()
-            .and(warp::path("getStyles"))
-            .and(warp::path::end())
-            .and(warp::fs::file("default.css")); // FIXME change the filename to match the configuration
+            .and(warp::path("getStyles")) // Allow javascript name scrambling to defeat the cache
+            .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
+            // FIXME This filter is OS-specific and may fail on OSX and Windows
 
         // Create the get status filter
         let get_type = warp::get()
@@ -608,9 +299,9 @@ impl WebInterface {
         let save_style = warp::post()
             .and(warp::path("saveStyles"))
             .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_clone(self.style_access.clone()))
             .and(WebInterface::with_json::<SaveStyles>())
-            .and_then(WebInterface::handle_save_style);
+            .and_then(WebInterface::handle_save_styles);
 
         // Create the scene change filter
         let scene_change = warp::post()
@@ -712,7 +403,7 @@ impl WebInterface {
     async fn handle_all_items(
         index_access: IndexAccess,
     ) -> Result<impl warp::Reply, warp::Rejection> {
-        // Get the item pair from the index
+        // Get the item pairs from the index
         let items = index_access
             .get_all()
             .await;
@@ -748,102 +439,19 @@ impl WebInterface {
         ));
     }
 
-    /// A function to handle getting the configuration stylesheet
-    /*async fn handle_get_styles(
-        web_send: WebSend,
-    ) -> Result<impl warp::Reply, warp::Rejection> {
-        // Get the configuration filename from the system
-        let (reply_to, rx) = oneshot::channel();
-        web_send.send(reply_to, UserRequest::ConfigPath).await;
-
-        // Wait for the reply
-        let file_root;
-        if let Ok(reply) = rx.await {
-            // If the reply is a success
-            if let WebReply::Path { filename, .. } = reply { 
-                file_root = filename;
-
-            // Otherwise, note the error
-            } else {
-                return Err(warp::reject());
-            }
-
-        // Otherwise, note the error
-        } else {
-            return Err(warp::reject());
-        }
-
-        // Append the file ending
-        let filename = format!("{}.css", file_root);
-
-        // Return the file
-        let path: Arc<PathBuf> = Arc::new(filename.into());
-        warp::any()
-            .and(conditionals())
-            .and_then(|path, conditionals| file_reply(path, conditionals)).await
-    }*/
-
     /// A function to handle saving an updated stylesheet
-    async fn handle_save_style(
-        web_send: WebSend,
-        new_style: SaveStyles,
+    async fn handle_save_styles(
+        style_access: StyleAccess,
+        styles: SaveStyles,
     ) -> Result<impl warp::Reply, warp::Rejection> {
-        // Get the configuration filename from the system
-        let (reply_to, rx) = oneshot::channel();
-        web_send.send(reply_to, UserRequest::ConfigPath).await;
+        // Send each new style to the style sheet
+        style_access.add_styles(styles.new_styles).await;
 
-        // Wait for the reply
-        let file_root;
-        if let Ok(reply) = rx.await {
-            // If the reply is a success
-            if let WebReply::Path { filename, .. } = reply { 
-                file_root = filename;
-
-            // Otherwise, note the error
-            } else {
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&WebReply::failure("Unable to process request.")),
-                    http::StatusCode::INTERNAL_SERVER_ERROR,
-                ));
-            }
-
-        // Otherwise, note the error
-        } else {
-            return Ok(warp::reply::with_status(
-                warp::reply::json(&WebReply::failure("Unable to process request.")),
-                http::StatusCode::INTERNAL_SERVER_ERROR,
-            ));
-        }
-
-        // Append the file ending
-        let filename = format!("default.css"); //{}.css", file_root); // FIXME return to the custom filename
-
-        // Add a newline to the front of the rule
-        let new_rule = format!("\n{}", new_style.new_rules); // WARNING: a source for possible injection attacks if exposed to the open internet.
-        
-        // Try to open the stylesheet filename
-        if let Ok(mut file) = fs::OpenOptions::new().append(true).open(&filename).await {
-            // Try to append the string to the file
-            if let Err(_) = file.write_all(&new_rule.as_bytes()).await { // FIXME Remove the original rule
-                return Ok(warp::reply::with_status(
-                    warp::reply::json(&WebReply::failure("Unable to write to file.")),
-                    http::StatusCode::INTERNAL_SERVER_ERROR,
-                ));
-            }
-        
-        // Otherwise, return failure
-        } else {
-            return Ok(warp::reply::with_status(
-                warp::reply::json(&WebReply::failure("Unable to open file.")),
-                http::StatusCode::INTERNAL_SERVER_ERROR,
-            ));
-        }
-        
-        // Return the successful, temporary photo url
-        Ok(warp::reply::with_status(
+        // Indicate success
+        return Ok(warp::reply::with_status(
             warp::reply::json(&WebReply::success()),
             http::StatusCode::CREATED,
-        ))
+        ));
     }
 
     /// A function to add a new websocket listener

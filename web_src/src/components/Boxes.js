@@ -2,7 +2,7 @@ import React from 'react';
 import { Action } from './Actions';
 import { ReceiveNode } from './Nodes';
 import { State } from './States';
-import { stopPropogation, rem } from './Functions';
+import { stopPropogation, getLocation, clearLocation } from './Functions';
 import { AddMenu, AddActionMenu } from './Menus';
 
 // An item box to select the appropriate sub-box
@@ -107,6 +107,22 @@ export class ItemBox extends React.PureComponent {
 
       // If valid, save the result to the state
       if (json.item.isValid) {
+        // Extract the location, if available
+        let location = getLocation(json.item.itemPair);
+        if (location) {
+          // Save the location to the new format
+          this.props.saveLocation(this.props.id, location.left, location.top);
+
+          // Clear the location and delete the record
+          let newPair = clearLocation(json.item.itemPair);
+          let modifications = [{
+            modifyItem: {
+              itemPair: newPair,
+            },
+          }];
+          this.props.saveModifications(modifications);
+        }
+        
         // Save the itemPair
         this.setState({
           description: json.item.itemPair.description,
@@ -143,9 +159,9 @@ export class ItemBox extends React.PureComponent {
     let value = e.target.value;
 
     // Replace the existing description
-    this.setState(prevState => ({
+    this.setState({
       description: value,
-    }));
+    });
 
     // CLear the existing timeout, if it exists
     if (this.saveTimeout) {

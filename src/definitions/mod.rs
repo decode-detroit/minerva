@@ -33,6 +33,7 @@ mod item;
 mod log;
 mod scene;
 mod status;
+mod style;
 mod system;
 
 // Reexport all the definitions from the submodules
@@ -44,6 +45,7 @@ pub use self::item::*;
 pub use self::log::*;
 pub use self::scene::*;
 pub use self::status::*;
+pub use self::style::*;
 pub use self::system::*;
 
 // Reexport the testing module and definitions

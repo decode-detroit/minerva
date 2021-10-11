@@ -77,22 +77,22 @@ all_scenes:
         id: 201
   ? id: 300
   : events:
-      - id: 302
-      - id: 323
       - id: 312
-      - id: 301
       - id: 314
-      - id: 303
       - id: 324
       - id: 313
-      - id: 304
       - id: 322
-      - id: 311
       - id: 300
       - id: 321
-    key_map:
-      32:
-        id: 301
+      - id: 302
+      - id: 323
+      - id: 301
+      - id: 303
+      - id: 204
+      - id: 304
+      - id: 311
+      - id: 202
+    key_map: ~
   ? id: 500
   : events:
       - id: 502
@@ -355,9 +355,7 @@ event_set:
         highlight: ~
         highlight_state: ~
         spotlight: ~
-        edit_location:
-          - 394
-          - 105
+        edit_location: ~
   : []
   ? id: 311
     description: "On"
@@ -669,3 +667,4 @@ event_set:
   : - NewScene:
         new_scene:
           id: 100
+user_styles: {}

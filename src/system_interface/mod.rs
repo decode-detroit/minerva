@@ -67,7 +67,8 @@ pub struct SystemInterface {
     logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
     index_access: IndexAccess,           // the access point for the item index
-    interface_send: InterfaceSend, // a sending line to pass interface updates
+    style_access: StyleAccess,           // the access point for the style sheet
+    interface_send: InterfaceSend,       // a sending line to pass interface updates
     gtk_receive: mpsc::Receiver<GtkRequest>, // the receiving line for gtk requests
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
@@ -81,6 +82,7 @@ impl SystemInterface {
     ///
     pub async fn new(
         index_access: IndexAccess,
+        style_access: StyleAccess,
         interface_send: InterfaceSend,
     ) -> Result<(Self, GtkSend, WebSend), FailureError> {
         // Create the new general update structure and receive channel
@@ -129,6 +131,7 @@ impl SystemInterface {
             logger,
             system_connection,
             index_access,
+            style_access,
             interface_send,
             gtk_receive,
             web_receive,
@@ -970,6 +973,7 @@ impl SystemInterface {
         let mut event_handler = match EventHandler::new(
             filepath,
             self.index_access.clone(),
+            self.style_access.clone(),
             self.internal_send.clone(),
             interface_send,
             log_failure,

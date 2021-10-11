@@ -15,8 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//! This module implements shared communication structures for communicating
-//! across the modules of the system.
+//! This module implements shared communication structures for managing
+//! access to the item index.
 
 // Import crate definitions
 use crate::definitions::*;
@@ -25,6 +25,13 @@ use crate::definitions::*;
 use tokio::sync::oneshot;
 #[cfg(not(test))]
 use tokio::sync::mpsc;
+
+// Import FNV HashMap
+use fnv::FnvHashMap;
+
+/// A type to store a hashmap of item ids and item descriptions
+///
+pub type DescriptionMap = FnvHashMap<ItemId, ItemDescription>; // a hash map of item ids and item descriptions
 
 /// An enum to provide and receive updates from the item index
 ///
@@ -40,8 +47,8 @@ pub enum IndexUpdate {
         reply_line: oneshot::Sender<bool>,
     },
 
-    /// A variant to receive a bool from the item index
-    GetExistance {
+    /// A variant to receive an existence test from the item index
+    GetExistence {
         item_id: ItemId,
         reply_line: oneshot::Sender<bool>,
     },
@@ -74,7 +81,7 @@ pub enum IndexUpdate {
 #[cfg(not(test))]
 #[derive(Clone, Debug)]
 pub struct IndexAccess {
-    index_send: mpsc::Sender<IndexUpdate>, // the line to pass internal updates to the system interface
+    index_send: mpsc::Sender<IndexUpdate>, // the line to pass requests to the item index
 }
 
 // Implement the key features of the index access
@@ -127,6 +134,7 @@ impl IndexAccess {
 
     /// A method to add or update the description in the item index
     /// Returns true if the item was not previously defined and false otherwise.
+    /// FIXME This is a misleading return value.
     ///
     pub async fn update_description(
         &self,
@@ -159,7 +167,7 @@ impl IndexAccess {
         let (reply_line, rx) = oneshot::channel();
         if let Err(_) = self
             .index_send
-            .send(IndexUpdate::GetExistance {
+            .send(IndexUpdate::GetExistence {
                 item_id: item_id.clone(),
                 reply_line,
             })

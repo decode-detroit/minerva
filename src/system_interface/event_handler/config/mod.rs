@@ -30,12 +30,11 @@ use self::status::StatusHandler;
 use super::super::system_connection::ConnectionSet;
 
 // Import standard library features
-use std::fs::File;
-use std::io::Read;
-use std::io::Write;
 use std::path::PathBuf;
 
 // Import tokio features
+use tokio::fs::File;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 use tokio::runtime::Handle;
 
@@ -177,6 +176,7 @@ struct YamlConfig {
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap,  // hash map of the default game status
     event_set: FnvHashMap<ItemPair, Option<Event>>, // hash map of all the item pairs and events
+    user_styles: StyleMap, // A string representing arbitrary css for styling the user and edit interfaces
 } // Private struct to allow deserialization of the configuration
 
 /// A structure to hold the whole configuration for current instantiation of the
@@ -194,6 +194,7 @@ pub struct Config {
     status_handler: StatusHandler, // status handler for the current game status
     events: FnvHashMap<ItemId, Event>, // hash map of all the events
     index_access: IndexAccess, // access point to the item index
+    style_access: StyleAccess, // access point to the style sheet
     internal_send: InternalSend, // line to provide updates to the higher-level system
 }
 
@@ -222,13 +223,14 @@ impl Config {
     ///
     pub async fn from_config(
         index_access: IndexAccess,
+        style_access: StyleAccess,
         internal_send: InternalSend,
         interface_send: InterfaceSend,
-        mut config_file: &File,
+        mut config_file: File,
     ) -> Result<Config, Error> {
         // Try to read from the configuration file
         let mut config_string = String::new();
-        match config_file.read_to_string(&mut config_string) {
+        match config_file.read_to_string(&mut config_string).await {
             Ok(_) => (),
             Err(error) => {
                 log!(err internal_send => "Invalid Configuration File: {}", error);
@@ -251,7 +253,7 @@ impl Config {
             log!(warn internal_send => "Version Of Configuration ({}) Does Not Match Software Version ({})", &yaml_config.version, version);
         }
 
-        // Turn the ItemPairs in to the item index and event set
+        // Turn the ItemPairs in to the item index and event set // FIXME This check doesn't seem to work
         let mut item_index = DescriptionMap::default();
         let mut events = FnvHashMap::default();
         for (item_pair, possible_event) in yaml_config.event_set.iter() {
@@ -291,6 +293,9 @@ impl Config {
 
         // Load the item index
         index_access.send_index(item_index).await;
+
+        // Load the user styles
+        style_access.send_styles(yaml_config.user_styles).await;
 
         // Create the new status handler
         let status_handler = StatusHandler::new(internal_send.clone(), status_map);
@@ -333,6 +338,7 @@ impl Config {
             status_handler,
             events,
             index_access,
+            style_access,
             internal_send,
         })
     }
@@ -700,7 +706,7 @@ impl Config {
     /// gracefully by notifying of errors on the update line and making no
     /// modifications to the file.
     ///
-    pub async fn to_config(&self, mut config_file: &File) {
+    pub async fn to_config(&self, mut config_file: File) {
         // Assemble the event set from the item index and events
         let mut item_index = self.index_access.get_all_pairs().await;
         let mut event_set = FnvHashMap::default();
@@ -726,6 +732,9 @@ impl Config {
             &None => None,
         };
 
+        // Try to get a copy of the style sheet
+        let user_styles = self.style_access.get_all_rules().await;
+
         // Create a YAML config from the elements
         let yaml_config = YamlConfig {
             version: env!("CARGO_PKG_VERSION").to_string(),
@@ -738,6 +747,7 @@ impl Config {
             all_scenes: self.all_scenes.clone(),
             status_map: self.status_handler.get_map(),
             event_set,
+            user_styles,
         };
 
         // Try to parse the configuration
@@ -750,7 +760,7 @@ impl Config {
         };
 
         // Try to write the configuration to the file
-        match config_file.write_all(config_string.as_bytes()) {
+        match config_file.write_all(config_string.as_bytes()).await {
             Ok(_) => (),
             Err(error) => {
                 log!(err &self.internal_send => "Unable To Write Configuration To File: {}", error)
