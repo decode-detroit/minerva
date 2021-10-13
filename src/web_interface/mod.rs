@@ -98,6 +98,21 @@ impl WebInterface {
             }
         });
 
+        // Spin up a thread for the limited-access port (64636)
+        let clone_send = self.web_send.clone();
+        tokio::spawn(async move {
+            // Create the limited cue event filter
+            let limited_cue_event = warp::post()
+            .and(warp::path("cueEvent"))
+            .and(warp::path::end())
+            .and(WebInterface::with_clone(clone_send.clone()))
+            .and(WebInterface::with_json::<LimitedCueEvent>())
+            .and_then(WebInterface::handle_request);
+
+            // Serve this route on a separate port
+            warp::serve(limited_cue_event).run(([127, 0, 0, 1], 64636)).await;
+        });
+
         // Create the websocket filter
         let listen = warp::path("listen")
             .and(WebInterface::with_clone(listener_send.clone()))
@@ -175,7 +190,7 @@ impl WebInterface {
             .and(warp::path("cueEvent"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<WebCueEvent>())
+            .and(WebInterface::with_json::<FullCueEvent>())
             .and_then(WebInterface::handle_request);
 
             // Create the debug mode filter

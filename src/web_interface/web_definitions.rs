@@ -51,7 +51,12 @@ pub struct ConfigFile {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WebCueEvent {
+pub struct LimitedCueEvent {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FullCueEvent {
     id: u32,
     secs: u64,
     nanos: u64,
@@ -218,8 +223,16 @@ impl From<ConfigFile> for UserRequest {
         }
     }
 }
-impl From<WebCueEvent> for UserRequest {
-    fn from(cue_event: WebCueEvent) -> Self {
+impl From<LimitedCueEvent> for UserRequest {
+    fn from(cue_event: LimitedCueEvent) -> Self {
+        // Return the request
+        UserRequest::CueEvent {
+            event_delay: EventDelay::new(None, ItemId::new_unchecked(cue_event.id)),
+        }
+    }
+}
+impl From<FullCueEvent> for UserRequest {
+    fn from(cue_event: FullCueEvent) -> Self {
         // Create the duration
         let delay;
         if cue_event.secs != 0 || cue_event.nanos != 0 {
