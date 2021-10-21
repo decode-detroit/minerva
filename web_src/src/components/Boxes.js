@@ -355,8 +355,8 @@ export class StatusFragment extends React.PureComponent {
     // Return the fragment
     return (
       <>
-        <div className="subtitle">Status:</div>
-        <div className="verticalList">{children}</div>
+        <div className="subtitle">States:</div>
+        <div className="verticalList" onWheel={stopPropogation}>{children}</div>
         <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
           {this.state.isMenuVisible ? `-` : `+`}
           {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} addItem={(id) => {this.setState({ isMenuVisible: false }); this.addState(id)}} saveModifications={this.props.saveModifications}/>}
@@ -478,7 +478,7 @@ export class EventFragment extends React.PureComponent {
     return (
       <>
         <div className="subtitle">Actions:</div>
-        <div className="verticalList">{children}</div>
+        <div className="verticalList" onWheel={stopPropogation}>{children}</div>
         <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
           {this.state.isMenuVisible ? `-` : `+`}
           {this.state.isMenuVisible && <AddActionMenu left={180} top={60} addAction={this.addAction}/>}
