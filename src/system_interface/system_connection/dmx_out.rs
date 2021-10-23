@@ -60,24 +60,6 @@ const COMMAND_END: u8 = 0xE7 as u8; // the end of the command
 // Define fade constants
 const RESOLUTION: u64 = 50; // the time resolution of each fade, in ms
 
-/// A struct to define a single fade of a DMX channel
-///
-/// # Note
-///
-/// Assumes the channels are one-indexed (the DMX standard) rather than
-/// zero-indexed.
-///
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DmxFade {
-    channel: u32,               // the dmx channel to fade
-    value: u8,                  // the final value at the end of the fade
-    duration: Option<Duration>, // the duration of the fade (None if instantaneous)
-}
-
-/// A type to store a hashmap of event ids and DMX fades
-///
-pub type DmxMap = FnvHashMap<ItemId, DmxFade>;
-
 /// A structure to hold and manipulate the connection over serial
 ///
 pub struct DmxOut {

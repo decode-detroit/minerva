@@ -27,7 +27,6 @@ mod status;
 
 // Import the relevant structures into the correct namespace
 use self::status::StatusHandler;
-use super::super::system_connection::ConnectionSet;
 
 // Import standard library features
 use std::path::PathBuf;
@@ -349,10 +348,16 @@ impl Config {
         self.identifier.clone()
     }
 
-    /// A method to return a copy of the system connection type.
+    /// A method to return a copy of the system connections and identifier.
     ///
     pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
         (self.system_connection.clone(), self.identifier())
+    }
+
+    /// A method to return a copy of the system connections.
+    ///
+    pub fn get_connections(&self) -> ConnectionSet {
+        self.system_connection.clone()
     }
 
     /// A method to return the backup server location

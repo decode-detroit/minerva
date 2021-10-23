@@ -33,7 +33,6 @@ use crate::definitions::*;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::queue::Queue;
-use super::system_connection::ConnectionSet;
 
 // Import standard library features
 use std::path::PathBuf;
@@ -206,6 +205,12 @@ impl EventHandler {
     pub fn get_config_path(&self) -> PathBuf {
         // Return a copy of the pathbuf
         self.config_path.clone()
+    }
+
+    /// A method to return a copy of the system connections.
+    ///
+    pub fn get_connections(&self) -> ConnectionSet {
+        self.config.get_connections()
     }
 
     /// A method to return a copy of the event for the provided id.

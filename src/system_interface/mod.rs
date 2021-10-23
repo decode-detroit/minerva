@@ -191,6 +191,11 @@ impl SystemInterface {
                         request.reply_to.send(WebReply::success()).unwrap_or(());
                     }
 
+                    // The unpacking yielded a connection
+                    UnpackResult::SuccessWithConnections(connections) => {
+                        request.reply_to.send(WebReply::Connections { is_valid: true, connections: Some(connections) }).unwrap_or(());
+                    }
+
                     // The unpacking yielded an event
                     UnpackResult::SuccessWithEvent(event) => {
                         request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event.into()) }).unwrap_or(());
@@ -548,6 +553,10 @@ impl SystemInterface {
                             // Get the scene list
                             result = UnpackResult::SuccessWithItems(handler.get_scenes());
                         }
+
+                        DetailType::Connections => {
+                            result = UnpackResult::SuccessWithConnections(handler.get_connections())
+                        }
                         
                         // Reply to a request for the event
                         DetailType::Event { item_id } => {
@@ -609,7 +618,7 @@ impl SystemInterface {
                     // Return the result
                     return result;
 
-                // Otherwise noity the user that a configuration failed to load
+                // Otherwise notify the user that a configuration failed to load
                 } else {
                     log!(warn &mut self.internal_send => "Information Unavailable. No Active Configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
@@ -787,7 +796,7 @@ impl SystemInterface {
             }
 
             // Reply to the request for information
-            UserRequest::GtkRequest { reply_to, request } => {
+            UserRequest::GtkRequest { reply_to, request } => { // FIXME This can likely be removed.
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Match the type of information request
@@ -991,7 +1000,7 @@ impl SystemInterface {
             .update_system_connection(Some(system_connection))
             .await
         {
-            return;
+            log!(err &mut self.internal_send => "Unable To Open System Connections.");
         }
 
         // Get the scenes and full status
@@ -1131,6 +1140,9 @@ impl SystemInterface {
 enum UnpackResult {
     // A variant for successful unpacking
     Success,
+
+    // A varient for successful unpacking with system connections
+    SuccessWithConnections(ConnectionSet),
 
     // A variant for successful unpacking with an event
     SuccessWithEvent(Event),

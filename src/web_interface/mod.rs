@@ -236,8 +236,17 @@ impl WebInterface {
         // Create the get config path filter
         let get_config_path = warp::get()
             .and(warp::path("getConfigPath"))
+            .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_clone(UserRequest::ConfigPath))
+            .and_then(WebInterface::handle_request);
+
+        // Create the get connections filter
+        let get_connections = warp::get()
+            .and(warp::path("getConnections"))
+            .and(warp::path::end())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_clone(UserRequest::Detail { detail_type: DetailType::Connections }))
             .and_then(WebInterface::handle_request);
 
         // Create the get event filter
@@ -274,7 +283,7 @@ impl WebInterface {
 
         // Create the get style filter
         let get_styles = warp::get()
-            .and(warp::path("getStyles")) // Allow javascript name scrambling to defeat the cache
+            .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
             .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
             // FIXME This filter is OS-specific and may fail on OSX and Windows
 
@@ -356,6 +365,7 @@ impl WebInterface {
             .or(event_change)
             .or(game_log)
             .or(get_config_path)
+            .or(get_connections)
             .or(get_event)
             .or(get_item)
             .or(get_scene)

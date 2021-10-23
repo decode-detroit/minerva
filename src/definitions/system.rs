@@ -181,8 +181,11 @@ pub enum DetailType {
     /// NOTE: Consider moving this to the index module (see AllItems)
     AllScenes,
 
+    /// A variant for the list of all system connections
+    Connections,
+
     /// A variant for the description of an item
-    /// NOTE: This variant will be retired
+    /// NOTE: This variant will be retired // FIXME Remove this variant
     Description { item_id: ItemId },
 
     /// A variant for the event associated with an item
@@ -380,6 +383,13 @@ pub enum UserRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WebReply {
+    // A variant that contains a system connection set
+    #[serde(rename_all = "camelCase")]
+    Connections {
+        is_valid: bool,                     // a flag to introduce the result of the request
+        connections: Option<ConnectionSet>, // the connection set, if found
+    },
+    
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
     Event {
@@ -458,6 +468,7 @@ impl WebReply {
     ///
     pub fn is_success(&self) -> bool {
         match self {
+            &WebReply::Connections { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Event { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Item { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Items { ref is_valid, .. } => is_valid.clone(),

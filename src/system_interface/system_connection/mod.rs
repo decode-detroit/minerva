@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Decode Detroit
+// Copyright (c) 2019-2021 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -33,12 +33,11 @@ use crate::definitions::*;
 
 // Import other definitions
 use self::comedy_comm::ComedyComm;
-use self::dmx_out::{DmxFade, DmxMap, DmxOut};
-use self::media_out::{ChannelMap, MediaCue, MediaMap, MediaOut};
+use self::dmx_out::DmxOut;
+use self::media_out::{MediaOut};
 use self::zmq_comm::{ZmqBind, ZmqConnect};
 
-// Import standard library modules and traits
-use std::path::PathBuf;
+// Import standard library features
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use std::thread;
@@ -59,50 +58,6 @@ enum ReadResult {
 
     // A variant for errors when reading data
     ReadError(Error),
-}
-
-/// An enum to specify the type of system connection.
-///
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum ConnectionType {
-    /// A variant to connect with a ComedyComm serial port. This implementation
-    /// assumes the serial connection uses the ComedyComm protocol.
-    ComedySerial {
-        path: PathBuf, // the location of the serial port
-        baud: usize,   // the baud rate of the serial port
-    },
-
-    /// A variant to create a ZeroMQ connection. The connection type allows
-    /// messages to be the sent and received. Received messages are echoed back
-    /// to the send line so that all recipients will see the message.
-    ZmqPrimary {
-        send_path: PathBuf, // the location to bind the ZMQ sender
-        recv_path: PathBuf, // the location to bind the ZMQ receiver
-    },
-
-    /// A variant to connect to an existing ZeroMQ connection over ZMQ.
-    /// This connection presumes that a fully-functioning Minerva instance is
-    /// is operating at the other end of the connection.
-    ZmqSecondary {
-        send_path: PathBuf, // the location to connect the ZMQ sender
-        recv_path: PathBuf, // the location to connect the ZMQ receiver
-    },
-
-    /// A variant to connect with a DMX serial port. This connection type only allows
-    /// messages to be the sent.
-    DmxSerial {
-        path: PathBuf,              // the location of the serial port
-        all_stop_dmx: Vec<DmxFade>, // a vector of dmx fades for all stop
-        dmx_map: DmxMap,            // the map of event ids to dmx fades
-    },
-
-    /// A variant to play media on the local screen. This connection type only allows
-    /// messages to be sent
-    Media {
-        all_stop_media: Vec<MediaCue>, // a vector of media cues for all stop
-        media_map: MediaMap,           // the map of event ids to media cues
-        channel_map: ChannelMap,       // the map of channel numbers to channel dimensions
-    },
 }
 
 // Implement key connection type features
@@ -170,10 +125,6 @@ impl ConnectionType {
         }
     }
 }
-
-/// A type to contain any number of connection types
-///
-pub type ConnectionSet = Vec<ConnectionType>;
 
 /// An internal enum to hold the different types of a system connection.
 /// Unlike the Connection Type, this structure holds a fully initialized
@@ -289,6 +240,7 @@ pub struct SystemConnection {
     internal_send: InternalSend, // sending structure for new events from the system
     connection_send: Option<mpsc::Sender<ConnectionUpdate>>, // receiving structure for new events from the program
                                                              //connection: Option<LiveConnection>, // an element that implements both read and write
+    is_broken: bool, // flag to indicate if one or more connections failed to establish
 }
 
 // Implement key Logger struct features
@@ -314,6 +266,7 @@ impl SystemConnection {
         let mut system_connection = SystemConnection {
             internal_send,
             connection_send: None,
+            is_broken: false,
         };
 
         // Try to update the system connection using the provided connection type(s)
@@ -339,6 +292,7 @@ impl SystemConnection {
 
         // Reset the connection
         self.connection_send = None;
+        self.is_broken = false;
 
         // Check to see if there is a provided connection set
         if let Some((conn_set, identifier)) = connections {
@@ -352,7 +306,7 @@ impl SystemConnection {
                     // If it fails, warn the user
                     Err(e) => {
                         log!(err self.internal_send => "System Connection Error: {}", e);
-                        return false;
+                        self.is_broken = true;
                     }
                 };
             }
@@ -367,7 +321,9 @@ impl SystemConnection {
 
             // Update the system connection
             self.connection_send = Some(conn_send);
-            return true;
+
+            // Indicate whether the connections were successfully established
+            return !self.is_broken;
         }
 
         // Otherwise, leave the system disconnected
@@ -383,6 +339,11 @@ impl SystemConnection {
             let result = conn.send(ConnectionUpdate::Broadcast(new_event, data));
             if let Err(e) = result {
                 log!(err &self.internal_send => "Unable To Connect: {}", e);
+            }
+
+            // Warn if one or more connections were not established
+            if self.is_broken {
+                log!(err &self.internal_send => "Unable To Reach One Or More System Connections.");
             }
         }
     }
