@@ -45,6 +45,10 @@ use gstreamer as gst;
 #[cfg(feature = "media-out")]
 use gstreamer_video as gst_video;
 
+// Import FNV HashMap
+#[cfg(feature = "media-out")]
+use fnv::FnvHashMap;
+
 // Import the failure features
 use failure::Error;
 
