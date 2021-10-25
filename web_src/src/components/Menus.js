@@ -438,7 +438,7 @@ export class SelectMenu extends React.PureComponent {
     
     // Return the box
     return (
-      <div className={`addMenu ${this.props.type}`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
+      <div className={`addMenu ${this.props.type}`} onClick={stopPropogation} onMouseDown={stopPropogation}>
         <div className="title">Select Item</div>
         <input className="searchBar" ref={this.search} type="text" placeholder={this.state.ready ? "Type to search ..." : "  Loading ...  "} disabled={!this.state.ready} value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">

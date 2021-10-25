@@ -11,43 +11,43 @@ export class Action extends React.PureComponent {
     // Switch based on the props
     if (this.props.action.hasOwnProperty(`NewScene`)) {
       return (
-        <NewScene newScene={this.props.action.NewScene} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
+        <NewScene newScene={this.props.action.NewScene} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
     
     // Modify Status
     } else if (this.props.action.hasOwnProperty(`ModifyStatus`)) {
       return (
-        <ModifyStatus modifyStatus={this.props.action.ModifyStatus} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
+        <ModifyStatus modifyStatus={this.props.action.ModifyStatus} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
     
     // Cue Event
     } else if (this.props.action.hasOwnProperty(`CueEvent`)) {
       return (
-        <CueEvent cueEvent={this.props.action.CueEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
+        <CueEvent cueEvent={this.props.action.CueEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
     
     // Cancel Event
     } else if (this.props.action.hasOwnProperty(`CancelEvent`)) {
       return (
-        <CancelEvent cancelEvent={this.props.action.CancelEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
+        <CancelEvent cancelEvent={this.props.action.CancelEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
     
     // Save Data
     } else if (this.props.action.hasOwnProperty(`SaveData`)) {
       return (
-        <SaveData saveData={this.props.action.SaveData} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
+        <SaveData saveData={this.props.action.SaveData} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
     
     // Send Data
     } else if (this.props.action.hasOwnProperty(`SendData`)) {
       return (
-        <SendData sendData={this.props.action.SendData} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
+        <SendData sendData={this.props.action.SendData} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
 
     // Select Event
     } else if (this.props.action.hasOwnProperty(`SelectEvent`)) {
       return (
-        <SelectEvent selectEvent={this.props.action.SelectEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction}/>
+        <SelectEvent selectEvent={this.props.action.SelectEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
     }
     
@@ -73,6 +73,7 @@ export class NewScene extends React.PureComponent {
 
     // Bind the various functions
     this.updateItem = this.updateItem.bind(this);
+    this.toggleMenu = this.toggleMenu.bind(this);
   }
 
   // Helper function to update the item information
@@ -95,6 +96,32 @@ export class NewScene extends React.PureComponent {
     }
   }
 
+  // Helper function to show or hide the select menu
+  toggleMenu() {
+    // Pass the select menu upstream, if visible
+    if (!this.state.isMenuVisible) {
+      // Try to claim the select menu, return on failure
+      if (!this.props.selectMenu(<SelectMenu type="scene" addItem={(id) => {this.toggleMenu(); this.props.changeAction({
+        NewScene: {
+          new_scene: {
+            id: id
+          }
+        }
+      })}}/>)) {
+        return;
+      }
+    } else {
+      this.props.selectMenu(null);
+    }
+    
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isMenuVisible: !prevState.isMenuVisible,
+      });
+    });
+  }
+
   // On initial load, pull the description of the scene
   componentDidMount() {
     this.updateItem();
@@ -110,16 +137,9 @@ export class NewScene extends React.PureComponent {
     return (
       <>
         <ActionFragment title="New Scene" nodeType="scene" focusOn={() => this.props.grabFocus(this.props.newScene.new_scene.id)} changeAction={this.props.changeAction} content={
-          <div className="actionDetail" onClick={(e) => {stopPropogation(e); this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
-            {this.state.description}
+          <div className="actionDetail" onClick={(e) => {stopPropogation(e); this.toggleMenu()}}>
+            <div className={this.state.isMenuVisible && "isEditing"}>{this.state.description}</div>
             <div className="editNote">Click To Change</div>
-            {this.state.isMenuVisible && <SelectMenu type="scene" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
-              NewScene: {
-                new_scene: {
-                  id: id
-                }
-              }
-            })}}/>}
           </div>
         }/>
       </>
@@ -145,6 +165,8 @@ export class ModifyStatus extends React.PureComponent {
 
     // Bind the various functions
     this.updateItems = this.updateItems.bind(this);
+    this.toggleStatusMenu = this.toggleStatusMenu.bind(this);
+    this.toggleStateMenu = this.toggleStateMenu.bind(this);
   }
 
   // Helper function to update the item information
@@ -177,6 +199,60 @@ export class ModifyStatus extends React.PureComponent {
     }
   }
 
+  // Helper function to show or hide the status select menu
+  toggleStatusMenu() {
+    // Pass the select menu upstream, if visible
+    if (!this.state.isStatusMenuVisible) {
+      // Try to claim the select menu, return on failure
+      if (!this.props.selectMenu(<SelectMenu type="status" addItem={(id) => {this.toggleStatusMenu(); this.props.changeAction({
+        ModifyStatus: {
+          status_id: {
+            id: id,
+          },
+          new_state: this.props.modifyStatus.new_state,
+        }
+      })}}/>)) {
+        return;
+      }
+    } else {
+      this.props.selectMenu(null);
+    }
+    
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isStatusMenuVisible: !prevState.isStatusMenuVisible,
+      });
+    });
+  }
+
+  // Helper function to show or hide the state select menu
+  toggleStateMenu() {
+    // Pass the select menu upstream, if visible
+    if (!this.state.isStateMenuVisible) {
+      // Try to claim the select menu, return on failure
+      if (!this.props.selectMenu(<SelectMenu type="event" items={this.state.validStates} addItem={(id) => {this.toggleStateMenu(); this.props.changeAction({
+        ModifyStatus: {
+          status_id: this.props.modifyStatus.status_id,
+          new_state: {
+            id: id,
+          },
+        }
+      })}}/>)) {
+        return;
+      }
+    } else {
+      this.props.selectMenu(null);
+    }
+    
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isStateMenuVisible: !prevState.isStateMenuVisible,
+      });
+    });
+  }
+
   // On initial load, pull the description of the scene
   componentDidMount() {
     this.updateItems();
@@ -196,28 +272,12 @@ export class ModifyStatus extends React.PureComponent {
       <>
         <ActionFragment title="Modify Status" nodeType="status" focusOn={() => this.props.grabFocus(this.props.modifyStatus.status_id.id)} changeAction={this.props.changeAction} content={
           <div className="actionDetail" onClick={stopPropogation}>
-            <div onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>{this.state.description}</div>
-            <div className="editNote" onClick={() => {this.setState(prevState => ({ isStatusMenuVisible: !prevState.isStatusMenuVisible }))}}>Click To Change</div>
+            <div className={this.state.isStatusMenuVisible && "isEditing"} onClick={this.toggleStatusMenu}>{this.state.description}</div>
+            <div className="editNote" onClick={this.toggleStatusMenu}>Click To Change</div>
             <div className="additionalInfo">New State:
-              <div className="additionalInfoDetail" onClick={() => {this.setState(prevState => ({ isStateMenuVisible: !prevState.isStateMenuVisible }))}}>{this.state.stateDescription}</div>
+              <div className={`additionalInfoDetail ${this.state.isStateMenuVisible && "isEditing"}`} onClick={this.toggleStateMenu}>{this.state.stateDescription}</div>
               <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.modifyStatus.new_state.id)}}/>
             </div>
-            {this.state.isStatusMenuVisible && <SelectMenu type="status" left={200} top={100} addItem={(id) => {this.setState({ isStatusMenuVisible: false }); this.props.changeAction({
-              ModifyStatus: {
-                status_id: {
-                  id: id,
-                },
-                new_state: this.props.modifyStatus.new_state,
-              }
-            })}}/>}
-            {this.state.isStateMenuVisible && <SelectMenu type="event" items={this.state.validStates} left={200} top={100} addItem={(id) => {this.setState({ isStateMenuVisible: false }); this.props.changeAction({
-              ModifyStatus: {
-                status_id: this.props.modifyStatus.status_id,
-                new_state: {
-                  id: id,
-                },
-              }
-            })}}/>}
           </div>
         }/>
       </>
@@ -246,6 +306,7 @@ export class CueEvent extends React.PureComponent {
     this.updateItem = this.updateItem.bind(this);
     this.handleChange = this.handleChange.bind(this);
     this.updateAction = this.updateAction.bind(this);
+    this.toggleMenu = this.toggleMenu.bind(this);
   }
 
   // Helper function to update the item information
@@ -325,6 +386,25 @@ export class CueEvent extends React.PureComponent {
     }
   }
 
+  // Helper function to show or hide the select menu
+  toggleMenu() {
+    // Pass the select menu upstream, if visible
+    if (!this.state.isMenuVisible) {
+      // Try to claim the select menu, return on failure
+      if (!this.props.selectMenu(<SelectMenu type="event" addItem={(id) => {this.toggleMenu(); this.updateAction(id)}}/>)) {
+        return;
+      }
+    } else {
+      this.props.selectMenu(null);
+    }
+    
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isMenuVisible: !prevState.isMenuVisible,
+      });
+    });
+  }
 
   // On initial load, pull the description of the scene
   componentDidMount() {
@@ -358,12 +438,11 @@ export class CueEvent extends React.PureComponent {
       <>
         <ActionFragment title="Cue Event" nodeType="event" focusOn={() => this.props.grabFocus(this.props.cueEvent.event.event_id.id)} changeAction={this.props.changeAction} content={
           <div className="actionDetail" onClick={stopPropogation}>
-            <div onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>{this.state.description}</div>
-            <div className="editNote" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>Click To Change</div>
+            <div className={this.state.isMenuVisible && "isEditing"} onClick={this.toggleMenu}>{this.state.description}</div>
+            <div className="editNote" onClick={this.toggleMenu}>Click To Change</div>
             <div className="additionalInfo">Delay 
               <input type="number" min="0" value={this.state.delay} onInput={this.handleChange}></input> Seconds
             </div>
-            {this.state.isMenuVisible && <SelectMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.updateAction(id)}}/>}
           </div>
         }/>
       </>
@@ -386,6 +465,7 @@ export class CancelEvent extends React.PureComponent {
 
     // Bind the various functions
     this.updateItem = this.updateItem.bind(this);
+    this.toggleMenu = this.toggleMenu.bind(this);
   }
 
   // Helper function to update the item information
@@ -408,6 +488,32 @@ export class CancelEvent extends React.PureComponent {
     }
   }
 
+  // Helper function to show or hide the select menu
+  toggleMenu() {
+    // Pass the select menu upstream, if visible
+    if (!this.state.isMenuVisible) {
+      // Try to claim the select menu, return on failure
+      if (!this.props.selectMenu(<SelectMenu type="event" addItem={(id) => {this.toggleMenu(); this.props.changeAction({
+        CancelEvent: {
+          event: {
+            id: id
+          }
+        }
+      })}}/>)) {
+        return;
+      }
+    } else {
+      this.props.selectMenu(null);
+    }
+    
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isMenuVisible: !prevState.isMenuVisible,
+      });
+    });
+  }
+
   // On initial load, pull the description of the scene
   componentDidMount() {
     this.updateItem();
@@ -423,16 +529,9 @@ export class CancelEvent extends React.PureComponent {
     return (
       <>
         <ActionFragment title="Cancel Event" nodeType="event" focusOn={() => this.props.grabFocus(this.props.cancelEvent.event.id)} changeAction={this.props.changeAction} content={
-          <div className="actionDetail" onClick={(e) => {stopPropogation(e); this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
-            {this.state.description}
+          <div className="actionDetail" onClick={(e) => {stopPropogation(e); this.toggleMenu()}}>
+            <div className={this.state.isMenuVisible && "isEditing"}>{this.state.description}</div>
             <div className="editNote">Click To Change</div>
-            {this.state.isMenuVisible && <SelectMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
-              CancelEvent: {
-                event: {
-                  id: id
-                }
-              }
-            })}}/>}
           </div>
         }/>
       </>
@@ -457,6 +556,7 @@ export class SelectEvent extends React.PureComponent {
     // Bind the various functions
     this.updateItems = this.updateItems.bind(this);
     this.changeSelectedEvent = this.changeSelectedEvent.bind(this);
+    this.toggleMenu = this.toggleMenu.bind(this);
   }
 
   // Helper function to update the item information
@@ -501,6 +601,33 @@ export class SelectEvent extends React.PureComponent {
     });
   }
 
+  // Helper function to show or hide the select menu
+  toggleMenu() {
+    // Pass the select menu upstream, if visible
+    if (!this.state.isMenuVisible) {
+      // Try to claim the select menu, return on failure
+      if (!this.props.selectMenu(<SelectMenu type="status" addItem={(id) => {this.toggleMenu(); this.props.changeAction({
+        SelectEvent: {
+          status_id: {
+            id: id,
+          },
+          event_map: {}, // reset to empty
+        }
+      })}}/>)) {
+        return;
+      }
+    } else {
+      this.props.selectMenu(null);
+    }
+    
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isMenuVisible: !prevState.isMenuVisible,
+      });
+    });
+  }
+
   // On initial load, pull the description of the scene
   componentDidMount() {
     this.updateItems();
@@ -525,7 +652,7 @@ export class SelectEvent extends React.PureComponent {
           return (
             <>
               <UnmodifiableState key={state.id.toString()} state={state} grabFocus={this.props.grabFocus} />
-              <SelectedEvent key={value.id.toString()} event={value} grabFocus={this.props.grabFocus} changeEvent={(eventId) => {this.changeSelectedEvent(state.id, eventId)}} />
+              <SelectedEvent key={value.id.toString()} event={value} grabFocus={this.props.grabFocus} changeEvent={(eventId) => {this.changeSelectedEvent(state.id, eventId)}} selectMenu={this.props.selectMenu} />
             </>
           );
         }
@@ -535,7 +662,7 @@ export class SelectEvent extends React.PureComponent {
       return (
         <>
           <UnmodifiableState key={state.id.toString()} state={state} grabFocus={this.props.grabFocus} />
-          <SelectedEvent key={state.id.toString() + '-blankEvent'} event={ { id: 0 } } grabFocus={this.props.grabFocus}  changeEvent={(eventId) => {this.changeSelectedEvent(state.id, eventId)}} />
+          <SelectedEvent key={state.id.toString() + '-blankEvent'} event={ { id: 0 } } grabFocus={this.props.grabFocus} changeEvent={(eventId) => {this.changeSelectedEvent(state.id, eventId)}} selectMenu={this.props.selectMenu} />
         </>
       );
     });
@@ -545,17 +672,9 @@ export class SelectEvent extends React.PureComponent {
       <>
         <ActionFragment title="Select Event" nodeType="status" focusOn={() => this.props.grabFocus(this.props.selectEvent.status_id.id)} changeAction={this.props.changeAction} content={
           <div className="actionDetail" onClick={stopPropogation}>
-            <div onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>{this.state.description}</div>
-            <div className="editNote" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>Click To Change</div>
+            <div className={this.state.isMenuVisible && "isEditing"} onClick={this.toggleMenu}>{this.state.description}</div>
+            <div className="editNote" onClick={this.toggleMenu}>Click To Change</div>
             <div className="verticalList">{children}</div>
-            {this.state.isMenuVisible && <SelectMenu type="status" left={200} top={100} addItem={(id) => {this.setState({ isMenuVisible: false }); this.props.changeAction({
-              SelectEvent: {
-                status_id: {
-                  id: id,
-                },
-                event_map: {}, // reset to empty
-              }
-            })}}/>}
           </div>
         }/>
       </>

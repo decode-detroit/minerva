@@ -246,6 +246,7 @@ export class StatusFragment extends React.PureComponent {
     // Set initial state
     this.state = {
       status: {},
+      isAddMenuVisible: "",
     }
 
     // Bind the various functions
@@ -356,10 +357,12 @@ export class StatusFragment extends React.PureComponent {
     return (
       <>
         <div className="subtitle">States:</div>
-        <div className="verticalList" onWheel={stopPropogation}>{children}</div>
-        <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
-          {this.state.isMenuVisible ? `-` : `+`}
-          {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} addItem={(id) => {this.setState({ isMenuVisible: false }); this.addState(id)}} saveModifications={this.props.saveModifications}/>}
+        <div className="verticalList" onWheel={stopPropogation}>{children}
+          {this.state.selectMenu}
+        </div>
+        <div className="addButton" onClick={() => {this.setState(prevState => ({ isAddMenuVisible: !prevState.isAddMenuVisible }))}}>
+          {this.state.isAddMenuVisible ? `-` : `+`}
+          {this.state.isAddMenuVisible && <AddMenu type="event" left={180} top={60} addItem={(id) => {this.setState({ isAddMenuVisible: false }); this.addState(id)}} saveModifications={this.props.saveModifications}/>}
         </div>
       </>
     );
@@ -376,13 +379,15 @@ export class EventFragment extends React.PureComponent {
     // Set initial state
     this.state = {
       eventActions: [], // placeholder for the read data
-      isMenuVisible: false,
+      isAddMenuVisible: false,
+      selectMenu: null,
     }
 
     // Bind the various functions
     this.updateEvent = this.updateEvent.bind(this);
     this.addAction = this.addAction.bind(this);
     this.changeAction = this.changeAction.bind(this);
+    this.selectMenu = this.selectMenu.bind(this);
   }
 
   // Helper function to update the event information
@@ -424,7 +429,7 @@ export class EventFragment extends React.PureComponent {
       // Update the local state
       return {
         eventActions: [...newActions],
-        isMenuVisible: false,
+        isAddMenuVisible: false,
       };
     });
   }
@@ -463,6 +468,20 @@ export class EventFragment extends React.PureComponent {
     });
   }
 
+  // Helper function to save the new select menu
+  selectMenu(newMenu) {
+    // Check to see if it's already set
+    if (newMenu !== null && this.state.selectMenu !== null) {
+      return false;
+    }
+    
+    // Otherwise, update it and return true
+    this.setState({
+      selectMenu: newMenu,
+    })
+    return true;
+  }
+
   // On initial load, pull the event information
   componentDidMount() {
     // Pull the new event information
@@ -472,16 +491,19 @@ export class EventFragment extends React.PureComponent {
   // Return the fragment
   render() {
     // Compose any actions into a list
-    const children = this.state.eventActions.map((action, index) => <Action key={action.toString()} action={action} grabFocus={this.props.grabFocus} changeAction={(newAction) => {this.changeAction(index, newAction)}} createConnector={this.props.createConnector}/>);
+    const children = this.state.eventActions.map((action, index) => <Action key={action.toString()} action={action} grabFocus={this.props.grabFocus} changeAction={(newAction) => {this.changeAction(index, newAction)}} selectMenu={this.selectMenu} createConnector={this.props.createConnector}/>);
 
     // Return the fragment
     return (
       <>
         <div className="subtitle">Actions:</div>
-        <div className="verticalList" onWheel={stopPropogation}>{children}</div>
-        <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
-          {this.state.isMenuVisible ? `-` : `+`}
-          {this.state.isMenuVisible && <AddActionMenu left={180} top={60} addAction={this.addAction}/>}
+        <div className="verticalList" onWheel={stopPropogation}>
+          {children}
+          {this.state.selectMenu}
+        </div>
+        <div className="addButton" onClick={() => {this.setState(prevState => ({ isAddMenuVisible: !prevState.isAddMenuVisible }))}}>
+          {this.state.isAddMenuVisible ? `-` : `+`}
+          {this.state.isAddMenuVisible && <AddActionMenu left={180} top={60} addAction={this.addAction}/>}
         </div>
       </>
     );

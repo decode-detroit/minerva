@@ -158,6 +158,8 @@
 
 .addMenu {
   position: absolute;
+  top: 160px;
+  left: 240px;
   z-index: 10;
   background-color: #2f343e;
   border: 1px solid #868fa2;
@@ -629,6 +631,22 @@
   padding-bottom: 0.2rem;
   text-align: right;
   font-size: 0.5rem;
+}
+
+@keyframes flash {
+  0% {
+    background-color: #2f343e;
+  }
+  10%, 30% {
+    background-color: #afafaf;
+  }
+  40%, 90% {
+    background-color: #2f343e;
+  }
+}
+
+.actionDetail .isEditing {
+  animation: flash ease-in-out 1s infinite ;
 }
 
 .actionDetail .additionalInfo {

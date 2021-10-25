@@ -143,6 +143,7 @@ export class SelectedEvent extends React.PureComponent {
 
     // Bind the various functions
     this.updateItem = this.updateItem.bind(this);
+    this.toggleMenu = this.toggleMenu.bind(this);
   }
 
   // Helper function to update the item information
@@ -165,6 +166,26 @@ export class SelectedEvent extends React.PureComponent {
     }
   }
 
+  // Helper function to show or hide the select menu
+  toggleMenu() {
+    // Pass the select menu upstream, if visible
+    if (!this.state.isMenuVisible) {
+      // Try to claim the select menu, return on failure
+      if (!this.props.selectMenu(<SelectMenu type="event" addItem={(id) => {this.toggleMenu(); this.props.changeEvent(id);}} />)) {
+        return;
+      }
+    } else {
+      this.props.selectMenu(null);
+    }
+
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isMenuVisible: !prevState.isMenuVisible,
+      });
+    });
+  }
+
   // On initial load, update descriptions
   componentDidMount() {
     this.updateItem();
@@ -182,12 +203,11 @@ export class SelectedEvent extends React.PureComponent {
   render() {
     return (
       <>
-        <div className="selectedEvent" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
+        <div className={`selectedEvent ${this.state.isMenuVisible && "isEditing"}`} onClick={this.toggleMenu}>
           <div className="deleteEvent" onClick={(e) => {stopPropogation(e); this.props.changeEvent(0)}}>X</div>
           {this.state.description}
           <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.event.id)}}/>
         </div>
-        {this.state.isMenuVisible && <SelectMenu type="event" left={200} top={100} addItem={(id) => {this.setState({ isStateMenuVisible: false }); this.props.changeEvent(id);}} />}
       </>
     );
   }
