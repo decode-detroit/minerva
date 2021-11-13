@@ -122,6 +122,12 @@ save 60 1
 
 The DMX connection doesn't require any additional software or libraries to run and is included by default.
 
+On Debian-like systems, you may need to add your user to the dialout group:
+```
+sudo adduser $USER dialout
+```
+You'll need to log out and log back in for this to take effect.
+
 All DMX channels default to 0. This can cause confusion when the channel isn't explicitly set by the user, but is nonetheless necessary for the device to function. For example, the main dimmer channel on a light fixture needs to be manually set to 255.
 
 ### Make It Pretty

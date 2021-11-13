@@ -197,8 +197,8 @@ impl MediaOut {
             if let Some(video_window) = possible_window {
                 // Compose the allocation
                 let allocation = gtk::Rectangle {
-                    x: video_window.top,
-                    y: video_window.left,
+                    x: video_window.left,
+                    y: video_window.top,
                     width: video_window.width,
                     height: video_window.height,
                 };
