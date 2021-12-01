@@ -120,11 +120,11 @@ impl MediaOut {
     ) -> Result<(), Error> {
         // Check to see if there is an existing channel
         if let Some(channel) = channels.get(&media_cue.channel) {
-            // Stop the previous media
-            channel.playbin.set_state(gst::State::Null)?;
-
             // Add the uri to this channel
             channel.playbin.set_property("uri", &media_cue.uri)?;
+
+            // Stop the previous media
+            channel.playbin.set_state(gst::State::Null)?;
 
             // Make sure the new media is playing
             channel.playbin.set_state(gst::State::Playing)?;
@@ -260,25 +260,25 @@ impl MediaOut {
 
         // Connect the signal handler for the end of stream notification
         if let Err(_) = bus.add_watch(move |_, msg| {
-            // Try to get a strong reference to the channel
-            let channel = match channel_weak.upgrade() {
-                Some(channel) => channel,
-                None => return glib::Continue(true), // Fail silently, but try again
-            };
-
             // If the end of stream message is received
             if let gst::MessageView::Eos(..) = msg.view() {
-                // Stop the previous media
-                channel
-                    .set_state(gst::State::Null)
-                    .unwrap_or(gst::StateChangeSuccess::Success);
-
                 // Wait for access to the current loop media
                 if let Ok(possible_media) = loop_media.lock() {
                     // If the media was specified
                     if let Some(media) = possible_media.clone() {
+                        // Try to get a strong reference to the channel
+                        let channel = match channel_weak.upgrade() {
+                            Some(channel) => channel,
+                            None => return glib::Continue(true), // Fail silently, but try again
+                        };
+                        
                         // If media was specified, add the loop uri to this channel
                         channel.set_property("uri", &media).unwrap_or(());
+
+                        // Try to stop any playing media
+                        channel
+                            .set_state(gst::State::Null)
+                            .unwrap_or(gst::StateChangeSuccess::Success);
 
                         // Try to start playing the media
                         channel
@@ -315,13 +315,13 @@ impl EventConnection for MediaOut {
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
         // Check to see if the event is all stop
         if id == ItemId::all_stop() {
-            // Stop all the currently playing media
-            for (_, channel) in self.channels.iter() {
+            // Stop all the currently playing media FIXME May crash on set_state, so currently disabled
+            /*for (_, channel) in self.channels.iter() {
                 channel
                     .playbin
                     .set_state(gst::State::Null)
                     .unwrap_or(gst::StateChangeSuccess::Success);
-            }
+            }*/
 
             // Run all of the all stop media, ignoring errors
             for media_cue in self.all_stop_media.iter() {
@@ -382,12 +382,6 @@ impl Drop for MediaOut {
 
         // For every playbin in the active channels
         for (_, channel) in self.channels.drain() {
-            // Set the playbin state to Null
-            channel
-                .playbin
-                .set_state(gst::State::Null)
-                .unwrap_or(gst::StateChangeSuccess::Success);
-
             // Try to remove the bus signal watch
             if let Some(bus) = channel.playbin.bus() {
                 bus.remove_watch().unwrap_or(());
