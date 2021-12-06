@@ -351,7 +351,6 @@ impl WebInterface {
             .and(WebInterface::with_json::<StatusChange>())
             .and_then(WebInterface::handle_request);
 
-
         // Create the main page filter
         let edit_page = warp::get()
             .and(warp::fs::dir("./public_edit/")); 
