@@ -98,7 +98,7 @@ impl WebInterface {
             }
         });
 
-        // Spin up a thread for the limited-access port (64636)
+        // Spin up a thread for the run port (64636)
         let clone_send = self.web_send.clone();
         tokio::spawn(async move {
             // Create the limited cue event filter
@@ -109,8 +109,16 @@ impl WebInterface {
             .and(WebInterface::with_json::<LimitedCueEvent>())
             .and_then(WebInterface::handle_request);
 
+            // Create the main page filter
+            let run_page = warp::get()
+            .and(warp::fs::dir("./public_run/")); 
+
+            // Combine the filters
+            let run_routes = limited_cue_event
+                .or(run_page);
+
             // Serve this route on a separate port
-            warp::serve(limited_cue_event).run(([127, 0, 0, 1], 64636)).await;
+            warp::serve(run_routes).run(([127, 0, 0, 1], 64636)).await;
         });
 
         // Create the websocket filter
@@ -345,11 +353,11 @@ impl WebInterface {
 
 
         // Create the main page filter
-        let main_page = warp::get()
-            .and(warp::fs::dir("./public/")); 
+        let edit_page = warp::get()
+            .and(warp::fs::dir("./public_edit/")); 
 
         // Combine the filters
-        let routes = listen
+        let edit_routes = listen
             .or(all_event_change)
             .or(all_items)
             .or(all_scenes)    
@@ -378,10 +386,10 @@ impl WebInterface {
             .or(save_style)
             .or(scene_change)
             .or(status_change)
-            .or(main_page);
+            .or(edit_page);
 
-        // Handle incoming requests
-        warp::serve(routes).run(([127, 0, 0, 1], 64637)).await;
+        // Handle incoming requests on the edit port
+        warp::serve(edit_routes).run(([127, 0, 0, 1], 64637)).await;
     }
 
     /// A function to handle incoming requests

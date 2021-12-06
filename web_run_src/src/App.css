@@ -1,0 +1,907 @@
+.logo {
+  width: 7rem;
+  pointer-events: none;
+}
+
+.header {
+  background-color: #2f343e;
+  position: fixed;
+  z-index: 100;
+  width: 100%;
+  height: 2.5rem;
+  border-bottom: 1px solid #464c5a;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: left;
+  font-size: 1rem;
+  box-shadow: 0 0 5px 3px #0a0c0e77;
+}
+
+.editMenu {
+  display: flex;
+}
+
+.editMenu>input {
+  appearance: none;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 0;
+  color: #efefef;
+  margin: 0 10px;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+  font-family: Inter, sans-serif;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.menuButton {
+  background-color: #0074a3;
+  padding: 1px 20px;
+  border-radius: 3px;
+  margin: 0 20px;
+  cursor: pointer;
+}
+
+.menuButton.inactive {
+  background-color: #464c5a;
+  cursor: auto;
+}
+
+.viewArea {
+  position: absolute;
+  top: 2.5rem;
+  height: calc(100vh - 2.5rem);
+  width: 100vw;
+  border: 2px solid #0a0c0e;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.deleteConfirmMenu {
+  position: absolute;
+  z-index: 10;
+  width: 200px;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 0.9rem;
+}
+
+.deleteConfirmMenu .title {
+  background-color: #a84646;
+  text-align: center;
+  margin: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 0.3rem;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.deleteConfirmMenu .subtitle {
+  background-color: #4d5564;
+  text-align: center;
+  margin: 0;
+  border-radius: 0;
+  padding: 0.3rem 0.3rem 0 0.3rem;
+  font-size: 1rem;
+}
+
+.deleteConfirmMenu .id {
+  background-color: #4d5564;
+  text-align: center;
+  margin: 0;
+  border-radius: 0;
+  padding: 0 0.3rem 0.3rem 0.3rem;
+  font-size: 0.7rem;
+}
+
+.deleteConfirmMenu .deleteConfirm {
+  background-color: #a84646;
+}
+
+.multiButton {
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.multiButton>div {
+  padding: 0.3rem;
+  cursor: pointer;
+}
+
+.multiButton>div:hover {
+  outline: #efefef88 solid 2px;
+}
+
+.sceneMenu {
+  position: absolute;
+  top: calc(2.5rem - 1px);
+  display: flex;
+  z-index: 101;
+  padding: 0.3rem;
+  background-color: #2f343e;
+  border-radius: 0 0 6px 0;
+  border-right: 1px solid #464c5a;
+  border-bottom: 1px solid #464c5a;
+  box-shadow: 5px 5px 5px -2px #0a0c0e77;
+  font-size: 1rem;
+}
+
+.sceneMenu .title {
+  padding: 0.3rem;
+  margin: 0;
+  font-weight: normal;
+}
+
+.sceneMenu .select {
+  appearance: none;
+  position: relative;
+  color: #efefef;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 0;
+  padding: 0.3rem;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.deleteScene {
+  font-size: 0.7rem;
+  padding: 0 0.7rem;
+  cursor: pointer;
+}
+
+.addMenu {
+  position: absolute;
+  top: 160px;
+  left: 240px;
+  z-index: 10;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 0.9rem;
+}
+
+.addMenu .title {
+  background-color: #4d5564;
+  text-align: center;
+  margin: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 0.3rem;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.addMenu.event .title {
+  background-color: #008106;
+}
+
+.addMenu.status .title {
+  background-color: #0074a3;
+}
+
+.addMenu.scene .title {
+  background-color: #b2500c;
+}
+
+.addMenu .searchBar {
+  appearance: none;
+  position: relative;
+  color: #efefef;
+  background-color: #2f343e;
+  border: none;
+  border-top: 1px solid #868fa2;
+  border-bottom: 1px solid #868fa2;
+  border-radius: 0;
+  outline: none;
+  padding: 0.3rem;
+  font-family: Inter, sans-serif;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.addMenu .addButton {
+  text-align: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.3rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.addButton .description {
+  font-size: 0.7rem;
+}
+
+.verticalScroll {
+  overflow-y: auto;
+  max-height: 50vh;
+  padding: 0.7rem;
+}
+
+.verticalScroll>div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-bottom: 0.7rem;
+  margin-left: 0.7rem;
+}
+
+.verticalScroll .divButton {
+  width: 100%;
+  padding: 0.2rem;
+  border-bottom: 1px solid #868fa2;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.verticalScroll .divButton:hover {
+  outline: #efefef88 solid 2px;
+  z-index: 11;
+}
+
+.verticalScroll .divButton.event {
+  background-color: #008106;
+}
+
+.verticalScroll .divButton.status {
+  background-color: #0074a3;
+}
+
+.verticalScroll .divButton.scene {
+  background-color: #b2500c;
+}
+
+.editArea {
+  position: absolute;
+  background-color: #21242a;
+  background-image: radial-gradient(circle at 1px 1px, #636d81 1px, transparent 0), radial-gradient(circle at 40px 1px, #464c5a 1px, transparent 0), radial-gradient(circle at 1px 40px, #464c5a 1px, transparent 0);
+  background-size: 80px 80px, 80px 80px, 80px 80px;
+  height: 500%;
+  width: 500%;
+}
+
+.box {
+  position: absolute;
+  z-index: 1;
+  min-width: 15rem;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.editArea .box.row0 {
+  top: 100px;
+}
+
+.editArea .box.row1 {
+  top: 200px;
+}
+
+.editArea .box.row2 {
+  top: 300px;
+}
+
+.editArea .box.row3 {
+  top: 400px;
+}
+
+.editArea .box.row4 {
+  top: 500px;
+}
+
+.editArea .box.row5 {
+  top: 600px;
+}
+
+.editArea .box.row6 {
+  top: 700px;
+}
+
+.editArea .box.row7 {
+  top: 800px;
+}
+
+.editArea .box.row8 {
+  top: 900px;
+}
+
+.editArea .box.row9 {
+  top: 1000px;
+}
+
+.editArea .box.row10 {
+  top: 1100px;
+}
+
+.editArea .box.row11 {
+  top: 1200px;
+}
+
+.editArea .box.row12 {
+  top: 1300px;
+}
+
+.editArea .box.row13 {
+  top: 1400px;
+}
+
+.editArea .box.row14 {
+  top: 1500px;
+}
+
+.editArea .box.row15 {
+  top: 1600px;
+}
+
+.editArea .box.row16 {
+  top: 1700px;
+}
+
+.editArea .box.row17 {
+  top: 1800px;
+}
+
+.editArea .box.row18 {
+  top: 1900px;
+}
+
+.editArea .box.row19 {
+  top: 2000px;
+}
+
+.editArea .box:nth-child(12n + 1) {
+  left: 50px;
+}
+
+.editArea .box:nth-child(12n + 2) {
+  left: 350px;
+}
+
+.editArea .box:nth-child(12n + 3) {
+  left: 650px;
+}
+
+.editArea .box:nth-child(12n + 4) {
+  left: 950px;
+}
+
+.editArea .box:nth-child(12n + 5) {
+  left: 1250px;
+}
+
+.editArea .box:nth-child(12n + 6) {
+  left: 1550px;
+}
+
+.editArea .box:nth-child(12n + 7) {
+  left: 1850px;
+}
+
+.editArea .box:nth-child(12n + 8) {
+  left: 2150px;
+}
+
+.editArea .box:nth-child(12n + 9) {
+  left: 2450px;
+}
+
+.editArea .box:nth-child(12n + 10) {
+  left: 2750px;
+}
+
+.editArea .box:nth-child(12n + 11) {
+  left: 3050px;
+}
+
+.editArea .box:nth-child(12n) {
+  left: 3350px;
+}
+
+.box.focus {
+  z-index: 2;
+  opacity: 1;
+}
+
+.box>.title {
+  text-align: center;
+  border-radius: 6px;
+  margin: 0;
+  padding: 0.3rem;
+  padding-top: 1.2rem;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.box.focus>.title {
+  border-radius: 6px 6px 0 0;
+}
+
+.box>.title>input {
+  appearance: none;
+  color: #efefef;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  padding: 0;
+  font-family: Inter, sans-serif;
+  font-size: 1rem;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.box.focus>.title>input {
+  border-bottom: 1px solid #efefef;
+}
+
+.box>.title>div {
+  font-size: 0.9rem;
+}
+
+.box>.title::after {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  top: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: lighter;
+}
+
+.box>.title .deleteMenu {
+  width: 100%;
+  left: 0;
+  top: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: lighter;
+  cursor: pointer;
+}
+
+.box>.title .deleteMenu>div:hover {
+  outline: #efefef88 solid 2px;
+}
+
+.box .subtitle {
+  text-align: left;
+  margin: 0;
+  padding: 0.3rem;
+}
+
+.box>.node {
+  position: absolute;
+  top: 0.2rem;
+  left: -0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+  cursor: pointer;
+}
+
+.box .addButton {
+  position: relative;
+  text-align: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.3rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.disableSelect {
+  -webkit-user-select: none;  
+  -moz-user-select: none;    
+  -ms-user-select: none;      
+  user-select: none;
+}
+
+.node.event {
+  background-color: #008106;
+}
+
+.node.status {
+  background-color: #0074a3;
+}
+
+.node.scene {
+  background-color: #b2500c;
+}
+
+.node.label {
+  background-color: #4d5564;
+}
+
+.node.none {
+  background-color: #4d5564;
+}
+
+.verticalList {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.7rem;
+  padding-top: 0;
+  max-height: 50vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.box.scene>.title {
+  background-color: #b2500c;
+}
+
+.box.scene>.title::after {
+  content: "Scene";
+}
+
+.box.scene .divButton {
+  width: 100%;
+  padding: 0.3rem;
+  border-radius: 0 0 6px 6px;
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.box.scene .divButton:hover {
+  outline: #efefef88 solid 2px;
+}
+
+.box.status>.title {
+  background-color: #0074a3;
+}
+
+.box.status>.title::after {
+  content: "Status";
+}
+
+.box.event>.title {
+  background-color: #008106;
+}
+
+.box.event>.title::after {
+  content: "Event";
+}
+
+.action {
+  background-color: #4d5564;
+  position: relative;
+  width: 100%;
+  border-radius: 3px;
+  padding: 0.3rem;
+  margin-left: 0.7rem;
+  margin-bottom: 0.2rem;
+  cursor: pointer;
+}
+
+.action .openStatus {
+  position: absolute;
+  top: 0;
+  right: 1rem;
+  padding: 0.36rem;
+  font-size: 0.8rem;
+}
+
+.action .deleteAction {
+  position: absolute;
+  background-color: #4d5564;
+  top: 0;
+  left: -1.1rem;
+  padding: 0.36rem;
+  border-radius: 3px 0 0 3px;
+  font-size: 0.8rem;
+}
+
+.action>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: 0rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.action .actionDetail {
+  background-color: #2f343e;
+  padding: 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.7rem;
+}
+
+.action .editNote {
+  padding-bottom: 0.2rem;
+  text-align: right;
+  font-size: 0.5rem;
+}
+
+@keyframes flash {
+  0% {
+    background-color: #2f343e;
+  }
+  10%, 30% {
+    background-color: #afafaf;
+  }
+  40%, 90% {
+    background-color: #2f343e;
+  }
+}
+
+.actionDetail .isEditing {
+  animation: flash ease-in-out 1s infinite ;
+}
+
+.actionDetail .additionalInfo {
+  position: relative;
+  padding-top: .3rem;
+  border-top: 1px solid #efefef;
+}
+
+.actionDetail>.additionalInfo>.additionalInfoDetail {
+  background-color: #4d5564;
+  padding: 0.3rem;
+  border-radius: 3px;
+  margin-left: 0.7rem;
+}
+
+.additionalInfo>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: 0rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.actionDetail>.additionalInfo input {
+  appearance: none;
+  color: #efefef;
+  background: transparent;
+  width: 5rem;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  padding: 0;
+  font-family: Inter, sans-serif;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.addActionMenu {
+  position: absolute;
+  top: 0;
+  left: 8rem;
+  width: 160px;
+  z-index: 10;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 6px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 0.9rem;
+}
+
+.addActionMenu .title {
+  background-color: #4d5564;
+  text-align: center;
+  margin: 0;
+  border-radius: 6px 6px 0 0;
+  padding: 0.3rem;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.addActionMenu .addActionButton {
+  text-align: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.3rem;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.addActionMenu .addActionButton:hover {
+  outline: #efefef88 solid 2px;
+  z-index: 11;
+}
+
+.state {
+  background-color: #4d5564;
+  position: relative;
+  width: 100%;
+  border-radius: 3px;
+  padding: 0.3rem;
+  margin-left: 0.7rem;
+  margin-bottom: 0.2rem;
+  cursor: pointer;
+}
+
+.state .deleteState {
+  position: absolute;
+  background-color: #4d5564;
+  top: 0;
+  left: -1.1rem;
+  padding: 0.36rem;
+  border-radius: 3px 0 0 3px;
+  font-size: 0.8rem;
+}
+
+.state>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: 0rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.unmodifiableState {
+  background-color: #4d5564;
+  position: relative;
+  width: calc(100% + 0.7rem);
+  border-radius: 3px;
+  padding: 0.3rem;
+  margin-left: 0rem;
+  margin-bottom: 0.2rem;
+  cursor: pointer;
+}
+
+.unmodifiableState .deleteState {
+  position: absolute;
+  background-color: #4d5564;
+  top: 0;
+  left: -1.1rem;
+  padding: 0.36rem;
+  border-radius: 3px 0 0 3px;
+  font-size: 0.8rem;
+}
+
+.unmodifiableState>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: 0rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.selectedEvent {
+  background-color: #4d5564;
+  position: relative;
+  width: calc(100% - 1.3rem);
+  border-radius: 3px;
+  padding: 0.3rem;
+  margin-left: 2rem;
+  margin-bottom: 0.2rem;
+  cursor: pointer;
+}
+
+.selectedEvent .deleteEvent {
+  position: absolute;
+  background-color: #4d5564;
+  top: 0;
+  left: -1.1rem;
+  padding: 0.36rem;
+  border-radius: 3px 0 0 3px;
+  font-size: 0.8rem;
+}
+
+.selectedEvent>.node {
+  position: absolute;
+  top: 0.4rem;
+  right: 0rem;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #868fa2;
+  border-radius: 50%;
+  box-shadow: 0px 0px 5px 0px #0a0c0e;
+}
+
+.box.none>.title {
+  background-color: #4d5564;
+}
+
+.box.none>.title::after {
+  content: "New Item";
+}
+
+.box.none .typeChooser {
+  display: flex;
+  flex-direction: row;
+}
+
+.box.none .divButton {
+  width: 33.33%;
+  padding: 0.3rem;
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.box.none .divButton.event {
+  background-color: #008106;
+  border-radius: 0 0 0 6px;
+}
+
+.box.none .divButton.status {
+  background-color: #0074a3;
+  border-radius: 0;
+}
+
+.box.none .divButton.scene {
+  background-color: #b2500c;
+  border-radius: 0 0 6px 0;
+}
+
+.box.none .divButton:hover {
+  outline: #efefef88 solid 2px;
+  z-index: 3;
+}
+
+.box.label>.title {
+  background-color: #4d5564;
+}
+
+.box.label>.title::after {
+  content: "New Item";
+}
+
+.box.label .typeChooser {
+  display: flex;
+  flex-direction: row;
+}
+
+.box.label .divButton {
+  width: 33.33%;
+  padding: 0.3rem;
+  font-size: 1rem;
+  text-align: center;
+  cursor: pointer;
+}
+
+.box.label .divButton.event {
+  background-color: #008106;
+  border-radius: 0 0 0 6px;
+}
+
+.box.label .divButton.status {
+  background-color: #0074a3;
+  border-radius: 0;
+}
+
+.box.label .divButton.scene {
+  background-color: #b2500c;
+  border-radius: 0 0 6px 0;
+}
+
+.box.label .divButton:hover {
+  outline: #efefef88 solid 2px;
+  z-index: 3;
+}
+
+/* Driving color choice: 282c34 */
