@@ -29,6 +29,7 @@ system_connection:
             width: 1920
           audio_device: ~
           loop_media: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
+          window_dimensions: ~
         3:
           video_window: ~
           audio_device: ~
@@ -42,6 +43,7 @@ system_connection:
             width: 400
           audio_device: ~
           loop_media: ~
+          window_dimensions: ~
 background_process: ~
 default_scene:
   id: 100

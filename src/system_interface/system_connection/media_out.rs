@@ -148,10 +148,11 @@ impl MediaOut {
         // Otherwise, create a new channel
         } else {
             // Try to get the channel information
-            let (possible_window, possible_device, possible_loop) =
+            let (possible_window, possible_dimensions, possible_device, possible_loop) =
                 match channel_map.get(&media_cue.channel) {
                     Some(media_channel) => (
                         media_channel.video_window.clone(),
+                        media_channel.window_dimensions.clone(),
                         media_channel.audio_device.clone(),
                         media_channel.loop_media.clone(),
                     ),
@@ -216,6 +217,7 @@ impl MediaOut {
                     channel: media_cue.channel,
                     allocation,
                     video_overlay,
+                    dimensions: possible_dimensions,
                 };
                 internal_send.send_new_video(video_stream);
             } // Otherwise, any window creation (if needed) is left to gstreamer
@@ -315,13 +317,13 @@ impl EventConnection for MediaOut {
     fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
         // Check to see if the event is all stop
         if id == ItemId::all_stop() {
-            // Stop all the currently playing media FIXME May crash on set_state, so currently disabled
-            /*for (_, channel) in self.channels.iter() {
+            // Stop all the currently playing media
+            for (_, channel) in self.channels.iter() {
                 channel
                     .playbin
                     .set_state(gst::State::Null)
                     .unwrap_or(gst::StateChangeSuccess::Success);
-            }*/
+            }
 
             // Run all of the all stop media, ignoring errors
             for media_cue in self.all_stop_media.iter() {

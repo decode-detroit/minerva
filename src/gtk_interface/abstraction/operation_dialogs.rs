@@ -940,8 +940,9 @@ impl VideoWindow {
         }
         video_area.set_widget_name(&video_stream.channel.to_string());
 
-        // Extract the window number (for use below)
+        // Extract the window number and dimensions (for use below)
         let window_number = video_stream.window_number;
+        let dimensions = video_stream.dimensions;
 
         // Connect the realize signal for the video area
         video_area.connect_realize(move |video_area| {
@@ -1026,8 +1027,8 @@ impl VideoWindow {
 
         // Otherwise, create a new window
         } else {
-            // Create the new window
-            let (window, overlay) = self.new_window();
+            // Create the new window and pass dimensions if specified
+            let (window, overlay) = self.new_window(dimensions);
 
             // Add the video area to the overlay
             overlay.add_overlay(&video_area);
@@ -1042,7 +1043,7 @@ impl VideoWindow {
 
     // A helper function to create a new video window and return the window and overlay
     //
-    fn new_window(&self) -> (gtk::Window, gtk::Overlay) {
+    fn new_window(&self, dimensions: Option<(i32, i32)>) -> (gtk::Window, gtk::Overlay) {
         // Create the new window
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
 
@@ -1058,6 +1059,11 @@ impl VideoWindow {
             cr.paint().unwrap_or(());
             Inhibit(true)
         });
+
+        // Set the minimum window dimensions, if specified
+        if let Some((height, width)) = dimensions {
+            background.set_size_request(height, width);
+        }
 
         // Create the overlay and add the background
         let overlay = gtk::Overlay::new();
