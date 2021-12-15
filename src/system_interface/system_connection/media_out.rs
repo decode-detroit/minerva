@@ -120,11 +120,11 @@ impl MediaOut {
     ) -> Result<(), Error> {
         // Check to see if there is an existing channel
         if let Some(channel) = channels.get(&media_cue.channel) {
-            // Add the uri to this channel
-            channel.playbin.set_property("uri", &media_cue.uri)?;
-
             // Stop the previous media
             channel.playbin.set_state(gst::State::Null)?;
+
+            // Add the uri to this channel
+            channel.playbin.set_property("uri", &media_cue.uri)?;
 
             // Make sure the new media is playing
             channel.playbin.set_state(gst::State::Playing)?;
@@ -274,13 +274,13 @@ impl MediaOut {
                             None => return glib::Continue(true), // Fail silently, but try again
                         };
                         
-                        // If media was specified, add the loop uri to this channel
-                        channel.set_property("uri", &media).unwrap_or(());
-
                         // Try to stop any playing media
                         channel
                             .set_state(gst::State::Null)
                             .unwrap_or(gst::StateChangeSuccess::Success);
+
+                        // If media was specified, add the loop uri to this channel
+                        channel.set_property("uri", &media).unwrap_or(());
 
                         // Try to start playing the media
                         channel
