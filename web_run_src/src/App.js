@@ -14,73 +14,116 @@ export class App extends React.PureComponent {
 
     // Set initial state
     this.state = {
-      saved: true,
-      configFile: "",
+      debugMode: false,
+      largeFont: false,
+      highContrast: false,
+      notice: "",
+      notifications: [],
+      timelineEvents: [],
+      scenes: [],
+      fullStatus: {},
+
       randomCss: Math.floor(Math.random() * 1000000), // Scramble the css file name
     }
 
     // Bind the various functions
-    this.saveModifications = this.saveModifications.bind(this);
-    this.saveStyle = this.saveStyle.bind(this);
-    this.saveFile = this.saveFile.bind(this);
-    this.handleFileChange = this.handleFileChange.bind(this);
+    this.processUpdate = this.processUpdate.bind(this);
   }
 
-  // Save any modification to the configuration
-  saveModifications(modifications) {
-    // Save the modifications
-    saveEdits(modifications);
-
-    // Mark changes as unsaved
-    this.setState({
-      saved: false,
-    });
-  }
-
-  // Save any style changes to the configuration
-  saveStyle(selector, rule) {
-    // Save the style
-    saveStyle(selector, rule);
-    
-    // Mark changes as unsaved
-    this.setState({
-      saved: false,
-    });
-  }
-
-  // Save the configuration to the current filename
-  saveFile() {
-    // Save the configuration with the current filename
-    saveConfig(this.state.configFile);
-
-    // Update the save state and clear the rules
-    this.setState({
-      saved: true,
-    });
-  }
-
-  // Function to handle new text in the input
-  handleFileChange(e) {
-    // Save the new value as the filename
-    this.setState({
-      configFile: e.target.value,
-    });
-  }
-
-  // On render, pull the configuration file path
+  // On render, connect the websocket listener
   async componentDidMount() {
-    // Retrieve the configuation path
-    const response = await fetch(`getConfigPath`);
-    const json = await response.json();
+    // Connect the websocket for updates
+    this.socket = new WebSocket('ws://' + window.location.host + '/listen')
+    this.socket.onmessage = this.processUpdate.bind(this)
+  }
+  
+  // Listen for updates from the server
+  async processUpdate(update) {
+    // Parse the incoming update (must be parsed with JSON.parse as it arrives as a string)
+    const data = JSON.parse(update.data);
 
-    // If valid, save configuration
-    if (json.path.isValid) {
+    // Switch based on the interface update
+    // Change the display settings
+    if (data.hasOwnProperty(`changeSettings`)) {
+      // Extract the update
+      let update = data[`changeSettings`][`displaySetting`];
+
+      // If the request is to switch to fullscreen
+      if (update.hasOwnProperty(`fullScreen`)) {
+        // Switch to or leave fullscreen
+        if (update.fullScreen) {
+          document.documentElement.requestFullscreen(); // FIXME need to prompt the user
+        } else {
+          document.exitFullscreen();
+        }
+      
+      // If the request is to switch debug mode
+      } else if (update.hasOwnProperty(`debugMode`)) {
+        this.setState({
+          debugMode: update.debugMode,
+        });
+      
+      // If the request is to switch font mode
+      } else if (update.hasOwnProperty(`largeFont`)) {
+        this.setState({
+          largeFont: update.largeFont,
+        });
+
+      // If the request is to switch contrast mode
+      } else if (update.hasOwnProperty(`highContrast`)) {
+        this.setState({
+          highContrast: update.highContrast,
+        });
+      }
+    
+    // Post a current event to the status bar
+    } else if (data.hasOwnProperty(`notify`)) {
       this.setState({
-        configFile: json.path.path, // FIXME Allow for more subtlety
+        notice: data[`notify`][`message`],
+      }); 
+
+    // Update the available scenes and full status in the window
+    } else if (data.hasOwnProperty(`updateConfig`)) {
+      this.setState({
+        scenes: data[`updateConfig`][`scenes`],
+        fullStatus: data[`updateConfig`][`fullStatus`],
+      });
+    
+    // Refresh the entire button window with a new window
+    } else if (data.hasOwnProperty(`updateWindow`)) {
+      console.error("Need to process window updates.");
+      //current_scene: ItemPair,
+      //statuses: Vec<ItemPair>,
+      //window: EventWindow,
+      //key_map: KeyMap,
+    
+    // Update the current state of a particular status
+    } else if (data.hasOwnProperty(`updateStatus`)) {
+      this.setState((prevState) => {
+        // Update the particular status
+        let newStatus = {...prevState.fullStatus};
+        newStatus[`${data['updateStatus']['statusId']}`] = data[`updateStatus`][`newState`];
+        
+        // Update the full status
+        return {
+          fullStatus: newStatus,
+        };
+      });
+    
+    // Update the current notifications
+    } else if (data.hasOwnProperty(`updateNotifications`)) {
+      this.setState({
+        notifications: data[`updateNotifications`][`notifications`],
+      });
+
+    // Update the event timeline
+    } else if (data.hasOwnProperty(`updateTimeline`)) {
+      this.setState({
+        timelineEvents: data[`updateTimeline`][`events`],
       });
     }
   }
-  
+
   // Render the complete application
   render() {
     return (
@@ -89,9 +132,7 @@ export class App extends React.PureComponent {
         <div className="app">
           <div className="header">
             <img src={logoWide} className="logo" alt="logo" />
-            <EditMenu saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} saveFile={this.saveFile} />
           </div>
-          <ViewArea saveModifications={this.saveModifications} saveStyle={this.saveStyle} />
         </div>
       </>
     )

@@ -98,45 +98,177 @@ impl WebInterface {
             }
         });
 
-        // Spin up a thread for the run port (64636)
+        // Spin up a thread for the limited access port (64635)
         let clone_send = self.web_send.clone();
         tokio::spawn(async move {
             // Create the limited cue event filter
             let limited_cue_event = warp::post()
-            .and(warp::path("cueEvent"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(clone_send.clone()))
-            .and(WebInterface::with_json::<LimitedCueEvent>())
-            .and_then(WebInterface::handle_request);
+                .and(warp::path("cueEvent"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<LimitedCueEvent>())
+                .and_then(WebInterface::handle_request);
+
+            // Serve this route on a separate port
+            warp::serve(limited_cue_event).run(([127, 0, 0, 1], 64635)).await;
+        });
+
+        // Spin up a thread for the run port (64636)
+        let clone_send = self.web_send.clone();
+        tokio::spawn(async move {
+            // Create the websocket filter
+            let listen = warp::path("listen")
+                .and(WebInterface::with_clone(listener_send.clone()))
+                .and(warp::ws())
+                .map(|sender, ws: warp::ws::Ws| {
+                    // This will call the function if the handshake succeeds.
+                    ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
+                });
+
+            // Create the all event change filter
+            let all_event_change = warp::post()
+                .and(warp::path("allEventChange"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<AllEventChange>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the all stop filter
+            let all_stop = warp::post()
+                .and(warp::path("allStop"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_clone(UserRequest::AllStop))
+                .and_then(WebInterface::handle_request);
+
+            // Create the broadcast event filter
+            let broadcast_event = warp::post()
+                .and(warp::path("broadcastEvent"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<BroadcastEvent>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the clear queue filter
+            let clear_queue = warp::post()
+                .and(warp::path("clearQueue"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_clone(UserRequest::ClearQueue))
+                .and_then(WebInterface::handle_request);
+
+            // Create the close filter
+            let close = warp::post()
+                .and(warp::path("close"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_clone(UserRequest::Close))
+                .and_then(WebInterface::handle_request);
+
+            // Create the config file filter
+            let config_file = warp::post()
+                .and(warp::path("configFile"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<ConfigFile>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the cue event filter
+            let cue_event = warp::post()
+                .and(warp::path("cueEvent"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<FullCueEvent>())
+                .and_then(WebInterface::handle_request);
+
+                // Create the debug mode filter
+            let debug_mode = warp::post()
+                .and(warp::path("debugMode"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<DebugMode>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the error log filter
+            let error_log = warp::post()
+                .and(warp::path("errorLog"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<ErrorLog>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the event change filter
+            let event_change = warp::post()
+                .and(warp::path("eventChange"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<EventChange>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the game log filter
+            let game_log = warp::post()
+                .and(warp::path("gameLog"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<GameLog>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the get style filter
+            let get_styles = warp::get()
+                .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
+                .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
+                // FIXME This filter is OS-specific and may fail on OSX and Windows
+
+            // Create the process event filter
+            let process_event = warp::post()
+                .and(warp::path("processEvent"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<ProcessEvent>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the scene change filter
+            let scene_change = warp::post()
+                .and(warp::path("sceneChange"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<SceneChange>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the config file filter
+            let status_change = warp::post()
+                .and(warp::path("statusChange"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_json::<StatusChange>())
+                .and_then(WebInterface::handle_request);
 
             // Create the main page filter
             let run_page = warp::get()
-            .and(warp::fs::dir("./public_run/")); 
+                .and(warp::fs::dir("./public_run/")); 
 
             // Combine the filters
-            let run_routes = limited_cue_event
+            let run_routes = listen
+                .or(all_event_change)
+                .or(all_stop)
+                .or(broadcast_event)
+                .or(clear_queue)
+                .or(close)
+                .or(config_file)
+                .or(cue_event)
+                .or(debug_mode)
+                .or(error_log)
+                .or(event_change)
+                .or(game_log)
+                .or(get_styles)
+                .or(process_event)
+                .or(scene_change)
+                .or(status_change)
                 .or(run_page);
 
             // Serve this route on a separate port
             warp::serve(run_routes).run(([127, 0, 0, 1], 64636)).await;
         });
-
-        // Create the websocket filter
-        let listen = warp::path("listen")
-            .and(WebInterface::with_clone(listener_send.clone()))
-            .and(warp::ws())
-            .map(|sender, ws: warp::ws::Ws| {
-                // This will call the function if the handshake succeeds.
-                ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
-            });
-
-        // Create the all event change filter
-        let all_event_change = warp::post()
-            .and(warp::path("allEventChange"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<AllEventChange>())
-            .and_then(WebInterface::handle_request);
 
         // Create the all items filter
         let all_items = warp::get()
@@ -153,92 +285,12 @@ impl WebInterface {
             .and(WebInterface::with_clone(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
             .and_then(WebInterface::handle_request);
 
-        // Create the all stop filter
-        let all_stop = warp::post()
-            .and(warp::path("allStop"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_clone(UserRequest::AllStop))
-            .and_then(WebInterface::handle_request);
-        
-        // Create the broadcast event filter
-        let broadcast_event = warp::post()
-            .and(warp::path("broadcastEvent"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<BroadcastEvent>())
-            .and_then(WebInterface::handle_request);
-
-        // Create the clear queue filter
-        let clear_queue = warp::post()
-            .and(warp::path("clearQueue"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_clone(UserRequest::ClearQueue))
-            .and_then(WebInterface::handle_request);
-
-        // Create the close filter
-        let close = warp::post()
-            .and(warp::path("close"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_clone(UserRequest::Close))
-            .and_then(WebInterface::handle_request);
-
-        // Create the config file filter
-        let config_file = warp::post()
-            .and(warp::path("configFile"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<ConfigFile>())
-            .and_then(WebInterface::handle_request);
-
-        // Create the cue event filter
-        let cue_event = warp::post()
-            .and(warp::path("cueEvent"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<FullCueEvent>())
-            .and_then(WebInterface::handle_request);
-
-            // Create the debug mode filter
-        let debug_mode = warp::post()
-            .and(warp::path("debugMode"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<DebugMode>())
-            .and_then(WebInterface::handle_request);
-
         // Create the edit filter
         let edit = warp::post()
             .and(warp::path("edit"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_json::<Edit>())
-            .and_then(WebInterface::handle_request);
-
-        // Create the error log filter
-        let error_log = warp::post()
-            .and(warp::path("errorLog"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<ErrorLog>())
-            .and_then(WebInterface::handle_request);
-
-        // Create the event change filter
-        let event_change = warp::post()
-            .and(warp::path("eventChange"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<EventChange>())
-            .and_then(WebInterface::handle_request);
-
-        // Create the game log filter
-        let game_log = warp::post()
-            .and(warp::path("gameLog"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<GameLog>())
             .and_then(WebInterface::handle_request);
 
         // Create the get config path filter
@@ -303,15 +355,7 @@ impl WebInterface {
             .and(warp::path::end())
             .and_then(WebInterface::handle_request);
 
-        // Create the process event filter
-        let process_event = warp::post()
-            .and(warp::path("processEvent"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<ProcessEvent>())
-            .and_then(WebInterface::handle_request);
-
-        // Create the redraw filter
+        // Create the redraw filter FIXME is this needed anymore?
         let redraw = warp::post()
             .and(warp::path("redraw"))
             .and(warp::path::end())
@@ -335,42 +379,14 @@ impl WebInterface {
             .and(WebInterface::with_json::<SaveStyles>())
             .and_then(WebInterface::handle_save_styles);
 
-        // Create the scene change filter
-        let scene_change = warp::post()
-            .and(warp::path("sceneChange"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<SceneChange>())
-            .and_then(WebInterface::handle_request);
-
-        // Create the config file filter
-        let status_change = warp::post()
-            .and(warp::path("statusChange"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_json::<StatusChange>())
-            .and_then(WebInterface::handle_request);
-
         // Create the main page filter
         let edit_page = warp::get()
             .and(warp::fs::dir("./public_edit/")); 
 
         // Combine the filters
-        let edit_routes = listen
-            .or(all_event_change)
-            .or(all_items)
-            .or(all_scenes)    
-            .or(all_stop)
-            .or(broadcast_event)
-            .or(clear_queue)
-            .or(close)
-            .or(config_file)
-            .or(cue_event)
-            .or(debug_mode)
+        let edit_routes = all_items
+            .or(all_scenes)
             .or(edit)
-            .or(error_log)
-            .or(event_change)
-            .or(game_log)
             .or(get_config_path)
             .or(get_connections)
             .or(get_event)
@@ -379,12 +395,8 @@ impl WebInterface {
             .or(get_status)
             .or(get_styles)
             .or(get_type)
-            .or(process_event)
-            .or(redraw)
             .or(save_config)
             .or(save_style)
-            .or(scene_change)
-            .or(status_change)
             .or(edit_page);
 
         // Handle incoming requests on the edit port

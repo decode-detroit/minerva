@@ -157,13 +157,16 @@ pub enum InterfaceUpdate {
 #[serde(rename_all = "camelCase")]
 pub enum WebInterfaceUpdate {
     /// A variant to change the display settings
+    #[serde(rename_all = "camelCase")]
     ChangeSettings { display_setting: DisplaySetting },
 
     /// A variant to post a current event to the status bar
+    #[serde(rename_all = "camelCase")]
     Notify { message: String },
 
     /// A variant to update the available scenes and full status in the main
     /// program window.
+    #[serde(rename_all = "camelCase")]
     UpdateConfig {
         scenes: Vec<ItemPair>,
         full_status: FullStatus,
@@ -171,6 +174,7 @@ pub enum WebInterfaceUpdate {
 
     /// A variant indicating the entire button window should be refreshed with
     /// the new provided window.
+    #[serde(rename_all = "camelCase")]
     UpdateWindow {
         current_scene: ItemPair,
         statuses: Vec<ItemPair>,
@@ -179,15 +183,18 @@ pub enum WebInterfaceUpdate {
     },
 
     /// A variant to update the state of a partiular status.
+    #[serde(rename_all = "camelCase")]
     UpdateStatus {
         status_id: ItemPair, // the group to update
         new_state: ItemPair, // the new state of the group
     },
 
     /// A variant indicating that the system notifications should be updated.
+    #[serde(rename_all = "camelCase")]
     UpdateNotifications { notifications: Vec<Notification> },
 
     /// A variant indicating that the event timeline should be updated.
+    #[serde(rename_all = "camelCase")]
     UpdateTimeline { events: Vec<UpcomingEvent> },
 }
 
