@@ -22,6 +22,7 @@
 use crate::definitions::*;
 
 // Import standard library features
+#[cfg(feature = "media-out")]
 use std::sync::{Arc, Mutex, mpsc as std_mpsc};
 
 // Import Tokio and warp features
@@ -41,31 +42,6 @@ pub struct EventGroup {
 ///
 pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong in this window
 
-/// An enum to launch one of the special windows for the user interface
-///
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub enum WindowType {
-    /// A variant to launch the jump dialog with an optional scene of interest
-    Jump(Option<ItemPair>),
-
-    /// A variant to solicit a string from the user. The string will be sent as
-    /// a series of events to the system
-    PromptString(ItemPair),
-
-    /// A variant to show the shortcuts window
-    Shortcuts,
-
-    /// A variant to launch the status dialog with an optional relevant status of interest
-    Status(Option<ItemPair>),
-
-    /// A variant to launch the trigger dialog with an optional event of interest
-    Trigger(Option<ItemPair>),
-
-    /// A variant to launch a video window with a source from the video system connection
-    #[cfg(feature = "media-out")]
-    Video(Option<VideoStream>),
-}
-
 /// An enum to change one of the display settings of the user interface
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,26 +59,6 @@ pub enum DisplaySetting {
     HighContrast(bool),
 }
 
-/// An enum to specify the type of information reply
-///
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ReplyType {
-    /// A variant for the description of an item
-    Description { description: ItemPair },
-
-    /// A variant for the event associated with an item
-    Event { event: Option<Event> },
-
-    /// A variant for the status associated with an item
-    Status { status: Option<Status> },
-
-    /// A variant for the list of events in a scene
-    Scene { scene: Option<DescriptiveScene> },
-
-    /// A variant for the list of item pairs
-    Items { items: Vec<ItemPair> },
-}
-
 /// An enum type to provide updates to the user interface thread.
 ///
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -110,17 +66,8 @@ pub enum InterfaceUpdate {
     /// A variant to change the display settings
     ChangeSettings { display_setting: DisplaySetting },
 
-    /// A variant to launch one of the special windows
-    LaunchWindow { window_type: WindowType },
-
     /// A variant to post a current event to the status bar
     Notify { message: String },
-
-    /// A variant to reply to an information request from the gtk user interface
-    Reply {
-        reply_to: DisplayComponent,
-        reply: ReplyType,
-    },
 
     /// A variant to update the available scenes and full status in the main
     /// program window.
@@ -149,6 +96,10 @@ pub enum InterfaceUpdate {
 
     /// A variant indicating that the event timeline should be updated.
     UpdateTimeline { events: Vec<UpcomingEvent> },
+
+    /// A variant to launch the video window
+    #[cfg(feature = "media-out")]
+    Video { video_stream: Option<VideoStream> },
 }
 
 /// An enum type to provide interface to the web interface (a subset of the InterfaceUpdates)
@@ -215,6 +166,7 @@ impl From<WebInterfaceUpdate> for Result<Message, warp::Error> {
 ///
 #[derive(Clone, Debug)]
 pub struct InterfaceSend {
+    #[cfg(feature = "media-out")]
     gtk_interface_send: Arc<Mutex<std_mpsc::Sender<InterfaceUpdate>>>, // the line to pass updates to the gtk user interface
     web_interface_send: mpsc::Sender<WebInterfaceUpdate>, // the line to pass updates to the web user interface
 }
@@ -226,19 +178,35 @@ impl InterfaceSend {
     /// The function returns the InterfaceSend structure and the interface
     /// receive channels which will return the provided updates.
     ///
+    #[cfg(not(feature = "media-out"))]
+    pub fn new() -> (Self, mpsc::Receiver<WebInterfaceUpdate>) {
+        // Create one or two new channels
+        let (web_interface_send, web_receive) = mpsc::channel(256);
+
+        // Create and return the new items
+        (InterfaceSend { web_interface_send }, web_receive)
+    }
+
+    /// A function to create a new InterfaceSend, Media-enabled version
+    ///
+    /// The function returns the InterfaceSend structure and the interface
+    /// receive channels which will return the provided updates.
+    ///
+    #[cfg(feature = "media-out")]
     pub fn new() -> (Self, std_mpsc::Receiver<InterfaceUpdate>, mpsc::Receiver<WebInterfaceUpdate>) {
-        // Create two new channels
+        // Create one or two new channels
         let (gtk_interface_send, gtk_receive) = std_mpsc::channel();
         let (web_interface_send, web_receive) = mpsc::channel(256);
 
-        // Create and return both new items
-        (InterfaceSend { gtk_interface_send: Arc::new(Mutex::new(gtk_interface_send)), web_interface_send }, gtk_receive, web_receive)
+        // Create and return the new items
+        return (InterfaceSend { gtk_interface_send: Arc::new(Mutex::new(gtk_interface_send)), web_interface_send }, gtk_receive, web_receive);
     }
 
     /// A method to send an interface update. This method fails silently.
     ///
     pub async fn send(&self, update: InterfaceUpdate) {
         // Get a lock on the gtk send line
+        #[cfg(feature = "media-out")]
         if let Ok(gtk_send) = self.gtk_interface_send.lock() {
             // Send the update to the gtk interface
             gtk_send.send(update.clone()).unwrap_or(());
@@ -279,6 +247,7 @@ impl InterfaceSend {
     ///
     pub fn sync_send(&self, update: InterfaceUpdate) {
         // Get a lock on the gtk send line
+        #[cfg(feature = "media-out")]
         if let Ok(gtk_send) = self.gtk_interface_send.lock() {
             // Send the update to the gtk interface
             gtk_send.send(update.clone()).unwrap_or(());

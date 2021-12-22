@@ -13,6 +13,8 @@ Quickly configure and control an interactive show, no programming experience nec
 
 Minerva is in active development and we are migrating to a web interface. You can find a stable copy of the GTK interface under the [gtk-interface branch](https://github.com/decode-detroit/minerva/tree/gtk-interface) which is locked at version 0.9.0.
 
+The program will move to a completely web-based interface with version 1.0, expected in January of 2022.
+
 ## Getting Started
 
 If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below.

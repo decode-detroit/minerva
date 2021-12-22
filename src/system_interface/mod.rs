@@ -42,9 +42,6 @@ use std::ffi::OsStr;
 // Import Tokio features
 use tokio::sync::mpsc;
 
-// Import FNV HashMap
-use fnv::FnvHashMap;
-
 // Import the failure features
 use failure::Error as FailureError;
 
@@ -69,7 +66,6 @@ pub struct SystemInterface {
     index_access: IndexAccess,           // the access point for the item index
     style_access: StyleAccess,           // the access point for the style sheet
     interface_send: InterfaceSend,       // a sending line to pass interface updates
-    gtk_receive: mpsc::Receiver<GtkRequest>, // the receiving line for gtk requests
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
     internal_send: InternalSend,                      // a sending line to pass internal updates
@@ -84,7 +80,7 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
-    ) -> Result<(Self, GtkSend, WebSend), FailureError> {
+    ) -> Result<(Self, WebSend), FailureError> {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
 
@@ -119,9 +115,6 @@ impl SystemInterface {
         // Create a new system connection instance
         let system_connection = SystemConnection::new(internal_send.clone(), None).await;
 
-        // Create the gtk send for the gtk interface
-        let (gtk_send, gtk_receive) = GtkSend::new();
-
         // Create the web send for the web interface
         let (web_send, web_receive) = WebSend::new();
 
@@ -133,7 +126,6 @@ impl SystemInterface {
             index_access,
             style_access,
             interface_send,
-            gtk_receive,
             web_receive,
             internal_receive,
             internal_send,
@@ -160,7 +152,7 @@ impl SystemInterface {
         }
 
         // Regardless, return the new SystemInterface and general send line
-        Ok((sys_interface, gtk_send, web_send))
+        Ok((sys_interface, web_send))
     }
 
     /// A method to run one iteration of the system interface to update the user
@@ -172,14 +164,6 @@ impl SystemInterface {
             // Updates from the Internal System
             Some(update) = self.internal_receive.recv() => {
                 self.unpack_internal_update(update).await;
-            }
-
-            // Requests from the Gtk Interface
-            Some(request) = self.gtk_receive.recv() => {
-                // If the program should close
-                if let UnpackResult::Close = self.unpack_request(request.into()).await {
-                    return false;
-                }
             }
 
             // Updates from the Web Interface
@@ -305,14 +289,8 @@ impl SystemInterface {
 
             // Solicit a string from the user
             InternalUpdate::GetUserString(event) => {
-                // Get the item pair for the event
-                let pair = self.index_access.get_pair(&event).await;
-
-                // Request the information from the user interface
-                self.interface_send
-                    .send(InterfaceUpdate::LaunchWindow {
-                        window_type: WindowType::PromptString(pair),
-                    }).await;
+                // FIXME Prompt via the web interface
+                log!(err &mut self.internal_send => "Get User String variant temporarily diabled as of version 0.9.9.");
             }
 
             // Pass a video stream to the user interface
@@ -320,9 +298,7 @@ impl SystemInterface {
             InternalUpdate::NewVideo(video_stream) => {
                 // Pass the stream to the user interface
                 self.interface_send
-                    .send(InterfaceUpdate::LaunchWindow {
-                        window_type: WindowType::Video(video_stream),
-                    }).await;
+                    .send(InterfaceUpdate::Video { video_stream }).await;
             }
 
             // Pass an event to the event_handler
@@ -792,137 +768,6 @@ impl SystemInterface {
                             statuses,
                             key_map,
                         }).await;
-                }
-            }
-
-            // Reply to the request for information
-            UserRequest::GtkRequest { reply_to, request } => { // FIXME This can likely be removed.
-                // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
-                    // Match the type of information request
-                    match request {
-                        // Reply to a request for the item description
-                        DetailType::Description { item_id } => {
-                            // Collect the description of the item
-                            let description = self.index_access.get_description(&item_id).await;
-
-                            // Create the item pair
-                            let item_pair = ItemPair::from_item(item_id, description);
-
-                            // Send it back to the user interface
-                            self.interface_send
-                                .send(InterfaceUpdate::Reply {
-                                    reply_to, // echo to display component
-                                    reply: ReplyType::Description {
-                                        description: item_pair,
-                                    },
-                                }).await;
-                        }
-
-                        // Reply to a request for the event
-                        DetailType::Event { item_id } => {
-                            // Try to get the event
-                            let event = handler.get_event(&item_id);
-
-                            // Send an update with the event (or None)
-                            self.interface_send
-                                .send(InterfaceUpdate::Reply {
-                                    reply_to, // echo the display component
-                                    reply: ReplyType::Event { event },
-                                }).await;
-                        }
-
-                        // Reply to a request for all the configuration items
-                        DetailType::Items => {
-                            // Collect all the items from the configuration
-                            let items = self.index_access.get_all_pairs().await;
-
-                            // Send it back to the user interface
-                            self.interface_send
-                                .send(InterfaceUpdate::Reply {
-                                    reply_to,
-                                    reply: ReplyType::Items { items },
-                                }).await;
-                        }
-
-                        // Reply to a request for all the events in a scene
-                        DetailType::Scene { item_id } => {
-                            // Collect all the items from the configuration
-                            let scene = match handler.get_scene(&item_id) {
-
-                                // If it doesn't correspond to a scene, return none
-                                None => None,
-
-                                // If it does match, get the items and optional key map
-                                Some(scene) => {
-                                    // Compile a list of the events as item pairs
-                                    let mut events = Vec::new();
-                                    for item_id in scene.events.iter() {
-                                        events.push(self.index_access.get_pair(&item_id).await);
-                                    }
-
-                                    // Sort the items in order
-                                    events.sort_unstable();
-
-                                    // Check to see if a key map was specified
-                                    match &scene.key_map {
-                                        // If the key map exists, reverse it
-                                        Some(key_map) => {
-                                            // Create an empty key map
-                                            let mut map = FnvHashMap::default();
-
-                                            // Iterate through the key map for this scene
-                                            for (key, item_id) in key_map.iter() {
-                                                // Combine the item pair and key value
-                                                map.insert(key.clone(), self.index_access.get_pair(&item_id).await);
-                                            }
-                                            // Return the Scene with the reversed key map
-                                            Some(DescriptiveScene {
-                                                events,
-                                                key_map: Some(map),
-                                            })
-                                        }
-
-                                        // Otherwise, return the DescriptiveScene with no key map
-                                        None => Some(DescriptiveScene {
-                                            events,
-                                            key_map: None,
-                                        }),
-                                    }
-                                }
-                            };
-
-                            // Send it back to the user interface
-                            self.interface_send
-                                .send(InterfaceUpdate::Reply {
-                                    reply_to,
-                                    reply: ReplyType::Scene { scene },
-                                }).await;
-                        }
-
-                        // Reply to a request for the status
-                        DetailType::Status { item_id } => {
-                            // Try to get the status
-                            let status = handler.get_status(&item_id);
-
-                            // Send an update with the status (or None)
-                            self.interface_send
-                                .send(InterfaceUpdate::Reply {
-                                    reply_to, // echo the display component
-                                    reply: ReplyType::Status { status },
-                                }).await;
-                        }
-
-                        // Ignore other requests
-                        _ => (),
-                    }
-
-                    // Put the handler back
-                    self.event_handler = Some(handler);
-
-                // Otherwise noity the user that a configuration failed to load
-                } else {
-                    log!(warn &mut self.internal_send => "Information Unavailable. No Active Configuration.");
                 }
             }
 

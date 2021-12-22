@@ -1,5 +1,5 @@
 ---
-version: 0.9.4
+version: 0.9.9
 identifier:
   id: 0
 server_location: ~
@@ -46,7 +46,7 @@ system_connection:
           window_dimensions: ~
 background_process: ~
 default_scene:
-  id: 100
+  id: 500
 fullscreen: ~
 all_scenes:
   ? id: 100
@@ -579,7 +579,13 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : []
+  : - CueEvent:
+        event:
+          delay:
+            secs: 5
+            nanos: 0
+          event_id:
+            id: 502
   ? id: 204
     description: Cancel Upcoming Events
     display:

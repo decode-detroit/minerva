@@ -31,6 +31,7 @@ mod definitions;
 mod item_index;
 mod style_sheet;
 mod system_interface;
+#[cfg(feature = "media-out")]
 #[macro_use]
 mod gtk_interface;
 mod web_interface;
@@ -39,6 +40,7 @@ mod web_interface;
 use crate::definitions::*;
 
 // Import other structures into this module
+#[cfg(feature = "media-out")]
 use self::gtk_interface::GtkInterface;
 use self::item_index::ItemIndex;
 use self::style_sheet::StyleSheet;
@@ -60,16 +62,12 @@ use self::gio::prelude::*;
 use self::gtk::prelude::*;
 use gio;
 use gtk;
-use gtk::traits::SettingsExt;
 
 // Import tokio features
 use tokio::runtime::Runtime;
 
 // Define program constants
 const LOGO_SQUARE: &str = "logo_square.png";
-const LOGO_WIDE: &str = "logo_wide.png";
-const GTK_THEME: &str = "Materia-dark";
-const FONT: &str = "Inter";
 const WINDOW_TITLE: &str = "Minerva";
 const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
 
@@ -83,12 +81,6 @@ impl Minerva {
     /// A function to build the main program and the user interface
     ///
     pub fn build_program(application: &gtk::Application) {
-        // Load the gtk theme for this application
-        if let Some(settings) = gtk::Settings::default() {
-            settings.set_gtk_theme_name(Some(GTK_THEME));
-            settings.set_gtk_font_name(Some(FONT));
-        }
-
         // Create the tokio runtime
         let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
 
@@ -108,9 +100,14 @@ impl Minerva {
             style_sheet.run().await;
         });
 
-        // Launch the system interface to monitor and handle events
+        // Create the interface send
+        #[cfg(feature = "media-out")]
         let (interface_send, gtk_interface_recv, web_interface_recv) = InterfaceSend::new();
-        let (system_interface, gtk_send, web_send) = runtime
+        #[cfg(not(feature = "media-out"))]
+        let (interface_send, web_interface_recv) = InterfaceSend::new();
+
+        // Launch the system interface to monitor and handle events
+        let (system_interface, web_send) = runtime
             .block_on(async {
                 SystemInterface::new(index_access.clone(), style_access.clone(), interface_send.clone()).await
             })
@@ -132,30 +129,24 @@ impl Minerva {
             });
         });
 
-        // Create the application window
+        // Create the application window, but do not show it
         let window = gtk::ApplicationWindow::new(application);
 
-        // Create the user interface structure to handle user interface updates
+        // Create the gtk interface structure to handle video and media playback
+        #[cfg(feature = "media-out")]
         GtkInterface::new(
-            application,
-            &window,
-            gtk_send,
-            interface_send,
             gtk_interface_recv,
         );
 
-        // Set the default parameters for the window
-        window.set_title(WINDOW_TITLE);
-        window.set_border_width(3);
-        window.set_position(gtk::WindowPosition::Center);
-        window.set_default_size(1500, 800);
+        // Set the default parameters for the window FIXME
+        /*window.set_title(WINDOW_TITLE);
         window.set_icon_from_file(LOGO_SQUARE).unwrap_or(()); // give up if unsuccessful
 
         // Disable the delete button for the window
         window.set_deletable(false);
 
         // Show the window
-        window.show();
+        window.show();*/
     }
 }
 

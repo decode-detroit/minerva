@@ -346,7 +346,10 @@ mod tests {
 
         // Create the communication lines
         let (internal_send, _internal_recv) = InternalSend::new();
-        let (interface_send, _gtk_interface_recv, _web_interface_recv) = InterfaceSend::new();
+        #[cfg(feature = "media-out")]
+        let (interface_send, gtk_interface_recv, web_interface_recv) = InterfaceSend::new();
+        #[cfg(not(feature = "media-out"))]
+        let (interface_send, web_interface_recv) = InterfaceSend::new();
 
         // Create a test index access and load the index
         let (index_access, _rx) = IndexAccess::new();

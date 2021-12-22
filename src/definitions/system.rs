@@ -31,54 +31,6 @@ use tokio::sync::{mpsc, oneshot};
 // Import Chrono features
 use chrono::NaiveDateTime;
 
-/// The stucture and methods to send GtkRequests to the system interface
-///
-#[derive(Clone, Debug)]
-pub struct GtkSend {
-    gtk_send: mpsc::Sender<GtkRequest>, // the mpsc sending line to pass gtk requests
-}
-
-// Implement the key features of the gtk send struct
-impl GtkSend {
-    /// A function to create a new GtkSend
-    ///
-    /// The function returns the the GtkSend structure and the system
-    /// receive channel which will return the requests.
-    ///
-    pub fn new() -> (Self, mpsc::Receiver<GtkRequest>) {
-        // Create the new channel
-        let (gtk_send, receive) = mpsc::channel(256);
-
-        // Create and return both new items
-        (GtkSend { gtk_send }, receive)
-    }
-
-    /// A method to send a gtk request in a sync setting. This method fails
-    /// silently.
-    ///
-    pub fn send(&self, request: UserRequest) {
-        self.gtk_send.blocking_send(request.into()).unwrap_or(());
-    }
-}
-
-/// A structure for carrying requests from the gtk interface
-///
-pub struct GtkRequest {
-    request: UserRequest,
-}
-
-/// Implement from and to UserRequest for GtkRequest
-impl From<UserRequest> for GtkRequest {
-    fn from(request: UserRequest) -> Self {
-        GtkRequest { request }
-    }
-}
-impl From<GtkRequest> for UserRequest {
-    fn from(gtk_request: GtkRequest) -> Self {
-        gtk_request.request
-    }
-}
-
 /// The stucture and methods to send WebRequests to the system interface
 ///
 #[derive(Clone, Debug)]
@@ -357,15 +309,8 @@ pub enum UserRequest {
         broadcast: bool,
     },
 
-    /// A variant that triggers a redraw of the user interface window
+    /// A variant that triggers a redraw of the user interface window FIXME can likely be removed
     Redraw,
-
-    /// A variant that requests information from the system and directs it
-    /// to a specific spot on the window NOTE: This variant will be retired.
-    GtkRequest {
-        reply_to: DisplayComponent,
-        request: DetailType,
-    },
 
     /// A variant that provides a new configuration file to save the current
     /// configuration.
