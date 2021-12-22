@@ -1,7 +1,7 @@
 import React from 'react';
 import logoWide from './logo_wide.png';
-import { EditMenu } from './components/Menus.js';
-import { ViewArea } from './components/EditArea.js';
+import { RunMenu } from './components/Menus.js';
+import { ViewArea } from './components/RunArea.js';
 import { saveEdits, saveStyle, saveConfig } from './components/Functions';
 import './App.css';
 
@@ -22,7 +22,9 @@ export class App extends React.PureComponent {
       timelineEvents: [],
       scenes: [],
       fullStatus: {},
-
+      currentScene: {},
+      currentItems: [],
+      keyMap: {},
       randomCss: Math.floor(Math.random() * 1000000), // Scramble the css file name
     }
 
@@ -91,11 +93,11 @@ export class App extends React.PureComponent {
     
     // Refresh the entire button window with a new window
     } else if (data.hasOwnProperty(`updateWindow`)) {
-      console.error("Need to process window updates.");
-      //current_scene: ItemPair,
-      //statuses: Vec<ItemPair>,
-      //window: EventWindow,
-      //key_map: KeyMap,
+      this.setState({
+        currentScene: data[`updateWindow`][`currentScene`],
+        currentItems: data[`updateWindow`][`currentItems`],
+        keyMap: data[`updateWindow`][`keyMap`],
+      });
     
     // Update the current state of a particular status
     } else if (data.hasOwnProperty(`updateStatus`)) {
@@ -133,6 +135,7 @@ export class App extends React.PureComponent {
           <div className="header">
             <img src={logoWide} className="logo" alt="logo" />
           </div>
+          <ViewArea currentScene={this.state.currentScene} currentItems={this.state.currentItems} />
         </div>
       </>
     )

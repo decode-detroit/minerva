@@ -115,6 +115,7 @@ impl WebInterface {
 
         // Spin up a thread for the run port (64636)
         let clone_send = self.web_send.clone();
+        let clone_index = self.index_access.clone();
         tokio::spawn(async move {
             // Create the websocket filter
             let listen = warp::path("listen")
@@ -131,6 +132,14 @@ impl WebInterface {
                 .and(warp::path::end())
                 .and(WebInterface::with_clone(clone_send.clone()))
                 .and(WebInterface::with_json::<AllEventChange>())
+                .and_then(WebInterface::handle_request);
+
+            // Create the all scenes filter
+            let all_scenes = warp::get()
+                .and(warp::path("allScenes"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(WebInterface::with_clone(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
                 .and_then(WebInterface::handle_request);
 
             // Create the all stop filter
@@ -213,11 +222,27 @@ impl WebInterface {
                 .and(WebInterface::with_json::<GameLog>())
                 .and_then(WebInterface::handle_request);
 
+            // Create the item information filter
+            let get_item = warp::get()
+                .and(warp::path("getItem"))
+                .and(WebInterface::with_clone(clone_index))
+                .and(warp::path::param::<GetItem>())
+                .and(warp::path::end())
+                .and_then(WebInterface::handle_get_item);
+
             // Create the get style filter
             let get_styles = warp::get()
                 .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
                 .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
                 // FIXME This filter is OS-specific and may fail on OSX and Windows
+
+            // Create the get status filter
+            let get_type = warp::get()
+                .and(warp::path("getType"))
+                .and(WebInterface::with_clone(clone_send.clone()))
+                .and(warp::path::param::<GetType>())
+                .and(warp::path::end())
+                .and_then(WebInterface::handle_request);
 
             // Create the process event filter
             let process_event = warp::post()
@@ -250,6 +275,7 @@ impl WebInterface {
             // Combine the filters
             let run_routes = listen
                 .or(all_event_change)
+                .or(all_scenes)
                 .or(all_stop)
                 .or(broadcast_event)
                 .or(clear_queue)
@@ -260,7 +286,9 @@ impl WebInterface {
                 .or(error_log)
                 .or(event_change)
                 .or(game_log)
+                .or(get_item)
                 .or(get_styles)
+                .or(get_type)
                 .or(process_event)
                 .or(scene_change)
                 .or(status_change)

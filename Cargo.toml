@@ -4,7 +4,7 @@ version = "0.9.9"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Interactive Show Control Software"
 license = "GPL-3.0-or-later"
-edition="2018"
+edition="2021"
 
 [profile.release]
 lto = true

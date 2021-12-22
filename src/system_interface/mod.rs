@@ -332,36 +332,18 @@ impl SystemInterface {
             InternalUpdate::RefreshInterface => {
                 // Try to redraw the current window
                 if let Some(ref mut handler) = self.event_handler {
-                    // Repackage the items in the current scene
-                    // FIXME The user interface should get this information separately
-                    let item_ids = handler.get_current_items();
-                    let mut current_items = Vec::new();
-                    for item_id in item_ids {
-                        // Combine the item pair
-                        current_items.push(self.index_access.get_pair(&item_id).await);
-                    }
-
-                    // Compose the new event window and status items
-                    let (window, statuses) = SystemInterface::sort_items(
-                        current_items,
-                        self.index_access.clone(),
-                        self.is_debug_mode,
-                    )
-                    .await;
+                    // Get the items in the current scene
+                    let current_items = handler.get_current_items();
 
                     // Get the current scene and key map
-                    let current_scene = self
-                        .index_access
-                        .get_pair(&handler.get_current_scene())
-                        .await;
+                    let current_scene = handler.get_current_scene();
                     let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
                     self.interface_send
                         .send(InterfaceUpdate::UpdateWindow {
                             current_scene,
-                            window,
-                            statuses,
+                            current_items,
                             key_map,
                         }).await;
                 }
@@ -736,36 +718,18 @@ impl SystemInterface {
             UserRequest::Redraw => {
                 // Try to redraw the current window
                 if let Some(ref mut handler) = self.event_handler {
-                    // Repackage the items in the current scene
-                    // FIXME The user interface should get this information separately
-                    let item_ids = handler.get_current_items();
-                    let mut current_items = Vec::new();
-                    for item_id in item_ids {
-                        // Combine the item pair
-                        current_items.push(self.index_access.get_pair(&item_id).await);
-                    }
-
-                    // Compose the new event window and status items
-                    let (window, statuses) = SystemInterface::sort_items(
-                        current_items,
-                        self.index_access.clone(),
-                        self.is_debug_mode,
-                    )
-                    .await;
+                    // Get the items in the current scene
+                    let current_items = handler.get_current_items();
 
                     // Get the current scene and key map
-                    let current_scene = self
-                        .index_access
-                        .get_pair(&handler.get_current_scene())
-                        .await;
+                    let current_scene = handler.get_current_scene();
                     let key_map = handler.get_key_map().await;
 
                     // Send the update with the new event window
                     self.interface_send
                         .send(InterfaceUpdate::UpdateWindow {
                             current_scene,
-                            window,
-                            statuses,
+                            current_items,
                             key_map,
                         }).await;
                 }
@@ -893,91 +857,6 @@ impl SystemInterface {
 
         // Update the event handler
         self.event_handler = Some(event_handler);
-    }
-
-    /// An internal to sort the available events in this current scene
-    /// into an Event Window.
-    ///
-    async fn sort_items(
-        mut items: Vec<ItemPair>,
-        index_access: IndexAccess,
-        is_debug_mode: bool,
-    ) -> (EventWindow, Vec<ItemPair>) {
-        // Iterate through the items and group them
-        let mut groups = Vec::new();
-        let mut general_group = Vec::new();
-        let mut statuses = Vec::new();
-        for item in items.drain(..) {
-            // Unpack the items
-            match item.display {
-                // Add display control events to the general control group
-                DisplayControl { .. } => general_group.push(item),
-
-                // Add display with events to the matching event group
-                DisplayWith { group_id, .. } => {
-                    let group_pair = index_access.get_pair(&group_id).await;
-                    SystemInterface::sort_groups(&mut groups, group_pair, item);
-                }
-
-                // Add display debug events to the matching event group
-                DisplayDebug { group_id, .. } => {
-                    // If the system is in debug mode
-                    if is_debug_mode {
-                        // If a group id is specified, add it to the correct group
-                        if let Some(id) = group_id {
-                            let group_pair = index_access.get_pair(&id).await;
-                            SystemInterface::sort_groups(&mut groups, group_pair, item);
-
-                        // Otherwise add it to the general group
-                        } else {
-                            general_group.push(item);
-                        }
-                    }
-                }
-
-                // Add label control items to the statuses list
-                LabelControl { .. } => statuses.push(item),
-
-                // Ignore label hidden and hidden items
-                _ => (),
-            }
-        }
-
-        // Add the general group to the rest of the groups and return the packaged result
-        groups.push(EventGroup {
-            group_id: None,
-            group_events: general_group,
-        });
-        (groups, statuses)
-    }
-
-    /// An internal function to sort through the groups currently in the provided
-    /// vector, add the provided event if it matches one of the groups, and
-    /// create a new group if it does not.
-    ///
-    fn sort_groups(groups: &mut Vec<EventGroup>, event_group: ItemPair, event: ItemPair) {
-        // Look through the existing groups for a group match
-        let mut found = false; // flag for if a matching group was found
-        for group in groups.iter_mut() {
-            // Check for a real group id
-            if let Some(ref id) = group.group_id {
-                // If the id is a match, add the current event
-                if id == &event_group {
-                    group.group_events.push(event.clone());
-                    found = true;
-                    break;
-                }
-            }
-        }
-
-        // If a matching id was not found, add a new group
-        if !found {
-            // Check to see if the group id has a corresponding status
-            groups.push(EventGroup {
-                group_id: Some(event_group),
-                group_events: vec![event],
-            });
-        }
     }
 }
 

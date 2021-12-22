@@ -100,17 +100,32 @@ export class EditMenu extends React.PureComponent {
 export class SceneMenu extends React.PureComponent {
   // Class constructor
   constructor(props) {
-    // Collect props and set initial state
+    // Collect props
     super(props);
+
+    // Set initial state
     this.state = {
       sceneList: [{id: -1, description: " "}],
-      flag: true,
-      isDeleteVisible: false,
-      deleteId: -1,
     }
 
     // Bind functions
+    this.changeScene = this.changeScene.bind(this);
     this.handleChange = this.handleChange.bind(this);
+  }
+
+  // Function to change the displayed scene
+  changeScene(id) {
+    // Request the scene change
+    let sceneChange = {
+      sceneId: id,
+    };
+    fetch(`/sceneChange`, {
+      method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sceneChange),
+    }); // FIXME ignore errors
   }
 
   // On render, pull the full scene list
@@ -153,10 +168,7 @@ export class SceneMenu extends React.PureComponent {
   // Control the view of the component
   handleChange(e) {
     // Pass the change upstream
-    this.props.changeScene(parseInt(e.target.value));
-
-    // Save the delete id
-    this.setState({ deleteId: parseInt(e.target.value) });
+    this.changeScene(parseInt(e.target.value));
   }
   
   // Render the scene menu
@@ -168,14 +180,10 @@ export class SceneMenu extends React.PureComponent {
     // Return the complete menu
     return (
       <div className="sceneMenu">
-        <div className="title">Show Items From Scene:</div>
+        <div className="title">Current Scene:</div>
         <select className="select" value={this.props.value} onChange={this.handleChange}>
           {options}
         </select>
-        <div className="deleteScene" onMouseDown={() => {this.setState({ isDeleteVisible: true })}}>
-          Delete<br/>Scene
-          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
-        </div>
       </div>
     );
   }

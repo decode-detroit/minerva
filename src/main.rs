@@ -58,10 +58,8 @@ extern crate failure;
 use tracing_subscriber;
 
 // Import GTK and GIO libraries
-use self::gio::prelude::*;
-use self::gtk::prelude::*;
-use gio;
-use gtk;
+use gio::prelude::*;
+use gtk::prelude::*;
 
 // Import tokio features
 use tokio::runtime::Runtime;
@@ -137,6 +135,9 @@ impl Minerva {
         GtkInterface::new(
             gtk_interface_recv,
         );
+
+        // Open the user interface
+        gtk::show_uri(None, "http://localhost:64636", 0).unwrap_or(());
 
         // Set the default parameters for the window FIXME
         /*window.set_title(WINDOW_TITLE);

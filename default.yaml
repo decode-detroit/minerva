@@ -46,7 +46,7 @@ system_connection:
           window_dimensions: ~
 background_process: ~
 default_scene:
-  id: 500
+  id: 100
 fullscreen: ~
 all_scenes:
   ? id: 100
@@ -579,13 +579,7 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - CueEvent:
-        event:
-          delay:
-            secs: 5
-            nanos: 0
-          event_id:
-            id: 502
+  : []
   ? id: 204
     description: Cancel Upcoming Events
     display:

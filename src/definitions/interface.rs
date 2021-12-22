@@ -29,19 +29,6 @@ use std::sync::{Arc, Mutex, mpsc as std_mpsc};
 use tokio::sync::mpsc;
 use warp::ws::Message;
 
-/// A structure to list a series of event buttons that are associated with one
-/// event group.
-///
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub struct EventGroup {
-    pub group_id: Option<ItemPair>, // the group id identifying and describing the group or None for the general group
-    pub group_events: Vec<ItemPair>, // a vector of the events that belong in this group
-}
-
-/// A type to list a series of event groups that fill the event window.
-///
-pub type EventWindow = Vec<EventGroup>; // a vector of event groups that belong in this window
-
 /// An enum to change one of the display settings of the user interface
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -79,9 +66,8 @@ pub enum InterfaceUpdate {
     /// A variant indicating the entire button window should be refreshed with
     /// the new provided window.
     UpdateWindow {
-        current_scene: ItemPair,
-        statuses: Vec<ItemPair>,
-        window: EventWindow,
+        current_scene: ItemId,
+        current_items: Vec<ItemId>,
         key_map: KeyMap,
     },
 
@@ -127,9 +113,8 @@ pub enum WebInterfaceUpdate {
     /// the new provided window.
     #[serde(rename_all = "camelCase")]
     UpdateWindow {
-        current_scene: ItemPair,
-        statuses: Vec<ItemPair>,
-        window: EventWindow,
+        current_scene: ItemId,
+        current_items: Vec<ItemId>,
         key_map: KeyMap,
     },
 
@@ -224,8 +209,8 @@ impl InterfaceSend {
             InterfaceUpdate::UpdateConfig { scenes, full_status } => {
                 self.web_interface_send.send(WebInterfaceUpdate::UpdateConfig { scenes, full_status }).await.unwrap_or(());
             }
-            InterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map } => {
-                self.web_interface_send.send(WebInterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map }).await.unwrap_or(());
+            InterfaceUpdate::UpdateWindow { current_scene, current_items, key_map } => {
+                self.web_interface_send.send(WebInterfaceUpdate::UpdateWindow { current_scene, current_items, key_map }).await.unwrap_or(());
             }
             InterfaceUpdate::UpdateStatus { status_id, new_state } => {
                 self.web_interface_send.send(WebInterfaceUpdate::UpdateStatus { status_id, new_state }).await.unwrap_or(());
@@ -265,8 +250,8 @@ impl InterfaceSend {
             InterfaceUpdate::UpdateConfig { scenes, full_status } => {
                 self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateConfig { scenes, full_status }).unwrap_or(());
             }
-            InterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map } => {
-                self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateWindow { current_scene, statuses, window, key_map }).unwrap_or(());
+            InterfaceUpdate::UpdateWindow { current_scene, current_items, key_map } => {
+                self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateWindow { current_scene, current_items, key_map }).unwrap_or(());
             }
             InterfaceUpdate::UpdateStatus { status_id, new_state } => {
                 self.web_interface_send.blocking_send(WebInterfaceUpdate::UpdateStatus { status_id, new_state }).unwrap_or(());
