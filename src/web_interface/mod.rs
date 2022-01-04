@@ -67,7 +67,7 @@ impl WebInterface {
 
     /// A method to listen for connections from the internet
     ///
-    pub async fn run(&mut self, mut interface_receive: mpsc::Receiver<WebInterfaceUpdate>) {
+    pub async fn run(&mut self, mut interface_receive: mpsc::Receiver<InterfaceUpdate>) {
         // Create a channel for sending new listener handles
         let (listener_send, mut listener_recv): (mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>, mpsc::Receiver<mpsc::Sender<Result<Message, warp::Error>>>) = mpsc::channel(128);
         

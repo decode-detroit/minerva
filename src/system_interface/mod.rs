@@ -293,14 +293,6 @@ impl SystemInterface {
                 log!(err &mut self.internal_send => "Get User String variant temporarily diabled as of version 0.9.9.");
             }
 
-            // Pass a video stream to the user interface
-            #[cfg(feature = "media-out")]
-            InternalUpdate::NewVideo(video_stream) => {
-                // Pass the stream to the user interface
-                self.interface_send
-                    .send(InterfaceUpdate::Video { video_stream }).await;
-            }
-
             // Pass an event to the event_handler
             InternalUpdate::ProcessEvent {
                 event,

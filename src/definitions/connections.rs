@@ -29,10 +29,6 @@ use std::time::Duration;
 // Import FNV HashMap
 use fnv::FnvHashMap;
 
-// Import Gstreamer Library
-#[cfg(feature = "media-out")]
-use gstreamer_video as gst_video;
-
 /// Define the instance identifier. Instances with the same identifier will trigger
 /// events with one another; instances with different identifiers will not.
 /// If no identifier is specified, this instance will accept all events and
@@ -137,6 +133,29 @@ pub struct MediaCue {
     pub loop_media: Option<String>, // the location of media to loop after this media is complete
 }
 
+// A helper struct to define a single media cue.
+// This version is serialized with camelCase to allow compatability with Apollo.
+//
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaCueHelper {
+    pub uri: String,
+    pub channel: u32,
+    pub loop_media: Option<String>,
+}
+
+// Implement conversion from media cue to media cue helper
+impl MediaCue {
+    pub fn into_helper(self) -> MediaCueHelper {
+        // Recompose as a media cue helper
+        MediaCueHelper {
+            uri: self.uri,
+            channel: self.channel,
+            loop_media: self.loop_media,
+        }
+    }
+}
+
 /// A type to store a hashmap of event ids and Media Cues
 ///
 pub type MediaMap = FnvHashMap<ItemId, MediaCue>;
@@ -152,6 +171,32 @@ pub struct VideoWindow {
     pub width: i32,         // the width of the video
 }
 
+// A helper struct to define the dimensions of a video window.
+//
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoWindowHelper {
+    pub window_number: u32,
+    pub top: i32,
+    pub left: i32,
+    pub height: i32,
+    pub width: i32,
+}
+
+// Implement conversion features for VideoWindow
+impl VideoWindow {
+    pub fn into_helper(self) -> VideoWindowHelper {
+        // Return the completed video window helper
+        return VideoWindowHelper {
+            window_number: self.window_number,
+            top: self.top,
+            left: self.left,
+            height: self.height,
+            width: self.width,
+        }
+    }
+}
+
 /// Am enum to specify the type of audio output device
 ///
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -164,6 +209,33 @@ pub enum AudioDevice {
 
     /// A Jack Audio sink with no parameters
     Jack,
+}
+
+// A helper struct to specify the type of audio output device
+//
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AudioDeviceHelper {
+    /// An ALSA audio sink with a device name
+    Alsa { device_name: String },
+
+    /// A Pulse Audio sink with a device name
+    Pulse { device_name: String },
+
+    /// A Jack Audio sink with no parameters
+    Jack,
+}
+
+// Implement conversion features for VideoWindow
+impl AudioDevice {
+    pub fn into_helper(self) -> AudioDeviceHelper {
+        // Return the completed audio device helper
+        match self {
+            AudioDevice::Alsa { device_name } => AudioDeviceHelper::Alsa { device_name },
+            AudioDevice::Pulse { device_name } => AudioDeviceHelper::Pulse { device_name },
+            AudioDevice::Jack => AudioDeviceHelper::Jack,
+        }
+    }
 }
 
 /// A struct to define a single channel to display a media track
@@ -183,17 +255,47 @@ pub struct MediaChannel {
     pub loop_media: Option<String>, // the media (video or audio) to loop when no other media is playing
 }
 
+// A helper struct to define a single channel to display a media track.
+// This version includes the channel number in the struck to allow easier
+// passing to apollo.
+//
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaChannelHelper {
+    pub channel: u32,
+    pub video_window: Option<VideoWindowHelper>,
+    pub window_dimensions: Option<(i32, i32)>,
+    pub audio_device: Option<AudioDeviceHelper>,
+    pub loop_media: Option<String>,
+}
+
+// Implement conversion features for Media Channel
+impl MediaChannel {
+    // Add the channel number to an existing media channel
+    pub fn add_channel(self, channel: u32) -> MediaChannelHelper {
+        // Convert the video window, if specified
+        let video_window = match self.video_window {
+            Some(window) => Some(window.into_helper()),
+            None => None,
+        };
+
+        // Convert the audio device, if specified
+        let audio_device = match self.audio_device {
+            Some(device) => Some(device.into_helper()),
+            None => None,
+        };
+
+        // Return the completed media channel helper
+        return MediaChannelHelper {
+            channel,
+            video_window,
+            window_dimensions: self.window_dimensions,
+            audio_device,
+            loop_media: self.loop_media,
+        }
+    }
+}
+
 /// A type to store a hashmap of channel ids and allocations
 ///
 pub type ChannelMap = FnvHashMap<u32, MediaChannel>;
-
-/// A type to communicate a video stream to the front end of the program
-#[cfg(feature = "media-out")]
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct VideoStream {
-    pub channel: u32,               // the channel where the video should be played
-    pub window_number: u32,         // the window where the video should be played
-    pub allocation: gtk::Rectangle, // the location of the video in the screen
-    pub video_overlay: gst_video::VideoOverlay, // the video overlay which should be connected to the video id
-    pub dimensions: Option<(i32, i32)>, // the minimum dimensions of the window (defaults to fullscreen, but can be made larger to stretch across multiple screens)
-}

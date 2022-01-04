@@ -48,10 +48,6 @@ pub enum InternalUpdate {
     /// item id. TODO Make this more generic for other user input
     GetUserString(ItemId),
 
-    /// A variant to pass a new video stream to the user interface
-    #[cfg(feature = "media-out")]
-    NewVideo(Option<VideoStream>),
-
     /// A variant that processes a new event with the given item id. If the
     /// check_scene flag is not set, the system will not check if the event is
     /// listed in the current scene. If broadcast is set to true, the event
@@ -134,26 +130,6 @@ impl InternalSend {
             .send(InternalUpdate::GetUserString(event))
             .await
             .unwrap_or(());
-    }
-
-    /// A method to pass a new video stream to the user interface
-    ///
-    /// # Note
-    /// This method will panic if used inside an async context.
-    /// 
-    #[cfg(feature = "media-out")]
-    pub fn send_new_video(&self, video_stream: VideoStream) {
-        self.internal_send.blocking_send(InternalUpdate::NewVideo(Some(video_stream))).unwrap_or(());
-    }
-
-    /// A method to clear all video streams from the user interface
-    ///
-    /// # Note
-    /// This method will panic if used inside an async context.
-    /// 
-    #[cfg(feature = "media-out")]
-    pub fn send_clear_videos(&self) {
-        self.internal_send.blocking_send(InternalUpdate::NewVideo(None)).unwrap_or(());
     }
 
     // A method to trigger a refresh of the user interface

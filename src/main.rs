@@ -31,24 +31,16 @@ mod definitions;
 mod item_index;
 mod style_sheet;
 mod system_interface;
-#[cfg(feature = "media-out")]
-#[macro_use]
-mod gtk_interface;
 mod web_interface;
 
 // Import crate definitions
 use crate::definitions::*;
 
 // Import other structures into this module
-#[cfg(feature = "media-out")]
-use self::gtk_interface::GtkInterface;
 use self::item_index::ItemIndex;
 use self::style_sheet::StyleSheet;
 use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
-
-// Import standard library features
-use std::thread;
 
 // Import failure features
 #[macro_use]
@@ -57,16 +49,7 @@ extern crate failure;
 // Import tracing features
 use tracing_subscriber;
 
-// Import GTK and GIO libraries
-use gio::prelude::*;
-use gtk::prelude::*;
-
-// Import tokio features
-use tokio::runtime::Runtime;
-
 // Define program constants
-const LOGO_SQUARE: &str = "logo_square.png";
-const WINDOW_TITLE: &str = "Minerva";
 const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
 
 /// The Minerva structure to contain the program launching and overall
@@ -78,15 +61,12 @@ pub struct Minerva {}
 impl Minerva {
     /// A function to build the main program and the user interface
     ///
-    pub fn build_program(application: &gtk::Application) {
-        // Create the tokio runtime
-        let runtime = Runtime::new().expect("Unable To Create Tokio Runtime.");
-
+    async fn run() {
         // Create the item index to process item description requests
         let (mut item_index, index_access) = ItemIndex::new();
 
         // Run the item index in a new thread (needed here to allow the system interface to load)
-        runtime.spawn(async move {
+        tokio::spawn(async move {
             item_index.run().await;
         });
 
@@ -94,81 +74,36 @@ impl Minerva {
         let (mut style_sheet, style_access) = StyleSheet::new();
 
         // Run the style sheet in a new thread (needed here to allow the system interface to load)
-        runtime.spawn(async move {
+        tokio::spawn(async move {
             style_sheet.run().await;
         });
 
         // Create the interface send
-        #[cfg(feature = "media-out")]
-        let (interface_send, gtk_interface_recv, web_interface_recv) = InterfaceSend::new();
-        #[cfg(not(feature = "media-out"))]
         let (interface_send, web_interface_recv) = InterfaceSend::new();
 
         // Launch the system interface to monitor and handle events
-        let (system_interface, web_send) = runtime
-            .block_on(async {
-                SystemInterface::new(index_access.clone(), style_access.clone(), interface_send.clone()).await
-            })
-            .expect("Unable To Create System Interface.");
+        let (system_interface, web_send) = SystemInterface::new(index_access.clone(), style_access.clone(), interface_send.clone()).await.expect("Unable To Create System Interface.");
 
         // Create a new web interface
         let mut web_interface = WebInterface::new(index_access.clone(), style_access.clone(), web_send);
 
-        // Spin the runtime into a native thread
-        thread::spawn(move || {
-            // Run the system interface in a new thread
-            runtime.spawn(async move {
-                system_interface.run().await;
-            });
-
-            // Block on the web interface
-            runtime.block_on(async move {
-                web_interface.run(web_interface_recv).await;
-            });
+        // Run the system interface in a new thread
+        tokio::spawn(async move {
+            system_interface.run().await;
         });
 
-        // Create the application window, but do not show it
-        let window = gtk::ApplicationWindow::new(application);
-
-        // Create the gtk interface structure to handle video and media playback
-        #[cfg(feature = "media-out")]
-        GtkInterface::new(
-            gtk_interface_recv,
-        );
-
-        // Open the user interface
-        gtk::show_uri(None, "http://localhost:64636", 0).unwrap_or(());
-
-        // Set the default parameters for the window FIXME
-        /*window.set_title(WINDOW_TITLE);
-        window.set_icon_from_file(LOGO_SQUARE).unwrap_or(()); // give up if unsuccessful
-
-        // Disable the delete button for the window
-        window.set_deletable(false);
-
-        // Show the window
-        window.show();*/
+        // Block on the web interface
+        web_interface.run(web_interface_recv).await;
     }
 }
 
-/// The main function of the program, simplified to as high a level as possible
-/// to allow GTK+ to work its startup magic.
+/// The main function of the program, simplified to as high a level as possible.
 ///
-fn main() {
+#[tokio::main]
+async fn main() {
     // Initialize tracing FIXME Consider using this for easier debugging
     tracing_subscriber::fmt::init();
-    
-    // Create the gtk application window. Failure results in immediate panic!
-    let application = gtk::Application::new(None, gio::ApplicationFlags::empty());
 
-    // Create the program and launch the background thread
-    application.connect_startup(move |gtk_app| {
-        Minerva::build_program(gtk_app);
-    });
-
-    // Connect the activate-specific function (as compared with open-specific function)
-    application.connect_activate(|_| {});
-
-    // Run the application until all the windows are closed
-    application.run();
+    // Create the program and run until directed otherwise
+    Minerva::run().await;
 }
