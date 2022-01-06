@@ -121,7 +121,7 @@ impl EventConnection for MediaOut {
         // Check to see if the event is all stop
         if id == ItemId::all_stop() {
             // Stop all the currently playing media
-            // FIXME 
+            let response = self.client.as_ref().unwrap().post("http://localhost:27655/allStop").send()?;
 
             // Run all of the all stop media, ignoring errors
             for media_cue in self.all_stop_media.iter() {
