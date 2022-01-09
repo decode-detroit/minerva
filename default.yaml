@@ -21,7 +21,7 @@ system_connection:
           loop_media: ~
       channel_map:
         1:
-          video_window:
+          video_frame:
             window_number: 1
             top: 0
             left: 0
@@ -29,13 +29,12 @@ system_connection:
             width: 1920
           audio_device: ~
           loop_media: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
-          window_dimensions: ~
         3:
           video_window: ~
           audio_device: ~
           loop_media: ~
         2:
-          video_window:
+          video_frame:
             window_number: 1
             top: 300
             left: 500
@@ -43,7 +42,9 @@ system_connection:
             width: 400
           audio_device: ~
           loop_media: ~
-          window_dimensions: ~
+      apollo_params:
+        spawn: true
+        address: "127.0.0.1:56743"
 background_process: ~
 default_scene:
   id: 100

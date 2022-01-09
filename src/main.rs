@@ -55,7 +55,7 @@ const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
 ///
-pub struct Minerva {}
+struct Minerva;
 
 // Implement the Minerva functionality
 impl Minerva {

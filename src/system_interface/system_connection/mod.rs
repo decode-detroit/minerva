@@ -66,7 +66,7 @@ impl ConnectionType {
     /// Type. This method estahblishes the connection to the underlying system.
     /// If the connection fails, it will return the Error.
     ///
-    async fn initialize(&self) -> Result<LiveConnection, Error> {
+    async fn initialize(&self, internal_send: &InternalSend) -> Result<LiveConnection, Error> {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the comedy serial port
@@ -112,12 +112,17 @@ impl ConnectionType {
                 ref all_stop_media,
                 ref media_map,
                 ref channel_map,
+                ref window_map,
+                ref apollo_params,
             } => {
                 // Create the new media connection
                 let connection = MediaOut::new(
+                    internal_send.clone(),
                     all_stop_media.clone(),
                     media_map.clone(),
                     channel_map.clone(),
+                    window_map.clone(),
+                    apollo_params.clone(),
                 ).await?;
                 Ok(LiveConnection::Media { connection })
             }
@@ -299,7 +304,7 @@ impl SystemConnection {
             let mut live_connections = Vec::new();
             for connection in conn_set {
                 // Attempt to initialize each connection
-                match connection.initialize().await {
+                match connection.initialize(&self.internal_send).await {
                     Ok(conn) => live_connections.push(conn),
 
                     // If it fails, warn the user

@@ -124,7 +124,7 @@ impl BackgroundThread {
                         log!(update internal_send => "Restarting Background Process ...");
 
                         // Start the process again
-                        child = match Command::new(path.clone()).args(arguments.clone()).spawn()
+                        child = match Command::new(path.clone()).args(arguments.clone()).kill_on_drop(true).spawn()
                         {
                             // If the child process was created, return it
                             Ok(child) => child,
