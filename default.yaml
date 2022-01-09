@@ -44,7 +44,7 @@ system_connection:
           loop_media: ~
       apollo_params:
         spawn: true
-        address: "127.0.0.1:56743"
+        address: ~
 background_process: ~
 default_scene:
   id: 100

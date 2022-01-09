@@ -140,6 +140,7 @@ pub struct MediaCue {
 //
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg(feature = "media-out")]
 pub struct MediaCueHelper {
     pub uri: String,
     pub channel: u32,
@@ -147,6 +148,7 @@ pub struct MediaCueHelper {
 }
 
 // Implement conversion from media cue to media cue helper
+#[cfg(feature = "media-out")]
 impl MediaCue {
     pub fn into_helper(self) -> MediaCueHelper {
         // Recompose as a media cue helper
@@ -177,6 +179,7 @@ pub struct VideoFrame {
 //
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg(feature = "media-out")]
 pub struct VideoFrameHelper {
     pub window_number: u32,
     pub top: i32,
@@ -186,6 +189,7 @@ pub struct VideoFrameHelper {
 }
 
 // Implement conversion features for VideoFrame
+#[cfg(feature = "media-out")]
 impl VideoFrame {
     pub fn into_helper(self) -> VideoFrameHelper {
         // Return the completed video window helper
@@ -217,6 +221,7 @@ pub enum AudioDevice {
 //
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg(feature = "media-out")]
 pub enum AudioDeviceHelper {
     /// An ALSA audio sink with a device name
     Alsa { device_name: String },
@@ -229,6 +234,7 @@ pub enum AudioDeviceHelper {
 }
 
 // Implement conversion features for VideoWindow
+#[cfg(feature = "media-out")]
 impl AudioDevice {
     pub fn into_helper(self) -> AudioDeviceHelper {
         // Return the completed audio device helper
@@ -263,6 +269,7 @@ pub struct MediaChannel {
 //
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg(feature = "media-out")]
 pub struct MediaChannelHelper {
     pub channel: u32,
     pub video_frame: Option<VideoFrameHelper>,
@@ -272,6 +279,7 @@ pub struct MediaChannelHelper {
 }
 
 // Implement conversion features for Media Channel
+#[cfg(feature = "media-out")]
 impl MediaChannel {
     // Add the channel number to an existing media channel
     pub fn add_channel(self, channel: u32) -> MediaChannelHelper {
@@ -316,6 +324,7 @@ pub struct WindowDefinition {
 //
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg(feature = "media-out")]
 pub struct WindowDefinitionHelper {
     pub window_number: u32,
     pub fullscreen: bool,
@@ -323,6 +332,7 @@ pub struct WindowDefinitionHelper {
 }
 
 // Implement conversion features for WindowDefinition
+#[cfg(feature = "media-out")]
 impl WindowDefinition {
     pub fn into_helper(self) -> WindowDefinitionHelper {
         // Return the completed window definition helper

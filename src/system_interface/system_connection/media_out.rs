@@ -67,8 +67,17 @@ impl ApolloThread {
 
             // Otherwise, warn of the error and return
             _ => {
-                log!(err internal_send => "Unable To Start Apollo Media Player.");
-                return;
+                // Try looking in the local directory
+                match Command::new("./apollo").args(args.clone()).kill_on_drop(true).spawn() {
+                    // If the child process was created, return it
+                    Ok(child) => child,
+
+                    // Otherwise, warn of the error and return
+                    _ => {
+                        log!(err internal_send => "Unable To Start Apollo Media Player.");
+                        return;
+                    }
+                }
             }
         };
 
@@ -79,7 +88,7 @@ impl ApolloThread {
                 // Wait for the process to finish
                 match child.wait().await {
                     // Notify that the process has terminated
-                    Ok(status) => {
+                    Ok(_) => {
                         log!(err internal_send => "Apollo Media Player Stopped.");
                     }
 
@@ -138,7 +147,9 @@ impl MediaOut {
         let address = apollo_params.address.clone().unwrap_or(String::from("localhost:27655"));
         
         // Spin out thread to monitor and restart apollo, if requested
+        println!("Here!");
         if apollo_params.spawn {
+            println!("Trying to spawn");
             ApolloThread::spawn(apollo_params.address, internal_send).await;
         }
 

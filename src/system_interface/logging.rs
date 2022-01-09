@@ -186,6 +186,9 @@ impl Logger {
         // Note the current time
         let now = Local::now().naive_local();
 
+        // FIXME Print to stdout
+        println!("{:?}", &update);
+        
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
