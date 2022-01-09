@@ -90,7 +90,7 @@ pub enum ConnectionType {
         all_stop_media: Vec<MediaCue>,    // a vector of media cues for all stop
         media_map: MediaMap,              // the map of event ids to media cues
         channel_map: ChannelMap,          // the map of channel numbers to channel properties
-        window_map: Option<WindowMap>,    // the map of window numbers to window properties
+        window_map: WindowMap,            // the map of window numbers to window properties
         apollo_params: ApolloParams,      // the parameters for Apollo media player, if specified
     },
 }
@@ -282,7 +282,7 @@ pub struct MediaChannelHelper {
 #[cfg(feature = "media-out")]
 impl MediaChannel {
     // Add the channel number to an existing media channel
-    pub fn add_channel(self, channel: u32) -> MediaChannelHelper {
+    pub fn add_number(self, channel: u32) -> MediaChannelHelper {
         // Convert the video window, if specified
         let video_frame = match self.video_frame {
             Some(frame) => Some(frame.into_helper()),
@@ -313,9 +313,7 @@ pub type ChannelMap = FnvHashMap<u32, MediaChannel>;
 /// A struct to define an application window to hold one or more media channels
 ///
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct WindowDefinition {
-    pub window_number: u32,             // the channel where the video should be played
     pub fullscreen: bool,               // a flag to indicate whether the window should be fullscreen
     pub dimensions: Option<(i32, i32)>, // the minimum dimensions of the window
 }
@@ -334,10 +332,10 @@ pub struct WindowDefinitionHelper {
 // Implement conversion features for WindowDefinition
 #[cfg(feature = "media-out")]
 impl WindowDefinition {
-    pub fn into_helper(self) -> WindowDefinitionHelper {
+    pub fn add_number(self, window_number: u32) -> WindowDefinitionHelper {
         // Return the completed window definition helper
         WindowDefinitionHelper {
-            window_number: self.window_number,
+            window_number,
             fullscreen: self.fullscreen,
             dimensions: self.dimensions,
         }

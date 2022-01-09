@@ -15,10 +15,6 @@ system_connection:
         : uri: "https://archive.org/download/never-gonna-give-you-up-4-k/Never%20Gonna%20Give%20You%20Up%204K.ia.mp4"
           channel: 2
           loop_media: ~
-        ? id: 504
-        : uri: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
-          channel: 3
-          loop_media: ~
       channel_map:
         1:
           video_frame:
@@ -29,10 +25,6 @@ system_connection:
             width: 1920
           audio_device: ~
           loop_media: "https://archive.org/download/Sintel-ThirdOpenMovieByBlenderFoundation/sintel-640-stereo.mp4"
-        3:
-          video_window: ~
-          audio_device: ~
-          loop_media: ~
         2:
           video_frame:
             window_number: 1
@@ -42,9 +34,26 @@ system_connection:
             width: 400
           audio_device: ~
           loop_media: ~
+      window_map: {}
       apollo_params:
         spawn: true
         address: ~
+  - Media:
+      all_stop_media: []
+      media_map:
+        ? id: 504
+        : uri: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
+          channel: 3
+          loop_media: ~
+      channel_map:
+        1:
+          video_frame: ~
+          audio_device: ~
+          loop_media: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
+      window_map: {}
+      apollo_params:
+        spawn: true
+        address: 127.0.0.1:27664
 background_process: ~
 default_scene:
   id: 100

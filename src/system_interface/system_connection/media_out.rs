@@ -28,6 +28,8 @@ use super::{EventConnection, ReadResult};
 use tokio::runtime::Handle;
 #[cfg(feature = "media-out")]
 use tokio::process::Command;
+#[cfg(feature = "media-out")]
+use tokio::time::{sleep, Duration};
 
 // Import reqwest elements
 #[cfg(feature = "media-out")]
@@ -48,27 +50,23 @@ struct ApolloThread;
 impl ApolloThread {
     /// Spawn the monitoring thread
     async fn spawn(
-        possible_address: Option<String>,
         internal_send: InternalSend,
+        address: String,
+        mut window_map: WindowMap,
+        mut channel_map: ChannelMap,
     ) {
         // Notify that the background process is starting
         log!(update internal_send => "Starting Apollo Media Player ...");
 
-        // Compose the address argument, if sepcified
-        let mut args = Vec::new();
-        if let Some(address) = possible_address.clone() {
-            args.push(format!("--address {}", address));
-        }
-
         // Create the child process
-        let mut child = match Command::new("apollo").args(args.clone()).kill_on_drop(true).spawn() {
+        let mut child = match Command::new("apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
             // If the child process was created, return it
             Ok(child) => child,
 
             // Otherwise, warn of the error and return
             _ => {
                 // Try looking in the local directory
-                match Command::new("./apollo").args(args.clone()).kill_on_drop(true).spawn() {
+                match Command::new("./apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
                     // If the child process was created, return it
                     Ok(child) => child,
 
@@ -85,6 +83,30 @@ impl ApolloThread {
         Handle::current().spawn(async move {
             // Run indefinitely or until the process fails
             loop {
+                // Wait several seconds for the server to start
+                sleep(Duration::from_secs(3)).await;
+
+                // Create a client for passing channel definitions
+                let tmp_client = AsyncClient::new();
+                    
+                // Define the windows
+                for (window_number, window_definition) in window_map.drain() {
+                    // Recompose the window definition
+                    let window = window_definition.add_number(window_number);
+
+                    // Post the window to Apollo
+                    let response = tmp_client.post(&format!("http://{}/defineWindow", &address)).json(&window).send().await;
+                }
+
+                // Define all the media channels
+                for (channel_number, media_channel) in channel_map.drain() {
+                    // Recompose the media channel
+                    let channel = media_channel.add_number(channel_number);
+
+                    // Post the channel to Apollo
+                    let response = tmp_client.post(&format!("http://{}/defineChannel", &address)).json(&channel).send().await;
+                }
+
                 // Wait for the process to finish
                 match child.wait().await {
                     // Notify that the process has terminated
@@ -99,18 +121,30 @@ impl ApolloThread {
                     }
                 }
 
+                // Wait several seconds to restart the server
+                sleep(Duration::from_secs(3)).await;
+
                 // Notify that the background process is restarting
                 log!(update internal_send => "Restarting Apollo Media Player ...");
 
                 // Start the process again
-                child = match Command::new("apollo").args(args.clone()).kill_on_drop(true).spawn() {
+                child = match Command::new("apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
                     // If the child process was created, return it
                     Ok(child) => child,
 
                     // Otherwise, warn of the error and end the thread
                     _ => {
-                        log!(err internal_send => "Unable To Restart Apollo Media Player.");
-                        break;
+                        // Try looking in the local directory
+                        match Command::new("./apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
+                            // If the child process was created, return it
+                            Ok(child) => child,
+
+                            // Otherwise, warn of the error and return
+                            _ => {
+                                log!(err internal_send => "Unable To Start Apollo Media Player.");
+                                break;
+                            }
+                        }
                     }
                 };
             }
@@ -139,30 +173,16 @@ impl MediaOut {
         internal_send: InternalSend,
         all_stop_media: Vec<MediaCue>,
         media_map: MediaMap,
-        mut channel_map: ChannelMap,
-        window_map: Option<WindowMap>,
+        channel_map: ChannelMap,
+        window_map: WindowMap,
         apollo_params: ApolloParams,
     ) -> Result<MediaOut, Error> {
-        // Copy the specified address
-        let address = apollo_params.address.clone().unwrap_or(String::from("localhost:27655"));
+        // Copy the specified address or use the default
+        let address = apollo_params.address.clone().unwrap_or(String::from("127.0.0.1:27655"));
         
         // Spin out thread to monitor and restart apollo, if requested
-        println!("Here!");
         if apollo_params.spawn {
-            println!("Trying to spawn");
-            ApolloThread::spawn(apollo_params.address, internal_send).await;
-        }
-
-        // Create a client for passing channel definitions
-        let tmp_client = AsyncClient::new();
-
-        // Define all the media channels
-        for (channel_number, media_channel) in channel_map.drain() {
-            // Recompose the media channel
-            let channel = media_channel.add_channel(channel_number);
-
-            // Post the channel to Apollo
-            let response = tmp_client.post(&format!("http://{}/defineChannel", &address)).json(&channel).send().await?;
+            ApolloThread::spawn(internal_send, address.clone(), window_map, channel_map).await;
         }
 
         // Return the complete module
@@ -182,7 +202,7 @@ impl MediaOut {
         _all_stop_media: Vec<MediaCue>,
         media_map: MediaMap,
         _channel_map: ChannelMap,
-        _window_map: Option<WindowMap>,
+        _window_map: WindowMap,
         _apollo: ApolloParams,
     ) -> Result<MediaOut, Error> {
         // Return a partial module
