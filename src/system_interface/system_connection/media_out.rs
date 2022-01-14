@@ -107,18 +107,24 @@ impl ApolloThread {
                     let response = tmp_client.post(&format!("http://{}/defineChannel", &address)).json(&channel).send().await;
                 }
 
-                // Wait for the process to finish
-                match child.wait().await {
-                    // Notify that the process has terminated
-                    Ok(_) => {
-                        log!(err internal_send => "Apollo Media Player Stopped.");
+                // Wait for the process to finish or the sender to be poisoned
+                tokio::select! {
+                    // The process has finished
+                    result = child.wait() => {
+                        match result {
+                            // Notify that the process has terminated
+                            Ok(_) => log!(err internal_send => "Apollo Media Player Stopped."),
+
+                            // If the process failed to run
+                            _ => {
+                                log!(err internal_send => "Unable To Run Apollo Media Player.");
+                                break;
+                            }
+                        }
                     }
 
-                    // If the process failed to run
-                    _ => {
-                        log!(err internal_send => "Unable To Run Apollo Media Player.");
-                        break;
-                    }
+                    // Check if the internal send line has been dropped
+                    _ = internal_send.closed() => break,
                 }
 
                 // Wait several seconds to restart the server

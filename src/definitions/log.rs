@@ -158,6 +158,12 @@ impl InternalSend {
     pub fn blocking_send(&self, update: InternalUpdate) {
         self.internal_send.blocking_send(update).unwrap_or(());
     }
+
+    /// A method that will only return if the line has been closed by the receiver
+    ///
+    pub async fn closed(&self) {
+        self.internal_send.closed().await
+    }
 }
 
 /// An enum for logging changes to the game. Most changes in the system interface

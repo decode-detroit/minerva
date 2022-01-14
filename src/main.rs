@@ -87,13 +87,13 @@ impl Minerva {
         // Create a new web interface
         let mut web_interface = WebInterface::new(index_access.clone(), style_access.clone(), web_send);
 
-        // Run the system interface in a new thread
+        // Run the web interface in a new thread
         tokio::spawn(async move {
-            system_interface.run().await;
+            web_interface.run(web_interface_recv).await;
         });
 
-        // Block on the web interface
-        web_interface.run(web_interface_recv).await;
+        // Block on the system interface
+        system_interface.run().await;
     }
 }
 
