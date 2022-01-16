@@ -1,4 +1,5 @@
 import React from 'react';
+import logoWide from './../logo_wide.png';
 import { asyncForEach, stopPropogation } from './Functions';
 
 // A menu pop-up for deleting items
@@ -72,8 +73,8 @@ export class DeleteMenu extends React.PureComponent {
   }
 }
 
-// A menu for the edit items
-export class EditMenu extends React.PureComponent {  
+// A header menu
+export class HeaderMenu extends React.PureComponent {  
   // Class constructor
   constructor(props) {
     // Collect props and set initial state
@@ -86,15 +87,22 @@ export class EditMenu extends React.PureComponent {
   // Render the edit menu
   render() {
     return (
+      <div className="header">
+        <div className="menuButton" onClick={this.props.closeMinerva}>Quit</div>
+        <img src={logoWide} className="logo" alt="logo" />
+      </div>
+    );
+  }
+}
+
+/*
       <div className="editMenu">
         <div>Minerva</div>
         {!this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: true})}}>Edit Filename</div>}
         {this.state.isMenuVisible && <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>}
         <div class={"menuButton" + (this.props.saved ? " inactive" : "")} onClick={() => {this.setState({isMenuVisible: false}); this.props.saveFile()}}>Save</div>
       </div>
-    );
-  }
-}
+      */
 
 // A menu for the scene selection
 export class SceneMenu extends React.PureComponent {
