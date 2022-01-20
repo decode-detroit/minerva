@@ -1,3 +1,8 @@
+// Function to change the current port for the browser window
+export async function switchPort(siteport) {
+  window.location.port = siteport;
+}
+
 // Function to save the current configuration to a custom file
 export async function saveConfig(filename) {
   // Save the configuration

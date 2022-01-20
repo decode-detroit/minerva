@@ -1,20 +1,293 @@
 ---
-version: 0.9.9
+# Constants for the Configuration
+version: "0.9.9"
 identifier:
   id: 0
 server_location: ~
+user_styles: {}
 system_connection:
+  - ComedySerial:
+      path: "/dev/ttyUSB0"
+      baud: 115200
+  - ZmqPrimary:
+      send_path: "ipc:///tmp/conn" #"tcp://192.168.0.210:5555"
+      recv_path: "ipc:///tmp/conn2" #"tcp://192.168.0.210:6666"
   - Media:
       all_stop_media: []
       media_map:
-        ? id: 502
-        : uri: "https://archive.org/download/springblenderopenmoviedownloadlagump3.com/Spring%20-%20Blender%20Open%20Movie%20%28download-lagu-mp3.com%29.mp4"
-          channel: 1
-          loop_media: ~
-        ? id: 503
-        : uri: "https://archive.org/download/never-gonna-give-you-up-4-k/Never%20Gonna%20Give%20You%20Up%204K.ia.mp4"
+        ? id: 32788
+        : uri: "file:///home/sysadmin/Operations/Library_audio_32788.wav"
           channel: 2
           loop_media: ~
+        ? id: 32789
+        : uri: "file:///home/sysadmin/Operations/Library_audio_32789.wav"
+          channel: 2
+          loop_media: ~
+        ? id: 32791
+        : uri: "file:///home/sysadmin/Operations/Library_audio_32791.wav"
+          channel: 2
+          loop_media: ~
+        ? id: 32792
+        : uri: "file:///home/sysadmin/Operations/Library_audio_32792.wav"
+          channel: 2
+          loop_media: ~
+        ? id: 32787
+        : uri: "file:///home/sysadmin/Operations/Library_video_32787.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32787.mp4"
+        ? id: 32769
+        : uri: "file:///home/sysadmin/Operations/Library_video_32769.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32769.mp4"
+        ? id: 32771
+        : uri: "file:///home/sysadmin/Operations/Library_video_32771.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32771.mp4"
+        ? id: 32773
+        : uri: "file:///home/sysadmin/Operations/Library_video_32773.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32773.mp4"
+        ? id: 32775
+        : uri: "file:///home/sysadmin/Operations/Library_video_32775.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32775.mp4"
+        ? id: 32777
+        : uri: "file:///home/sysadmin/Operations/Library_video_32777.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32777.mp4"
+        ? id: 32779
+        : uri: "file:///home/sysadmin/Operations/Library_video_32779.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32779.mp4"
+        ? id: 32819
+        : uri: "file:///home/sysadmin/Operations/Library_video_32819.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32819.mp4"
+        ? id: 32820
+        : uri: "file:///home/sysadmin/Operations/Library_video_32820.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32820.mp4"
+        ? id: 32821
+        : uri: "file:///home/sysadmin/Operations/Library_video_32821.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32821.mp4"
+        ? id: 32822
+        : uri: "file:///home/sysadmin/Operations/Library_video_32822.mp4"
+          channel: 1
+        ? id: 32823
+        : uri: "file:///home/sysadmin/Operations/Library_video_32823.mp4"
+          channel: 1
+        ? id: 32824
+        : uri: "file:///home/sysadmin/Operations/Library_video_32824.mp4"
+          channel: 1
+        ? id: 32825
+        : uri: "file:///home/sysadmin/Operations/Library_video_32825.mp4"
+          channel: 1
+        ? id: 32826
+        : uri: "file:///home/sysadmin/Operations/Library_video_32826.mp4"
+          channel: 1
+        ? id: 32827
+        : uri: "file:///home/sysadmin/Operations/Library_video_32827.mp4"
+          channel: 1
+        ? id: 32828
+        : uri: "file:///home/sysadmin/Operations/Library_video_32828.mp4"
+          channel: 1
+        ? id: 32829
+        : uri: "file:///home/sysadmin/Operations/Library_video_32829.mp4"
+          channel: 1
+        ? id: 32830
+        : uri: "file:///home/sysadmin/Operations/Library_video_32830.mp4"
+          channel: 1
+        ? id: 32831
+        : uri: "file:///home/sysadmin/Operations/Library_video_32831.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32831.mp4"
+        ? id: 32832
+        : uri: "file:///home/sysadmin/Operations/Library_video_32832.mp4"
+          channel: 1
+        ? id: 32833
+        : uri: "file:///home/sysadmin/Operations/Library_video_32833.mp4"
+          channel: 1
+        ? id: 32834
+        : uri: "file:///home/sysadmin/Operations/Library_video_32834.mp4"
+          channel: 1
+        ? id: 32835
+        : uri: "file:///home/sysadmin/Operations/Library_video_32835.mp4"
+          channel: 1
+        ? id: 32836
+        : uri: "file:///home/sysadmin/Operations/Library_video_32836.mp4"
+          channel: 1
+        ? id: 32837
+        : uri: "file:///home/sysadmin/Operations/Library_video_32837.mp4"
+          channel: 1
+        ? id: 32838
+        : uri: "file:///home/sysadmin/Operations/Library_video_32838.mp4"
+          channel: 1
+        ? id: 32839
+        : uri: "file:///home/sysadmin/Operations/Library_video_32839.mp4"
+          channel: 1
+        ? id: 32840
+        : uri: "file:///home/sysadmin/Operations/Library_video_32840.mp4"
+          channel: 1
+        ? id: 32841
+        : uri: "file:///home/sysadmin/Operations/Library_video_32841.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32841.mp4"
+        ? id: 32842
+        : uri: "file:///home/sysadmin/Operations/Library_video_32842.mp4"
+          channel: 1
+        ? id: 32843
+        : uri: "file:///home/sysadmin/Operations/Library_video_32843.mp4"
+          channel: 1
+        ? id: 32844
+        : uri: "file:///home/sysadmin/Operations/Library_video_32844.mp4"
+          channel: 1
+        ? id: 32845
+        : uri: "file:///home/sysadmin/Operations/Library_video_32845.mp4"
+          channel: 1
+        ? id: 32846
+        : uri: "file:///home/sysadmin/Operations/Library_video_32846.mp4"
+          channel: 1
+        ? id: 32847
+        : uri: "file:///home/sysadmin/Operations/Library_video_32847.mp4"
+          channel: 1
+        ? id: 32848
+        : uri: "file:///home/sysadmin/Operations/Library_video_32848.mp4"
+          channel: 1
+        ? id: 32849
+        : uri: "file:///home/sysadmin/Operations/Library_video_32849.mp4"
+          channel: 1
+        ? id: 32850
+        : uri: "file:///home/sysadmin/Operations/Library_video_32850.mp4"
+          channel: 1
+        ? id: 32851
+        : uri: "file:///home/sysadmin/Operations/Library_video_32851.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32851.mp4"
+        ? id: 32852
+        : uri: "file:///home/sysadmin/Operations/Library_video_32852.mp4"
+          channel: 1
+        ? id: 32853
+        : uri: "file:///home/sysadmin/Operations/Library_video_32853.mp4"
+          channel: 1
+        ? id: 32854
+        : uri: "file:///home/sysadmin/Operations/Library_video_32854.mp4"
+          channel: 1
+        ? id: 32855
+        : uri: "file:///home/sysadmin/Operations/Library_video_32855.mp4"
+          channel: 1
+        ? id: 32856
+        : uri: "file:///home/sysadmin/Operations/Library_video_32856.mp4"
+          channel: 1
+        ? id: 32857
+        : uri: "file:///home/sysadmin/Operations/Library_video_32857.mp4"
+          channel: 1
+        ? id: 32858
+        : uri: "file:///home/sysadmin/Operations/Library_video_32858.mp4"
+          channel: 1
+        ? id: 32859
+        : uri: "file:///home/sysadmin/Operations/Library_video_32859.mp4"
+          channel: 1
+        ? id: 32860
+        : uri: "file:///home/sysadmin/Operations/Library_video_32860.mp4"
+          channel: 1
+        ? id: 32861
+        : uri: "file:///home/sysadmin/Operations/Library_video_32861.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32861.mp4"
+        ? id: 32862
+        : uri: "file:///home/sysadmin/Operations/Library_video_32862.mp4"
+          channel: 1
+        ? id: 32863
+        : uri: "file:///home/sysadmin/Operations/Library_video_32863.mp4"
+          channel: 1
+        ? id: 32864
+        : uri: "file:///home/sysadmin/Operations/Library_video_32864.mp4"
+          channel: 1
+        ? id: 32865
+        : uri: "file:///home/sysadmin/Operations/Library_video_32865.mp4"
+          channel: 1
+        ? id: 32866
+        : uri: "file:///home/sysadmin/Operations/Library_video_32866.mp4"
+          channel: 1
+        ? id: 32867
+        : uri: "file:///home/sysadmin/Operations/Library_video_32867.mp4"
+          channel: 1
+        ? id: 32868
+        : uri: "file:///home/sysadmin/Operations/Library_video_32868.mp4"
+          channel: 1
+        ? id: 32869
+        : uri: "file:///home/sysadmin/Operations/Library_video_32869.mp4"
+          channel: 1
+        ? id: 32870
+        : uri: "file:///home/sysadmin/Operations/Library_video_32870.mp4"
+          channel: 1
+        ? id: 32871
+        : uri: "file:///home/sysadmin/Operations/Library_video_32871.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32871.mp4"
+        ? id: 32872
+        : uri: "file:///home/sysadmin/Operations/Library_video_32872.mp4"
+          channel: 1
+        ? id: 32873
+        : uri: "file:///home/sysadmin/Operations/Library_video_32873.mp4"
+          channel: 1
+        ? id: 32874
+        : uri: "file:///home/sysadmin/Operations/Library_video_32874.mp4"
+          channel: 1
+        ? id: 32875
+        : uri: "file:///home/sysadmin/Operations/Library_video_32875.mp4"
+          channel: 1
+        ? id: 32876
+        : uri: "file:///home/sysadmin/Operations/Library_video_32876.mp4"
+          channel: 1
+        ? id: 32877
+        : uri: "file:///home/sysadmin/Operations/Library_video_32877.mp4"
+          channel: 1
+        ? id: 32878
+        : uri: "file:///home/sysadmin/Operations/Library_video_32878.mp4"
+          channel: 1
+        ? id: 32879
+        : uri: "file:///home/sysadmin/Operations/Library_video_32879.mp4"
+          channel: 1
+        ? id: 32880
+        : uri: "file:///home/sysadmin/Operations/Library_video_32880.mp4"
+          channel: 1
+        ? id: 32881
+        : uri: "file:///home/sysadmin/Operations/Library_video_32881.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32881.mp4"
+        ? id: 32882
+        : uri: "file:///home/sysadmin/Operations/Library_video_32882.mp4"
+          channel: 1
+        ? id: 32883
+        : uri: "file:///home/sysadmin/Operations/Library_video_32883.mp4"
+          channel: 1
+        ? id: 32884
+        : uri: "file:///home/sysadmin/Operations/Library_video_32884.mp4"
+          channel: 1
+        ? id: 32885
+        : uri: "file:///home/sysadmin/Operations/Library_video_32885.mp4"
+          channel: 1
+        ? id: 32886
+        : uri: "file:///home/sysadmin/Operations/Library_video_32886.mp4"
+          channel: 1
+        ? id: 32887
+        : uri: "file:///home/sysadmin/Operations/Library_video_32887.mp4"
+          channel: 1
+        ? id: 32888
+        : uri: "file:///home/sysadmin/Operations/Library_video_32888.mp4"
+          channel: 1
+        ? id: 32889
+        : uri: "file:///home/sysadmin/Operations/Library_video_32889.mp4"
+          channel: 1
+        ? id: 32890
+        : uri: "file:///home/sysadmin/Operations/Library_video_32890.mp4"
+          channel: 1
+        ? id: 32891
+        : uri: "file:///home/sysadmin/Operations/Library_video_32891.mp4"
+          channel: 1
+          loop_media: "file:///home/sysadmin/Operations/Library_video_32891.mp4"
       channel_map:
         1:
           video_frame:
@@ -23,646 +296,1489 @@ system_connection:
             left: 0
             height: 1080
             width: 1920
-          audio_device: ~
-          loop_media: ~
+          audio_device:
+            Pulse:
+              device_name: "default"
         2:
-          video_frame:
-            window_number: 1
-            top: 300
-            left: 500
-            height: 300
-            width: 400
-          audio_device: ~
-          loop_media: ~
+          video_frame: ~
+          audio_devie:
+            Alsa:
+              device_name: "front:CARD=Device,DEV=0"
       window_map: {}
       apollo_params:
         spawn: true
         address: ~
-  - Media:
-      all_stop_media: []
-      media_map:
-        ? id: 504
-        : uri: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
-          channel: 3
-          loop_media: ~
-      channel_map:
-        1:
-          video_frame: ~
-          audio_device: ~
-          loop_media: ~
-      window_map: {}
-      apollo_params:
-        spawn: true
-        address: 127.0.0.1:27664
-background_process: ~
 default_scene:
-  id: 100
-fullscreen: ~
+  id: 32818
+
+# Scene Definitions
 all_scenes:
-  ? id: 100
+
+  # The Library Game
+  ? id: 32818
   : events:
-      - id: 101
-      - id: 100
-    key_map:
-      32:
-        id: 101
-  ? id: 400
-  : events:
-      - id: 403
-      - id: 400
-      - id: 402
-      - id: 401
-    key_map:
-      32:
-        id: 401
-  ? id: 200
-  : events:
-      - id: 205
-      - id: 204
-      - id: 206
-      - id: 201
-      - id: 200
-      - id: 203
-      - id: 202
-    key_map:
-      32:
-        id: 201
-  ? id: 300
-  : events:
-      - id: 302
-      - id: 323
-      - id: 312
-      - id: 301
-      - id: 314
-      - id: 303
-      - id: 324
-      - id: 313
-      - id: 304
-      - id: 322
-      - id: 311
-      - id: 300
-      - id: 321
-    key_map: ~
-  ? id: 500
-  : events:
-      - id: 502
-      - id: 504
-      - id: 501
-      - id: 503
-      - id: 500
-    key_map:
-      32:
-        id: 501
-status_map:
-  ? id: 310
+      - id: 32818
+      - id: 32780
+      - id: 32781
+      - id: 32790
+      - id: 32792
+      - id: 32793
+      - id: 32799
+      - id: 32800
+      - id: 32801
+      - id: 32802
+      - id: 32803
+      - id: 32804
+      - id: 32805
+      - id: 32806
+      - id: 32807
+      - id: 32808
+      - id: 32809
+      - id: 32816
+      - id: 32819
+      - id: 32820
+      - id: 32821
+      - id: 32822
+      - id: 32823
+      - id: 32824
+      - id: 32825
+      - id: 32826
+      - id: 32827
+      - id: 32828
+      - id: 32829
+      - id: 32830
+      - id: 32831
+      - id: 32832
+      - id: 32833
+      - id: 32834
+      - id: 32835
+      - id: 32836
+      - id: 32837
+      - id: 32838
+      - id: 32839
+      - id: 32840
+      - id: 32841
+      - id: 32842
+      - id: 32843
+      - id: 32844
+      - id: 32845
+      - id: 32846
+      - id: 32847
+      - id: 32848
+      - id: 32849
+      - id: 32850
+      - id: 32851
+      - id: 32852
+      - id: 32853
+      - id: 32854
+      - id: 32855
+      - id: 32856
+      - id: 32857
+      - id: 32858
+      - id: 32859
+      - id: 32860
+      - id: 32861
+      - id: 32862
+      - id: 32863
+      - id: 32864
+      - id: 32865
+      - id: 32866
+      - id: 32867
+      - id: 32868
+      - id: 32869
+      - id: 32870
+      - id: 32871
+      - id: 32872
+      - id: 32873
+      - id: 32874
+      - id: 32875
+      - id: 32876
+      - id: 32877
+      - id: 32878
+      - id: 32879
+      - id: 32880
+      - id: 32881
+      - id: 32882
+      - id: 32883
+      - id: 32884
+      - id: 32885
+      - id: 32886
+      - id: 32887
+      - id: 32888
+      - id: 32889
+      - id: 32890
+      - id: 32896
+      - id: 32897
+      - id: 32898
+      - id: 32899
+      - id: 32900
+      - id: 32901
+      - id: 32902
+      - id: 32912
+      - id: 32913
+      - id: 32914
+      - id: 32915
+      - id: 32916
+      - id: 32917
+      - id: 32918
+
+# Status Map
+status_map: 
+
+  # Status of puzzle 8
+  ? id: 32895
   : MultiState:
       current:
-        id: 312
+        id: 32896
       allowed:
-        - id: 311
-        - id: 312
-        - id: 324
+        - id: 32896
+        - id: 32897
+        - id: 32898
+        - id: 32899
+        - id: 32900
+        - id: 32901
+        - id: 32902
       no_change_silent: false
-  ? id: 320
-  : MultiState:
-      current:
-        id: 321
-      allowed:
-        - id: 321
-        - id: 322
-      no_change_silent: false
+
+# Event Set
 event_set:
-  ? id: 101
-    description: Next Scene
-    display:
-      DisplayWith:
-        group_id:
-          id: 110
-        position: ~
-        color: ~
-        highlight:
-          - 100
-          - 250
-          - 0
-        highlight_state: ~
-        spotlight: 0
-        edit_location: ~
-  : - NewScene:
-        new_scene:
-          id: 200
-  ? id: 403
-    description: Send Custom String
-    display:
-      DisplayWith:
-        group_id:
-          id: 410
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : - SendData:
-        data: UserString
-  ? id: 312
-    description: "Off"
+
+  # Scene Definitions
+  ? id: 32818
+    description: The Library
     display:
       LabelHidden:
-        position: ~
-        color:
-          - 255
-          - 0
-          - 0
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : []
-  ? id: 504
-    description: Play Background Audio
+        color: [51, 161, 255]
+  : - CueEvent:
+        event:
+          delay:
+            secs: 5
+            nanos: 0
+          event_id:
+            id: 32820
+  
+  # General Controls
+  ? id: 32792
+    description: Reset (Time Over)
     display:
-      DisplayWith:
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
+      DisplayControl:
+        priority: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32816
+    - CueEvent:
+        event:
+          event_id:
+            id: 32820
+  ? id: 32816
+    description: Cancel Upcoming Events
+    display:
+     Hidden:
+       edit_location: ~
+  : - CancelEvent:
+        event:
+          id: 32790
+    - CancelEvent:
+        event:
+          id: 32799
+    - CancelEvent:
+        event:
+          id: 32821
+    - CancelEvent:
+        event:
+          id: 32831
+    - CancelEvent:
+        event:
+          id: 32841
+    - CancelEvent:
+        event:
+          id: 32851
+    - CancelEvent:
+        event:
+          id: 32861
+    - CancelEvent:
+        event:
+          id: 32871
+    - CancelEvent:
+        event:
+          id: 32881
+  ? id: 32793
+    description: Show Idle Animation
+    display:
+      DisplayControl:
+        priority: ~
   : []
-  ? id: 410
-    description: Send & Save Data
+  
+  # Puzzle 8 Status
+  ? id: 32895
+    description: Puzzle 8 Status
     display:
       Hidden:
         edit_location: ~
   : ~
-  ? id: 324
-    description: Deactivate
-    display:
-      DisplayWith:
-        group_id:
-          id: 320
-        position: ~
-        color:
-          - 255
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : - ModifyStatus:
-        status_id:
-          id: 320
-        new_state:
-          id: 322
-  ? id: 313
-    description: Turn On
-    display:
-      DisplayWith:
-        group_id:
-          id: 310
-        position: ~
-        color:
-          - 0
-          - 255
-          - 100
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : - ModifyStatus:
-        status_id:
-          id: 310
-        new_state:
-          id: 311
-  ? id: 320
-    description: Change The Event
-    display:
-      Hidden:
-        edit_location: ~
-  : ~
-  ? id: 203
-    description: An Event
-    display:
-      Hidden:
-        edit_location: ~
-  : []
-  ? id: 321
-    description: Trigger Delayed Events
-    display:
-      LabelHidden:
-        position: ~
-        color:
-          - 51
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : []
-  ? id: 302
-    description: Variable Event
-    display:
-      DisplayWith:
-        group_id:
-          id: 320
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : - SelectEvent:
-        status_id:
-          id: 320
-        event_map:
-          ? id: 322
-          : id: 304
-          ? id: 321
-          : id: 303
-  ? id: 100
-    description: Introduction
-    display:
-      Hidden:
-        edit_location: ~
-  : []
-  ? id: 303
-    description: Add Delayed Events
+  ? id: 32896
+    description: Puzzle A
     display:
       Hidden:
         edit_location: ~
   : - CueEvent:
-        event:
-          delay:
-            secs: 10
-            nanos: 0
-          event_id:
-            id: 304
-    - CueEvent:
-        event:
-          delay:
-            secs: 20
-            nanos: 0
-          event_id:
-            id: 304
-  ? id: 310
-    description: "This Is A Status:"
-    display:
-      Hidden:
-        edit_location: ~
-  : ~
-  ? id: 502
-    description: Play A Large Video
-    display:
-      DisplayWith:
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : []
-  ? id: 400
-    description: Data Examples
-    display:
-      LabelHidden:
-        position: ~
-        color:
-          - 255
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : []
-  ? id: 206
-    description: You Found Me! (Debug Only)
-    display:
-      DisplayDebug:
-        group_id:
-          id: 210
-        position: ~
-        color:
-          - 238
-          - 204
-          - 68
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : []
-  ? id: 311
-    description: "On"
-    display:
-      LabelHidden:
-        position: ~
-        color:
-          - 0
-          - 255
-          - 100
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : []
-  ? id: 503
-    description: Play A Second Video
-    display:
-      DisplayWith:
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : []
-  ? id: 401
-    description: Next Scene
-    display:
-      DisplayWith:
-        group_id:
-          id: 410
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : - NewScene:
-        new_scene:
-          id: 500
-  ? id: 202
-    description: Trigger Delayed Events
-    display:
-      DisplayWith:
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : - CueEvent:
-        event:
-          delay:
-            secs: 10
-            nanos: 0
-          event_id:
-            id: 203
-    - CueEvent:
         event:
           delay:
             secs: 11
             nanos: 0
           event_id:
-            id: 204
+            id: 32821
     - CueEvent:
         event:
           delay:
-            secs: 20
+            secs: 15
             nanos: 0
           event_id:
-            id: 203
-    - CueEvent:
-        event:
-          delay:
-            secs: 30
-            nanos: 0
-          event_id:
-            id: 203
-    - CueEvent:
-        event:
-          delay:
-            secs: 40
-            nanos: 0
-          event_id:
-            id: 203
-    - CueEvent:
-        event:
-          delay:
-            secs: 50
-            nanos: 0
-          event_id:
-            id: 203
-  ? id: 510
-    description: You Can Play Media As Well
+            id: 32799
+  ? id: 32897
+    description: Puzzle B
     display:
       Hidden:
         edit_location: ~
-  : ~
-  ? id: 314
-    description: Turn Off
+  : - CueEvent:
+        event:
+          delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 32831
+    - CueEvent:
+        event:
+          delay:
+            secs: 15
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32898
+    description: Puzzle C
     display:
-      DisplayWith:
-        group_id:
-          id: 310
-        position: ~
-        color:
-          - 255
-          - 0
-          - 0
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 32841
+    - CueEvent:
+        event:
+          delay:
+            secs: 15
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32899
+    description: Puzzle D
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 32851
+    - CueEvent:
+        event:
+          delay:
+            secs: 15
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32900
+    description: Puzzle E
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 32861
+    - CueEvent:
+        event:
+          delay:
+            secs: 15
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32901
+    description: Puzzle F
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 32871
+    - CueEvent:
+        event:
+          delay:
+            secs: 15
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32902
+    description: Puzzle G
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          delay:
+            secs: 11
+            nanos: 0
+          event_id:
+            id: 32881
+    - CueEvent:
+        event:
+          delay:
+            secs: 15
+            nanos: 0
+          event_id:
+            id: 32799
+  
+  # Game Triggers
+  ? id: 32790
+    description: Switch to Puzzle A
+    display:
+      Hidden:
         edit_location: ~
   : - ModifyStatus:
         status_id:
-          id: 310
+          id: 32895
         new_state:
-          id: 312
-  ? id: 210
-    description: "That's an Event! Try Again ..."
+          id: 32896
+  ? id: 32780
+    description: Puzzle 8 Start
+    display:
+      DisplayWith:
+        group_id:
+          id: 32895
+        priority: 0
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 16
+            nanos: 0
+          event_id:
+            id: 32790
+  ? id: 32799
+    description: Listen for a Press
+    display:
+      DisplayWith:
+        group_id:
+          id: 32895
+        priority: 1
+  : []
+  ? id: 32781
+    description: Puzzle 8 Solved
+    display:
+      DisplayWith:
+        group_id:
+          id: 32895
+        priority: 2
+  : []
+  
+  # Button Presses
+  ? id: 32800
+    description: Number 0 Pressed
     display:
       Hidden:
         edit_location: ~
-  : ~
-  ? id: 205
-    description: This Event Does Nothing
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32912
+          ? id: 32897
+          : id: 32913
+          ? id: 32898
+          : id: 32914
+          ? id: 32899
+          : id: 32915
+          ? id: 32900
+          : id: 32916
+          ? id: 32901
+          : id: 32917
+          ? id: 32902
+          : id: 32918
+  ? id: 32801
+    description: Number 1 Pressed
     display:
-      DisplayWith:
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32822
+          ? id: 32897
+          : id: 32832
+          ? id: 32898
+          : id: 32842
+          ? id: 32899
+          : id: 32852
+          ? id: 32900
+          : id: 32862
+          ? id: 32901
+          : id: 32872
+          ? id: 32902
+          : id: 32882
+  ? id: 32802
+    description: Number 2 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32823
+          ? id: 32897
+          : id: 32833
+          ? id: 32898
+          : id: 32843
+          ? id: 32899
+          : id: 32853
+          ? id: 32900
+          : id: 32863
+          ? id: 32901
+          : id: 32873
+          ? id: 32902
+          : id: 32883
+  ? id: 32803
+    description: Number 3 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32824
+          ? id: 32897
+          : id: 32834
+          ? id: 32898
+          : id: 32844
+          ? id: 32899
+          : id: 32854
+          ? id: 32900
+          : id: 32864
+          ? id: 32901
+          : id: 32874
+          ? id: 32902
+          : id: 32884
+  ? id: 32804
+    description: Number 4 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32825
+          ? id: 32897
+          : id: 32835
+          ? id: 32898
+          : id: 32845
+          ? id: 32899
+          : id: 32855
+          ? id: 32900
+          : id: 32865
+          ? id: 32901
+          : id: 32875
+          ? id: 32902
+          : id: 32885
+  ? id: 32805
+    description: Number 5 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32826
+          ? id: 32897
+          : id: 32836
+          ? id: 32898
+          : id: 32846
+          ? id: 32899
+          : id: 32856
+          ? id: 32900
+          : id: 32866
+          ? id: 32901
+          : id: 32876
+          ? id: 32902
+          : id: 32886
+  ? id: 32806
+    description: Number 6 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32827
+          ? id: 32897
+          : id: 32837
+          ? id: 32898
+          : id: 32847
+          ? id: 32899
+          : id: 32857
+          ? id: 32900
+          : id: 32867
+          ? id: 32901
+          : id: 32877
+          ? id: 32902
+          : id: 32887
+  ? id: 32807
+    description: Number 7 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32828
+          ? id: 32897
+          : id: 32838
+          ? id: 32898
+          : id: 32848
+          ? id: 32899
+          : id: 32858
+          ? id: 32900
+          : id: 32868
+          ? id: 32901
+          : id: 32878
+          ? id: 32902
+          : id: 32888
+  ? id: 32808
+    description: Number 8 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32829
+          ? id: 32897
+          : id: 32839
+          ? id: 32898
+          : id: 32849
+          ? id: 32899
+          : id: 32859
+          ? id: 32900
+          : id: 32869
+          ? id: 32901
+          : id: 32879
+          ? id: 32902
+          : id: 32889
+  ? id: 32809
+    description: Number 9 Pressed
+    display:
+      Hidden:
+        edit_location: ~
+  : - SelectEvent:
+        status_id:
+          id: 32895
+        event_map:
+          ? id: 32896
+          : id: 32830
+          ? id: 32897
+          : id: 32840
+          ? id: 32898
+          : id: 32850
+          ? id: 32899
+          : id: 32860
+          ? id: 32900
+          : id: 32870
+          ? id: 32901
+          : id: 32880
+          ? id: 32902
+          : id: 32890
+  
+  # Individual Videos
+  ? id: 32819
+    description: Puzzle 8 Instructions
+    display:
+      Hidden:
         edit_location: ~
   : []
-  ? id: 201
-    description: Next Scene
+  ? id: 32820
+    description: Blank Video
     display:
-      DisplayWith:
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
-        edit_location: ~
-  : - NewScene:
-        new_scene:
-          id: 300
-  ? id: 322
-    description: Do Nothing
-    display:
-      LabelHidden:
-        position: ~
-        color:
-          - 255
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
   : []
-  ? id: 300
-    description: Status Examples
+  ? id: 32821
+    description: Puzzle A Appear
     display:
-      LabelHidden:
-        position: ~
-        color:
-          - 51
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
   : []
-  ? id: 323
-    description: Activate
+  ? id: 32822
+    description: Puzzle A Choose 1
     display:
-      DisplayWith:
-        group_id:
-          id: 320
-        position: ~
-        color:
-          - 51
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
   : - ModifyStatus:
         status_id:
-          id: 320
+          id: 32895
         new_state:
-          id: 321
-  ? id: 301
-    description: Next Scene
+          id: 32896
+  ? id: 32823
+    description: Puzzle A Choose 2
     display:
-      DisplayWith:
-        group_id:
-          id: 310
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
-  : - NewScene:
-        new_scene:
-          id: 400
-  ? id: 500
-    description: Media Examples
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32896
+  ? id: 32824
+    description: Puzzle A Choose 3
     display:
-      LabelHidden:
-        position: ~
-        color:
-          - 255
-          - 0
-          - 0
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
-  : []
-  ? id: 204
-    description: Cancel Upcoming Events
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32896
+  ? id: 32825
+    description: Puzzle A Choose 4
     display:
-      DisplayWith:
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
-  : - CancelEvent:
-        event:
-          id: 203
-    - CancelEvent:
-        event:
-          id: 204
-  ? id: 304
-    description: Empty Event
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32896
+  ? id: 32826
+    description: Puzzle A Choose 5
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32896
+  ? id: 32827
+    description: Puzzle A Choose 6
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32896
+  ? id: 32828
+    description: Puzzle A Choose 7
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32896
+  ? id: 32829
+    description: Puzzle A Choose 8
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32830
+    description: Puzzle A Choose 9
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32896
+  ? id: 32831
+    description: Puzzle B Appear
     display:
       Hidden:
         edit_location: ~
   : []
-  ? id: 110
-    description: Click Below to Change Scenes
+  ? id: 32832
+    description: Puzzle B Choose 1
     display:
       Hidden:
         edit_location: ~
-  : ~
-  ? id: 402
-    description: "Save 'Example String'"
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32833
+    description: Puzzle B Choose 2
     display:
-      DisplayWith:
-        group_id:
-          id: 410
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
-  : - SaveData:
-        data:
-          StaticString:
-            string: Example String
-  ? id: 200
-    description: Event Examples
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32834
+    description: Puzzle B Choose 3
     display:
-      LabelHidden:
-        position: ~
-        color:
-          - 115
-          - 210
-          - 22
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32835
+    description: Puzzle B Choose 4
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32836
+    description: Puzzle B Choose 5
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32837
+    description: Puzzle B Choose 6
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32838
+    description: Puzzle B Choose 7
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32839
+    description: Puzzle B Choose 8
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32840
+    description: Puzzle B Choose 9
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32897
+  ? id: 32841
+    description: Puzzle C Appear
+    display:
+      Hidden:
         edit_location: ~
   : []
-  ? id: 501
-    description: Back To Introduction
+  ? id: 32842
+    description: Puzzle C Choose 1
     display:
-      DisplayWith:
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+      Hidden:
         edit_location: ~
-  : - NewScene:
-        new_scene:
-          id: 100
-user_styles: {}
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32843
+    description: Puzzle C Choose 2
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32844
+    description: Puzzle C Choose 3
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32845
+    description: Puzzle C Choose 4
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32846
+    description: Puzzle C Choose 5
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32847
+    description: Puzzle C Choose 6
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32848
+    description: Puzzle C Choose 7
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32849
+    description: Puzzle C Choose 8
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32850
+    description: Puzzle C Choose 9
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32898
+  ? id: 32851
+    description: Puzzle D Appear
+    display:
+      Hidden:
+        edit_location: ~
+  : []
+  ? id: 32852
+    description: Puzzle D Choose 1
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32853
+    description: Puzzle D Choose 2
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32854
+    description: Puzzle D Choose 3
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32855
+    description: Puzzle D Choose 4
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32856
+    description: Puzzle D Choose 5
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32857
+    description: Puzzle D Choose 6
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32858
+    description: Puzzle D Choose 7
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32859
+    description: Puzzle D Choose 8
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32899
+  ? id: 32860
+    description: Puzzle D Choose 9
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32861
+    description: Puzzle E Appear
+    display:
+      Hidden:
+        edit_location: ~
+  : []
+  ? id: 32862
+    description: Puzzle E Choose 1
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32863
+    description: Puzzle E Choose 2
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32864
+    description: Puzzle E Choose 3
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32865
+    description: Puzzle E Choose 4
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32866
+    description: Puzzle E Choose 5
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32867
+    description: Puzzle E Choose 6
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32868
+    description: Puzzle E Choose 7
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32869
+    description: Puzzle E Choose 8
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32870
+    description: Puzzle E Choose 9
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32900
+  ? id: 32871
+    description: Puzzle F Appear
+    display:
+      Hidden:
+        edit_location: ~
+  : []
+  ? id: 32872
+    description: Puzzle F Choose 1
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32873
+    description: Puzzle F Choose 2
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32874
+    description: Puzzle F Choose 3
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32875
+    description: Puzzle F Choose 4
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32876
+    description: Puzzle F Choose 5
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32877
+    description: Puzzle F Choose 6
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32878
+    description: Puzzle F Choose 7
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32879
+    description: Puzzle F Choose 8
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32880
+    description: Puzzle F Choose 9
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32901
+  ? id: 32881
+    description: Puzzle G Appear
+    display:
+      Hidden:
+        edit_location: ~
+  : []
+  ? id: 32882
+    description: Puzzle G Choose 1
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32883
+    description: Puzzle G Choose 2
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32884
+    description: Puzzle G Choose 3
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32781
+    - CueEvent:
+        event:
+          delay:
+            secs: 13
+            nanos: 0
+          event_id:
+            id: 32820
+  ? id: 32885
+    description: Puzzle G Choose 4
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32886
+    description: Puzzle G Choose 5
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32887
+    description: Puzzle G Choose 6
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32888
+    description: Puzzle G Choose 7
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32889
+    description: Puzzle G Choose 8
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32890
+    description: Puzzle G Choose 9
+    display:
+      Hidden:
+        edit_location: ~
+  : - ModifyStatus:
+        status_id:
+          id: 32895
+        new_state:
+          id: 32902
+  ? id: 32912
+    description: Puzzle A Instructions
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 27
+            nanos: 0
+          event_id:
+            id: 32821
+    - CueEvent:
+        event:
+          delay:
+            secs: 31
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32913
+    description: Puzzle B Instructions
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 27
+            nanos: 0
+          event_id:
+            id: 32831
+    - CueEvent:
+        event:
+          delay:
+            secs: 31
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32914
+    description: Puzzle C Instructions
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 27
+            nanos: 0
+          event_id:
+            id: 32841
+    - CueEvent:
+        event:
+          delay:
+            secs: 31
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32915
+    description: Puzzle D Instructions
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 27
+            nanos: 0
+          event_id:
+            id: 32851
+    - CueEvent:
+        event:
+          delay:
+            secs: 31
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32916
+    description: Puzzle E Instructions
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 27
+            nanos: 0
+          event_id:
+            id: 32861
+    - CueEvent:
+        event:
+          delay:
+            secs: 31
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32917
+    description: Puzzle F Instructions
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 27
+            nanos: 0
+          event_id:
+            id: 32871
+    - CueEvent:
+        event:
+          delay:
+            secs: 31
+            nanos: 0
+          event_id:
+            id: 32799
+  ? id: 32918
+    description: Puzzle G Instructions
+    display:
+      Hidden:
+        edit_location: ~
+  : - CueEvent:
+        event:
+          event_id:
+            id: 32819
+    - CueEvent:
+        event:
+          delay:
+            secs: 27
+            nanos: 0
+          event_id:
+            id: 32881
+    - CueEvent:
+        event:
+          delay:
+            secs: 31
+            nanos: 0
+          event_id:
+            id: 32799
+

@@ -1,6 +1,5 @@
 import React from 'react';
-import logoWide from './logo_wide.png';
-import { EditMenu } from './components/Menus.js';
+import { HeaderMenu } from './components/Menus.js';
 import { ViewArea } from './components/EditArea.js';
 import { saveEdits, saveStyle, saveConfig } from './components/Functions';
 import './App.css';
@@ -87,10 +86,7 @@ export class App extends React.PureComponent {
       <>
         <link id="userStyles" rel="stylesheet" href={`/getStyles/${this.state.randomCss}.css`} />
         <div className="app">
-          <div className="header">
-            <img src={logoWide} className="logo" alt="logo" />
-            <EditMenu saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} saveFile={this.saveFile} />
-          </div>
+          <HeaderMenu saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} saveFile={this.saveFile} />
           <ViewArea saveModifications={this.saveModifications} saveStyle={this.saveStyle} />
         </div>
       </>

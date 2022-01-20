@@ -1,6 +1,7 @@
 import React from 'react';
 import logoWide from './../logo_wide.png';
-import { asyncForEach, stopPropogation } from './Functions';
+import { ConfirmButton } from './Buttons';
+import { asyncForEach, stopPropogation, switchPort } from './Functions';
 
 // A menu pop-up for deleting items
 export class DeleteMenu extends React.PureComponent {  
@@ -88,8 +89,14 @@ export class HeaderMenu extends React.PureComponent {
   render() {
     return (
       <div className="header">
-        <div className="menuButton" onClick={this.props.closeMinerva}>Quit</div>
-        <img src={logoWide} className="logo" alt="logo" />
+        <div className="headerLeft">
+          <div className="title">Minerva</div>
+          <ConfirmButton buttonClass="menuButton" onClick={() => {switchPort(64637);}} buttonText="Edit Mode" />
+        </div>
+        <div className="headerRight">
+          <ConfirmButton buttonClass="menuButton" onClick={() => {this.props.closeMinerva();}} buttonText="Quit Minerva" />
+          <img src={logoWide} className="logo" alt="logo" />
+        </div>
       </div>
     );
   }
