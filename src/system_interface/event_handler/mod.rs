@@ -413,7 +413,7 @@ impl EventHandler {
     ///
     pub async fn save_config(&mut self, config_path: PathBuf) {
         // Attempt to open the new configuration file
-        let config_file = match File::create(config_path).await {
+        let config_file = match File::create(&config_path).await {
             Ok(file) => file,
             Err(_) => {
                 log!(err &self.internal_send => "Unable To Open Configuration File.");
@@ -423,6 +423,9 @@ impl EventHandler {
 
         // Save the configuration to the provided file
         self.config.to_config(config_file).await;
+
+        // Update the current config path
+        self.config_path = config_path;
     }
 
     /// A method to process a new event in the event handler. If the event was
