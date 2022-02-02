@@ -1,5 +1,5 @@
 import React from 'react';
-import { HeaderMenu } from './components/Menus.js';
+import { HeaderMenu, FooterMenu } from './components/Menus.js';
 import { ViewArea } from './components/RunArea.js';
 import { FullscreenDialog } from './components/Dialogs.js';
 import { saveEdits, saveStyle, saveConfig } from './components/Functions';
@@ -123,8 +123,11 @@ export class App extends React.PureComponent {
     // Post a current event to the status bar
     } else if (data.hasOwnProperty(`notify`)) {
       this.setState({
-        notice: data[`notify`][`message`],
-      }); 
+        notice: {
+          message: data[`notify`][`message`],
+          time: new Date(),
+        }
+      });
 
     // Update the available scenes and full status in the window
     } else if (data.hasOwnProperty(`updateConfig`)) {
@@ -160,6 +163,9 @@ export class App extends React.PureComponent {
         notifications: data[`updateNotifications`][`notifications`],
       });
 
+      // FIXME print to commandline
+      console.log(data[`updateNotifications`][`notifications`]);
+
     // Update the event timeline
     } else if (data.hasOwnProperty(`updateTimeline`)) {
       this.setState({
@@ -192,6 +198,7 @@ export class App extends React.PureComponent {
         <div className="app">
           <HeaderMenu closeMinerva={this.closeMinerva}/>
           <ViewArea currentScene={this.state.currentScene} currentItems={this.state.currentItems} />
+          <FooterMenu notice={this.state.notice} />
         </div>
         {!this.state.connectionActive && <FullscreenDialog dialogType="error" dialogTitle="Minerva Is Unavailable" dialogMessage="Minerva is closed or currently inaccessible. Please restart the program."/>}
       </>

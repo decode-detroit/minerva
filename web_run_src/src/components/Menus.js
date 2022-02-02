@@ -85,7 +85,7 @@ export class HeaderMenu extends React.PureComponent {
     }
   }
 
-  // Render the edit menu
+  // Render the header menu
   render() {
     return (
       <div className="header">
@@ -110,6 +110,28 @@ export class HeaderMenu extends React.PureComponent {
         <div class={"menuButton" + (this.props.saved ? " inactive" : "")} onClick={() => {this.setState({isMenuVisible: false}); this.props.saveFile()}}>Save</div>
       </div>
       */
+
+
+// A footer menu
+export class FooterMenu extends React.PureComponent {  
+  // Class constructor
+  constructor(props) {
+    // Collect props and set initial state
+    super(props);
+  }
+
+  // Render the footer menu
+  render() {
+    return (
+      <div className="footer">
+        {this.props.notice && <>
+          <div>{`Event: ${this.props.notice.message}`}</div>
+          <div className="footnote">{`at ${this.props.notice.time}`}</div>
+        </>}
+      </div>
+    );
+  }
+}
 
 // A menu for the scene selection
 export class SceneMenu extends React.PureComponent {
