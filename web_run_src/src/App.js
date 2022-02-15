@@ -164,6 +164,7 @@ export class App extends React.PureComponent {
       });
 
       // FIXME print to commandline
+      console.log(`Notifications`);
       console.log(data[`updateNotifications`][`notifications`]);
 
     // Update the event timeline
@@ -171,6 +172,10 @@ export class App extends React.PureComponent {
       this.setState({
         timelineEvents: data[`updateTimeline`][`events`],
       });
+
+      // FIXME print to commandline
+      console.log(`Timeline`);
+      console.log(data[`updateTimeline`][`events`]);
     }
   }
 
