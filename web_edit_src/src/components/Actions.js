@@ -345,7 +345,7 @@ export class CueEvent extends React.PureComponent {
     }
 
     // Set the new timeout
-    this.saveTimeout = setTimeout(this.updateAction, 1000);
+    this.saveTimeout = setTimeout(this.updateAction, 100);
   }
 
   // Helper function to update the action
