@@ -85,7 +85,7 @@ export class ConfirmButton extends React.PureComponent {
   componentDidMount() {
     this.setState({
       buttonHeight: this.button.current.offsetHeight,
-      buttonWidth: this.button.current.offsetWidth,
+      buttonWidth: this.button.current.offsetWidth + 1,
     });
   }
  
