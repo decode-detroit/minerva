@@ -9,12 +9,6 @@ Quickly configure and control an interactive show, no programming experience nec
 
 * **Reliable**: Minerva is written in pure Rust, a threadsafe language. The software has been extensively tested (in real-world installations) and includes an optional live-backup feature to resume instantly if power is lost.
 
-### In Active Development
-
-Minerva is in active development and we are migrating to a web interface. You can find a stable copy of the GTK interface under the [gtk-interface branch](https://github.com/decode-detroit/minerva/tree/gtk-interface) which is locked at version 0.9.0.
-
-The program will move to a completely web-based interface with version 1.0, expected in January of 2022.
-
 ## Getting Started
 
 If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below.
@@ -27,10 +21,9 @@ If you would like to contribute to Minerva, or if you are on Windows or Mac, you
 
 ### Prerequisites
 
-You'll need Rust and GTK+ to compile and run Minerva.
+You'll need Rust to compile and run Minerva.
 
 * Installation of Rust: https://www.rust-lang.org/
-* Installation of GTK+: https://www.gtk.org/ (This is usually installed already on GNU/Linux systems. Search for package libgtk-3-0.)
 
 Follow the directions on both websites to download and install these tools before you proceed.
 
@@ -54,20 +47,6 @@ cargo build --release
 ```
 
 The completed binary will be located in the automatically generated "target/release" folder with the name "minerva".
-
-### Issues Compiling
-
-If you run into issues with glib-2.0 or gdk-3.0, you can run these commands on a Debian-like system:
-
-glib2.0 issue: 
-```
-sudo apt install libgtk2.0-dev
-```
-
-gdk-3.0 issue:
-```
-sudo apt install build-essential libgtk-3-dev
-```
 
 ## Installing Extras
 
@@ -93,23 +72,14 @@ sudo apt install libzmq3-dev
 
 Currently, rust-zmq requires ZeroMQ 4.1. If your operating system does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
 
-### GStreamer for Audio/Video
+### Apollo for Audio/Video
 
 Enable audio and video playback by compiling with the "media-out" feature.
 ```
 cargo build --features "media-out"
 ```
 
-To meet the media playback dependancies, you will need to follow the platform-specific instructions for GStreamer-rs: https://gitlab.freedesktop.org/gstreamer/gstreamer-rs
-
-On a Debian-like system, install gstreamer dependencies with
-```
-sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav libgstrtspserver-1.0-dev libges-1.0-dev
-```
-
-This replaces the separate audio and video features in previous versions and syncronizes the options available to both.
-
-Audio output supports Alsa and Pulse Audio. Each output has its advantages - documentation forthcoming.
+Minerva uses an external program, [Apollo](https://github.com/decode-detroit/apollo), for all media playback. The two projects are developed concurrently and are separate to improve reliability and reusability.
 
 ### Redis for Instant Recovery
 

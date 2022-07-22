@@ -2,7 +2,6 @@ import React from 'react';
 import { HeaderMenu, FooterMenu } from './components/Menus.js';
 import { ViewArea } from './components/RunArea.js';
 import { FullscreenDialog } from './components/Dialogs.js';
-import { saveEdits, saveStyle, saveConfig } from './components/Functions';
 import './App.css';
 
 // The top level class
