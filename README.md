@@ -110,7 +110,7 @@ We are migrating to a web interface, so this will not be necessary in the long t
 
 ## Raspberry Pi-like Systems (ARM)
 
-It's possible to run Minerva on less-capible systems! For example, a Raspberry Pi 4 can manage most of the tasks of a full computer (video is a bit touchy - working on it).
+It's possible to run Minerva on less-capible systems! For example, a Raspberry Pi 4 can manage most of the tasks of a full computer (video is a bit touchy).
 
 Take careful notes of the steps to
 * cross-compile Minerva, and
@@ -145,19 +145,17 @@ Make sure to add `[arch=amd64]` to the other sources while you're at it.
 Install the gtk dev packages for the new architecture.
 ```
 sudo apt update
-sudo apt install libgtk-3-dev:armhf libzmq3-dev:armhf libgstreamer1.0-dev:armhf libgstreamer-plugins-base1.0-dev:armhf gstreamer1.0-plugins-base:armhf gstreamer1.0-plugins-good:armhf gstreamer1.0-plugins-bad:armhf gstreamer1.0-plugins-ugly:armhf gstreamer1.0-libav:armhf libgstrtspserver-1.0-dev:armhf libges-1.0-dev:armhf libges-1.0-0:armhf
+sudo apt install libssl-dev:armhf
 ```
 
-When you compile, pass several environment variables to the compilation.
+Compile the program using the special armhf build target:
 ```
-env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig/ cargo build_armhf
+cargo build_armhf
 ```
-
-Unfortunately, video doesn't seem to work out of the box. If you have success with armhf and video playback, let us know how you pulled it off!
 
 #### Prepare Your Raspberry Pi
 
-In addition to all the packages above (e.g. ZMQ, GStreamer), you need to enable the Fake KMS graphics library and set the graphics memory to 512MB to allow for reliable playback of videos. Use raspi-config to change the settings.
+In addition to all the packages above (e.g. ZMQ, GStreamer), you need to cross compile [Apollo](https://github.com/decode-detroit/apollo) and enable the corresponding changes to the Raspberry Pi listed there for video playback.
 
 Hardware decoding works well for videos up to 1080p at 30 fps. There is a short delay when switching between playing videos, but there is no delay when playing a new video after the first has stopped.
 
