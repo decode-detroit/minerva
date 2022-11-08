@@ -1,7 +1,7 @@
 import React from 'react';
 import { HeaderMenu } from './components/Menus.js';
 import { ViewArea } from './components/EditArea.js';
-import { saveEdits, saveStyle, saveConfig } from './components/Functions';
+import { saveEdits, saveStyle, openConfig, saveConfig } from './components/Functions';
 import './App.css';
 
 // The top level class
@@ -21,6 +21,7 @@ export class App extends React.PureComponent {
     // Bind the various functions
     this.saveModifications = this.saveModifications.bind(this);
     this.saveStyle = this.saveStyle.bind(this);
+    this.openFile = this.openFile.bind(this);
     this.saveFile = this.saveFile.bind(this);
     this.handleFileChange = this.handleFileChange.bind(this);
   }
@@ -44,6 +45,17 @@ export class App extends React.PureComponent {
     // Mark changes as unsaved
     this.setState({
       saved: false,
+    });
+  }
+
+  // Open the selected configuration file
+  openFile() {
+    // Save the configuration with the current filename
+    openConfig(this.state.configFile);
+
+    // Update the save state and clear the rules
+    this.setState({
+      saved: true,
     });
   }
 
@@ -86,7 +98,7 @@ export class App extends React.PureComponent {
       <>
         <link id="userStyles" rel="stylesheet" href={`/getStyles/${this.state.randomCss}.css`} />
         <div className="app">
-          <HeaderMenu saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} saveFile={this.saveFile} />
+          <HeaderMenu saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} openFile={this.openFile} saveFile={this.saveFile} />
           <ViewArea saveModifications={this.saveModifications} saveStyle={this.saveStyle} />
         </div>
       </>

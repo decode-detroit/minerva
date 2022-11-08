@@ -156,143 +156,21 @@ impl fmt::Display for ItemId {
     }
 }
 
-/// This enum is a type to allow display information to fall into several types.
-/// FIXME Remove the edit location from all the types
-/// 
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum DisplayType {
-    /// A variant for items which are displayed in the top level control group.
-    /// These items will be displayed in the story control area in order of
-    /// ascending  id, or in order of ascending position if specified. The text
-    /// color will match the rgb value, if specified. The text will use the
-    /// highlight color for any special animations and when the highlight_state
-    /// status is in the listed state (if specified). If spotlight is set,
-    /// the text will flash the highlight color the specified number of times
-    /// when changed to this state or when this button is present but has not
-    /// yet been pressed. A value of zero implies indefinite flashing.
-    ///
-    DisplayControl {
-        position: Option<u32>,
-        color: Option<(u8, u8, u8)>,
-        highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>,
-        spotlight: Option<u32>,
-        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
-    },
-
-    /// A variant to indicatie items which to be displayed with a specific group
-    /// (and paired with the status of that group). Note that grouped events
-    /// don't need to be displayed in the same group (or at all). However, items
-    /// with the description DisplayWith are expected to have a corresponding
-    /// group id in the configuration lookup. Events will be displayed in
-    /// order of ascending id within their group, or in order of ascending
-    /// position if specified. The text color will match the rgb value, if
-    /// specified. The text will use the highlight color for any special
-    /// animations and when the highlight_state status is in the listed state
-    /// (if specified). If spotlight is set, the text will flash the highlight color
-    /// the specified number of times when changed to this state or when this
-    /// button is present but has not yet been pressed. A value of zero implies
-    /// indefinite flashing.
-    ///
-    DisplayWith {
-        group_id: ItemId,
-        position: Option<u32>,
-        color: Option<(u8, u8, u8)>,
-        highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>,
-        spotlight: Option<u32>,
-        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
-    },
-
-    /// A variant for items which are displayed with a particular group (if
-    /// specified) or with the control group, but only when the program is in
-    /// debug mode. These items will be displayed in order of ascending id,
-    /// or in order of ascending position if specified. The text color will
-    /// match the rgb value, if specified. The text will use the highlight
-    /// color for any special animations and when the highlight_state status
-    /// is in the listed state (if specified). If spotlight is set,
-    /// the text will flash the highlight color the specified number of times
-    /// when changed to this state or when this button is present but has not
-    /// yet been pressed. A value of zero implies indefinite flashing.
-    ///
-    DisplayDebug {
-        group_id: Option<ItemId>,
-        position: Option<u32>,
-        color: Option<(u8, u8, u8)>,
-        highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>,
-        spotlight: Option<u32>,
-        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
-    },
-
-    /// A variant for items which are to be displayed as a label in the control
-    /// area (not as an event triggerable by the user). The text color of the
-    /// label will match the rgb value if specified. The text will use the highlight
-    /// color for any special animations and when the highlight_state status
-    /// is in the listed state (if specified). If spotlight is set,
-    /// the text will flash the highlight color the specified number of times
-    /// when changed to this state or when this button is present but has not
-    /// yet been pressed. A value of zero implies indefinite flashing.
-    ///
-    LabelControl {
-        position: Option<u32>,
-        color: Option<(u8, u8, u8)>,
-        highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>,
-        spotlight: Option<u32>,
-        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
-    },
-
-    /// A variant for items which are only to be displayed as a label (not as an
-    /// event triggerable by the user). The text color of the label will match
-    /// the rgb value, if specified. The text will use the highlight
-    /// color for any special animations and when the highlight_state status
-    /// is in the listed state (if specified). If spotlight is set,
-    /// the text will flash the highlight color the specified number of times
-    /// when changed to this state or when this button is present but has not
-    /// yet been pressed. A value of zero implies indefinite flashing.
-    ///
-    LabelHidden {
-        position: Option<u32>,
-        color: Option<(u8, u8, u8)>,
-        highlight: Option<(u8, u8, u8)>,
-        highlight_state: Option<(ItemId, ItemId)>,
-        spotlight: Option<u32>,
-        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
-    },
-
-    /// Items which should not be displayed. Typically this includes items
-    /// internal to the system or not designed to be directly accessible to the
-    /// user. If this item is a label, it will be given default position
-    /// (std::u32::MAX) and text color.
-    ///
-    Hidden {
-        edit_location: Option<(u32, u32)>, // the location of the item in the web edit window
-    },
-}
-
-// Reexport the display type variants
-pub use self::DisplayType::{
-    DisplayControl, DisplayDebug, DisplayWith, Hidden, LabelControl, LabelHidden,
-};
-
 /// This structure is a human-readable description and formatting parameters
 /// to be paired with an ItemId.
 ///
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub struct ItemDescription {
     pub description: String,
-    pub display: DisplayType,
 }
 
 // Implement key ItemDescription struct features
 impl ItemDescription {
-    /// A function to create an item description from &str and a DisplayType.
+    /// A function to create an item description from &str
     ///
-    pub fn new(description: &str, display: DisplayType) -> ItemDescription {
+    pub fn new(description: &str) -> ItemDescription {
         ItemDescription {
             description: description.to_string(),
-            display,
         }
     }
 
@@ -302,7 +180,6 @@ impl ItemDescription {
     pub fn new_default() -> ItemDescription {
         ItemDescription {
             description: "No Description.".to_string(),
-            display: DisplayType::Hidden{ edit_location: None },
         }
     }
 }
@@ -320,7 +197,6 @@ impl fmt::Display for ItemDescription {
 pub struct ItemPair {
     id: u32,
     pub description: String,
-    pub display: DisplayType,
 }
 
 // Implement key ItemPair features
@@ -345,7 +221,7 @@ impl ItemPair {
     /// # Examples
     ///
     /// ```
-    /// let item = ItemPair::new(1, "Example Description", DisplayType::Hidden);
+    /// let item = ItemPair::new(1, "Example Description");
     /// ```
     ///
     /// # Errors
@@ -354,7 +230,7 @@ impl ItemPair {
     /// address limit or conflicts with the ALL_STOP id.
     ///
     #[cfg(not(feature = "no_can_limit"))]
-    pub fn new(id: u32, description: &str, display: DisplayType) -> Option<ItemPair> {
+    pub fn new(id: u32, description: &str) -> Option<ItemPair> {
         // Verify id does not conflict with all stop
         if id == ALL_STOP {
             return None;
@@ -369,7 +245,6 @@ impl ItemPair {
         Some(ItemPair {
             id,
             description: description.to_string(),
-            display,
         })
     }
 
@@ -391,7 +266,7 @@ impl ItemPair {
     /// # Examples
     ///
     /// ```
-    /// let item = ItemId::new(0xFFFFFFFF, "Example Description", DisplayType::Hidden);
+    /// let item = ItemId::new(0xFFFFFFFF, "Example Description");
     /// ```
     ///
     /// # Errors
@@ -400,7 +275,7 @@ impl ItemPair {
     /// ALL_STOP id.
     ///
     #[cfg(feature = "no_can_limit")]
-    pub fn new(id: u32, description: &str, display: DisplayType) -> Option<ItemPair> {
+    pub fn new(id: u32, description: &str) -> Option<ItemPair> {
         // Verify id does not conflict with all stop
         if id == ALL_STOP {
             return None;
@@ -410,7 +285,6 @@ impl ItemPair {
         Some(ItemPair {
             id,
             description: description.to_string(),
-            display,
         })
     }
 
@@ -421,11 +295,10 @@ impl ItemPair {
     /// the all stop item id. This is useful when either (or both) of these
     /// cases are possible and desired or if the id is checked elsewhere.
     ///
-    pub fn new_unchecked(id: u32, description: &str, display: DisplayType) -> ItemPair {
+    pub fn new_unchecked(id: u32, description: &str) -> ItemPair {
         ItemPair {
             id,
             description: description.to_string(),
-            display,
         }
     }
 
@@ -450,7 +323,6 @@ impl ItemPair {
         ItemPair {
             id: id.id,
             description: description.description,
-            display: description.display,
         }
     }
 
@@ -487,7 +359,7 @@ impl ItemPair {
     ///
     /// ```
     /// let description = String::new("A Description");
-    /// let id_pair = ItemPair::new(5, "A Description", DisplayType::Hidden);
+    /// let id_pair = ItemPair::new(5, "A Description");
     /// assert_eq!(description, id_pair.description());
     /// ```
     ///
@@ -500,15 +372,14 @@ impl ItemPair {
     /// # Examples
     ///
     /// ```
-    /// let id_description = ItemDescription:new("A Description", DisplayType::Hidden);
-    /// let id_pair = ItemPair::new(5, "A Description", DisplayType::Hidden);
+    /// let id_description = ItemDescription:new("A Description");
+    /// let id_pair = ItemPair::new(5, "A Description");
     /// assert_eq!(id_description, id_pair.get_description());
     /// ```
     ///
     pub fn get_description(&self) -> ItemDescription {
         ItemDescription {
             description: self.description.clone(),
-            display: self.display.clone(),
         }
     }
 
@@ -519,7 +390,6 @@ impl ItemPair {
         ItemPair {
             id: ALL_STOP,
             description: "ALL STOP".to_string(),
-            display: Hidden { edit_location: None },
         }
     }
 }
@@ -554,7 +424,7 @@ impl PartialOrd for ItemPair {
     }
 }
 
-// Implement displaying that shows both ID and description, but not displaytype
+// Implement displaying that shows both ID and description
 impl fmt::Display for ItemPair {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} ({})", self.description, self.id)
@@ -578,10 +448,10 @@ mod tests {
     #[test]
     fn compare_ids() {
         // Create several events
-        let id = ItemPair::new(1, "One Event", Hidden { edit_location: None }).unwrap();
+        let id = ItemPair::new(1, "One Event").unwrap();
         let same_id = id.clone();
-        let different_description = ItemPair::new(1, "Different Description", Hidden { edit_location: None }).unwrap();
-        let different_id = ItemPair::new(2, "Two Event", Hidden { edit_location: None }).unwrap();
+        let different_description = ItemPair::new(1, "Different Description").unwrap();
+        let different_id = ItemPair::new(2, "Two Event").unwrap();
 
         // Compare the events
         assert_eq!(id, same_id);

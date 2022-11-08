@@ -225,9 +225,6 @@ mod tests {
     // Test the item index
     #[tokio::test]
     async fn call_index() {
-        // Import libraries for testing
-        use crate::definitions::Hidden;
-
         // Launch the item index
         let (mut item_index, index_access) = ItemIndex::new();
 
@@ -239,8 +236,8 @@ mod tests {
         // Create the ids and descriptions
         let id1 = ItemId::new_unchecked(10);
         let id2 = ItemId::new_unchecked(11);
-        let desc1 = ItemDescription::new("Description 1", Hidden { edit_location: None });
-        let desc2 = ItemDescription::new("Description 2", Hidden { edit_location: None });
+        let desc1 = ItemDescription::new("Description 1");
+        let desc2 = ItemDescription::new("Description 2");
         let pair1 = ItemPair::from_item(id1, desc1.clone());
         let pair2 = ItemPair::from_item(id2, desc2.clone());
 

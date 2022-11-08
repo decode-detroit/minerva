@@ -313,6 +313,14 @@ impl WebInterface {
             .and(WebInterface::with_clone(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
             .and_then(WebInterface::handle_request);
 
+        // Create the config file filter
+        let config_file = warp::post()
+            .and(warp::path("configFile"))
+            .and(warp::path::end())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_json::<ConfigFile>())
+            .and_then(WebInterface::handle_request);
+
         // Create the edit filter
         let edit = warp::post()
             .and(warp::path("edit"))
@@ -414,6 +422,7 @@ impl WebInterface {
         // Combine the filters
         let edit_routes = all_items
             .or(all_scenes)
+            .or(config_file)
             .or(edit)
             .or(get_config_path)
             .or(get_connections)

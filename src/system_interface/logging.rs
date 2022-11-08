@@ -346,9 +346,6 @@ mod tests {
 
         // Create the communication lines
         let (internal_send, _internal_recv) = InternalSend::new();
-        #[cfg(feature = "media-out")]
-        let (interface_send, _gtk_interface_recv, _web_interface_recv) = InterfaceSend::new();
-        #[cfg(not(feature = "media-out"))]
         let (interface_send, _web_interface_recv) = InterfaceSend::new();
 
         // Create a test index access and load the index
@@ -356,11 +353,11 @@ mod tests {
         let mut index = DescriptionMap::default();
         index.insert(
             ItemId::new_unchecked(3),
-            ItemDescription::new("Test Broadcast", Hidden { edit_location: None }),
+            ItemDescription::new("Test Broadcast"),
         );
         index.insert(
             ItemId::new_unchecked(4),
-            ItemDescription::new("Test Event", Hidden { edit_location: None }),
+            ItemDescription::new("Test Event"),
         );
         index_access.send_index(index).await;
 

@@ -92,12 +92,13 @@ export class HeaderMenu extends React.PureComponent {
         <div className="headerLeft">
           <div className="title">Minerva | EDIT MODE</div>
           <ConfirmButton buttonClass="menuButton" onClick={() => {switchPort(64636);}} buttonText="Normal Mode" />
-          {!this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: true})}}>Edit Filename</div>}
+          {!this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: true})}}>Select File</div>}
           {this.state.isMenuVisible && <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>}
+          {this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: false}); this.props.openFile()}}>Open</div>}
           <div class={"menuButton" + (this.props.saved ? " inactive" : "")} onClick={() => {this.setState({isMenuVisible: false}); this.props.saveFile()}}>Save</div>
         </div>
         <div className="headerRight">
-          <ConfirmButton buttonClass="menuButton" onClick={() => {this.props.closeMinerva();}} buttonText="Quit Minerva" />
+          <ConfirmButton buttonClass="menuButton" onClick={() => {this.props.closeMinerva();}} buttonText="Quit" />
           <img src={logoWide} className="logo" alt="logo" />
         </div>
       </div>
@@ -307,15 +308,12 @@ export class AddMenu extends React.PureComponent {
             modifyItem: {
               itemPair: {
                 id: id,
-                description: "No Description",
-                display: {
-                  Hidden: {
-                    edit_location: [this.props.left, this.props.top]
-          }}}}}];
+                description: "No Description.",
+          }}}];
           this.props.saveModifications(modifications);
 
           // Make the item visible in this scene
-          this.props.addItem(id)}}>+<div className="description">Add New</div></div>
+          this.props.addItem(id, this.props.left, this.props.top)}}>+<div className="description">Add New</div></div>
         }
       </div>
     );
