@@ -4,7 +4,7 @@ identifier:
   id: 0
 server_location: ~
 system_connection:
-  - Media:
+  - !Media
       all_stop_media: []
       media_map:
         ? id: 502
@@ -38,7 +38,7 @@ system_connection:
       apollo_params:
         spawn: true
         address: ~
-  - Media:
+  - !Media
       all_stop_media: []
       media_map:
         ? id: 504
@@ -115,7 +115,7 @@ all_scenes:
         id: 501
 status_map:
   ? id: 310
-  : MultiState:
+  : !MultiState
       current:
         id: 312
       allowed:
@@ -124,7 +124,7 @@ status_map:
         - id: 324
       no_change_silent: false
   ? id: 320
-  : MultiState:
+  : !MultiState
       current:
         id: 321
       allowed:
@@ -135,7 +135,7 @@ event_set:
   ? id: 101
     description: Next Scene
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 110
         position: ~
@@ -147,13 +147,13 @@ event_set:
         highlight_state: ~
         spotlight: 0
         edit_location: ~
-  : - NewScene:
+  : - !NewScene
         new_scene:
           id: 200
   ? id: 403
     description: Send Custom String
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 410
         position: ~
@@ -162,12 +162,12 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - SendData:
+  : - !SendData
         data: UserString
   ? id: 312
     description: "Off"
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 255
@@ -181,7 +181,7 @@ event_set:
   ? id: 504
     description: Play Background Audio
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 510
         position: ~
@@ -194,13 +194,13 @@ event_set:
   ? id: 410
     description: Send & Save Data
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : ~
   ? id: 324
     description: Deactivate
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 320
         position: ~
@@ -212,7 +212,7 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - ModifyStatus:
+  : - !ModifyStatus
         status_id:
           id: 320
         new_state:
@@ -220,7 +220,7 @@ event_set:
   ? id: 313
     description: Turn On
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 310
         position: ~
@@ -232,7 +232,7 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - ModifyStatus:
+  : - !ModifyStatus
         status_id:
           id: 310
         new_state:
@@ -240,19 +240,19 @@ event_set:
   ? id: 320
     description: Change The Event
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : ~
   ? id: 203
     description: An Event
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : []
   ? id: 321
     description: Trigger Delayed Events
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 51
@@ -266,7 +266,7 @@ event_set:
   ? id: 302
     description: Variable Event
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 320
         position: ~
@@ -275,7 +275,7 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - SelectEvent:
+  : - !SelectEvent
         status_id:
           id: 320
         event_map:
@@ -286,22 +286,22 @@ event_set:
   ? id: 100
     description: Introduction
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : []
   ? id: 303
     description: Add Delayed Events
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
-  : - CueEvent:
+  : - !CueEvent
         event:
           delay:
             secs: 10
             nanos: 0
           event_id:
             id: 304
-    - CueEvent:
+    - !CueEvent
         event:
           delay:
             secs: 20
@@ -311,13 +311,13 @@ event_set:
   ? id: 310
     description: "This Is A Status:"
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : ~
   ? id: 502
     description: Play A Large Video
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 510
         position: ~
@@ -330,7 +330,7 @@ event_set:
   ? id: 400
     description: Data Examples
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 255
@@ -344,7 +344,7 @@ event_set:
   ? id: 206
     description: You Found Me! (Debug Only)
     display:
-      DisplayDebug:
+      !DisplayDebug
         group_id:
           id: 210
         position: ~
@@ -360,7 +360,7 @@ event_set:
   ? id: 311
     description: "On"
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 0
@@ -374,7 +374,7 @@ event_set:
   ? id: 503
     description: Play A Second Video
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 510
         position: ~
@@ -387,7 +387,7 @@ event_set:
   ? id: 401
     description: Next Scene
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 410
         position: ~
@@ -396,13 +396,13 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - NewScene:
+  : - !NewScene
         new_scene:
           id: 500
   ? id: 202
     description: Trigger Delayed Events
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 210
         position: ~
@@ -411,42 +411,42 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - CueEvent:
+  : - !CueEvent
         event:
           delay:
             secs: 10
             nanos: 0
           event_id:
             id: 203
-    - CueEvent:
+    - !CueEvent
         event:
           delay:
             secs: 11
             nanos: 0
           event_id:
             id: 204
-    - CueEvent:
+    - !CueEvent
         event:
           delay:
             secs: 20
             nanos: 0
           event_id:
             id: 203
-    - CueEvent:
+    - !CueEvent
         event:
           delay:
             secs: 30
             nanos: 0
           event_id:
             id: 203
-    - CueEvent:
+    - !CueEvent
         event:
           delay:
             secs: 40
             nanos: 0
           event_id:
             id: 203
-    - CueEvent:
+    - !CueEvent
         event:
           delay:
             secs: 50
@@ -456,13 +456,13 @@ event_set:
   ? id: 510
     description: You Can Play Media As Well
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : ~
   ? id: 314
     description: Turn Off
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 310
         position: ~
@@ -474,7 +474,7 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - ModifyStatus:
+  : - !ModifyStatus
         status_id:
           id: 310
         new_state:
@@ -482,13 +482,13 @@ event_set:
   ? id: 210
     description: "That's an Event! Try Again ..."
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : ~
   ? id: 205
     description: This Event Does Nothing
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 210
         position: ~
@@ -501,7 +501,7 @@ event_set:
   ? id: 201
     description: Next Scene
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 210
         position: ~
@@ -510,13 +510,13 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - NewScene:
+  : - !NewScene
         new_scene:
           id: 300
   ? id: 322
     description: Do Nothing
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 255
@@ -530,7 +530,7 @@ event_set:
   ? id: 300
     description: Status Examples
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 51
@@ -544,7 +544,7 @@ event_set:
   ? id: 323
     description: Activate
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 320
         position: ~
@@ -556,7 +556,7 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - ModifyStatus:
+  : - !ModifyStatus
         status_id:
           id: 320
         new_state:
@@ -564,7 +564,7 @@ event_set:
   ? id: 301
     description: Next Scene
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 310
         position: ~
@@ -573,13 +573,13 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - NewScene:
+  : - !NewScene
         new_scene:
           id: 400
   ? id: 500
     description: Media Examples
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 255
@@ -593,7 +593,7 @@ event_set:
   ? id: 204
     description: Cancel Upcoming Events
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 210
         position: ~
@@ -602,28 +602,28 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - CancelEvent:
+  : - !CancelEvent
         event:
           id: 203
-    - CancelEvent:
+    - !CancelEvent
         event:
           id: 204
   ? id: 304
     description: Empty Event
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : []
   ? id: 110
     description: Click Below to Change Scenes
     display:
-      Hidden:
+      !Hidden
         edit_location: ~
   : ~
   ? id: 402
     description: "Save 'Example String'"
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 410
         position: ~
@@ -632,14 +632,14 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - SaveData:
+  : - !SaveData
         data:
-          StaticString:
+          !StaticString
             string: Example String
   ? id: 200
     description: Event Examples
     display:
-      LabelHidden:
+      !LabelHidden
         position: ~
         color:
           - 115
@@ -653,7 +653,7 @@ event_set:
   ? id: 501
     description: Back To Introduction
     display:
-      DisplayWith:
+      !DisplayWith
         group_id:
           id: 510
         position: ~
@@ -662,7 +662,7 @@ event_set:
         highlight_state: ~
         spotlight: ~
         edit_location: ~
-  : - NewScene:
+  : - !NewScene
         new_scene:
           id: 100
 user_styles: {}
