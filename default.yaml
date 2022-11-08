@@ -43,7 +43,7 @@ system_connection:
       media_map:
         ? id: 504
         : uri: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
-          channel: 3
+          channel: 1
           loop_media: ~
       channel_map:
         1:
