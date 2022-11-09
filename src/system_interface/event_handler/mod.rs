@@ -25,6 +25,7 @@
 mod backup;
 mod config;
 mod queue;
+mod dmx_interface;
 mod media_interface;
 
 // Import crate definitions
@@ -34,6 +35,7 @@ use crate::definitions::*;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::queue::Queue;
+use self::dmx_interface::DmxInterface;
 use self::media_interface::MediaInterface;
 
 // Import standard library features
@@ -58,6 +60,7 @@ use failure::Error;
 pub struct EventHandler {
     internal_send: InternalSend, // sending line for event updates and timed events
     queue: Queue,                           // current event queue
+    dmx_interface: Option<DmxInterface>,    // the dmx interface, if available
     media_interfaces: Vec<MediaInterface>,  // list of available media interfaces
     config: Config,                         // current configuration
     config_path: PathBuf,                   // current configuration path
@@ -137,6 +140,19 @@ impl EventHandler {
             resolved_path.push("default.yaml");
         }
 
+        // Attempt to create the dmx interface, if specified
+        let mut dmx_interface = None;
+        if let Some(path) = config.get_dmx_path() {
+            // Try to connect to the interface
+            if let Ok(interface) = DmxInterface::new(&path) {
+                dmx_interface = Some(interface);
+            
+            // Otherwise, report the error
+            } else {
+                log!(err &internal_send => "Unable to initialize the DMX interface.");
+            }
+        }
+
         // Attempt to create any media interfaces
         let mut media_interfaces = Vec::new();
         for details in config.get_media_players() {
@@ -201,6 +217,7 @@ impl EventHandler {
         Ok(EventHandler {
             internal_send: internal_send,
             queue,
+            dmx_interface,
             media_interfaces,
             config,
             config_path: resolved_path,
@@ -566,6 +583,20 @@ impl EventHandler {
                 self.modify_status(&status_id, &new_state).await;
             }
 
+            // If there is a fade to cue, send it to the dmx connection
+            CueDmx { fade } => {
+                // Send it to the dmx interface, if it exists
+                if let Some(ref interface) = &self.dmx_interface {
+                    if let Err(err) = interface.play_fade(fade) {
+                        log!(err &self.internal_send => "Error with DMX playback: {}", err);
+                    }
+                
+                // Warn that there is no active Dmx interface
+                } else {
+                    log!(err &self.internal_send => "Failed to play DMX fade: no DMX interface available.")
+                }
+            }
+
             // If there is a queued event to load, load it into the queue
             CueEvent { event } => {
                 // Add the event to the queue
@@ -573,11 +604,11 @@ impl EventHandler {
             }
 
             // If there is media to cue, send it to the media connection
-            CueMedia { media_cue } => {
+            CueMedia { cue } => {
                 // Send the cue to each media interface in turn
                 let mut success = false;
                 for interface in self.media_interfaces.iter_mut() {
-                    if let Ok(_) = interface.add_cue(media_cue.clone()) {
+                    if let Ok(_) = interface.play_cue(cue.clone()) {
                         success = true;
                     }
                 }

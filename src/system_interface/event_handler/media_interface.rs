@@ -165,7 +165,7 @@ impl MediaInterface {
         channel_map: ChannelMap,
         window_map: WindowMap,
         apollo_params: ApolloParams,
-    ) -> Result<MediaInterface, Error> {
+    ) -> Result<Self, Error> {
         // Copy the specified address or use the default
         let address = apollo_params.address.clone().unwrap_or(String::from("127.0.0.1:27655"));
 
@@ -178,15 +178,15 @@ impl MediaInterface {
         }
 
         // Return the complete module
-        Ok(MediaInterface {
+        Ok(Self {
             channel_list,
             client: None,
             address,
         })
     }
 
-    // A helper function to add a new media cue
-    pub fn add_cue(&mut self, cue: MediaCue) -> Result<(), Error> {
+    // A helper function to send a new media cue
+    pub fn play_cue(&mut self, cue: MediaCue) -> Result<(), Error> {
         // Check that the channel is valid
         if !self.channel_list.contains(&cue.channel) {
             // If not, note the error

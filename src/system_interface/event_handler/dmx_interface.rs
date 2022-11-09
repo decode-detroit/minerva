@@ -24,9 +24,6 @@
 // Import crate definitions
 use crate::definitions::*;
 
-// Import other definitions
-use super::{EventConnection, ReadResult};
-
 // Import standard library features
 use std::io::Write;
 use std::path::PathBuf;
@@ -62,21 +59,17 @@ const RESOLUTION: u64 = 50; // the time resolution of each fade, in ms
 
 /// A structure to hold and manipulate the connection over serial
 ///
-pub struct DmxOut {
-    all_stop_dmx: Vec<DmxFade>,       // a vector of dmx fades for all stop
-    dmx_map: DmxMap,                  // the map of event ids to fade instructions
+pub struct DmxInterface {
     load_fade: mpsc::Sender<DmxFade>, // a line to load the dmx fade into the queue
 }
 
 // Implement key functionality for the DMX structure
-impl DmxOut {
+impl DmxInterface {
     /// A function to create a new instance of the DmxOut
     ///
     pub fn new(
         path: &PathBuf,
-        all_stop_dmx: Vec<DmxFade>,
-        dmx_map: DmxMap,
-    ) -> Result<DmxOut, Error> {
+    ) -> Result<Self, Error> {
         // Connect to the underlying serial port
         let mut port = serial::open(path)?;
 
@@ -103,56 +96,26 @@ impl DmxOut {
         });
 
         // Return the new DmxOut instance
-        Ok(DmxOut {
-            all_stop_dmx,
-            dmx_map,
+        Ok(Self {
             load_fade,
         })
     }
-}
 
-// Implement the event connection trait for DMXOut
-impl EventConnection for DmxOut {
-    /// A method to receive a new event, empty for this connection type
-    ///
-    fn read_events(&mut self) -> Vec<ReadResult> {
-        Vec::new() // return an empty vector
-    }
+    /// A method to play a new Dmx fade
+    /// 
+    pub fn play_fade(&self, fade: DmxFade) -> Result<(), Error> {
+        // Verify the range of the selected channel
+        if (fade.channel > DMX_MAX) | (fade.channel < 1) {
+            return Err(format_err!("Selected DMX channel is out of range."));
+        }
 
-    /// A method to send a new event to the serial connection
-    ///
-    fn write_event(&mut self, id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
-        // Check to see if the event is all stop
-        if id == ItemId::all_stop() {
-            // Run all of the all stop fades, ignoring errors
-            for dmx_fade in self.all_stop_dmx.iter() {
-                // Verify the range of the selected channel
-                if (dmx_fade.channel <= DMX_MAX) & (dmx_fade.channel > 0) {
-                    // Send the fade to the background thread
-                    self.load_fade.send(dmx_fade.clone()).unwrap_or(()) // ignore errors
-                }
-            }
+        // Send the fade to the background thread
+        if let Err(_) = self.load_fade.send(fade.clone()) {
+            return Err(format_err!("Background DMX fading control has crashed."));
+        }
 
-        // Check to see if the event is in the DMX map
-        } else if let Some(dmx_fade) = self.dmx_map.get(&id) {
-            // Verify the range of the selected channel
-            if (dmx_fade.channel > DMX_MAX) | (dmx_fade.channel < 1) {
-                return Err(format_err!("Selected DMX channel is out of range."));
-            }
-
-            // Send the fade to the background thread
-            if let Err(_) = self.load_fade.send(dmx_fade.clone()) {
-                return Err(format_err!("Background DMX fading control has crashed."));
-            }
-        };
-
-        // If the event wasn't found or was processed correctly, indicate success
+        // If the fade was processed correctly, indicate success
         Ok(())
-    }
-
-    /// A method to echo an event to the serial connection
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
-        self.write_event(id, data1, data2)
     }
 }
 
@@ -219,6 +182,8 @@ impl DmxChange {
 /// separate daemon to preserve ordering of the changes and minimize the spread
 /// of unnecessary threads. This version preserves the proper order of the dmx
 /// changes.
+/// 
+/// TODO: Rewrite this implementation to use a tokio thread
 ///
 pub struct DmxQueue {
     port: serial::SystemPort,                // the serial port of the connection

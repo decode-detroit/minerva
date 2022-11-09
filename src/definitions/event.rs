@@ -151,6 +151,20 @@ pub enum DataType {
     UserString,
 }
 
+/// A struct to define a single fade of a DMX channel
+///
+/// # Note
+///
+/// Assumes the channels are one-indexed (the DMX standard) rather than
+/// zero-indexed.
+///
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DmxFade {
+    pub channel: u32,               // the dmx channel to fade
+    pub value: u8,                  // the final value at the end of the fade
+    pub duration: Option<Duration>, // the duration of the fade (None if instantaneous)
+}
+
 /// A struct to define a single media track to play
 ///
 /// # Note
@@ -200,13 +214,16 @@ pub enum EventAction {
     /// events that match the specified id(s) will be cancelled.
     CancelEvent { event: ItemId },
 
+    // A variant to cue a DMX fade on one of the channels
+    CueDmx { fade: DmxFade },
+
     /// A variant that links to one event to add to the queue. These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
     CueEvent { event: EventDelay },
 
     /// A variant to cue media on one of the media channels.
-    CueMedia { media_cue: MediaCue },
+    CueMedia { cue: MediaCue },
 
     /// A variant used to change current status of the target status.
     ModifyStatus {
@@ -241,13 +258,16 @@ pub enum WebEventAction {
     /// events that match the specified id(s) will be cancelled.
     CancelEvent { event: ItemId },
 
+    // A variant to cue a DMX fade on one of the channels
+    CueDmx { fade: DmxFade },
+
     /// A variant that links to one event to add to the queue These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
     CueEvent { event: EventDelay },
 
     /// A variant to cue media on one of the media channels.
-    CueMedia { media_cue: MediaCue },
+    CueMedia { cue: MediaCue },
 
     /// A variant used to change current status of the target status.
     ModifyStatus {
@@ -292,8 +312,9 @@ impl From<EventAction> for WebEventAction {
 
             // Leave the rest untouched
             EventAction::CancelEvent { event } => WebEventAction::CancelEvent { event },
+            EventAction::CueDmx { fade } => WebEventAction::CueDmx { fade },
             EventAction::CueEvent { event } => WebEventAction::CueEvent { event },
-            EventAction::CueMedia { media_cue } => WebEventAction::CueMedia { media_cue },
+            EventAction::CueMedia { cue } => WebEventAction::CueMedia { cue },
             EventAction::ModifyStatus { status_id, new_state } => WebEventAction::ModifyStatus { status_id, new_state },
             EventAction::NewScene { new_scene } => WebEventAction::NewScene { new_scene },
             EventAction::SaveData { data } => WebEventAction::SaveData { data },
@@ -318,8 +339,9 @@ impl From<WebEventAction> for EventAction {
 
             // Leave the rest untouched
             WebEventAction::CancelEvent { event } => EventAction::CancelEvent { event },
+            WebEventAction::CueDmx { fade } => EventAction::CueDmx { fade },
             WebEventAction::CueEvent { event } => EventAction::CueEvent { event },
-            WebEventAction::CueMedia { media_cue } => EventAction::CueMedia { media_cue },
+            WebEventAction::CueMedia { cue } => EventAction::CueMedia { cue },
             WebEventAction::ModifyStatus { status_id, new_state } => EventAction::ModifyStatus { status_id, new_state },
             WebEventAction::NewScene { new_scene } => EventAction::NewScene { new_scene },
             WebEventAction::SaveData { data } => EventAction::SaveData { data },
@@ -365,5 +387,5 @@ impl From<WebEvent> for Event {
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    CancelEvent, CueEvent, CueMedia, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
+    CancelEvent, CueDmx, CueEvent, CueMedia, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
 };

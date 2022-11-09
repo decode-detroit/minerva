@@ -24,7 +24,6 @@
 
 // Define private submodules
 mod comedy_comm;
-mod dmx_out;
 mod zmq_comm;
 
 // Import crate definitions
@@ -32,7 +31,6 @@ use crate::definitions::*;
 
 // Import other definitions
 use self::comedy_comm::ComedyComm;
-use self::dmx_out::DmxOut;
 use self::zmq_comm::{ZmqBind, ZmqConnect};
 
 // Import standard library features
@@ -93,17 +91,6 @@ impl ConnectionType {
                 let connection = ZmqConnect::new(send_path, recv_path)?;
                 Ok(LiveConnection::ZmqSecondary { connection })
             }
-
-            // Connect to a live version of the DMX serial port
-            &ConnectionType::DmxSerial {
-                ref path,
-                ref all_stop_dmx,
-                ref dmx_map,
-            } => {
-                // Create the new dmx connection
-                let connection = DmxOut::new(path, all_stop_dmx.clone(), dmx_map.clone())?;
-                Ok(LiveConnection::DmxSerial { connection })
-            }
         }
     }
 }
@@ -132,12 +119,6 @@ enum LiveConnection {
     ZmqSecondary {
         connection: ZmqConnect, // the zmq connection
     },
-
-    /// A variant to connect with a DMX serial port. This connection type only
-    /// allows messages to be the sent.
-    DmxSerial {
-        connection: DmxOut, // the DMX serial connection
-    },
 }
 
 // Implement event connection for LiveConnection
@@ -149,7 +130,6 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::ComedySerial { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_events(),
-            &mut LiveConnection::DmxSerial { ref mut connection } => connection.read_events(),
         }
     }
 
@@ -166,9 +146,6 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::ZmqSecondary { ref mut connection } => {
                 connection.write_event(id, data1, data2)
             }
-            &mut LiveConnection::DmxSerial { ref mut connection } => {
-                connection.write_event(id, data1, data2)
-            }
         }
     }
 
@@ -183,9 +160,6 @@ impl EventConnection for LiveConnection {
                 connection.echo_event(id, data1, data2)
             }
             &mut LiveConnection::ZmqSecondary { ref mut connection } => {
-                connection.echo_event(id, data1, data2)
-            }
-            &mut LiveConnection::DmxSerial { ref mut connection } => {
                 connection.echo_event(id, data1, data2)
             }
         }

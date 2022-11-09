@@ -18,16 +18,9 @@
 //! This module implements structures shared from the system connection
 //! modules.
 
-// Import crate definitions
-use crate::definitions::*;
-
 // Import standard library features
 use std::fmt;
 use std::path::PathBuf;
-use std::time::Duration;
-
-// Import FNV HashMap
-use fnv::FnvHashMap;
 
 /// Define the instance identifier. Instances with the same identifier will trigger
 /// events with one another; instances with different identifiers will not.
@@ -75,35 +68,9 @@ pub enum ConnectionType {
         send_path: PathBuf, // the location to connect the ZMQ sender
         recv_path: PathBuf, // the location to connect the ZMQ receiver
     },
-
-    /// A variant to connect with a DMX serial port. This connection type only allows
-    /// messages to be the sent.
-    DmxSerial {
-        path: PathBuf,              // the location of the serial port
-        all_stop_dmx: Vec<DmxFade>, // a vector of dmx fades for all stop
-        dmx_map: DmxMap,            // the map of event ids to dmx fades
-    },
 }
 
 /// A type to contain any number of connection types
 ///
 pub type ConnectionSet = Vec<ConnectionType>;
-
-/// A struct to define a single fade of a DMX channel
-///
-/// # Note
-///
-/// Assumes the channels are one-indexed (the DMX standard) rather than
-/// zero-indexed.
-///
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct DmxFade {
-    pub channel: u32,               // the dmx channel to fade
-    pub value: u8,                  // the final value at the end of the fade
-    pub duration: Option<Duration>, // the duration of the fade (None if instantaneous)
-}
-
-/// A type to store a hashmap of event ids and DMX fades
-///
-pub type DmxMap = FnvHashMap<ItemId, DmxFade>;
  

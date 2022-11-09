@@ -168,6 +168,7 @@ struct YamlConfig {
     version: String,        // a version tag to warn the user of incompatible versions
     identifier: Identifier, // unique identifier for the controller instance, if specified
     server_location: Option<String>, // the location of the backup server, if specified
+    dmx_path: Option<PathBuf>, // the location of the dmx connection, if specified
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
@@ -187,6 +188,7 @@ struct YamlConfig {
 pub struct Config {
     identifier: Identifier, // unique identifier for the controller instance
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
+    dmx_path: Option<PathBuf>, // the location of the dmx connection, if specified
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
     server_location: Option<String>, // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
@@ -215,6 +217,7 @@ impl Config {
         Config {
             identifier: Identifier { id: Some(1) },
             system_connection: ConnectionSet::new(),
+            dmx_path: None, 
             media_players: Vec::new(),
             server_location: None,
             background_thread: None,
@@ -359,6 +362,7 @@ impl Config {
         Ok(Config {
             identifier: yaml_config.identifier,
             system_connection: yaml_config.system_connection,
+            dmx_path: yaml_config.dmx_path,
             server_location: yaml_config.server_location,
             media_players: yaml_config.media_players,
             background_thread,
@@ -382,6 +386,12 @@ impl Config {
     ///
     pub fn get_connections(&self) -> ConnectionSet {
         self.system_connection.clone()
+    }
+
+    /// A method to return a copy of the dmx path
+    ///
+    pub fn get_dmx_path(&self) -> Option<PathBuf> {
+        self.dmx_path.clone()
     }
 
     /// A method to return a copy of the media player details
@@ -776,6 +786,7 @@ impl Config {
             identifier: self.get_identifier(),
             server_location: self.server_location.clone(),
             system_connection: self.system_connection.clone(),
+            dmx_path: self.dmx_path.clone(),
             media_players: self.media_players.clone(),
             background_process,
             default_scene: Some(self.current_scene.clone()),
@@ -969,6 +980,8 @@ impl Config {
                     return Config::verify_lookup(internal_send, lookup, status_id).await
                         & Config::verify_lookup(internal_send, lookup, new_state).await;
                 }
+                // If there is dmx fade to cue, assume validity
+                &CueDmx { .. } => (),
 
                 // If there is an event to cue, verify that it exists
                 &CueEvent { ref event } => {
