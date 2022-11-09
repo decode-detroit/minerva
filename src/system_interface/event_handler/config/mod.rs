@@ -205,13 +205,19 @@ pub struct Config {
 impl Config {
     /// A function to create a new empty config with no settings.
     ///
-    pub fn new(
+    pub async fn new(
         index_access: IndexAccess,
         style_access: StyleAccess,
         internal_send: InternalSend,
     ) -> Config {
         // Create the new status handler
         let status_handler = StatusHandler::new(internal_send.clone(), FnvHashMap::default());
+
+        // Clear the item index
+        index_access.send_index(DescriptionMap::default()).await;
+
+        // Clear the user styles
+        style_access.send_styles(StyleMap::default()).await;
 
         // Return a new empty configuration
         Config {

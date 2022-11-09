@@ -270,7 +270,6 @@ export class ViewArea extends React.PureComponent {
 
   // A function to save the new location of an item to the stylesheet
   saveLocation(id, left, top) {
-    console.log(`Location ${left}, ${top}`); // FIXME
     // Save the new style rule
     this.props.saveStyle(`#scene-${this.state.sceneId} #id-${id}`, `{ left: ${left}px; top: ${top}px; }`);
   }

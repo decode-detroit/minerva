@@ -29,12 +29,13 @@ export class App extends React.PureComponent {
     }
 
     // Bind the various functions
+    this.connectSocket = this.connectSocket.bind(this);
     this.processUpdate = this.processUpdate.bind(this);
     this.closeMinerva = this.closeMinerva.bind(this);
 
     // Save variables (not based on state)
     this.socket = null;
-    this.socketTimeout = null; // FIXME
+    this.socketInterval = null;
   }
 
   // On render, connect the websocket listener
@@ -55,9 +56,9 @@ export class App extends React.PureComponent {
     this.socket.onopen = ((_) => {
 
       // Clear the old timeout if it exists
-      if (this.socketTimeout) {
-        clearTimeout(this.socketTimeout);
-        this.socketTimeout = null;
+      if (this.socketInterval) {
+        clearTimeout(this.socketInterval);
+        this.socketInterval = null;
       }
 
       // Mark the server as available 
@@ -74,7 +75,7 @@ export class App extends React.PureComponent {
       });
 
       // Try once a second to restart the connection
-      this.socketTimeout = setTimeout(() => {
+      this.socketInterval = setInterval(() => {
         this.connectSocket();
       }, 5000);
     });

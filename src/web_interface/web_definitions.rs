@@ -47,7 +47,7 @@ pub struct BroadcastEvent {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigFile { 
-    filename: String,
+    filename: Option<String>,
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -218,9 +218,19 @@ impl From<BroadcastEvent> for UserRequest {
 }
 impl From<ConfigFile> for UserRequest {
     fn from(config_file: ConfigFile) -> Self {
-        UserRequest::ConfigFile {
-            filepath: Some(PathBuf::from(config_file.filename)),
+        match config_file.filename {
+            // If a file was specified, convert it to a path
+            Some(file) =>
+                UserRequest::ConfigFile {
+                    filepath: Some(PathBuf::from(file)),
+                },
+            
+            // If not, specify none
+            None => UserRequest::ConfigFile {
+                filepath: None,
+            }
         }
+        
     }
 }
 impl From<LimitedCueEvent> for UserRequest {

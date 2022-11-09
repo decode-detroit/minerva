@@ -3,7 +3,7 @@ import { Action } from './Actions';
 import { ReceiveNode } from './Nodes';
 import { State } from './States';
 import { stopPropogation } from './Functions';
-import { AddMenu, AddActionMenu } from './Menus';
+import { AddMenu, AddActionMenu, DeleteMenu } from './Menus';
 
 // An item box to select the appropriate sub-box
 export class ItemBox extends React.PureComponent {
@@ -21,6 +21,7 @@ export class ItemBox extends React.PureComponent {
       description: "Loading ...", // placeholder for the real data
       display: {},
       type: "",
+      isDeleteVisible: false,
     };
 
     // The timeout to save changes, if set
@@ -177,9 +178,11 @@ export class ItemBox extends React.PureComponent {
             <div className="title">
               <input type="text" value={this.state.description} size={this.state.description.length > 30 ? this.state.description.length - 10 : 20} onInput={this.handleChange}></input>
               <div className="disableSelect">({this.props.id})</div>
-              {this.props.isFocus && <div className="deleteMenu disableSelect">
+              {this.props.isFocus && <div className="removeMenu disableSelect">
                 <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>Remove From Scene</div>
+                <div onMouseDown={(e) => {stopPropogation(e); this.setState({ isDeleteVisible: true })}}>Delete</div>
               </div>}
+              {this.state.isDeleteVisible && <DeleteMenu id={this.props.id} closeMenu={() => {this.setState({ isDeleteVisible: false }); this.props.removeItem(this.props.id)}} saveModifications={this.props.saveModifications} />}
             </div>
             <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={(e) => {stopPropogation(e); this.handleMouseDown(e);}}/>
             {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}

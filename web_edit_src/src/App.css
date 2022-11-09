@@ -102,6 +102,51 @@ button.green {
   cursor: auto;
 }
 
+.fullscreenDialog {
+  position: fixed;
+  display: inline-block;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background-color: #464c5aaa;
+  z-index: 1000;
+}
+
+.dialogWindow {
+  position: relative;
+  display: inline-block;
+  height: 20vw;
+  width: 50vw;
+  top: 10vw;
+  left: 25vw;
+  background-color: #464c5a;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+}
+
+.dialogTitle {
+  padding: 2vw;
+  padding-top: 4vw;
+  font-size: 3vw;
+  text-align: center;
+  width: 100%;
+  background-color: #2f343e;
+  border-radius: 6px 6px 0 0;
+}
+
+.dialogTitle.error {
+  background-color: #a84646;
+}
+
+.dialogMessage {
+  padding: 2vw;
+  padding-top: 1vw;
+  font-size: 1.8vw;
+  text-align: center;
+  width: 100%;
+}
+
 .viewArea {
   position: absolute;
   top: 2.5rem;
@@ -133,7 +178,7 @@ button.green {
   font-weight: bold;
 }
 
-.deleteConfirmMenu .subtitle {
+.deleteConfirmMenu .description {
   background-color: #4d5564;
   text-align: center;
   margin: 0;
@@ -206,6 +251,13 @@ button.green {
   font-size: 0.7rem;
   padding: 0 0.7rem;
   cursor: pointer;
+}
+
+.newScene {
+  font-size: 0.7rem;
+  padding: 0 0.7rem;
+  cursor: pointer;
+  border-left: 1px solid #efefef;
 }
 
 .addMenu {
@@ -514,7 +566,7 @@ button.green {
   font-weight: lighter;
 }
 
-.box>.title .deleteMenu {
+.box>.title .removeMenu {
   width: 100%;
   left: 0;
   top: 0.3rem;
@@ -523,7 +575,7 @@ button.green {
   cursor: pointer;
 }
 
-.box>.title .deleteMenu>div:hover {
+.box>.title .removeMenu>div:hover {
   outline: #efefef88 solid 2px;
 }
 

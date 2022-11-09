@@ -6,9 +6,7 @@ export async function switchPort(siteport) {
 // Function to create a new selected configuration
 export async function newConfig() {
   // Save the configuration
-  let configFile = {
-    filename: null,
-  };
+  let configFile = {};
   fetch(`/configFile`, {
     method: 'POST',
     headers: {

@@ -298,6 +298,14 @@ impl WebInterface {
             warp::serve(run_routes).run(([127, 0, 0, 1], 64636)).await;
         });
 
+        // Create the websocket filter
+        let listen = warp::path("listen")
+            .and(warp::ws())
+            .map(|ws: warp::ws::Ws| {
+                // This will call the function if the handshake succeeds.
+                ws.on_upgrade(move |socket| WebInterface::fake_listener(socket))
+            });
+
         // Create the all items filter
         let all_items = warp::get()
             .and(warp::path("allItems"))
@@ -311,6 +319,14 @@ impl WebInterface {
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
             .and(WebInterface::with_clone(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
+            .and_then(WebInterface::handle_request);
+
+        // Create the close filter
+        let close = warp::post()
+            .and(warp::path("close"))
+            .and(warp::path::end())
+            .and(WebInterface::with_clone(self.web_send.clone()))
+            .and(WebInterface::with_clone(UserRequest::Close))
             .and_then(WebInterface::handle_request);
 
         // Create the config file filter
@@ -420,8 +436,10 @@ impl WebInterface {
             .and(warp::fs::dir("./public_edit/")); 
 
         // Combine the filters
-        let edit_routes = all_items
+        let edit_routes = listen
+            .or(all_items)
             .or(all_scenes)
+            .or(close)
             .or(config_file)
             .or(edit)
             .or(get_config_path)
@@ -560,6 +578,16 @@ impl WebInterface {
             // Drop the connection on failure
             return;
         }
+
+        // Wait for the line to be dropped (ignore incoming messages)
+        while let Some(_) = ws_rx.next().await {}
+    }
+
+    /// A function to add a fake listener
+    /// 
+    async fn fake_listener(socket: WebSocket) {
+        // Split the socket into a sender and receiver
+        let (ws_tx, mut ws_rx) = socket.split();
 
         // Wait for the line to be dropped (ignore incoming messages)
         while let Some(_) = ws_rx.next().await {}

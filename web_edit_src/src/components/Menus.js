@@ -63,7 +63,7 @@ export class DeleteMenu extends React.PureComponent {
     return (
       <div className="deleteConfirmMenu">
         <div className="title">Are you sure you want to delete this item?</div>
-        <div className="subtitle disableSelect">{this.state.description}</div>
+        <div className="description disableSelect">{this.state.description}</div>
         <div className="id disableSelect">({this.props.id})</div>
         <div className="multiButton">
           <div onClick={this.props.closeMenu}>Cancel</div>
@@ -100,7 +100,7 @@ export class HeaderMenu extends React.PureComponent {
           <div class={"menuButton" + (this.props.saved ? " inactive" : "")} onClick={() => {this.setState({isMenuVisible: false}); this.props.saveFile()}}>Save</div>
         </div>
         <div className="headerRight">
-          <ConfirmButton buttonClass="menuButton" onClick={() => {this.props.closeMinerva();}} buttonText="Quit" />
+          <ConfirmButton buttonClass="menuButton" onClick={() => {this.props.closeMinerva();}} buttonText="Quit Minerva" />
           <img src={logoWide} className="logo" alt="logo" />
         </div>
       </div>
@@ -122,11 +122,18 @@ export class SceneMenu extends React.PureComponent {
     }
 
     // Bind functions
+    this.loadScenes = this.loadScenes.bind(this);
     this.handleChange = this.handleChange.bind(this);
+    this.newScene = this.newScene.bind(this);
   }
 
   // On render, pull the full scene list
   async componentDidMount() {
+    this.loadScenes();
+  }
+
+  // Helper function to load available scenes
+  async loadScenes() {
     try {
       // Fetch all scenes and process the response
       let response = await fetch(`/allScenes`);
@@ -170,6 +177,44 @@ export class SceneMenu extends React.PureComponent {
     // Save the delete id
     this.setState({ deleteId: parseInt(e.target.value) });
   }
+
+  // Create a new scene
+  async newScene() {
+    // Get a list of all ids
+    let response = await fetch(`allItems`);
+    const json = await response.json();
+
+    // If the response is valid
+    if (json.items.isValid) {
+      // Get the detail of each item
+      let list = json.items.items;
+
+      // Find the next unused ID
+      let id = 1000;
+      while (list.some((value) => value.id === id)) { id++ };
+      
+      // Compose the item into a modification
+      let modifications = [{
+        modifyItem: {
+          itemPair: {
+            id: id,
+            description: "New Scene",
+      }}}];
+
+      // Add the scene definition to the modifications
+      modifications.push({
+        modifyScene: { itemId: { id: id }, scene: { events: [] }}
+      });
+
+      // Save the new scene
+      this.props.saveModifications(modifications);
+
+      // After a moment, reload the scenes
+      setTimeout(() => {
+        this.loadScenes();
+      }, 500);
+    } // FIXME fail silently
+  }
   
   // Render the scene menu
   render() {
@@ -186,7 +231,10 @@ export class SceneMenu extends React.PureComponent {
         </select>
         <div className="deleteScene" onMouseDown={() => {this.setState({ isDeleteVisible: true })}}>
           Delete<br/>Scene
-          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
+          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} closeMenu={() => {this.setState({ isDeleteVisible: false }); setTimeout(() => { this.loadScenes(); }, 500)}} saveModifications={this.props.saveModifications} />}
+        </div>
+        <div className="newScene" onMouseDown={this.newScene}>
+          New<br/>Scene
         </div>
       </div>
     );
@@ -290,7 +338,7 @@ export class AddMenu extends React.PureComponent {
   // Return the completed box
   render() {
     // Compose the filtered items into a visible list
-    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={(e) => {this.props.addItem(item.id, e.clientX, e.clientY)}}>{item.description}</div>) // FIXME not quite the right location
+    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={(e) => {this.props.addItem(item.id, e.clientX, e.clientY)}}>{item.description}</div>)
     
     // Return the box
     return (

@@ -133,7 +133,7 @@ impl EventHandler {
                 index_access,
                 style_access,
                 internal_send.clone(),
-            );
+            ).await;
 
             // Set the path to "default.yaml" in the current directory
             resolved_path = env::current_dir().unwrap_or(PathBuf::new());
