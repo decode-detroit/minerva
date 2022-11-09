@@ -19,6 +19,12 @@ export class Action extends React.PureComponent {
       return (
         <ModifyStatus modifyStatus={this.props.action.ModifyStatus} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
+
+    // Cue Dmx
+    } else if (this.props.action.hasOwnProperty(`CueDmx`)) {
+      return (
+        <CueDmx cueDmx={this.props.action.CueDmx} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
+      );
     
     // Cue Event
     } else if (this.props.action.hasOwnProperty(`CueEvent`)) {
@@ -26,6 +32,12 @@ export class Action extends React.PureComponent {
         <CueEvent cueEvent={this.props.action.CueEvent} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
     
+    // Cue Media
+    } else if (this.props.action.hasOwnProperty(`CueMedia`)) {
+      return (
+        <CueMedia cueMedia={this.props.action.CueMedia} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
+      );
+
     // Cancel Event
     } else if (this.props.action.hasOwnProperty(`CancelEvent`)) {
       return (
@@ -285,6 +297,165 @@ export class ModifyStatus extends React.PureComponent {
   }
 }
 
+// A cue dmx action
+export class CueDmx extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      duration: this.props.cueDmx.fade.duration ? (this.props.cueDmx.fade.duration.secs + (this.props.cueDmx.fade.duration.nanos / 1000000000)) : 0,
+    }
+
+    // The timeout to save changes, if set
+    this.saveTimeout = null;
+
+    // Bind the various functions
+    this.handleChannelChange = this.handleChannelChange.bind(this);
+    this.handleValueChange = this.handleValueChange.bind(this);
+    this.handleDurationChange = this.handleDurationChange.bind(this);
+    this.updateAction = this.updateAction.bind(this);
+  }
+
+  // Function to handle new channel
+  handleChannelChange(e) {
+    // Extract the value
+    let channel = parseInt(e.target.value);
+
+    // Check bounds
+    if (channel < 1) {
+      channel = 1;
+    } else if (channel > 512) {
+      channel = 512;
+    }
+
+    // Save the change immediately
+    this.updateAction(channel, null);
+  }
+
+  // Function to handle new value
+  handleValueChange(e) {
+    // Extract the value
+    let value = parseInt(e.target.value);
+
+    // Check bounds
+    if (value < 0) {
+      value = 0;
+    } else if (value > 255) {
+      value = 255;
+    }
+
+    // Save the change immediately
+    this.updateAction(null, value);
+  }
+
+  // Function to handle new delay in the input
+  handleDurationChange(e) {
+    // Extract the value
+    let value = e.target.value;
+
+    // Replace the existing delay
+    this.setState({
+      duration: value,
+    });
+
+    // Clear the existing timeout, if it exists
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    // Set the new timeout
+    this.saveTimeout = setTimeout(this.updateAction, 100);
+  }
+
+  // Helper function to update the action
+  updateAction(channel, value) {
+    // Clear the timeout, if it exists
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+
+    // If either value is null, replace it with the current value
+    if (channel === null) {
+      channel = this.props.cueDmx.fade.channel;
+    }
+    if (value === null) {
+      value = this.props.cueDmx.fade.value;
+    }
+
+    // Update the action, with or without duration
+    if (this.state.duration !== 0) {
+      this.props.changeAction({
+        CueDmx: {
+          fade: {
+            channel: channel,
+            value: value,
+            duration: {
+              secs: parseInt(this.state.duration),
+              nanos: (this.state.duration * 1000000000) % 1000000000, 
+            }
+          }
+        }
+      })
+    } else {
+      this.props.changeAction({
+        CueDmx: {
+          fade: {
+            channel: channel,
+            value: value,
+          }
+        }
+      })
+    }
+  }
+
+  // On change of item id, pull the description of the scene
+  componentDidUpdate(prevProps, prevState) {
+    // Update the fade duration, if it changed
+    if (this.props.cueDmx.fade.duration && (this.props.cueDmx.fade.duration.secs !== prevProps.cueDmx.fade.duration.secs || this.props.cueDmx.fade.duration.nanos !== prevProps.cueDmx.fade.duration.nanos)) {
+      this.setState({
+        duration: this.props.cueDmx.fade.duration.secs + (this.props.cueDmx.fade.duration.nanos / 1000000000),
+        tmpChannel: this.props.cueDmx.fade.channel,
+        tmpValue: this.props.cueDmx.fade.value
+      })
+    
+    // Update the duration if it is now nothing
+    } else if (!this.props.cueDmx.fade.duration && prevProps.cueDmx.fade.duration) {
+      this.setState({
+        duration: 0,
+        tmpChannel: this.props.cueDmx.fade.channel,
+        tmpValue: this.props.cueDmx.fade.value
+      })
+    
+    // Otherwise, just update the channel and value placeholders
+    } else {
+      this.setState({
+        tmpChannel: this.props.cueDmx.fade.channel,
+        tmpValue: this.props.cueDmx.fade.value
+      })
+    }
+  }
+
+  // Render the completed action
+  render() {
+    return (
+      <>
+        <ActionFragment title="Cue Lights" changeAction={this.props.changeAction} content={
+          <div className="actionDetail" onClick={stopPropogation}>
+            <div className="additionalInfo noDivider">
+              <label>Channel</label><input type="number" min="1" max="512" value={this.props.cueDmx.fade.channel} onInput={this.handleChannelChange}></input><br/>
+              <label>Value</label><input type="number" min="0" max="255" value={this.props.cueDmx.fade.value} onInput={this.handleValueChange}></input><br/>
+              <label>Duration</label><input type="number" min="0" value={this.state.duration} onInput={this.handleDurationChange}></input>
+            </div>
+          </div>
+        }/>
+      </>
+    );
+  }
+}
+
 // A cue event action
 export class CueEvent extends React.PureComponent {
   // Class constructor
@@ -419,13 +590,13 @@ export class CueEvent extends React.PureComponent {
     }
     
     // Update the event delay, if it changed
-    if (this.props.cueEvent.delay && (this.props.cueEvent.event.delay.secs !== prevProps.cueEvent.event.delay.secs || this.props.cueEvent.event.delay.nanos !== prevProps.cueEvent.event.delay.nanos)) {
+    if (this.props.cueEvent.event.delay && (this.props.cueEvent.event.delay.secs !== prevProps.cueEvent.event.delay.secs || this.props.cueEvent.event.delay.nanos !== prevProps.cueEvent.event.delay.nanos)) {
       this.setState({
         delay: this.props.cueEvent.event.delay.secs + (this.props.cueEvent.event.delay.nanos / 1000000000),
       })
     
     // Update the delay if it is now nothing
-    } else if (!this.props.cueEvent.delay && prevProps.cueEvent.delay) {
+    } else if (!this.props.cueEvent.event.delay && prevProps.cueEvent.event.delay) {
       this.setState({
         delay: 0,
       })
@@ -442,6 +613,109 @@ export class CueEvent extends React.PureComponent {
             <div className="editNote" onClick={this.toggleMenu}>Click To Change</div>
             <div className="additionalInfo">Delay 
               <input type="number" min="0" value={this.state.delay} onInput={this.handleChange}></input> Seconds
+            </div>
+          </div>
+        }/>
+      </>
+    );
+  }
+}
+
+// A cue event action
+export class CueMedia extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Bind the various functions
+    this.handleUriChange = this.handleUriChange.bind(this);
+    this.handleChannelChange = this.handleChannelChange.bind(this);
+    this.handleLoopChange = this.handleLoopChange.bind(this);
+    this.updateAction = this.updateAction.bind(this);
+  }
+
+  // Function to handle new value
+  handleUriChange(e) {
+    // Extract the value
+    let value = e.target.value;
+
+    // Save the change immediately
+    this.updateAction(value, null, null);
+  }
+
+  // Function to handle new channel
+  handleChannelChange(e) {
+    // Extract the value
+    let channel = parseInt(e.target.value);
+
+    // Check bounds
+    if (channel < 0) {
+      channel = 0;
+    }
+
+    // Save the change immediately
+    this.updateAction(null, channel, null);
+  }
+
+  // Function to handle new delay in the input
+  handleLoopChange(e) {
+    // Extract the value
+    let value = e.target.value;
+
+    // Save the change immediately
+    this.updateAction(null, null, value);
+  }
+
+  // Helper function to update the action
+  updateAction(uri, channel, loop) {
+    // If any value is null, replace it with the current value
+    if (uri === null) {
+      uri = this.props.cueMedia.cue.uri;
+    }
+    if (channel === null) {
+      channel = this.props.cueMedia.cue.channel;
+    }
+    if (loop === null) {
+      loop = this.props.cueMedia.cue.loop_media;
+    }
+
+    console.log(loop);
+
+    // Update the action, with or without loop media
+    if (loop !== null && loop != "") {
+      this.props.changeAction({
+        CueMedia: {
+          cue: {
+            uri: uri,
+            channel: channel,
+            loop_media: loop
+          }
+        }
+      })
+      console.log("here!");
+    } else {
+      this.props.changeAction({
+        CueMedia: {
+          cue: {
+            uri: uri,
+            channel: channel
+          }
+        }
+      })
+    }
+  }
+
+  // Render the completed action
+  render() {
+    return (
+      <>
+        <ActionFragment title="Cue Media" changeAction={this.props.changeAction} content={
+          <div className="actionDetail" onClick={stopPropogation}>
+            <div className="additionalInfo noDivider">
+              <label>File Location</label><input type="text" value={this.props.cueMedia.cue.uri} onInput={this.handleUriChange}></input><br/>
+              <label>Channel</label><input type="number" min="0" value={this.props.cueMedia.cue.channel} onInput={this.handleChannelChange}></input><br/>
+              <label>Loop Media</label><input type="text" value={this.props.cueMedia.cue.loop_media ? this.props.cueMedia.cue.loop_media : ""} onInput={this.handleLoopChange}></input><br/>
             </div>
           </div>
         }/>
@@ -723,7 +997,7 @@ export class ActionFragment extends React.PureComponent {
         <div className="openStatus">
           {this.state.open ? 'v' : '<'}
         </div>
-        <SendNode type={this.props.nodeType} onMouseDown={(e) => {stopPropogation(e); this.props.focusOn()}}/>
+        {this.props.nodeType && <SendNode type={this.props.nodeType} onMouseDown={(e) => {stopPropogation(e); this.props.focusOn()}}/>}
         {this.state.open && this.props.content}
       </div>
     );

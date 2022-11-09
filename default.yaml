@@ -1,631 +1,292 @@
----
-version: 0.9.9
+version: 0.9.10
 identifier:
   id: 0
-server_location: ~
-system_connection:
-  - !Media
-      all_stop_media: []
-      media_map:
-        ? id: 502
-        : uri: "https://archive.org/download/springblenderopenmoviedownloadlagump3.com/Spring%20-%20Blender%20Open%20Movie%20%28download-lagu-mp3.com%29.mp4"
-          channel: 1
-          loop_media: ~
-        ? id: 503
-        : uri: "https://archive.org/download/never-gonna-give-you-up-4-k/Never%20Gonna%20Give%20You%20Up%204K.ia.mp4"
-          channel: 2
-          loop_media: ~
-      channel_map:
-        1:
-          video_frame:
-            window_number: 1
-            top: 0
-            left: 0
-            height: 1080
-            width: 1920
-          audio_device: ~
-          loop_media: ~
-        2:
-          video_frame:
-            window_number: 1
-            top: 300
-            left: 500
-            height: 300
-            width: 400
-          audio_device: ~
-          loop_media: ~
-      window_map: {}
-      apollo_params:
-        spawn: true
-        address: ~
-  - !Media
-      all_stop_media: []
-      media_map:
-        ? id: 504
-        : uri: "https://upload.wikimedia.org/wikipedia/commons/7/7a/George_Gershwin%27s_%22Rhapsody_in_Blue%22_piano_solo.ogg"
-          channel: 1
-          loop_media: ~
-      channel_map:
-        1:
-          video_frame: ~
-          audio_device: ~
-          loop_media: ~
-      window_map: {}
-      apollo_params:
-        spawn: true
-        address: 127.0.0.1:27664
-background_process: ~
+server_location: null
+dmx_path: null
+media_players: []
+system_connection: []
+background_process: null
 default_scene:
   id: 100
-fullscreen: ~
+fullscreen: null
 all_scenes:
   ? id: 100
   : events:
-      - id: 101
-      - id: 100
+    - id: 101
+    - id: 100
     key_map:
       32:
         id: 101
   ? id: 400
   : events:
-      - id: 403
-      - id: 400
-      - id: 402
-      - id: 401
+    - id: 403
+    - id: 400
+    - id: 402
+    - id: 401
     key_map:
       32:
         id: 401
   ? id: 200
   : events:
-      - id: 205
-      - id: 204
-      - id: 206
-      - id: 201
-      - id: 200
-      - id: 203
-      - id: 202
+    - id: 205
+    - id: 204
+    - id: 206
+    - id: 201
+    - id: 200
+    - id: 203
+    - id: 202
     key_map:
       32:
         id: 201
   ? id: 300
   : events:
-      - id: 302
-      - id: 323
-      - id: 312
-      - id: 301
-      - id: 314
-      - id: 303
-      - id: 324
-      - id: 313
-      - id: 304
-      - id: 322
-      - id: 311
-      - id: 300
-      - id: 321
-    key_map: ~
+    - id: 302
+    - id: 323
+    - id: 312
+    - id: 301
+    - id: 314
+    - id: 303
+    - id: 324
+    - id: 313
+    - id: 304
+    - id: 322
+    - id: 311
+    - id: 300
+    - id: 321
+    key_map: null
   ? id: 500
   : events:
-      - id: 502
-      - id: 504
-      - id: 501
-      - id: 503
-      - id: 500
+    - id: 502
+    - id: 504
+    - id: 501
+    - id: 503
+    - id: 500
     key_map:
       32:
         id: 501
 status_map:
   ? id: 310
   : !MultiState
-      current:
-        id: 312
-      allowed:
-        - id: 311
-        - id: 312
-        - id: 324
-      no_change_silent: false
+    current:
+      id: 312
+    allowed:
+    - id: 311
+    - id: 312
+    - id: 324
+    no_change_silent: false
   ? id: 320
   : !MultiState
-      current:
-        id: 321
-      allowed:
-        - id: 321
-        - id: 322
-      no_change_silent: false
+    current:
+      id: 321
+    allowed:
+    - id: 321
+    - id: 322
+    no_change_silent: false
 event_set:
   ? id: 101
     description: Next Scene
-    display:
-      !DisplayWith
-        group_id:
-          id: 110
-        position: ~
-        color: ~
-        highlight:
-          - 100
-          - 250
-          - 0
-        highlight_state: ~
-        spotlight: 0
   : - !NewScene
-        new_scene:
-          id: 200
+      new_scene:
+        id: 200
   ? id: 403
     description: Send Custom String
-    display:
-      !DisplayWith
-        group_id:
-          id: 410
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !SendData
-        data: UserString
+      data: UserString
   ? id: 312
-    description: "Off"
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 255
-          - 0
-          - 0
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+    description: Off
   : []
   ? id: 504
     description: Play Background Audio
-    display:
-      !DisplayWith
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 410
     description: Send & Save Data
-    display:
-      !Hidden
-  : ~
+  : null
   ? id: 324
     description: Deactivate
-    display:
-      !DisplayWith
-        group_id:
-          id: 320
-        position: ~
-        color:
-          - 255
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !ModifyStatus
-        status_id:
-          id: 320
-        new_state:
-          id: 322
+      status_id:
+        id: 320
+      new_state:
+        id: 322
   ? id: 313
     description: Turn On
-    display:
-      !DisplayWith
-        group_id:
-          id: 310
-        position: ~
-        color:
-          - 0
-          - 255
-          - 100
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !ModifyStatus
-        status_id:
-          id: 310
-        new_state:
-          id: 311
+      status_id:
+        id: 310
+      new_state:
+        id: 311
   ? id: 320
     description: Change The Event
-    display:
-      !Hidden
-  : ~
+  : null
   ? id: 203
     description: An Event
-    display:
-      !Hidden
   : []
   ? id: 321
     description: Trigger Delayed Events
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 51
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 302
     description: Variable Event
-    display:
-      !DisplayWith
-        group_id:
-          id: 320
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !SelectEvent
-        status_id:
-          id: 320
-        event_map:
-          ? id: 322
-          : id: 304
-          ? id: 321
-          : id: 303
+      status_id:
+        id: 320
+      event_map:
+        ? id: 322
+        : id: 304
+        ? id: 321
+        : id: 303
   ? id: 100
     description: Introduction
-    display:
-      !Hidden
   : []
   ? id: 303
     description: Add Delayed Events
-    display:
-      !Hidden
   : - !CueEvent
-        event:
-          delay:
-            secs: 10
-            nanos: 0
-          event_id:
-            id: 304
+      event:
+        delay:
+          secs: 10
+          nanos: 0
+        event_id:
+          id: 304
     - !CueEvent
-        event:
-          delay:
-            secs: 20
-            nanos: 0
-          event_id:
-            id: 304
+      event:
+        delay:
+          secs: 20
+          nanos: 0
+        event_id:
+          id: 304
   ? id: 310
-    description: "This Is A Status:"
-    display:
-      !Hidden
-  : ~
+    description: 'This Is A Status:'
+  : null
   ? id: 502
     description: Play A Large Video
-    display:
-      !DisplayWith
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 400
     description: Data Examples
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 255
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 206
     description: You Found Me! (Debug Only)
-    display:
-      !DisplayDebug
-        group_id:
-          id: 210
-        position: ~
-        color:
-          - 238
-          - 204
-          - 68
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 311
-    description: "On"
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 0
-          - 255
-          - 100
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+    description: On
   : []
   ? id: 503
     description: Play A Second Video
-    display:
-      !DisplayWith
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 401
     description: Next Scene
-    display:
-      !DisplayWith
-        group_id:
-          id: 410
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !NewScene
-        new_scene:
-          id: 500
+      new_scene:
+        id: 500
   ? id: 202
     description: Trigger Delayed Events
-    display:
-      !DisplayWith
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !CueEvent
-        event:
-          delay:
-            secs: 10
-            nanos: 0
-          event_id:
-            id: 203
+      event:
+        delay:
+          secs: 10
+          nanos: 0
+        event_id:
+          id: 203
     - !CueEvent
-        event:
-          delay:
-            secs: 11
-            nanos: 0
-          event_id:
-            id: 204
+      event:
+        delay:
+          secs: 11
+          nanos: 0
+        event_id:
+          id: 204
     - !CueEvent
-        event:
-          delay:
-            secs: 20
-            nanos: 0
-          event_id:
-            id: 203
+      event:
+        delay:
+          secs: 20
+          nanos: 0
+        event_id:
+          id: 203
     - !CueEvent
-        event:
-          delay:
-            secs: 30
-            nanos: 0
-          event_id:
-            id: 203
+      event:
+        delay:
+          secs: 30
+          nanos: 0
+        event_id:
+          id: 203
     - !CueEvent
-        event:
-          delay:
-            secs: 40
-            nanos: 0
-          event_id:
-            id: 203
+      event:
+        delay:
+          secs: 40
+          nanos: 0
+        event_id:
+          id: 203
     - !CueEvent
-        event:
-          delay:
-            secs: 50
-            nanos: 0
-          event_id:
-            id: 203
+      event:
+        delay:
+          secs: 50
+          nanos: 0
+        event_id:
+          id: 203
   ? id: 510
     description: You Can Play Media As Well
-    display:
-      !Hidden
-  : ~
+  : null
   ? id: 314
     description: Turn Off
-    display:
-      !DisplayWith
-        group_id:
-          id: 310
-        position: ~
-        color:
-          - 255
-          - 0
-          - 0
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !ModifyStatus
-        status_id:
-          id: 310
-        new_state:
-          id: 312
+      status_id:
+        id: 310
+      new_state:
+        id: 312
   ? id: 210
-    description: "That's an Event! Try Again ..."
-    display:
-      !Hidden
-  : ~
+    description: That's an Event! Try Again ...
+  : null
   ? id: 205
     description: This Event Does Nothing
-    display:
-      !DisplayWith
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 201
     description: Next Scene
-    display:
-      !DisplayWith
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !NewScene
-        new_scene:
-          id: 300
+      new_scene:
+        id: 300
   ? id: 322
     description: Do Nothing
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 255
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 300
     description: Status Examples
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 51
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 323
     description: Activate
-    display:
-      !DisplayWith
-        group_id:
-          id: 320
-        position: ~
-        color:
-          - 51
-          - 161
-          - 255
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !ModifyStatus
-        status_id:
-          id: 320
-        new_state:
-          id: 321
+      status_id:
+        id: 320
+      new_state:
+        id: 321
   ? id: 301
     description: Next Scene
-    display:
-      !DisplayWith
-        group_id:
-          id: 310
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !NewScene
-        new_scene:
-          id: 400
+      new_scene:
+        id: 400
   ? id: 500
     description: Media Examples
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 255
-          - 0
-          - 0
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 204
     description: Cancel Upcoming Events
-    display:
-      !DisplayWith
-        group_id:
-          id: 210
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !CancelEvent
-        event:
-          id: 203
+      event:
+        id: 203
     - !CancelEvent
-        event:
-          id: 204
+      event:
+        id: 204
   ? id: 304
     description: Empty Event
-    display:
-      !Hidden
   : []
   ? id: 110
     description: Click Below to Change Scenes
-    display:
-      !Hidden
-  : ~
+  : null
   ? id: 402
-    description: "Save 'Example String'"
-    display:
-      !DisplayWith
-        group_id:
-          id: 410
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
+    description: Save 'Example String'
   : - !SaveData
-        data:
-          !StaticString
-            string: Example String
+      data: !StaticString
+        string: Example String
   ? id: 200
     description: Event Examples
-    display:
-      !LabelHidden
-        position: ~
-        color:
-          - 115
-          - 210
-          - 22
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : []
   ? id: 501
     description: Back To Introduction
-    display:
-      !DisplayWith
-        group_id:
-          id: 510
-        position: ~
-        color: ~
-        highlight: ~
-        highlight_state: ~
-        spotlight: ~
   : - !NewScene
-        new_scene:
-          id: 100
+      new_scene:
+        id: 100
 user_styles: {}

@@ -116,7 +116,7 @@ Note: These settings are largely analogous for arm64, but the 64-bit version has
 To cross-compile, install the correct rust target and install the linker.
 ```
 rustup target add armv7-unknown-linux-gnueabihf
-sudo apt install gcc-arm-linux-gnueabihf
+sudo apt install gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 ```
 You'll also need to add the armhf architecture to dpkg.
 ```
@@ -133,7 +133,7 @@ deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates multiverse
 ```
 Make sure to add `[arch=amd64]` to the other sources while you're at it.
 
-Install the gtk dev packages for the new architecture.
+Install the dev packages for the new architecture.
 ```
 sudo apt update
 sudo apt install libssl-dev:armhf
@@ -141,7 +141,7 @@ sudo apt install libssl-dev:armhf
 
 Compile the program using the special armhf build target:
 ```
-cargo build_armhf
+env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig/ cargo build_armhf
 ```
 
 #### Prepare Your Raspberry Pi

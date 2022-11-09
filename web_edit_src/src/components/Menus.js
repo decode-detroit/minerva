@@ -91,10 +91,11 @@ export class HeaderMenu extends React.PureComponent {
       <div className="header">
         <div className="headerLeft">
           <div className="title">Minerva | EDIT MODE</div>
-          <ConfirmButton buttonClass="menuButton" onClick={() => {switchPort(64636);}} buttonText="Normal Mode" />
+          {!this.state.isMenuVisible && <ConfirmButton buttonClass="menuButton" onClick={() => {switchPort(64636);}} buttonText="Normal Mode" />}
           {!this.state.isMenuVisible && <div class="menuButton" onClick={newConfig}>New Config</div>}
           {!this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: true})}}>Select File</div>}
           {this.state.isMenuVisible && <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>}
+          {this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: false})}}>Cancel</div>}
           {this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: false}); this.props.openFile()}}>Open</div>}
           <div class={"menuButton" + (this.props.saved ? " inactive" : "")} onClick={() => {this.setState({isMenuVisible: false}); this.props.saveFile()}}>Save</div>
         </div>
@@ -464,7 +465,9 @@ export class AddActionMenu extends React.PureComponent {
     // Compose the list of possible action types
     let actionList = [
       <div className="addActionButton" onClick={() => {this.props.addAction({ CancelEvent: { event: { id: 0 }}})}}>Cancel Event</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ CueDmx: { fade: { channel: 1, value: 0 }}})}}>Cue Lights</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ CueEvent: { event: { event_id: { id: 0 }}}})}}>Cue Event</div>,
+      <div className="addActionButton" onClick={() => {this.props.addAction({ CueMedia: { cue: { uri: "", channel: 0 }}})}}>Cue Media</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ ModifyStatus: { status_id: { id: 0 }, new_state: { id: 0 }}})}}>Modify Status</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ NewScene: { new_scene: { id: 0 }}})}}>New Scene</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ SelectEvent: { status_id: { id: 0 }, event_map: {}, }})}}>Select Event</div>,

@@ -56,7 +56,7 @@ button.green {
   padding: 1px 0 1px 20px;
 }
 
-.header>input {
+.header input {
   appearance: none;
   background-color: #2f343e;
   border: 1px solid #868fa2;
@@ -707,6 +707,10 @@ button.green {
   border-top: 1px solid #efefef;
 }
 
+.actionDetail .additionalInfo.noDivider {
+  border-top: none;
+}
+
 .actionDetail>.additionalInfo>.additionalInfoDetail {
   background-color: #4d5564;
   padding: 0.3rem;
@@ -725,6 +729,11 @@ button.green {
   box-shadow: 0px 0px 5px 0px #0a0c0e;
 }
 
+.actionDetail>.additionalInfo label {
+  display: inline-block;
+  min-width: 6rem;
+}
+
 .actionDetail>.additionalInfo input {
   appearance: none;
   color: #efefef;
@@ -739,6 +748,14 @@ button.green {
   text-align: center;
   cursor: pointer;
   line-height: 1;
+}
+
+.actionDetail>.additionalInfo input[type="text"] {
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 0;
+  width: 15rem;
+  text-align: left;
 }
 
 .addActionMenu {
