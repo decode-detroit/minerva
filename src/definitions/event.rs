@@ -151,6 +151,47 @@ pub enum DataType {
     UserString,
 }
 
+/// A struct to define a single media track to play
+///
+/// # Note
+///
+/// The uri format must follow the URI syntax rules. This means local files must
+/// by specified like "file:///absolute/path/to/file.mp4".
+///
+/// If a file is specified in the loop media field, the channel will loop this
+/// media when this media completes. This takes priority over the channel loop
+/// media field.
+///
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaCue {
+    pub uri: String, // the location of the video or audio file to play
+    pub channel: u32, // the channel of the video or audio. New media sent to the same channel will replace the old media, starting instantly
+    pub loop_media: Option<String>, // the location of media to loop after this media is complete
+}
+
+// A helper struct to define a single media cue.
+// This version is serialized with camelCase to allow compatability with Apollo.
+//
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaCueHelper {
+    pub uri: String,
+    pub channel: u32,
+    pub loop_media: Option<String>,
+}
+
+// Implement conversion from media cue to media cue helper
+impl MediaCue {
+    pub fn into_helper(self) -> MediaCueHelper {
+        // Recompose as a media cue helper
+        MediaCueHelper {
+            uri: self.uri,
+            channel: self.channel,
+            loop_media: self.loop_media,
+        }
+    }
+}
+
 /// An enum with various action options for each event.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
@@ -159,10 +200,13 @@ pub enum EventAction {
     /// events that match the specified id(s) will be cancelled.
     CancelEvent { event: ItemId },
 
-    /// A variant that links to one event to add to the queue These events may
+    /// A variant that links to one event to add to the queue. These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
     CueEvent { event: EventDelay },
+
+    /// A variant to cue media on one of the media channels.
+    CueMedia { media_cue: MediaCue },
 
     /// A variant used to change current status of the target status.
     ModifyStatus {
@@ -201,6 +245,9 @@ pub enum WebEventAction {
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
     CueEvent { event: EventDelay },
+
+    /// A variant to cue media on one of the media channels.
+    CueMedia { media_cue: MediaCue },
 
     /// A variant used to change current status of the target status.
     ModifyStatus {
@@ -246,6 +293,7 @@ impl From<EventAction> for WebEventAction {
             // Leave the rest untouched
             EventAction::CancelEvent { event } => WebEventAction::CancelEvent { event },
             EventAction::CueEvent { event } => WebEventAction::CueEvent { event },
+            EventAction::CueMedia { media_cue } => WebEventAction::CueMedia { media_cue },
             EventAction::ModifyStatus { status_id, new_state } => WebEventAction::ModifyStatus { status_id, new_state },
             EventAction::NewScene { new_scene } => WebEventAction::NewScene { new_scene },
             EventAction::SaveData { data } => WebEventAction::SaveData { data },
@@ -271,6 +319,7 @@ impl From<WebEventAction> for EventAction {
             // Leave the rest untouched
             WebEventAction::CancelEvent { event } => EventAction::CancelEvent { event },
             WebEventAction::CueEvent { event } => EventAction::CueEvent { event },
+            WebEventAction::CueMedia { media_cue } => EventAction::CueMedia { media_cue },
             WebEventAction::ModifyStatus { status_id, new_state } => EventAction::ModifyStatus { status_id, new_state },
             WebEventAction::NewScene { new_scene } => EventAction::NewScene { new_scene },
             WebEventAction::SaveData { data } => EventAction::SaveData { data },
@@ -316,5 +365,5 @@ impl From<WebEvent> for Event {
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    CancelEvent, CueEvent, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
+    CancelEvent, CueEvent, CueMedia, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
 };

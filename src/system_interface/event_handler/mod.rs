@@ -25,6 +25,7 @@
 mod backup;
 mod config;
 mod queue;
+mod media_interface;
 
 // Import crate definitions
 use crate::definitions::*;
@@ -33,8 +34,10 @@ use crate::definitions::*;
 use self::backup::BackupHandler;
 use self::config::Config;
 use self::queue::Queue;
+use self::media_interface::MediaInterface;
 
 // Import standard library features
+use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -54,10 +57,11 @@ use failure::Error;
 ///
 pub struct EventHandler {
     internal_send: InternalSend, // sending line for event updates and timed events
-    queue: Queue,                // current event queue
-    config: Config,              // current configuration
-    config_path: PathBuf,        // current configuration path
-    backup: BackupHandler,       // current backup server
+    queue: Queue,                           // current event queue
+    media_interfaces: Vec<MediaInterface>,  // list of available media interfaces
+    config: Config,                         // current configuration
+    config_path: PathBuf,                   // current configuration path
+    backup: BackupHandler,                  // current backup server
 }
 
 // Implement the event handler functions
@@ -84,45 +88,77 @@ impl EventHandler {
     /// of a failure to connect to the configuration file.
     ///
     pub async fn new(
-        config_path: PathBuf,
+        config_path: Option<PathBuf>,
         index_access: IndexAccess,
         style_access: StyleAccess,
         internal_send: InternalSend,
         interface_send: InterfaceSend,
         log_failure: bool,
     ) -> Result<EventHandler, Error> {
-        // Attempt to open the configuration file
-        let config_file = match File::open(config_path.clone()).await {
-            Ok(file) => file,
-            Err(_) => {
-                // Only log failure if the flag is set
-                if log_failure {
-                    log!(err &internal_send => "Unable To Open Configuration File.");
-                }
-                return Err(format_err!("Unable to open configuration file."));
-            }
-        };
+        // If a file was specified
+        let mut config;
+        let mut resolved_path;
+        if let Some(path) = config_path {
+            // Save the resolved path
+            resolved_path = path.clone();
 
-        // Attempt to process the configuration file
-        let mut config = Config::from_config(
-            index_access,
-            style_access,
-            internal_send.clone(),
-            interface_send,
-            config_file,
-        )
-        .await?;
+            // Attempt to open the configuration file
+            let config_file = match File::open(path.clone()).await {
+                Ok(file) => file,
+                Err(_) => {
+                    // Only log failure if the flag is set
+                    if log_failure {
+                        log!(err &internal_send => "Unable To Open Configuration File.");
+                    }
+                    return Err(format_err!("Unable to open configuration file."));
+                }
+            };
+
+            // Attempt to process the configuration file
+            config = Config::from_config(
+                index_access,
+                style_access,
+                internal_send.clone(),
+                interface_send,
+                config_file,
+            )
+            .await?;
+        
+        // Otherwise, create an empty configuration
+        } else {
+            config = Config::new(
+                index_access,
+                style_access,
+                internal_send.clone(),
+            );
+
+            // Set the path to "default.yaml" in the current directory
+            resolved_path = env::current_dir().unwrap_or(PathBuf::new());
+            resolved_path.push("default.yaml");
+        }
+
+        // Attempt to create any media interfaces
+        let mut media_interfaces = Vec::new();
+        for details in config.get_media_players() {
+            media_interfaces.push(MediaInterface::new(
+                internal_send.clone(),
+                details.channel_map,
+                details.window_map,
+                details.apollo_params,
+            )
+            .await?);
+        }
+
+        // Create an empty event queue
+        let mut queue = Queue::new(internal_send.clone());
 
         // Attempt to create the backup handler
         let mut backup = BackupHandler::new(
             internal_send.clone(),
-            config.identifier(),
-            config.server_location(),
+            config.get_identifier(),
+            config.get_server_location(),
         )
         .await?;
-
-        // Create an empty event queue
-        let mut queue = Queue::new(internal_send.clone());
 
         // Check for existing data from the backup handler
         let possible_backup = backup.reload_backup(config.get_status_ids());
@@ -165,8 +201,9 @@ impl EventHandler {
         Ok(EventHandler {
             internal_send: internal_send,
             queue,
+            media_interfaces,
             config,
-            config_path,
+            config_path: resolved_path,
             backup,
         })
     }
@@ -174,7 +211,7 @@ impl EventHandler {
     /// A method to return the configured system connection type.
     ///
     pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
-        self.config.system_connection()
+        (self.config.get_connections(), self.config.get_identifier())
     }
 
     /// A method to add an event to the timed queue.
@@ -533,6 +570,22 @@ impl EventHandler {
             CueEvent { event } => {
                 // Add the event to the queue
                 self.queue.add_event(event).await;
+            }
+
+            // If there is media to cue, send it to the media connection
+            CueMedia { media_cue } => {
+                // Send the cue to each media interface in turn
+                let mut success = false;
+                for interface in self.media_interfaces.iter_mut() {
+                    if let Ok(_) = interface.add_cue(media_cue.clone()) {
+                        success = true;
+                    }
+                }
+               
+                // If all media players failed to play the cue, report the error
+                if !success {
+                    log!(err &self.internal_send => "Failed to play media cue.")
+                }
             }
 
             // If there is an event to cancel, remove it from the queue

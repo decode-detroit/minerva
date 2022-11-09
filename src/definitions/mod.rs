@@ -31,6 +31,7 @@ mod interface;
 mod item;
 #[macro_use]
 mod log;
+mod media;
 mod scene;
 mod status;
 mod style;
@@ -43,6 +44,7 @@ pub use self::index::*;
 pub use self::interface::*;
 pub use self::item::*;
 pub use self::log::*;
+pub use self::media::*;
 pub use self::scene::*;
 pub use self::status::*;
 pub use self::style::*;

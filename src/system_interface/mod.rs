@@ -142,12 +142,18 @@ impl SystemInterface {
 
             // Try the file, if it exists
             if path.exists() {
-                sys_interface.load_config(path, false).await;
+                sys_interface.load_config(Some(path), false).await;
 
             // Otherwise, try the yaml path
             } else {
                 path.set_extension("yaml");
-                sys_interface.load_config(path, false).await;
+                if path.exists() {
+                    sys_interface.load_config(Some(path), false).await;
+                
+                // If neither are found, create an empty config
+                } else {
+                    sys_interface.load_config(None, false).await;
+                }
             }
         }
 
@@ -290,7 +296,7 @@ impl SystemInterface {
             // Solicit a string from the user
             InternalUpdate::GetUserString(event) => {
                 // FIXME Prompt via the web interface
-                log!(err &mut self.internal_send => "Get User String variant temporarily diabled as of version 0.9.9.");
+                log!(err &mut self.internal_send => "Get User String variant temporarily diabled as of version 0.9.10.");
             }
 
             // Pass an event to the event_handler
@@ -438,7 +444,7 @@ impl SystemInterface {
             }
 
             // Close the system interface thread.
-            UserRequest::Close => return UnpackResult::Close, // FIXME doesn't work when selected from the web interface
+            UserRequest::Close => return UnpackResult::Close,
 
             // Update the configuration provided to the underlying system
             UserRequest::ConfigFile { filepath } => {
@@ -447,11 +453,8 @@ impl SystemInterface {
                     handler.clear_events().await;
                 } // old handler is dropped
 
-                // Check to see if a new filepath was specified
-                if let Some(path) = filepath {
-                    // If so, try to load it
-                    self.load_config(path, true).await;
-                }
+                // Load the specified filepath, or create a new config if none specified
+                self.load_config(filepath, true).await;
             }
 
             // Return the name of the current configuration file, if available
@@ -767,7 +770,8 @@ impl SystemInterface {
     }
 
     /// An internal method to try to load the provided configuration into the
-    /// system interface.
+    /// system interface. If no filepath is provided, the function will create
+    /// a new empty configuration.
     ///
     /// # Errors
     ///
@@ -775,7 +779,7 @@ impl SystemInterface {
     /// about failing to locate the configuration file. Regardless of the flag,
     /// all other types of errors will be logged.
     ///
-    async fn load_config(&mut self, filepath: PathBuf, log_failure: bool) {
+    async fn load_config(&mut self, filepath: Option<PathBuf>, log_failure: bool) {
         // Clone the interface send
         let interface_send = self.interface_send.clone();
 

@@ -53,7 +53,7 @@ The completed binary will be located in the automatically generated "target/rele
 Extras! Everyone loves extras. To take advantage of all Minerva's features, you'll need ZMQ bindings, the Gstreamer library, and a Redis server.
 
 * **ZMQ bindings** provide an easy and reliable way to network your devices.
-* **GStreamer** controls media playback directly within Minerva.
+* Sister program **Apollo** controls media playback directly from Minerva.
 * **Redis** provides real-time crash recovery.
 
 You'll need to install these tools on whichever computers you would like to **run** Minerva.
@@ -74,10 +74,7 @@ Currently, rust-zmq requires ZeroMQ 4.1. If your operating system does not provi
 
 ### Apollo for Audio/Video
 
-Enable audio and video playback by compiling with the "media-out" feature.
-```
-cargo build --features "media-out"
-```
+Audio and video playback support is built in to Minerva by default.
 
 Minerva uses an external program, [Apollo](https://github.com/decode-detroit/apollo), for all media playback. The two projects are developed concurrently and are separate to improve reliability and reusability.
 
@@ -101,12 +98,6 @@ sudo adduser $USER dialout
 You'll need to log out and log back in for this to take effect.
 
 All DMX channels default to 0. This can cause confusion when the channel isn't explicitly set by the user, but is nonetheless necessary for the device to function. For example, the main dimmer channel on a light fixture needs to be manually set to 255.
-
-### Make It Pretty
-
-GTK can be easily re-themed. We recommend the Materia Dark theme for Minerva which will automatically load if you install the Materia theme package (See here: https://github.com/nana-4/materia-theme). On a GNU/Linux system, simply install the materia-gtk-theme package.
-
-We are migrating to a web interface, so this will not be necessary in the long term.
 
 ## Raspberry Pi-like Systems (ARM)
 

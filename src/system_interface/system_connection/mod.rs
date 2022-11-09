@@ -25,7 +25,6 @@
 // Define private submodules
 mod comedy_comm;
 mod dmx_out;
-mod media_out;
 mod zmq_comm;
 
 // Import crate definitions
@@ -34,7 +33,6 @@ use crate::definitions::*;
 // Import other definitions
 use self::comedy_comm::ComedyComm;
 use self::dmx_out::DmxOut;
-use self::media_out::{MediaOut};
 use self::zmq_comm::{ZmqBind, ZmqConnect};
 
 // Import standard library features
@@ -66,7 +64,7 @@ impl ConnectionType {
     /// Type. This method estahblishes the connection to the underlying system.
     /// If the connection fails, it will return the Error.
     ///
-    async fn initialize(&self, internal_send: &InternalSend) -> Result<LiveConnection, Error> {
+    async fn initialize(&self) -> Result<LiveConnection, Error> {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the comedy serial port
@@ -106,26 +104,6 @@ impl ConnectionType {
                 let connection = DmxOut::new(path, all_stop_dmx.clone(), dmx_map.clone())?;
                 Ok(LiveConnection::DmxSerial { connection })
             }
-
-            // Connect to a live version of the Media output
-            &ConnectionType::Media {
-                ref all_stop_media,
-                ref media_map,
-                ref channel_map,
-                ref window_map,
-                ref apollo_params,
-            } => {
-                // Create the new media connection
-                let connection = MediaOut::new(
-                    internal_send.clone(),
-                    all_stop_media.clone(),
-                    media_map.clone(),
-                    channel_map.clone(),
-                    window_map.clone(),
-                    apollo_params.clone(),
-                ).await?;
-                Ok(LiveConnection::Media { connection })
-            }
         }
     }
 }
@@ -160,12 +138,6 @@ enum LiveConnection {
     DmxSerial {
         connection: DmxOut, // the DMX serial connection
     },
-
-    /// A variant to connect with system media. This connection type only allows
-    /// messages to be sent.
-    Media {
-        connection: MediaOut, // the system media connection
-    },
 }
 
 // Implement event connection for LiveConnection
@@ -178,7 +150,6 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_events(),
             &mut LiveConnection::DmxSerial { ref mut connection } => connection.read_events(),
-            &mut LiveConnection::Media { ref mut connection } => connection.read_events(),
         }
     }
 
@@ -198,9 +169,6 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::DmxSerial { ref mut connection } => {
                 connection.write_event(id, data1, data2)
             }
-            &mut LiveConnection::Media { ref mut connection } => {
-                connection.write_event(id, data1, data2)
-            }
         }
     }
 
@@ -218,9 +186,6 @@ impl EventConnection for LiveConnection {
                 connection.echo_event(id, data1, data2)
             }
             &mut LiveConnection::DmxSerial { ref mut connection } => {
-                connection.echo_event(id, data1, data2)
-            }
-            &mut LiveConnection::Media { ref mut connection } => {
                 connection.echo_event(id, data1, data2)
             }
         }
@@ -243,7 +208,6 @@ enum ConnectionUpdate {
 pub struct SystemConnection {
     internal_send: InternalSend, // sending structure for new events from the system
     connection_send: Option<mpsc::Sender<ConnectionUpdate>>, // receiving structure for new events from the program
-                                                             //connection: Option<LiveConnection>, // an element that implements both read and write
     is_broken: bool, // flag to indicate if one or more connections failed to establish
 }
 
@@ -304,7 +268,7 @@ impl SystemConnection {
             let mut live_connections = Vec::new();
             for connection in conn_set {
                 // Attempt to initialize each connection
-                match connection.initialize(&self.internal_send).await {
+                match connection.initialize().await {
                     Ok(conn) => live_connections.push(conn),
 
                     // If it fails, warn the user

@@ -168,6 +168,7 @@ struct YamlConfig {
     version: String,        // a version tag to warn the user of incompatible versions
     identifier: Identifier, // unique identifier for the controller instance, if specified
     server_location: Option<String>, // the location of the backup server, if specified
+    media_players: Vec<MediaPlayer>, // the details of the media player(s)
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
     default_scene: Option<ItemId>, // the starting scene for the configuration
@@ -186,6 +187,7 @@ struct YamlConfig {
 pub struct Config {
     identifier: Identifier, // unique identifier for the controller instance
     system_connection: ConnectionSet, // the type of connection(s) to the underlying system
+    media_players: Vec<MediaPlayer>, // the details of the media player(s)
     server_location: Option<String>, // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
     current_scene: ItemId,  // identifier for the current scene
@@ -199,6 +201,33 @@ pub struct Config {
 
 // Implement key features for the configuration
 impl Config {
+    /// A function to create a new empty config with no settings.
+    ///
+    pub fn new(
+        index_access: IndexAccess,
+        style_access: StyleAccess,
+        internal_send: InternalSend,
+    ) -> Config {
+        // Create the new status handler
+        let status_handler = StatusHandler::new(internal_send.clone(), FnvHashMap::default());
+
+        // Return a new empty configuration
+        Config {
+            identifier: Identifier { id: Some(1) },
+            system_connection: ConnectionSet::new(),
+            media_players: Vec::new(),
+            server_location: None,
+            background_thread: None,
+            current_scene: ItemId::all_stop(),
+            all_scenes: FnvHashMap::default(),
+            status_handler,
+            events: FnvHashMap::default(),
+            index_access,
+            style_access,
+            internal_send,
+        }
+    }
+
     /// A function to create a new config from a configuration file
     ///
     /// This function uses a file to fill out the game configuration. The
@@ -331,6 +360,7 @@ impl Config {
             identifier: yaml_config.identifier,
             system_connection: yaml_config.system_connection,
             server_location: yaml_config.server_location,
+            media_players: yaml_config.media_players,
             background_thread,
             current_scene,
             all_scenes,
@@ -342,26 +372,26 @@ impl Config {
         })
     }
 
-    /// A method to return the identifier for this program instance.
+    /// A method to return the identifier for this program instance
     ///
-    pub fn identifier(&self) -> Identifier {
+    pub fn get_identifier(&self) -> Identifier {
         self.identifier.clone()
     }
 
-    /// A method to return a copy of the system connections and identifier.
-    ///
-    pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
-        (self.system_connection.clone(), self.identifier())
-    }
-
-    /// A method to return a copy of the system connections.
+    /// A method to return a copy of the system connections
     ///
     pub fn get_connections(&self) -> ConnectionSet {
         self.system_connection.clone()
     }
 
+    /// A method to return a copy of the media player details
+    ///
+    pub fn get_media_players(&self) -> Vec<MediaPlayer> {
+        self.media_players.clone()
+    }
+
     /// A method to return the backup server location
-    pub fn server_location(&self) -> Option<String> {
+    pub fn get_server_location(&self) -> Option<String> {
         self.server_location.clone()
     }
 
@@ -743,12 +773,13 @@ impl Config {
         // Create a YAML config from the elements
         let yaml_config = YamlConfig {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            identifier: self.identifier(),
+            identifier: self.get_identifier(),
             server_location: self.server_location.clone(),
             system_connection: self.system_connection.clone(),
+            media_players: self.media_players.clone(),
             background_process,
             default_scene: Some(self.current_scene.clone()),
-            fullscreen: None, // default to no entry, must be manually changed
+            fullscreen: None, // FIXME default to no entry, must be manually changed
             all_scenes: self.all_scenes.clone(),
             status_map: self.status_handler.get_map(),
             event_set,
@@ -953,6 +984,9 @@ impl Config {
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
+
+                // If there is media to cue, assume validity
+                &CueMedia { .. } => (),
 
                 // If there are events to cancel, verify that they exist
                 &CancelEvent { ref event } => {

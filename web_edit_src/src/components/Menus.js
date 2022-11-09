@@ -1,7 +1,7 @@
 import React from 'react';
 import logoWide from '.././logo_wide.png';
 import { ConfirmButton } from './Buttons';
-import { asyncForEach, stopPropogation, switchPort } from './Functions';
+import { asyncForEach, stopPropogation, switchPort, newConfig } from './Functions';
 
 // A menu pop-up for deleting items
 export class DeleteMenu extends React.PureComponent {  
@@ -92,6 +92,7 @@ export class HeaderMenu extends React.PureComponent {
         <div className="headerLeft">
           <div className="title">Minerva | EDIT MODE</div>
           <ConfirmButton buttonClass="menuButton" onClick={() => {switchPort(64636);}} buttonText="Normal Mode" />
+          {!this.state.isMenuVisible && <div class="menuButton" onClick={newConfig}>New Config</div>}
           {!this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: true})}}>Select File</div>}
           {this.state.isMenuVisible && <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>}
           {this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: false}); this.props.openFile()}}>Open</div>}

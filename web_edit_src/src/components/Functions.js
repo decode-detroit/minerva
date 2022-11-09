@@ -3,6 +3,28 @@ export async function switchPort(siteport) {
   window.location.port = siteport;
 }
 
+// Function to create a new selected configuration
+export async function newConfig() {
+  // Save the configuration
+  let configFile = {
+    filename: null,
+  };
+  fetch(`/configFile`, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(configFile),
+  })
+
+  // If the request is a success, reload
+  .then(
+    setTimeout(() => {
+      window.location.reload(false);
+    }, 500)
+  );
+}
+
 // Function to open the selected configuration
 export async function openConfig(filename) {
   // Save the configuration
@@ -61,7 +83,7 @@ export async function saveStyle(selector, rule) {
   let userStyles = document.getElementById("userStyles");
   userStyles.sheet.insertRule(`${selector} ${rule}`, userStyles.sheet.cssRules.length); // append to the end
 
-  // Save the configuration
+  // Save the style change
   let newStyles = {};
   newStyles[`${selector}`] = `${rule}`;
   let saveStyles = {
