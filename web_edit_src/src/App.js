@@ -27,6 +27,7 @@ export class App extends React.PureComponent {
     this.saveFile = this.saveFile.bind(this);
     this.handleFileChange = this.handleFileChange.bind(this);
     this.connectSocket = this.connectSocket.bind(this);
+    this.processUpdate = this.processUpdate(this);
 
     // Save variables (not based on state)
     this.socket = null;
@@ -127,17 +128,23 @@ export class App extends React.PureComponent {
 
     // If the socket closes
     this.socket.onclose = ((_) => {
-      // Mark the server as unavailable 
-      this.setState({
-        connectionActive: false,
-      });
+      // If the interval is inactive
+      if (!this.socketInterval) {
+        // Mark the server as unavailable 
+        this.setState({
+          connectionActive: false,
+        });
 
-      // Try once a second to restart the connection
-      this.socketInterval = setInterval(() => {
-        this.connectSocket();
-      }, 5000);
+        // Try once every five seconds to restart the connection
+        this.socketInterval = setInterval(() => {
+          this.connectSocket();
+        }, 5000);
+      }
     });
   }
+
+  // Function to handle updates from the web socket
+  processUpdate() {}
 
   // Function to close the program and mark it as inactive
   async closeMinerva() {

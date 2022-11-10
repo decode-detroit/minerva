@@ -69,15 +69,18 @@ export class App extends React.PureComponent {
 
     // If the socket closes
     this.socket.onclose = ((_) => {
-      // Mark the server as unavailable 
-      this.setState({
-        connectionActive: false,
-      });
+      // If the interval is inactive
+      if (!this.socketInterval) {
+        // Mark the server as unavailable 
+        this.setState({
+          connectionActive: false,
+        });
 
-      // Try once a second to restart the connection
-      this.socketInterval = setInterval(() => {
-        this.connectSocket();
-      }, 5000);
+        // Try once every five seconds to restart the connection
+        this.socketInterval = setInterval(() => {
+          this.connectSocket();
+        }, 5000);
+      }
     });
   }
 

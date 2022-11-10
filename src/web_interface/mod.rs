@@ -587,7 +587,7 @@ impl WebInterface {
     /// 
     async fn fake_listener(socket: WebSocket) {
         // Split the socket into a sender and receiver
-        let (ws_tx, mut ws_rx) = socket.split();
+        let (_tx, mut ws_rx) = socket.split();
 
         // Wait for the line to be dropped (ignore incoming messages)
         while let Some(_) = ws_rx.next().await {}
