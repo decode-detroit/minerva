@@ -378,15 +378,15 @@ export class CueDmx extends React.PureComponent {
     }
 
     // If either value is null, replace it with the current value
-    if (channel === null) {
+    if (channel == null) {
       channel = this.props.cueDmx.fade.channel;
     }
-    if (value === null) {
+    if (value == null) {
       value = this.props.cueDmx.fade.value;
     }
 
     // Update the action, with or without duration
-    if (this.state.duration !== 0) {
+    if (this.state.duration != 0) {
       this.props.changeAction({
         CueDmx: {
           fade: {
@@ -414,7 +414,7 @@ export class CueDmx extends React.PureComponent {
   // On change of item id, pull the description of the scene
   componentDidUpdate(prevProps, prevState) {
     // Update the fade duration, if it changed
-    if (this.props.cueDmx.fade.duration && (this.props.cueDmx.fade.duration.secs !== prevProps.cueDmx.fade.duration.secs || this.props.cueDmx.fade.duration.nanos !== prevProps.cueDmx.fade.duration.nanos)) {
+    if (this.props.cueDmx.fade.duration && (!prevProps.cueDmx.fade.duration || (this.props.cueDmx.fade.duration.secs !== prevProps.cueDmx.fade.duration.secs || this.props.cueDmx.fade.duration.nanos !== prevProps.cueDmx.fade.duration.nanos))) {
       this.setState({
         duration: this.props.cueDmx.fade.duration.secs + (this.props.cueDmx.fade.duration.nanos / 1000000000),
         tmpChannel: this.props.cueDmx.fade.channel,

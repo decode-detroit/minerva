@@ -2,7 +2,7 @@ version: 0.9.10
 identifier:
   id: 0
 server_location: null
-dmx_path: null
+dmx_path:
 media_players: []
 system_connection: []
 background_process: null
@@ -14,9 +14,7 @@ all_scenes:
   : events:
     - id: 101
     - id: 100
-    key_map:
-      32:
-        id: 101
+    key_map: null
   ? id: 400
   : events:
     - id: 403
@@ -35,9 +33,7 @@ all_scenes:
     - id: 200
     - id: 203
     - id: 202
-    key_map:
-      32:
-        id: 201
+    key_map: null
   ? id: 300
   : events:
     - id: 302
@@ -289,4 +285,7 @@ event_set:
   : - !NewScene
       new_scene:
         id: 100
-user_styles: {}
+user_styles:
+  '#scene-100 #id-101': '{ left: 379px; top: 98px; }'
+  '#scene-200 #id-1000': '{ left: 591px; top: 365px; }'
+  '#scene-100 #id-1000': '{ left: 532px; top: 362px; }'
