@@ -590,7 +590,7 @@ export class CueEvent extends React.PureComponent {
     }
     
     // Update the event delay, if it changed
-    if (this.props.cueEvent.event.delay && (this.props.cueEvent.event.delay.secs !== prevProps.cueEvent.event.delay.secs || this.props.cueEvent.event.delay.nanos !== prevProps.cueEvent.event.delay.nanos)) {
+    if (this.props.cueEvent.event.delay && (!prevProps.cueEvent.event.delay || (this.props.cueEvent.event.delay.secs !== prevProps.cueEvent.event.delay.secs || this.props.cueEvent.event.delay.nanos !== prevProps.cueEvent.event.delay.nanos))) {
       this.setState({
         delay: this.props.cueEvent.event.delay.secs + (this.props.cueEvent.event.delay.nanos / 1000000000),
       })

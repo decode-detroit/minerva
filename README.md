@@ -11,7 +11,7 @@ Quickly configure and control an interactive show, no programming experience nec
 
 ## Getting Started
 
-If you're on a 64-bit GNU/Linux system, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below.
+If you're on a 64-bit GNU/Linux system or 32-bit Raspberry Pi, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below.
 
 If you're on Windows or Mac, binaries are still a work in progress.
 

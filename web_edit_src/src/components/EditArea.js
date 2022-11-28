@@ -330,12 +330,19 @@ export class ViewArea extends React.PureComponent {
   
   // Render the edit area inside the viewbox
   render() {
+    // Add the scene to the list, if it doesn't already exist
+    let idList = this.state.idList;
+    if (idList.indexOf(this.state.sceneId) < 0) {
+      idList = [this.state.sceneId, ...this.state.idList];
+    }
+
+    // Render the result
     return (
       <>
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onContextMenu={this.showContextMenu}>
           {this.state.sceneId !== -1 && <>
-            <EditArea id={this.state.sceneId} idList={this.state.idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown}handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
+            <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown}handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
             {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
           </>}
         </div>
