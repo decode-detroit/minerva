@@ -386,7 +386,7 @@ export class CueDmx extends React.PureComponent {
     }
 
     // Update the action, with or without duration
-    if (this.state.duration != 0) {
+    if ((this.state.duration != 0) && !isNaN(parseInt(this.state.duration))) {
       this.props.changeAction({
         CueDmx: {
           fade: {
@@ -515,7 +515,7 @@ export class CueEvent extends React.PureComponent {
       clearTimeout(this.saveTimeout);
     }
 
-    // Set the new timeout
+    // Set the timeout
     this.saveTimeout = setTimeout(this.updateAction, 100);
   }
 
@@ -530,7 +530,7 @@ export class CueEvent extends React.PureComponent {
     }
 
     // Update the action, with or without delay
-    if (this.state.delay !== 0) {
+    if ((this.state.delay !== 0) && !isNaN(parseInt(this.state.delay))) {
       this.props.changeAction({
         CueEvent: {
           event: {
