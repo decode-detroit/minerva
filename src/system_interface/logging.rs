@@ -156,9 +156,14 @@ impl Logger {
     /// from this method are the newest notifications as well as notifications
     /// from the last minute of operation.
     ///
-    pub async fn update(&mut self, update: LogUpdate) -> Vec<Notification> {
+    pub async fn update(&mut self, update: LogUpdate, is_debug: bool) -> Vec<Notification> {
         // Unpack the new update into a notification
         let mut notifications = vec![self.unpack_update(update).await];
+
+        // If debug mode, print the update to the command line
+        if is_debug {
+            println!("{}", &notifications[0]);
+        }
 
         // Iterate through the old notifications
         for old_note in self.old_notifications.drain(..) {
@@ -367,29 +372,29 @@ mod tests {
 
         // Pass a series of updates to the logger and verify the output
         let mut result = logger
-            .update(LogUpdate::Error("Test Error".to_string(), None))
+            .update(LogUpdate::Error("Test Error".to_string(), None), false)
             .await;
         assert_eq!(result[0].message(), "No Active Error Log.".to_string()); // because no error log was specified
         result = logger
-            .update(LogUpdate::Warning("Test Warning".to_string(), None))
+            .update(LogUpdate::Warning("Test Warning".to_string(), None), false)
             .await;
         assert_eq!(result[0].message(), "Test Warning".to_string());
         assert_eq!(result[1].message(), "No Active Error Log.".to_string());
         result = logger
-            .update(LogUpdate::Broadcast(ItemId::new_unchecked(3), None))
+            .update(LogUpdate::Broadcast(ItemId::new_unchecked(3), None), false)
             .await;
         assert_eq!(result[0].message(), "Test Broadcast (3)".to_string());
         assert_eq!(result[1].message(), "Test Warning".to_string());
         assert_eq!(result[2].message(), "No Active Error Log.".to_string());
         result = logger
-            .update(LogUpdate::Current(ItemId::new_unchecked(4)))
+            .update(LogUpdate::Current(ItemId::new_unchecked(4)), false)
             .await;
         assert_eq!(result[0].message(), "Test Event (4)".to_string());
         assert_eq!(result[1].message(), "Test Broadcast (3)".to_string());
         assert_eq!(result[2].message(), "Test Warning".to_string());
         assert_eq!(result[3].message(), "No Active Error Log.".to_string());
         result = logger
-            .update(LogUpdate::Update("Test Update".to_string()))
+            .update(LogUpdate::Update("Test Update".to_string()), false)
             .await;
         assert_eq!(result[0].message(), "Test Update".to_string());
         assert_eq!(result[1].message(), "Test Event (4)".to_string());

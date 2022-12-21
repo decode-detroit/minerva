@@ -365,6 +365,7 @@ impl SystemConnection {
                         internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
                         
                         // FIXME Move to an async context to use log!
+                        println!("Communication Write Error: {}", error);
                         // log!(err &internal_send => "Communication Write Error: {}", error);
                     }
 
@@ -377,6 +378,7 @@ impl SystemConnection {
                         internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
                         
                         // FIXME Move to an async context to use log!
+                        println!("Communication Read Error: {}", error);
                         // log!(err &internal_send => "Communication Read Error: {}", error);
                     }
                 }
@@ -411,6 +413,7 @@ impl SystemConnection {
                             internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
                             
                             // FIXME Move to an async context to use log!
+                            println!("Communication Error: {}", error1);
                             // log!(err &internal_send => "Communication Error: {}", error1);
 
                             // Wait a little bit and try again
@@ -424,6 +427,7 @@ impl SystemConnection {
                                 internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
 
                                 // FIXME Move to an async context to use log!
+                                println!("Persistent Communication Error: {}", error2);
                                 // log!(err &internal_send => "Persistent Communication Error: {}", error2);
                             }
                         }

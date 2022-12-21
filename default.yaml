@@ -4,7 +4,10 @@ identifier:
 server_location: null
 dmx_path:
 media_players: []
-system_connection: []
+system_connection:
+  - !ComedySerial
+      path: /dev/ttyACM0
+      baud: 115200
 background_process: null
 default_scene:
   id: 100

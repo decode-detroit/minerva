@@ -350,7 +350,7 @@ impl SystemInterface {
             // Pass the information update to the logger
             InternalUpdate::Update(log_update) => {
                 // Find the most recent notifications
-                let notifications = self.logger.update(log_update).await;
+                let notifications = self.logger.update(log_update, self.is_debug_mode).await;
 
                 // Send a notification update to the system
                 self.interface_send
