@@ -185,7 +185,7 @@ impl MediaInterface {
         })
     }
 
-    // A helper function to send a new media cue
+    // A helper method to send a new media cue
     pub fn play_cue(&mut self, cue: MediaCue) -> Result<(), Error> {
         // Check that the channel is valid
         if !self.channel_list.contains(&cue.channel) {
@@ -203,6 +203,29 @@ impl MediaInterface {
         
         // Pass the media cue to Apollo
         self.client.as_ref().unwrap().post(&format!("http://{}/cueMedia", &self.address)).json(&helper).send()?;
+
+        // Indicate success
+        Ok(())
+    }
+
+    // A helper method to adjust the location of a video frame by one pixel in any direction
+    pub fn adjust_media(&mut self, adjustment: MediaAdjustment ) -> Result<(), Error> {
+        // Check that the channel is valid
+        if !self.channel_list.contains(&adjustment.channel) {
+            // If not, note the error
+            return Err(format_err!("Channel for Media Alignment not found."));
+        }
+        
+        // Create the request client if it doesn't exist
+        if self.client.is_none() {
+            self.client = Some(Client::new());
+        }
+
+        // Recompose the media cue into a helper
+        let helper = adjustment.into_helper();
+        
+        // Pass the media cue to Apollo
+        self.client.as_ref().unwrap().post(&format!("http://{}/alignChannel", &self.address)).json(&helper).send()?;
 
         // Indicate success
         Ok(())

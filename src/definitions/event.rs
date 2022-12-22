@@ -206,10 +206,53 @@ impl MediaCue {
     }
 }
 
+/// An enum to define the adjustment directions
+///
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AdjustmentDirection {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+/// A struct to define an adjustment for a media channel
+///
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MediaAdjustment {
+    pub channel: u32, // the channel of the video
+    pub direction: AdjustmentDirection, // the direction to adjust the video frame
+}
+
+
+// A helper struct to define a media adjustment.
+// This version is serialized with camelCase to allow compatability with Apollo.
+//
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaAdjustmentHelper {
+    pub channel: u32, // the channel of the video
+    pub direction: AdjustmentDirection, // the direction to adjust the video frame
+}
+
+// Implement conversion from media cue to media cue helper
+impl MediaAdjustment {
+    pub fn into_helper(self) -> MediaAdjustmentHelper {
+        // Recompose as a media cue helper
+        MediaAdjustmentHelper {
+            channel: self.channel,
+            direction: self.direction,
+        }
+    }
+}
+
 /// An enum with various action options for each event.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum EventAction {
+    /// A variant to adjust media on one of the media channels.
+    AdjustMedia { adjustment: MediaAdjustment },
+
     /// A variant that links to one or more events to cancel. All upcoming
     /// events that match the specified id(s) will be cancelled.
     CancelEvent { event: ItemId },
@@ -254,6 +297,9 @@ pub enum EventAction {
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum WebEventAction {
+    /// A variant to adjust media on one of the media channels.
+    AdjustMedia { adjustment: MediaAdjustment },
+
     /// A variant that links to one or more events to cancel. All upcoming
     /// events that match the specified id(s) will be cancelled.
     CancelEvent { event: ItemId },
@@ -311,7 +357,8 @@ impl From<EventAction> for WebEventAction {
             }
 
             // Leave the rest untouched
-            EventAction::CancelEvent { event } => WebEventAction::CancelEvent { event },
+            EventAction::AdjustMedia { adjustment } => WebEventAction::AdjustMedia { adjustment },
+            EventAction::CancelEvent { event } => WebEventAction::CancelEvent { event }, 
             EventAction::CueDmx { fade } => WebEventAction::CueDmx { fade },
             EventAction::CueEvent { event } => WebEventAction::CueEvent { event },
             EventAction::CueMedia { cue } => WebEventAction::CueMedia { cue },
@@ -338,6 +385,7 @@ impl From<WebEventAction> for EventAction {
             }
 
             // Leave the rest untouched
+            WebEventAction::AdjustMedia { adjustment } => EventAction::AdjustMedia { adjustment },
             WebEventAction::CancelEvent { event } => EventAction::CancelEvent { event },
             WebEventAction::CueDmx { fade } => EventAction::CueDmx { fade },
             WebEventAction::CueEvent { event } => EventAction::CueEvent { event },
@@ -387,5 +435,5 @@ impl From<WebEvent> for Event {
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    CancelEvent, CueDmx, CueEvent, CueMedia, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
+    AdjustMedia, CancelEvent, CueDmx, CueEvent, CueMedia, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
 };

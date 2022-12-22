@@ -512,6 +512,7 @@ export class AddActionMenu extends React.PureComponent {
   render() {
     // Compose the list of possible action types
     let actionList = [
+      <div className="addActionButton" onClick={() => {this.props.addAction({ AdjustMedia: { adjustment: { channel: 0, direction: "Up" }}})}}>Adjust Media</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ CancelEvent: { event: { id: 0 }}})}}>Cancel Event</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ CueEvent: { event: { event_id: { id: 0 }}}})}}>Cue Event</div>,
       <div className="addActionButton" onClick={() => {this.props.addAction({ CueDmx: { fade: { channel: 1, value: 0 }}})}}>Cue Lights</div>,

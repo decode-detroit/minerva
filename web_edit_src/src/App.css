@@ -810,6 +810,22 @@ button.green {
   text-align: left;
 }
 
+.actionDetail>.additionalInfo div.toggleButton {
+  color: #efefef;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 0;
+  width: 100%;
+  outline: none;
+  margin: 5px 0;
+  padding: 5px 0;
+  font-family: Inter, sans-serif;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  line-height: 1;
+}
+
 .addActionMenu {
   position: absolute;
   top: 0;

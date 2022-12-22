@@ -619,6 +619,22 @@ impl EventHandler {
                 }
             }
 
+            // If there is media to adjust, send it to the media connection
+            AdjustMedia { adjustment } => {
+                // Send the cue to each media interface in turn
+                let mut success = false;
+                for interface in self.media_interfaces.iter_mut() {
+                    if let Ok(_) = interface.adjust_media(adjustment.clone()) {
+                        success = true;
+                    }
+                }
+               
+                // If all media players failed to play the cue, report the error
+                if !success {
+                    log!(err &self.internal_send => "Failed to play media cue.")
+                }
+            }
+
             // If there is an event to cancel, remove it from the queue
             CancelEvent { event } => {
                 // Cancel any events with the matching id in the queue

@@ -1007,6 +1007,9 @@ impl Config {
                 // If there is media to cue, assume validity
                 &CueMedia { .. } => (),
 
+                // If there is media to adjust, assume validity
+                &AdjustMedia { .. } => (),
+
                 // If there are events to cancel, verify that they exist
                 &CancelEvent { ref event } => {
                     // Return false if the event doesn't exist

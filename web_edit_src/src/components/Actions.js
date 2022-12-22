@@ -38,6 +38,12 @@ export class Action extends React.PureComponent {
         <CueMedia cueMedia={this.props.action.CueMedia} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
       );
 
+    // Adjust Media
+    } else if (this.props.action.hasOwnProperty(`AdjustMedia`)) {
+      return (
+        <AdjustMedia adjustMedia={this.props.action.AdjustMedia} grabFocus={this.props.grabFocus} changeAction={this.props.changeAction} selectMenu={this.props.selectMenu} />
+      );
+
     // Cancel Event
     } else if (this.props.action.hasOwnProperty(`CancelEvent`)) {
       return (
@@ -621,7 +627,7 @@ export class CueEvent extends React.PureComponent {
   }
 }
 
-// A cue event action
+// A cue media action
 export class CueMedia extends React.PureComponent {
   // Class constructor
   constructor(props) {
@@ -680,8 +686,6 @@ export class CueMedia extends React.PureComponent {
       loop = this.props.cueMedia.cue.loop_media;
     }
 
-    console.log(loop);
-
     // Update the action, with or without loop media
     if (loop !== null && loop != "") {
       this.props.changeAction({
@@ -693,7 +697,6 @@ export class CueMedia extends React.PureComponent {
           }
         }
       })
-      console.log("here!");
     } else {
       this.props.changeAction({
         CueMedia: {
@@ -716,6 +719,93 @@ export class CueMedia extends React.PureComponent {
               <label>File Location</label><input type="text" value={this.props.cueMedia.cue.uri} onInput={this.handleUriChange}></input><br/>
               <label>Channel</label><input type="number" min="0" value={this.props.cueMedia.cue.channel} onInput={this.handleChannelChange}></input><br/>
               <label>Loop Media</label><input type="text" value={this.props.cueMedia.cue.loop_media ? this.props.cueMedia.cue.loop_media : ""} onInput={this.handleLoopChange}></input><br/>
+            </div>
+          </div>
+        }/>
+      </>
+    );
+  }
+}
+
+// An adjust media action
+export class AdjustMedia extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Bind the various functions
+    this.handleDirectionChange = this.handleDirectionChange.bind(this);
+    this.handleChannelChange = this.handleChannelChange.bind(this);
+    this.updateAction = this.updateAction.bind(this);
+  }
+
+  // Function to handle new value
+  handleDirectionChange() {
+    // On button click, change the direction
+    let new_direction = "Up";
+    switch (this.props.adjustMedia.adjustment.direction) {
+      case "Up":
+        new_direction = "Down";
+        break;
+      case "Down":
+        new_direction = "Left";
+        break;
+      case "Left":
+        new_direction = "Right";
+        break;
+      default:
+        break;
+    }
+
+    // Save the change immediately
+    this.updateAction(new_direction, null);
+  }
+
+  // Function to handle new channel
+  handleChannelChange(e) {
+    // Extract the value
+    let channel = parseInt(e.target.value);
+
+    // Check bounds
+    if (channel < 0) {
+      channel = 0;
+    }
+
+    // Save the change immediately
+    this.updateAction(null, channel);
+  }
+
+  // Helper function to update the action
+  updateAction(direction, channel) {
+    // If any value is null, replace it with the current value
+    if (direction === null) {
+      direction = this.props.adjustMedia.adjustment.direction;
+    }
+    if (channel === null) {
+      channel = this.props.adjustMedia.adjustment.channel;
+    }
+
+    // Update the action,
+    this.props.changeAction({
+      AdjustMedia: {
+        adjustment: {
+          channel: channel,
+          direction: direction,
+        }
+      }
+    });
+  }
+
+  // Render the completed action
+  render() {
+    return (
+      <>
+        <ActionFragment title="Adjust Media" changeAction={this.props.changeAction} content={
+          <div className="actionDetail" onClick={stopPropogation}>
+            <div className="additionalInfo noDivider">
+              <label>Channel</label><input type="number" min="0" value={this.props.adjustMedia.adjustment.channel} onInput={this.handleChannelChange}></input><br/>
+              <div className="toggleButton" onClick={this.handleDirectionChange}>Direction: {this.props.adjustMedia.adjustment.direction == "Up" && "↑"}{this.props.adjustMedia.adjustment.direction == "Down" && "↓"}{this.props.adjustMedia.adjustment.direction == "Right" && "→"}{this.props.adjustMedia.adjustment.direction == "Left" && "←"}</div>
             </div>
           </div>
         }/>
