@@ -631,7 +631,7 @@ impl EventHandler {
                
                 // If all media players failed to play the cue, report the error
                 if !success {
-                    log!(err &self.internal_send => "Failed to play media cue.")
+                    log!(err &self.internal_send => "Failed to adjust media.")
                 }
             }
 

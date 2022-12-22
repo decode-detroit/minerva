@@ -194,14 +194,14 @@ pub struct MediaCueHelper {
     pub loop_media: Option<String>,
 }
 
-// Implement conversion from media cue to media cue helper
-impl MediaCue {
-    pub fn into_helper(self) -> MediaCueHelper {
+// Implement conversion to MediaCueHelper
+impl From<MediaCue> for MediaCueHelper {
+    fn from(media_cue: MediaCue) -> Self {
         // Recompose as a media cue helper
         MediaCueHelper {
-            uri: self.uri,
-            channel: self.channel,
-            loop_media: self.loop_media,
+            uri: media_cue.uri,
+            channel: media_cue.channel,
+            loop_media: media_cue.loop_media,
         }
     }
 }
@@ -214,6 +214,31 @@ pub enum AdjustmentDirection {
     Down,
     Left,
     Right,
+}
+
+/// An enum to define the adjustment directions
+// This version is serialized with camelCase to allow compatability with Apollo.
+///
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AdjustmentDirectionHelper {
+    Up,
+    Down,
+    Left,
+    Right,
+}
+
+// Implement conversion to AdjustmentDirectionHelper
+impl From<AdjustmentDirection> for AdjustmentDirectionHelper {
+    fn from(direction: AdjustmentDirection) -> Self {
+        // Map the enums
+        match direction {
+            AdjustmentDirection::Up => AdjustmentDirectionHelper::Up,
+            AdjustmentDirection::Down => AdjustmentDirectionHelper::Down,
+            AdjustmentDirection::Left => AdjustmentDirectionHelper::Left,
+            AdjustmentDirection::Right => AdjustmentDirectionHelper::Right,
+        }
+    }
 }
 
 /// A struct to define an adjustment for a media channel
@@ -232,16 +257,16 @@ pub struct MediaAdjustment {
 #[serde(rename_all = "camelCase")]
 pub struct MediaAdjustmentHelper {
     pub channel: u32, // the channel of the video
-    pub direction: AdjustmentDirection, // the direction to adjust the video frame
+    pub direction: AdjustmentDirectionHelper, // the direction to adjust the video frame
 }
 
-// Implement conversion from media cue to media cue helper
-impl MediaAdjustment {
-    pub fn into_helper(self) -> MediaAdjustmentHelper {
+// Implement conversion to MediaAdjustmentHelper
+impl From<MediaAdjustment> for MediaAdjustmentHelper {
+    fn from(adjustment: MediaAdjustment) -> Self {
         // Recompose as a media cue helper
         MediaAdjustmentHelper {
-            channel: self.channel,
-            direction: self.direction,
+            channel: adjustment.channel,
+            direction: adjustment.direction.into(),
         }
     }
 }

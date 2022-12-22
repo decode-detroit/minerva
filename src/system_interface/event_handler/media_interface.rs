@@ -199,7 +199,7 @@ impl MediaInterface {
         }
 
         // Recompose the media cue into a helper
-        let helper = cue.into_helper();
+        let helper: MediaCueHelper = cue.into();
         
         // Pass the media cue to Apollo
         self.client.as_ref().unwrap().post(&format!("http://{}/cueMedia", &self.address)).json(&helper).send()?;
@@ -222,7 +222,7 @@ impl MediaInterface {
         }
 
         // Recompose the media cue into a helper
-        let helper = adjustment.into_helper();
+        let helper: MediaAdjustmentHelper = adjustment.into();
         
         // Pass the media cue to Apollo
         self.client.as_ref().unwrap().post(&format!("http://{}/alignChannel", &self.address)).json(&helper).send()?;
