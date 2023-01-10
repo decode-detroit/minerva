@@ -20,7 +20,7 @@ redis = "0.22"
 serial = "0.4"
 byteorder = "1.4"
 zmq = { version = "0.10", optional = true }
-tokio = { version = "1.21", features = ["macros", "process", "rt-multi-thread", "time"] }
+tokio = { version = "1.23", features = ["macros", "process", "rt-multi-thread", "time"] }
 warp = "0.3"
 async-stream = "0.3"
 futures-util = "0.3"
