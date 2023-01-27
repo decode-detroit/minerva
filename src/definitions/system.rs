@@ -77,9 +77,7 @@ pub struct WebRequest {
 pub enum Modification {
     /// A modification to add an item or modify an existing one
     #[serde(rename_all = "camelCase")]
-    ModifyItem {
-        item_pair: ItemPair
-    },
+    ModifyItem { item_pair: ItemPair },
 
     /// A modification to add an event, modify an existing one, or delete it
     /// (if None provided)
@@ -114,15 +112,13 @@ pub enum Modification {
     },
 
     /// A modification to remove an item and any event, scene, or status connected to it
-    /// 
+    ///
     /// # WARNING
-    /// 
+    ///
     /// This does not remove dangling references to the item that may appear in other items.
-    /// 
+    ///
     #[serde(rename_all = "camelCase")]
-    RemoveItem {
-        item_id: ItemId
-    },
+    RemoveItem { item_id: ItemId },
 }
 
 /// An enum to specify the type of detail request
@@ -334,7 +330,7 @@ pub enum WebReply {
         is_valid: bool,                     // a flag to introduce the result of the request
         connections: Option<ConnectionSet>, // the connection set, if found
     },
-    
+
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
     Event {
@@ -368,7 +364,7 @@ pub enum WebReply {
     Path {
         is_valid: bool,   // a flag to indicate the result of the request
         filename: String, // the filename, including the file extension
-        path: String, // 
+        path: String,     //
     },
 
     // A variant that contains scene detail

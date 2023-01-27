@@ -94,7 +94,7 @@ impl From<InterfaceUpdate> for Result<Message, warp::Error> {
         // Try to serialize the update
         match serde_json::to_string(&update) {
             Ok(string) => Ok(Message::text(string)),
-            
+
             // On failure, return an empty string (unable to convert the error)
             _ => Ok(Message::text("")),
         }

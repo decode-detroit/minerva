@@ -223,7 +223,7 @@ impl Config {
         Config {
             identifier: Identifier { id: Some(1) },
             system_connection: ConnectionSet::new(),
-            dmx_path: None, 
+            dmx_path: None,
             media_players: Vec::new(),
             server_location: None,
             background_thread: None,
@@ -361,7 +361,8 @@ impl Config {
             interface_send
                 .send(InterfaceUpdate::ChangeSettings {
                     display_setting: DisplaySetting::FullScreen(fullscreen),
-                }).await;
+                })
+                .await;
         }
 
         // Return the new configuration

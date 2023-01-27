@@ -22,9 +22,9 @@
 use crate::definitions::*;
 
 // Import Tokio features
-use tokio::sync::oneshot;
 #[cfg(not(test))]
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 
 // Import FNV HashMap
 use fnv::FnvHashMap;

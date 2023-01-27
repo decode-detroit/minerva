@@ -35,8 +35,8 @@ use self::zmq_comm::{ZmqBind, ZmqConnect};
 
 // Import standard library features
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 // Import the failure features
 use failure::Error;
@@ -302,7 +302,7 @@ impl SystemConnection {
         loop {
             // Save the start time of the loop
             let loop_start = Instant::now();
-            
+
             // Read all results from the system connections
             let mut results = Vec::new();
             for connection in connections.iter_mut() {
@@ -332,16 +332,19 @@ impl SystemConnection {
                                     check_scene: true,
                                     broadcast: false,
                                 }); // don't broadcast
-                            // FIXME Handle incoming data
+                                    // FIXME Handle incoming data
 
                             // Otherwise send a notification of an incorrect game number
                             } else {
                                 // Format the warning string
-                                let tmp = format!("Game Id Does Not Match. Event Ignored. ({})", id);
+                                let tmp =
+                                    format!("Game Id Does Not Match. Event Ignored. ({})", id);
 
                                 // Send the warning to the mpsc line
-                                internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Warning(tmp, None)));
-                                
+                                internal_send.blocking_send(InternalUpdate::Update(
+                                    LogUpdate::Warning(tmp, None),
+                                ));
+
                                 // FIXME Move to an async context to use log!
                                 // log!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
                             }
@@ -357,13 +360,14 @@ impl SystemConnection {
                     }
 
                     // For a write error, notify the system
-                    ReadResult::WriteError(error) => {                        
+                    ReadResult::WriteError(error) => {
                         // Format the error string
                         let tmp = format!("Communication Write Error: {}", error);
 
                         // Send the warning to the mpsc line
-                        internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
-                        
+                        internal_send
+                            .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+
                         // FIXME Move to an async context to use log!
                         println!("Communication Write Error: {}", error);
                         // log!(err &internal_send => "Communication Write Error: {}", error);
@@ -375,8 +379,9 @@ impl SystemConnection {
                         let tmp = format!("Communication Read Error: {}", error);
 
                         // Send the warning to the mpsc line
-                        internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
-                        
+                        internal_send
+                            .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+
                         // FIXME Move to an async context to use log!
                         println!("Communication Read Error: {}", error);
                         // log!(err &internal_send => "Communication Read Error: {}", error);
@@ -410,8 +415,9 @@ impl SystemConnection {
                             let tmp = format!("Communication Error: {}", error1);
 
                             // Send the warning to the mpsc line
-                            internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
-                            
+                            internal_send
+                                .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+
                             // FIXME Move to an async context to use log!
                             println!("Communication Error: {}", error1);
                             // log!(err &internal_send => "Communication Error: {}", error1);
@@ -424,7 +430,9 @@ impl SystemConnection {
                                 let tmp = format!("Persistent Communication Error: {}", error2);
 
                                 // Send the warning to the mpsc line
-                                internal_send.blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
+                                internal_send.blocking_send(InternalUpdate::Update(
+                                    LogUpdate::Error(tmp, None),
+                                ));
 
                                 // FIXME Move to an async context to use log!
                                 println!("Persistent Communication Error: {}", error2);

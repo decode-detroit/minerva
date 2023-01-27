@@ -146,7 +146,7 @@ impl IndexAccess {
     }
 
     /// A method to see if an item is listed in the index
-    /// 
+    ///
     pub async fn is_listed(&self, item_id: &ItemId) -> bool {
         // Lock access
         if let Ok(index) = self.index.lock() {
@@ -339,11 +339,7 @@ impl StyleAccess {
     /// A method to add or update the rule in the map
     /// Returns true if the operation was a success.
     ///
-    pub async fn update_rule(
-        &self,
-        selector: String,
-        new_rule: String,
-    ) -> bool {
+    pub async fn update_rule(&self, selector: String, new_rule: String) -> bool {
         // Lock access
         if let Ok(map) = self.style_map.lock() {
             return StyleAccess::modify_rule(map, selector, Some(new_rule));
@@ -354,7 +350,7 @@ impl StyleAccess {
     }
 
     /// A method to see if a selector is listed in the style sheet
-    /// 
+    ///
     pub async fn is_listed(&self, selector: &String) -> bool {
         // Lock access
         if let Ok(map) = self.style_map.lock() {

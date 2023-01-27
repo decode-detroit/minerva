@@ -72,9 +72,9 @@ pub struct ComedyComm {
     port: Option<serial::SystemPort>,       // the serial port of the connection, if available
     buffer: Vec<u8>,                        // the current input buffer
     outgoing: Vec<(ItemId, u32, u32)>,      // the outgoing event buffer
-    last_ack: Option<Instant>,              // Some(instant) if we are still waiting on ack from instant
+    last_ack: Option<Instant>, // Some(instant) if we are still waiting on ack from instant
     filter_events: Vec<(ItemId, u32, u32)>, // events to filter out
-    last_retry: Option<Instant>,            // Some(instant) if we have lost connection to the port
+    last_retry: Option<Instant>, // Some(instant) if we have lost connection to the port
 }
 
 // Implement key functionality for the ComedyComm structure
@@ -109,7 +109,7 @@ impl ComedyComm {
     fn connect(&mut self) -> Result<(), Error> {
         // Disconnect from the port, if there is one
         drop(self.port.take());
-        
+
         // Connect to the requested serial port
         let mut port = serial::open(&self.path)?;
 
@@ -153,7 +153,7 @@ impl ComedyComm {
                     if self.connect().is_err() {
                         return Err(format_err!("Comedy Comm port is unavailable."));
                     }
-                },
+                }
 
                 // Otherwise, check how long it's been
                 Some(instant) => {
@@ -166,7 +166,7 @@ impl ComedyComm {
                         if self.connect().is_err() {
                             return Err(format_err!("Comedy Comm port is unavailable."));
                         }
-                    }                 
+                    }
                 }
             }
         }
@@ -206,7 +206,12 @@ impl ComedyComm {
     ///
     /// Note: Ack timer must be manually reset by caller
     ///
-    fn write_event_now(port: &mut serial::SystemPort, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn write_event_now(
+        port: &mut serial::SystemPort,
+        id: ItemId,
+        data1: u32,
+        data2: u32,
+    ) -> Result<(), Error> {
         // Format the command as a byte
         let mut bytes = Vec::new();
         bytes.push(COMMAND_CHARACTER);
@@ -256,7 +261,7 @@ impl EventConnection for ComedyComm {
     fn read_events(&mut self) -> Vec<ReadResult> {
         // Check the USB connection
         if let Err(error) = self.check_connection() {
-            return vec!(ReadResult::ReadError(error));
+            return vec![ReadResult::ReadError(error)];
         };
 
         // Create a list of results to return
@@ -267,7 +272,6 @@ impl EventConnection for ComedyComm {
 
         // If the port is available, try to get a mutable reference
         if let Some(ref mut port) = self.port {
-
             // If there are pending outgoing messages
             if self.outgoing.len() > 0 {
                 // Check for a pending ack
@@ -276,7 +280,14 @@ impl EventConnection for ComedyComm {
                     None => {
                         // Copy and send the next event
                         let (id, data1, data2) = self.outgoing[0];
-                        if ComedyComm::write_event_now(port, id.clone(), data1.clone(), data2.clone()).is_err() {
+                        if ComedyComm::write_event_now(
+                            port,
+                            id.clone(),
+                            data1.clone(),
+                            data2.clone(),
+                        )
+                        .is_err()
+                        {
                             is_unavailable = true;
                         }
 
@@ -295,7 +306,14 @@ impl EventConnection for ComedyComm {
 
                             // Copy and resend the current event
                             let (id, data1, data2) = self.outgoing[0];
-                            if ComedyComm::write_event_now(port, id.clone(), data1.clone(), data2.clone()).is_err() {
+                            if ComedyComm::write_event_now(
+                                port,
+                                id.clone(),
+                                data1.clone(),
+                                data2.clone(),
+                            )
+                            .is_err()
+                            {
                                 is_unavailable = true;
                             }
 
@@ -452,7 +470,7 @@ impl EventConnection for ComedyComm {
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
         // Check the USB connection
         self.check_connection()?;
-        
+
         // If this event is not already in the outgoing buffer
         let mut found = false;
         for &(ref existing_id, ref existing_data1, ref existing_data2) in self.outgoing.iter() {
@@ -491,12 +509,12 @@ impl EventConnection for ComedyComm {
             // Reset the start time waiting for the ack
             self.last_ack = Some(Instant::now());
         }
-        
+
         // If the port is unavailable, drop the connection
         if is_unavailable {
             if let Some(bad_port) = self.port.take() {
                 drop(bad_port); // Ensure the port is promptly dropped
-                
+
                 // Return the error
                 return Err(format_err!("Lost connection to Comedy Comm port."));
             }

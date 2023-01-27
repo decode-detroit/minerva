@@ -35,9 +35,9 @@ use self::system_connection::SystemConnection;
 
 // Import standard library features
 use std::env;
+use std::ffi::OsStr;
 use std::fs::DirBuilder;
 use std::path::PathBuf;
-use std::ffi::OsStr;
 
 // Import Tokio features
 use tokio::sync::mpsc;
@@ -149,7 +149,7 @@ impl SystemInterface {
                 path.set_extension("yaml");
                 if path.exists() {
                     sys_interface.load_config(Some(path), false).await;
-                
+
                 // If neither are found, create an empty config
                 } else {
                     sys_interface.load_config(None, false).await;
@@ -290,7 +290,8 @@ impl SystemInterface {
                 self.interface_send
                     .send(InterfaceUpdate::UpdateTimeline {
                         events: upcoming_events,
-                    }).await;
+                    })
+                    .await;
             }
 
             // Solicit a string from the user
@@ -314,7 +315,8 @@ impl SystemInterface {
                         self.interface_send
                             .send(InterfaceUpdate::Notify {
                                 message: description.description,
-                            }).await;
+                            })
+                            .await;
                     }
 
                     // Put the handler back
@@ -343,7 +345,8 @@ impl SystemInterface {
                             current_scene,
                             current_items,
                             key_map,
-                        }).await;
+                        })
+                        .await;
                 }
             }
 
@@ -354,7 +357,8 @@ impl SystemInterface {
 
                 // Send a notification update to the system
                 self.interface_send
-                    .send(InterfaceUpdate::UpdateNotifications { notifications }).await;
+                    .send(InterfaceUpdate::UpdateNotifications { notifications })
+                    .await;
             }
         }
     }
@@ -406,7 +410,8 @@ impl SystemInterface {
                 self.interface_send
                     .send(InterfaceUpdate::Notify {
                         message: "ALL STOP. Upcoming events have been cleared.".to_string(),
-                    }).await;
+                    })
+                    .await;
             }
 
             // Pass a broadcast event to the system connection (used only by
@@ -425,7 +430,8 @@ impl SystemInterface {
 
                 // Notify the user interface of the event
                 self.interface_send
-                    .send(InterfaceUpdate::Notify { message }).await;
+                    .send(InterfaceUpdate::Notify { message })
+                    .await;
             }
 
             // Clear the events currently in the queue
@@ -510,7 +516,7 @@ impl SystemInterface {
                         DetailType::Connections => {
                             result = UnpackResult::SuccessWithConnections(handler.get_connections())
                         }
-                        
+
                         // Reply to a request for the event
                         DetailType::Event { item_id } => {
                             // Try to get the event
@@ -642,7 +648,7 @@ impl SystemInterface {
                                 let description = self.index_access.get_description(&item_id).await;
 
                                 // Remove the entry in the item index
-                                if self.index_access.remove_item(item_id).await  {
+                                if self.index_access.remove_item(item_id).await {
                                     log!(update &self.internal_send => "Item Deleted: {}", description);
                                 } // ignore errors
                             }
@@ -696,7 +702,8 @@ impl SystemInterface {
                         self.interface_send
                             .send(InterfaceUpdate::Notify {
                                 message: description.description,
-                            }).await;
+                            })
+                            .await;
                     }
 
                     // Put the handler back
@@ -726,7 +733,8 @@ impl SystemInterface {
                             current_scene,
                             current_items,
                             key_map,
-                        }).await;
+                        })
+                        .await;
                 }
             }
 
@@ -846,7 +854,8 @@ impl SystemInterface {
             .send(InterfaceUpdate::UpdateConfig {
                 scenes,
                 full_status,
-            }).await;
+            })
+            .await;
 
         // Trigger a redraw of the system
         self.internal_send.send_refresh().await;

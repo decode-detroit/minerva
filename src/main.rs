@@ -19,7 +19,7 @@
 //! The main module of the minerva program which pulls from the other modules.
 
 // Allow deeper recursion testing for web server
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
 
 // Import YAML processing libraries
 #[macro_use]
@@ -82,10 +82,17 @@ impl Minerva {
         let (interface_send, web_interface_recv) = InterfaceSend::new();
 
         // Launch the system interface to monitor and handle events
-        let (system_interface, web_send) = SystemInterface::new(index_access.clone(), style_access.clone(), interface_send.clone()).await.expect("Unable To Create System Interface.");
+        let (system_interface, web_send) = SystemInterface::new(
+            index_access.clone(),
+            style_access.clone(),
+            interface_send.clone(),
+        )
+        .await
+        .expect("Unable To Create System Interface.");
 
         // Create a new web interface
-        let mut web_interface = WebInterface::new(index_access.clone(), style_access.clone(), web_send);
+        let mut web_interface =
+            WebInterface::new(index_access.clone(), style_access.clone(), web_send);
 
         // Run the web interface in a new thread
         tokio::spawn(async move {

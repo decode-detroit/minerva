@@ -24,9 +24,9 @@
 // Define private submodules
 mod backup;
 mod config;
-mod queue;
 mod dmx_interface;
 mod media_interface;
+mod queue;
 
 // Import crate definitions
 use crate::definitions::*;
@@ -34,9 +34,9 @@ use crate::definitions::*;
 // Import other definitions
 use self::backup::BackupHandler;
 use self::config::Config;
-use self::queue::Queue;
 use self::dmx_interface::DmxInterface;
 use self::media_interface::MediaInterface;
+use self::queue::Queue;
 
 // Import standard library features
 use std::env;
@@ -47,8 +47,8 @@ use std::time::Duration;
 use chrono::NaiveDateTime;
 
 // Import Tokio features
-use tokio::time::sleep;
 use tokio::fs::File;
+use tokio::time::sleep;
 
 // Import the failure features
 use failure::Error;
@@ -59,12 +59,12 @@ use failure::Error;
 ///
 pub struct EventHandler {
     internal_send: InternalSend, // sending line for event updates and timed events
-    queue: Queue,                           // current event queue
-    dmx_interface: Option<DmxInterface>,    // the dmx interface, if available
-    media_interfaces: Vec<MediaInterface>,  // list of available media interfaces
-    config: Config,                         // current configuration
-    config_path: PathBuf,                   // current configuration path
-    backup: BackupHandler,                  // current backup server
+    queue: Queue,                // current event queue
+    dmx_interface: Option<DmxInterface>, // the dmx interface, if available
+    media_interfaces: Vec<MediaInterface>, // list of available media interfaces
+    config: Config,              // current configuration
+    config_path: PathBuf,        // current configuration path
+    backup: BackupHandler,       // current backup server
 }
 
 // Implement the event handler functions
@@ -126,14 +126,10 @@ impl EventHandler {
                 config_file,
             )
             .await?;
-        
+
         // Otherwise, create an empty configuration
         } else {
-            config = Config::new(
-                index_access,
-                style_access,
-                internal_send.clone(),
-            ).await;
+            config = Config::new(index_access, style_access, internal_send.clone()).await;
 
             // Set the path to "default.yaml" in the current directory
             resolved_path = env::current_dir().unwrap_or(PathBuf::new());
@@ -146,7 +142,7 @@ impl EventHandler {
             // Try to connect to the interface
             if let Ok(interface) = DmxInterface::new(&path) {
                 dmx_interface = Some(interface);
-            
+
             // Otherwise, report the error
             } else {
                 log!(err &internal_send => "Unable to initialize the DMX interface.");
@@ -156,13 +152,15 @@ impl EventHandler {
         // Attempt to create any media interfaces
         let mut media_interfaces = Vec::new();
         for details in config.get_media_players() {
-            media_interfaces.push(MediaInterface::new(
-                internal_send.clone(),
-                details.channel_map,
-                details.window_map,
-                details.apollo_params,
-            )
-            .await?);
+            media_interfaces.push(
+                MediaInterface::new(
+                    internal_send.clone(),
+                    details.channel_map,
+                    details.window_map,
+                    details.apollo_params,
+                )
+                .await?,
+            );
         }
 
         // Create an empty event queue
@@ -590,7 +588,7 @@ impl EventHandler {
                     if let Err(err) = interface.play_fade(fade) {
                         log!(err &self.internal_send => "Error with DMX playback: {}", err);
                     }
-                
+
                 // Warn that there is no active Dmx interface
                 } else {
                     log!(err &self.internal_send => "Failed to play DMX fade: no DMX interface available.")
@@ -612,7 +610,7 @@ impl EventHandler {
                         success = true;
                     }
                 }
-               
+
                 // If all media players failed to play the cue, report the error
                 if !success {
                     log!(err &self.internal_send => "Failed to play media cue.")
@@ -628,7 +626,7 @@ impl EventHandler {
                         success = true;
                     }
                 }
-               
+
                 // If all media players failed to play the cue, report the error
                 if !success {
                     log!(err &self.internal_send => "Failed to adjust media.")

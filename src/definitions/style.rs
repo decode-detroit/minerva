@@ -19,9 +19,9 @@
 //! access to the style sheet.
 
 // Import Tokio features
-use tokio::sync::oneshot;
 #[cfg(not(test))]
 use tokio::sync::mpsc;
+use tokio::sync::oneshot;
 
 // Import FNV HashMap
 use fnv::FnvHashMap;
@@ -34,7 +34,7 @@ pub type StyleMap = FnvHashMap<String, String>; // a hash map of selectors and r
 pub fn style_to_string(mut style_map: StyleMap) -> String {
     // Create an empty string
     let mut string = String::new();
-    
+
     // Iterate through all the key/value pairs
     for (selector, rule) in style_map.drain() {
         string += &(selector + " " + &rule + "\n");
@@ -153,11 +153,7 @@ impl StyleAccess {
     /// Returns true if the item was not previously defined and false otherwise.
     /// FIXME This is a misleading return value.
     ///
-    pub async fn update_rule(
-        &self,
-        selector: String,
-        new_rule: String,
-    ) -> bool {
+    pub async fn update_rule(&self, selector: String, new_rule: String) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
         if let Err(_) = self

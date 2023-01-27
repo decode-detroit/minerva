@@ -88,7 +88,9 @@ impl ItemIndex {
                 item_id,
                 reply_line,
             }) => {
-                reply_line.send(self.index.contains_key(&item_id)).unwrap_or(());
+                reply_line
+                    .send(self.index.contains_key(&item_id))
+                    .unwrap_or(());
             }
 
             // If it is a description request
@@ -262,10 +264,7 @@ mod tests {
 
         // Delete a description and verify the change
         assert_eq!(true, index_access.remove_item(id1).await);
-        assert_eq!(
-            false,
-            index_access.is_listed(&id1).await
-        );
+        assert_eq!(false, index_access.is_listed(&id1).await);
         assert_eq!(vec!(id2)[0], index_access.get_all().await[0]);
     }
 }

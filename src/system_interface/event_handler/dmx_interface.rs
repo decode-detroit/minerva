@@ -67,9 +67,7 @@ pub struct DmxInterface {
 impl DmxInterface {
     /// A function to create a new instance of the DmxOut
     ///
-    pub fn new(
-        path: &PathBuf,
-    ) -> Result<Self, Error> {
+    pub fn new(path: &PathBuf) -> Result<Self, Error> {
         // Connect to the underlying serial port
         let mut port = serial::open(path)?;
 
@@ -96,13 +94,11 @@ impl DmxInterface {
         });
 
         // Return the new DmxOut instance
-        Ok(Self {
-            load_fade,
-        })
+        Ok(Self { load_fade })
     }
 
     /// A method to play a new Dmx fade
-    /// 
+    ///
     pub fn play_fade(&self, fade: DmxFade) -> Result<(), Error> {
         // Verify the range of the selected channel
         if (fade.channel > DMX_MAX) | (fade.channel < 1) {
@@ -182,7 +178,7 @@ impl DmxChange {
 /// separate daemon to preserve ordering of the changes and minimize the spread
 /// of unnecessary threads. This version preserves the proper order of the dmx
 /// changes.
-/// 
+///
 /// TODO: Rewrite this implementation to use a tokio thread
 ///
 pub struct DmxQueue {

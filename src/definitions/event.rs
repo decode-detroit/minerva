@@ -24,7 +24,7 @@ use crate::definitions::*;
 use std::time::Duration;
 
 // Import Chrono features
-use chrono::{NaiveDateTime, Local};
+use chrono::{Local, NaiveDateTime};
 
 // Import FNV HashMap
 use fnv::FnvHashMap;
@@ -63,12 +63,12 @@ impl EventDelay {
 }
 
 /// A struct to allow easier manipulation of queued events.
-/// 
+///
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct ComingEvent {
-    pub start_time: NaiveDateTime,   // the start time of the event
-    pub delay: Duration,        // delay between the start time and the trigger time for the event
-    pub event_id: ItemId,       // id of the event to launch
+    pub start_time: NaiveDateTime, // the start time of the event
+    pub delay: Duration, // delay between the start time and the trigger time for the event
+    pub event_id: ItemId, // id of the event to launch
 }
 
 // Implement the Coming Event features
@@ -95,8 +95,10 @@ impl ComingEvent {
     ///
     pub fn remaining(&self) -> Option<Duration> {
         // Calculate the time since the event was queued
-        let elapsed = Local::now().naive_local().signed_duration_since(self.start_time);
-        
+        let elapsed = Local::now()
+            .naive_local()
+            .signed_duration_since(self.start_time);
+
         // Compare the durations, or default to playing the event immediately
         match elapsed.to_std().ok() {
             // If the conversion was a success, perform the calculation
@@ -109,7 +111,7 @@ impl ComingEvent {
 
     /// A method to compare the start time and event id of two coming events.
     /// The method returns true iff both values are equal.
-    /// 
+    ///
     pub fn compare_with(&self, other: &ComingEvent) -> bool {
         (self.event_id == other.event_id) & (self.start_time == other.start_time)
     }
@@ -122,9 +124,9 @@ impl ComingEvent {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpcomingEvent {
-    pub event: ItemPair,            // id and description of the event to launch
-    pub start_time: NaiveDateTime,  // the original start time of the event
-    pub delay: Duration,            // delay between now and the time for the event
+    pub event: ItemPair,           // id and description of the event to launch
+    pub start_time: NaiveDateTime, // the original start time of the event
+    pub delay: Duration,           // delay between now and the time for the event
 }
 
 /// An enum with the types of data available to be saved and sent
@@ -178,7 +180,7 @@ pub struct DmxFade {
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaCue {
-    pub uri: String, // the location of the video or audio file to play
+    pub uri: String,                // the location of the video or audio file to play
     pub channel: u32, // the channel of the video or audio. New media sent to the same channel will replace the old media, starting instantly
     pub loop_media: Option<String>, // the location of media to loop after this media is complete
 }
@@ -245,10 +247,9 @@ impl From<AdjustmentDirection> for AdjustmentDirectionHelper {
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MediaAdjustment {
-    pub channel: u32, // the channel of the video
+    pub channel: u32,                   // the channel of the video
     pub direction: AdjustmentDirection, // the direction to adjust the video frame
 }
-
 
 // A helper struct to define a media adjustment.
 // This version is serialized with camelCase to allow compatability with Apollo.
@@ -256,7 +257,7 @@ pub struct MediaAdjustment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaAdjustmentHelper {
-    pub channel: u32, // the channel of the video
+    pub channel: u32,                         // the channel of the video
     pub direction: AdjustmentDirectionHelper, // the direction to adjust the video frame
 }
 
@@ -276,22 +277,32 @@ impl From<MediaAdjustment> for MediaAdjustmentHelper {
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum EventAction {
     /// A variant to adjust media on one of the media channels.
-    AdjustMedia { adjustment: MediaAdjustment },
+    AdjustMedia {
+        adjustment: MediaAdjustment,
+    },
 
     /// A variant that links to one or more events to cancel. All upcoming
     /// events that match the specified id(s) will be cancelled.
-    CancelEvent { event: ItemId },
+    CancelEvent {
+        event: ItemId,
+    },
 
     // A variant to cue a DMX fade on one of the channels
-    CueDmx { fade: DmxFade },
+    CueDmx {
+        fade: DmxFade,
+    },
 
     /// A variant that links to one event to add to the queue. These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
-    CueEvent { event: EventDelay },
+    CueEvent {
+        event: EventDelay,
+    },
 
     /// A variant to cue media on one of the media channels.
-    CueMedia { cue: MediaCue },
+    CueMedia {
+        cue: MediaCue,
+    },
 
     /// A variant used to change current status of the target status.
     ModifyStatus {
@@ -300,11 +311,15 @@ pub enum EventAction {
     },
 
     /// A variant indicating a complete change in scene.
-    NewScene { new_scene: ItemId },
+    NewScene {
+        new_scene: ItemId,
+    },
 
     /// A variant which contains a vector of data to save in the current game
     /// logging file.
-    SaveData { data: DataType },
+    SaveData {
+        data: DataType,
+    },
 
     /// A variant which selects an event based on the state of the indicated
     /// status.
@@ -315,7 +330,9 @@ pub enum EventAction {
 
     /// A variant which contains a type of data to include with the event
     /// when broadcast to the system
-    SendData { data: DataType },
+    SendData {
+        data: DataType,
+    },
 }
 
 /// An web-safe (JSON readable) enum with various action options for each event.
@@ -323,22 +340,32 @@ pub enum EventAction {
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub enum WebEventAction {
     /// A variant to adjust media on one of the media channels.
-    AdjustMedia { adjustment: MediaAdjustment },
+    AdjustMedia {
+        adjustment: MediaAdjustment,
+    },
 
     /// A variant that links to one or more events to cancel. All upcoming
     /// events that match the specified id(s) will be cancelled.
-    CancelEvent { event: ItemId },
+    CancelEvent {
+        event: ItemId,
+    },
 
     // A variant to cue a DMX fade on one of the channels
-    CueDmx { fade: DmxFade },
+    CueDmx {
+        fade: DmxFade,
+    },
 
     /// A variant that links to one event to add to the queue These events may
     /// be triggered immediately when delay is None, or after a delay if delay
     /// is Some(delay).
-    CueEvent { event: EventDelay },
+    CueEvent {
+        event: EventDelay,
+    },
 
     /// A variant to cue media on one of the media channels.
-    CueMedia { cue: MediaCue },
+    CueMedia {
+        cue: MediaCue,
+    },
 
     /// A variant used to change current status of the target status.
     ModifyStatus {
@@ -347,11 +374,15 @@ pub enum WebEventAction {
     },
 
     /// A variant indicating a complete change in scene.
-    NewScene { new_scene: ItemId },
+    NewScene {
+        new_scene: ItemId,
+    },
 
     /// A variant which contains a vector of data to save in the current game
     /// logging file.
-    SaveData { data: DataType },
+    SaveData {
+        data: DataType,
+    },
 
     /// A variant which selects an event based on the state of the indicated
     /// status.
@@ -362,7 +393,9 @@ pub enum WebEventAction {
 
     /// A variant which contains a type of data to include with the event
     /// when broadcast to the system
-    SendData { data: DataType },
+    SendData {
+        data: DataType,
+    },
 }
 
 // Implement conversions to and from WebEventAction
@@ -370,7 +403,10 @@ impl From<EventAction> for WebEventAction {
     fn from(event_action: EventAction) -> Self {
         match event_action {
             // Convert keys to u32 for Select Event
-            EventAction::SelectEvent { status_id, mut event_map } => {
+            EventAction::SelectEvent {
+                status_id,
+                mut event_map,
+            } => {
                 // Remap the ItemIds as u32
                 let mut new_event_map = FnvHashMap::default();
                 for (key, value) in event_map.drain() {
@@ -378,16 +414,25 @@ impl From<EventAction> for WebEventAction {
                 }
 
                 // Return the completed select event
-                WebEventAction::SelectEvent { status_id, event_map: new_event_map }
+                WebEventAction::SelectEvent {
+                    status_id,
+                    event_map: new_event_map,
+                }
             }
 
             // Leave the rest untouched
             EventAction::AdjustMedia { adjustment } => WebEventAction::AdjustMedia { adjustment },
-            EventAction::CancelEvent { event } => WebEventAction::CancelEvent { event }, 
+            EventAction::CancelEvent { event } => WebEventAction::CancelEvent { event },
             EventAction::CueDmx { fade } => WebEventAction::CueDmx { fade },
             EventAction::CueEvent { event } => WebEventAction::CueEvent { event },
             EventAction::CueMedia { cue } => WebEventAction::CueMedia { cue },
-            EventAction::ModifyStatus { status_id, new_state } => WebEventAction::ModifyStatus { status_id, new_state },
+            EventAction::ModifyStatus {
+                status_id,
+                new_state,
+            } => WebEventAction::ModifyStatus {
+                status_id,
+                new_state,
+            },
             EventAction::NewScene { new_scene } => WebEventAction::NewScene { new_scene },
             EventAction::SaveData { data } => WebEventAction::SaveData { data },
             EventAction::SendData { data } => WebEventAction::SendData { data },
@@ -398,7 +443,10 @@ impl From<WebEventAction> for EventAction {
     fn from(web_event_action: WebEventAction) -> Self {
         match web_event_action {
             // Convert keys to ItemId for Select Event
-            WebEventAction::SelectEvent { status_id, mut event_map } => {
+            WebEventAction::SelectEvent {
+                status_id,
+                mut event_map,
+            } => {
                 // Remap the ItemIds as u32
                 let mut new_event_map = FnvHashMap::default();
                 for (key, value) in event_map.drain() {
@@ -406,7 +454,10 @@ impl From<WebEventAction> for EventAction {
                 }
 
                 // Return the completed select event
-                EventAction::SelectEvent { status_id, event_map: new_event_map }
+                EventAction::SelectEvent {
+                    status_id,
+                    event_map: new_event_map,
+                }
             }
 
             // Leave the rest untouched
@@ -415,14 +466,19 @@ impl From<WebEventAction> for EventAction {
             WebEventAction::CueDmx { fade } => EventAction::CueDmx { fade },
             WebEventAction::CueEvent { event } => EventAction::CueEvent { event },
             WebEventAction::CueMedia { cue } => EventAction::CueMedia { cue },
-            WebEventAction::ModifyStatus { status_id, new_state } => EventAction::ModifyStatus { status_id, new_state },
+            WebEventAction::ModifyStatus {
+                status_id,
+                new_state,
+            } => EventAction::ModifyStatus {
+                status_id,
+                new_state,
+            },
             WebEventAction::NewScene { new_scene } => EventAction::NewScene { new_scene },
             WebEventAction::SaveData { data } => EventAction::SaveData { data },
             WebEventAction::SendData { data } => EventAction::SendData { data },
         }
     }
 }
-
 
 /// A convenient type definition to specify each event
 ///
@@ -460,5 +516,6 @@ impl From<WebEvent> for Event {
 
 // Reexport the event action type variants
 pub use self::EventAction::{
-    AdjustMedia, CancelEvent, CueDmx, CueEvent, CueMedia, ModifyStatus, NewScene, SaveData, SelectEvent, SendData,
+    AdjustMedia, CancelEvent, CueDmx, CueEvent, CueMedia, ModifyStatus, NewScene, SaveData,
+    SelectEvent, SendData,
 };

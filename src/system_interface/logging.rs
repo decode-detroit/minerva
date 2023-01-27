@@ -43,7 +43,7 @@ pub struct Logger {
     old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
     index_access: IndexAccess,            // the item index access point
     internal_send: InternalSend,          // broadcast channel for current events
-    interface_send: InterfaceSend,        // an update line for passing updates to the user interface
+    interface_send: InterfaceSend, // an update line for passing updates to the user interface
 }
 
 // Implement key Logger struct features
@@ -190,7 +190,7 @@ impl Logger {
     async fn unpack_update(&mut self, update: LogUpdate) -> Notification {
         // Note the current time
         let now = Local::now().naive_local();
-        
+
         // Unpack the event update based on its subtype
         match update {
             // Log and display errors
@@ -291,7 +291,8 @@ impl Logger {
                     .send(InterfaceUpdate::UpdateStatus {
                         status_id: status_pair.clone(),
                         new_state: state_pair.clone(),
-                    }).await;
+                    })
+                    .await;
 
                 // Return the notification
                 Notification::Update {
@@ -360,10 +361,7 @@ mod tests {
             ItemId::new_unchecked(3),
             ItemDescription::new("Test Broadcast"),
         );
-        index.insert(
-            ItemId::new_unchecked(4),
-            ItemDescription::new("Test Event"),
-        );
+        index.insert(ItemId::new_unchecked(4), ItemDescription::new("Test Event"));
         index_access.send_index(index).await;
 
         // Create a new logger instance

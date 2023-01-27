@@ -29,8 +29,8 @@ use self::web_definitions::*;
 
 // Import Tokio and warp features
 use tokio::sync::{mpsc, oneshot};
+use warp::ws::{Message, WebSocket};
 use warp::{http, Filter};
-use warp::ws::{WebSocket, Message};
 
 // Import stream-related features
 use async_stream::stream;
@@ -69,13 +69,16 @@ impl WebInterface {
     ///
     pub async fn run(&mut self, mut interface_receive: mpsc::Receiver<InterfaceUpdate>) {
         // Create a channel for sending new listener handles
-        let (listener_send, mut listener_recv): (mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>, mpsc::Receiver<mpsc::Sender<Result<Message, warp::Error>>>) = mpsc::channel(128);
-        
+        let (listener_send, mut listener_recv): (
+            mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>,
+            mpsc::Receiver<mpsc::Sender<Result<Message, warp::Error>>>,
+        ) = mpsc::channel(128);
+
         // Spin up a thread to pass messages to all the web sockets
         tokio::spawn(async move {
             // Create a list of listeners
             let mut listeners = Vec::new();
-            
+
             // Loop until failure of one of the channels
             loop {
                 // Check for updates on any line
@@ -110,7 +113,9 @@ impl WebInterface {
                 .and_then(WebInterface::handle_request);
 
             // Serve this route on a separate port
-            warp::serve(limited_cue_event).run(([127, 0, 0, 1], 64635)).await;
+            warp::serve(limited_cue_event)
+                .run(([127, 0, 0, 1], 64635))
+                .await;
         });
 
         // Spin up a thread for the run port (64636)
@@ -139,7 +144,9 @@ impl WebInterface {
                 .and(warp::path("allScenes"))
                 .and(warp::path::end())
                 .and(WebInterface::with_clone(clone_send.clone()))
-                .and(WebInterface::with_clone(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
+                .and(WebInterface::with_clone(UserRequest::Detail {
+                    detail_type: DetailType::AllScenes,
+                }))
                 .and_then(WebInterface::handle_request);
 
             // Create the all stop filter
@@ -190,7 +197,7 @@ impl WebInterface {
                 .and(WebInterface::with_json::<FullCueEvent>())
                 .and_then(WebInterface::handle_request);
 
-                // Create the debug mode filter
+            // Create the debug mode filter
             let debug_mode = warp::post()
                 .and(warp::path("debugMode"))
                 .and(warp::path::end())
@@ -234,7 +241,7 @@ impl WebInterface {
             let get_styles = warp::get()
                 .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
                 .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
-                // FIXME This filter is OS-specific and may fail on OSX and Windows
+                                                        // FIXME This filter is OS-specific and may fail on OSX and Windows
 
             // Create the get status filter
             let get_type = warp::get()
@@ -269,8 +276,7 @@ impl WebInterface {
                 .and_then(WebInterface::handle_request);
 
             // Create the main page filter
-            let run_page = warp::get()
-                .and(warp::fs::dir("./public_run/")); 
+            let run_page = warp::get().and(warp::fs::dir("./public_run/"));
 
             // Combine the filters
             let run_routes = listen
@@ -318,7 +324,9 @@ impl WebInterface {
             .and(warp::path("allScenes"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_clone(UserRequest::Detail {detail_type: DetailType::AllScenes} ))
+            .and(WebInterface::with_clone(UserRequest::Detail {
+                detail_type: DetailType::AllScenes,
+            }))
             .and_then(WebInterface::handle_request);
 
         // Create the close filter
@@ -358,7 +366,9 @@ impl WebInterface {
             .and(warp::path("getConnections"))
             .and(warp::path::end())
             .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_clone(UserRequest::Detail { detail_type: DetailType::Connections }))
+            .and(WebInterface::with_clone(UserRequest::Detail {
+                detail_type: DetailType::Connections,
+            }))
             .and_then(WebInterface::handle_request);
 
         // Create the get event filter
@@ -397,7 +407,7 @@ impl WebInterface {
         let get_styles = warp::get()
             .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
             .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
-            // FIXME This filter is OS-specific and may fail on OSX and Windows
+                                                    // FIXME This filter is OS-specific and may fail on OSX and Windows
 
         // Create the get status filter
         let get_type = warp::get()
@@ -432,8 +442,7 @@ impl WebInterface {
             .and_then(WebInterface::handle_save_styles);
 
         // Create the main page filter
-        let edit_page = warp::get()
-            .and(warp::fs::dir("./public_edit/")); 
+        let edit_page = warp::get().and(warp::fs::dir("./public_edit/"));
 
         // Combine the filters
         let edit_routes = listen
@@ -459,7 +468,7 @@ impl WebInterface {
     }
 
     /// A function to handle incoming requests
-    /// 
+    ///
     async fn handle_request<R>(
         web_send: WebSend,
         request: R,
@@ -498,14 +507,12 @@ impl WebInterface {
     }
 
     /// A function to handle all item requests (processed by the index)
-    /// 
+    ///
     async fn handle_all_items(
         index_access: IndexAccess,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         // Get the item pairs from the index
-        let items = index_access
-            .get_all()
-            .await;
+        let items = index_access.get_all().await;
 
         // Return the item pair (even if it is the default)
         return Ok(warp::reply::with_status(
@@ -518,7 +525,7 @@ impl WebInterface {
     }
 
     /// A function to handle get item requests (processed by the index)
-    /// 
+    ///
     async fn handle_get_item(
         index_access: IndexAccess,
         get_item: GetItem,
@@ -554,8 +561,11 @@ impl WebInterface {
     }
 
     /// A function to add a new websocket listener
-    /// 
-    async fn add_listener(sender: mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>, socket: WebSocket) {
+    ///
+    async fn add_listener(
+        sender: mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>,
+        socket: WebSocket,
+    ) {
         // Split the socket into a sender and receiver
         let (ws_tx, mut ws_rx) = socket.split();
 
@@ -570,9 +580,9 @@ impl WebInterface {
         // Forward messages until the line is dropped
         tokio::spawn(
             // Forward received messages
-            stream.forward(ws_tx)
+            stream.forward(ws_tx),
         );
-        
+
         // Send the tx line to the listener list
         if let Err(_) = sender.send(tx).await {
             // Drop the connection on failure
@@ -584,7 +594,7 @@ impl WebInterface {
     }
 
     /// A function to add a fake listener
-    /// 
+    ///
     async fn fake_listener(socket: WebSocket) {
         // Split the socket into a sender and receiver
         let (_tx, mut ws_rx) = socket.split();
@@ -595,7 +605,9 @@ impl WebInterface {
 
     // A function to extract a helper type from the body of the message
     fn with_json<T>() -> impl Filter<Extract = (T,), Error = warp::Rejection> + Clone
-    where T: Send + DeserializeOwned {
+    where
+        T: Send + DeserializeOwned,
+    {
         // When accepting a body, we want a JSON body (reject large payloads)
         warp::body::content_length_limit(1024 * 16).and(warp::body::json())
     }
@@ -604,7 +616,9 @@ impl WebInterface {
     fn with_clone<T>(
         item: T,
     ) -> impl Filter<Extract = (T,), Error = std::convert::Infallible> + Clone
-    where T: Send + Clone {
+    where
+        T: Send + Clone,
+    {
         warp::any().map(move || item.clone())
     }
 }

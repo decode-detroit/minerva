@@ -17,9 +17,9 @@
 
 //! A module to deliver asyncronous access to the index of user styles
 //! including CSS selectors and formatting rules.
-//! 
+//!
 //! # Note
-//! 
+//!
 //! This stylesheet does not preserve order of the rules, so it should
 //! not be used in any case where order of the rules matters.
 
@@ -27,9 +27,9 @@
 use crate::definitions::*;
 
 // Import Tokio features
-use tokio::sync::mpsc;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use tokio::sync::mpsc;
 
 // Import constants
 use crate::USER_STYLE_SHEET;
@@ -112,7 +112,9 @@ impl StyleSheet {
                 selector,
                 reply_line,
             }) => {
-                reply_line.send(self.style_map.contains_key(&selector)).unwrap_or(());
+                reply_line
+                    .send(self.style_map.contains_key(&selector))
+                    .unwrap_or(());
             }
 
             // If it is a rule request
@@ -154,7 +156,9 @@ impl StyleSheet {
             // Attempt to open the user style sheet
             if let Ok(mut file) = File::create(USER_STYLE_SHEET).await {
                 // Try to write the styles to the file
-                file.write_all(style_to_string(self.style_map.clone()).as_bytes()).await.unwrap_or(());
+                file.write_all(style_to_string(self.style_map.clone()).as_bytes())
+                    .await
+                    .unwrap_or(());
             }; // fail silently
         }
     }
@@ -165,11 +169,7 @@ impl StyleSheet {
     ///
     /// If the update was successful, this method will return true.
     ///
-    fn modify_rule(
-        &mut self,
-        selector: String,
-        possible_rule: Option<String>,
-    ) -> bool {
+    fn modify_rule(&mut self, selector: String, possible_rule: Option<String>) -> bool {
         // If the request is to modify the rule
         if let Some(new_rule) = possible_rule {
             // Update or create a new item in the lookup
@@ -241,16 +241,15 @@ mod tests {
         // Change one of the rules and verify the change
         assert_eq!(
             true,
-            style_access.update_rule(selector1.clone(), rule2.clone()).await
+            style_access
+                .update_rule(selector1.clone(), rule2.clone())
+                .await
         );
         assert_eq!(rule2, style_access.get_rule(&selector1).await);
 
         // Delete a rule and verify the change
         assert_eq!(true, style_access.remove_rule(selector1.clone()).await);
-        assert_eq!(
-            false,
-            style_access.is_listed(&selector1).await
-        );
+        assert_eq!(false, style_access.is_listed(&selector1).await);
         assert_eq!("".to_string(), style_access.get_rule(&selector1).await);
     }
 }

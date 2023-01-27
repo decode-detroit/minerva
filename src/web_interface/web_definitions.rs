@@ -22,10 +22,10 @@
 use crate::definitions::*;
 
 // Import standard library features
-use std::str::FromStr;
-use std::path::PathBuf;
-use std::time::Duration;
 use std::num::ParseIntError;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::time::Duration;
 
 // Import Chrono features
 use chrono::NaiveDateTime;
@@ -46,7 +46,7 @@ pub struct BroadcastEvent {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ConfigFile { 
+pub struct ConfigFile {
     filename: Option<String>,
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -220,17 +220,13 @@ impl From<ConfigFile> for UserRequest {
     fn from(config_file: ConfigFile) -> Self {
         match config_file.filename {
             // If a file was specified, convert it to a path
-            Some(file) =>
-                UserRequest::ConfigFile {
-                    filepath: Some(PathBuf::from(file)),
-                },
-            
+            Some(file) => UserRequest::ConfigFile {
+                filepath: Some(PathBuf::from(file)),
+            },
+
             // If not, specify none
-            None => UserRequest::ConfigFile {
-                filepath: None,
-            }
+            None => UserRequest::ConfigFile { filepath: None },
         }
-        
     }
 }
 impl From<LimitedCueEvent> for UserRequest {
@@ -298,7 +294,7 @@ impl From<GetEvent> for UserRequest {
         UserRequest::Detail {
             detail_type: DetailType::Event {
                 item_id: ItemId::new_unchecked(get_event.id),
-            }
+            },
         }
     }
 }
@@ -307,7 +303,7 @@ impl From<GetScene> for UserRequest {
         UserRequest::Detail {
             detail_type: DetailType::Scene {
                 item_id: ItemId::new_unchecked(get_scene.id),
-            }
+            },
         }
     }
 }
@@ -316,7 +312,7 @@ impl From<GetStatus> for UserRequest {
         UserRequest::Detail {
             detail_type: DetailType::Status {
                 item_id: ItemId::new_unchecked(get_status.id),
-            }
+            },
         }
     }
 }
@@ -325,7 +321,7 @@ impl From<GetType> for UserRequest {
         UserRequest::Detail {
             detail_type: DetailType::Type {
                 item_id: ItemId::new_unchecked(get_type.id),
-            }
+            },
         }
     }
 }

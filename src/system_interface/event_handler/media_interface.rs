@@ -21,13 +21,13 @@
 use crate::definitions::*;
 
 // Import tokio elements
-use tokio::runtime::Handle;
 use tokio::process::Command;
+use tokio::runtime::Handle;
 use tokio::time::{sleep, Duration};
 
 // Import reqwest elements
-use reqwest::Client as AsyncClient;
 use reqwest::blocking::Client;
+use reqwest::Client as AsyncClient;
 
 // Import the failure elements
 use failure::Error;
@@ -49,14 +49,24 @@ impl ApolloThread {
         log!(update internal_send => "Starting Apollo Media Player ...");
 
         // Create the child process
-        let mut child = match Command::new("apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
+        let mut child = match Command::new("apollo")
+            .arg("-a")
+            .arg(&address)
+            .kill_on_drop(true)
+            .spawn()
+        {
             // If the child process was created, return it
             Ok(child) => child,
 
             // Otherwise, warn of the error and return
             _ => {
                 // Try looking in the local directory
-                match Command::new("./apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
+                match Command::new("./apollo")
+                    .arg("-a")
+                    .arg(&address)
+                    .kill_on_drop(true)
+                    .spawn()
+                {
                     // If the child process was created, return it
                     Ok(child) => child,
 
@@ -78,14 +88,18 @@ impl ApolloThread {
 
                 // Create a client for passing channel definitions
                 let tmp_client = AsyncClient::new();
-                    
+
                 // Define the windows
                 for (window_number, window_definition) in window_map.drain() {
                     // Recompose the window definition
                     let window = window_definition.add_number(window_number);
 
                     // Post the window to Apollo
-                    let _ = tmp_client.post(&format!("http://{}/defineWindow", &address)).json(&window).send().await;
+                    let _ = tmp_client
+                        .post(&format!("http://{}/defineWindow", &address))
+                        .json(&window)
+                        .send()
+                        .await;
                 }
 
                 // Define all the media channels
@@ -94,7 +108,11 @@ impl ApolloThread {
                     let channel = media_channel.add_number(channel_number);
 
                     // Post the channel to Apollo
-                    let _ = tmp_client.post(&format!("http://{}/defineChannel", &address)).json(&channel).send().await;
+                    let _ = tmp_client
+                        .post(&format!("http://{}/defineChannel", &address))
+                        .json(&channel)
+                        .send()
+                        .await;
                 }
 
                 // Wait for the process to finish or the sender to be poisoned
@@ -124,14 +142,24 @@ impl ApolloThread {
                 log!(update internal_send => "Restarting Apollo Media Player ...");
 
                 // Start the process again
-                child = match Command::new("apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
+                child = match Command::new("apollo")
+                    .arg("-a")
+                    .arg(&address)
+                    .kill_on_drop(true)
+                    .spawn()
+                {
                     // If the child process was created, return it
                     Ok(child) => child,
 
                     // Otherwise, warn of the error and end the thread
                     _ => {
                         // Try looking in the local directory
-                        match Command::new("./apollo").arg("-a").arg(&address).kill_on_drop(true).spawn() {
+                        match Command::new("./apollo")
+                            .arg("-a")
+                            .arg(&address)
+                            .kill_on_drop(true)
+                            .spawn()
+                        {
                             // If the child process was created, return it
                             Ok(child) => child,
 
@@ -151,9 +179,9 @@ impl ApolloThread {
 /// A structure to hold and manipulate the connection to the media backend
 ///
 pub struct MediaInterface {
-    channel_list: Vec<u32>,     // a list of valid channels for this instance
-    client: Option<Client>,     // the reqwest client for pass media changes
-    address: String,            // the address for requests to Apollo
+    channel_list: Vec<u32>, // a list of valid channels for this instance
+    client: Option<Client>, // the reqwest client for pass media changes
+    address: String,        // the address for requests to Apollo
 }
 
 // Implement key functionality for the Media Interface structure
@@ -167,11 +195,14 @@ impl MediaInterface {
         apollo_params: ApolloParams,
     ) -> Result<Self, Error> {
         // Copy the specified address or use the default
-        let address = apollo_params.address.clone().unwrap_or(String::from("127.0.0.1:27655"));
+        let address = apollo_params
+            .address
+            .clone()
+            .unwrap_or(String::from("127.0.0.1:27655"));
 
         // Collect the list of valid channels
-        let channel_list = channel_map.keys().map(|key| {key.clone()}).collect();
-        
+        let channel_list = channel_map.keys().map(|key| key.clone()).collect();
+
         // Spin out thread to monitor and restart apollo, if requested
         if apollo_params.spawn {
             ApolloThread::spawn(internal_send, address.clone(), window_map, channel_map).await;
@@ -192,7 +223,7 @@ impl MediaInterface {
             // If not, note the error
             return Err(format_err!("Channel for Media Cue not found."));
         }
-        
+
         // Create the request client if it doesn't exist
         if self.client.is_none() {
             self.client = Some(Client::new());
@@ -200,22 +231,27 @@ impl MediaInterface {
 
         // Recompose the media cue into a helper
         let helper: MediaCueHelper = cue.into();
-        
+
         // Pass the media cue to Apollo
-        self.client.as_ref().unwrap().post(&format!("http://{}/cueMedia", &self.address)).json(&helper).send()?;
+        self.client
+            .as_ref()
+            .unwrap()
+            .post(&format!("http://{}/cueMedia", &self.address))
+            .json(&helper)
+            .send()?;
 
         // Indicate success
         Ok(())
     }
 
     // A helper method to adjust the location of a video frame by one pixel in any direction
-    pub fn adjust_media(&mut self, adjustment: MediaAdjustment ) -> Result<(), Error> {
+    pub fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<(), Error> {
         // Check that the channel is valid
         if !self.channel_list.contains(&adjustment.channel) {
             // If not, note the error
             return Err(format_err!("Channel for Media Alignment not found."));
         }
-        
+
         // Create the request client if it doesn't exist
         if self.client.is_none() {
             self.client = Some(Client::new());
@@ -223,9 +259,14 @@ impl MediaInterface {
 
         // Recompose the media cue into a helper
         let helper: MediaAdjustmentHelper = adjustment.into();
-        
+
         // Pass the media cue to Apollo
-        self.client.as_ref().unwrap().post(&format!("http://{}/alignChannel", &self.address)).json(&helper).send()?;
+        self.client
+            .as_ref()
+            .unwrap()
+            .post(&format!("http://{}/alignChannel", &self.address))
+            .json(&helper)
+            .send()?;
 
         // Indicate success
         Ok(())
