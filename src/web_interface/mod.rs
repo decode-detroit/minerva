@@ -94,7 +94,7 @@ impl WebInterface {
                             listener.send(update.clone().into()).await.unwrap_or(()); // FIXME Discard broken channels
                         }
                     }
-                }     
+                }
             }
         });
 
