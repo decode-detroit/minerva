@@ -67,7 +67,7 @@ export class DeleteMenu extends React.PureComponent {
         <div className="id disableSelect">({this.props.id})</div>
         <div className="multiButton">
           <div onClick={this.props.closeMenu}>Cancel</div>
-          <div className="deleteConfirm" onClick={() => {this.deleteItem(); this.props.closeMenu()}}>Confirm</div>
+          <div className="deleteConfirm" onClick={() => {this.deleteItem(); this.props.afterDelete(); this.props.closeMenu()}}>Confirm</div>
         </div>
       </div>
     );
@@ -231,7 +231,7 @@ export class SceneMenu extends React.PureComponent {
         </select>
         <div className="deleteScene" onMouseDown={() => {this.setState({ isDeleteVisible: true })}}>
           Delete<br/>Scene
-          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} closeMenu={() => {this.setState({ isDeleteVisible: false }); setTimeout(() => { this.loadScenes(); }, 500)}} saveModifications={this.props.saveModifications} />}
+          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} afterDelete={() => setTimeout(() => { this.loadScenes(); }, 500)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
         </div>
         <div className="newScene" onMouseDown={this.newScene}>
           New<br/>Scene

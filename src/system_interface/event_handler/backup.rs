@@ -57,10 +57,11 @@ pub struct QueuedEvent {
 /// handler will raise an error and return none.
 ///
 pub struct BackupHandler {
-    identifier: Identifier, // the identifier for this instance of the controller, if specified
+    identifier: Identifier,                // the identifier for this instance of the controller, if specified
     connection: Option<redis::Connection>, // the Redis connection, if it exists
-    internal_send: InternalSend, // the update line for posting any warnings
-    backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
+    internal_send: InternalSend,           // the update line for posting any warnings
+    backup_items: FnvHashSet<ItemId>,      // items currently backed up in the system
+    dmx_status: DmxUniverse,               // the current final value of all DMX fades
 }
 
 // Implement key features for the status handler
@@ -93,6 +94,7 @@ impl BackupHandler {
                         connection: Some(connection),
                         internal_send,
                         backup_items: FnvHashSet::default(),
+                        dmx_status: DmxUniverse::new(),
                     });
 
                 // Indicate that there was a failure to connect to the server
@@ -119,6 +121,7 @@ impl BackupHandler {
                 connection: None,
                 internal_send,
                 backup_items: FnvHashSet::default(),
+                dmx_status: DmxUniverse::new(),
             });
         }
     }
@@ -252,6 +255,55 @@ impl BackupHandler {
         }
     }
 
+    /// A method to backup the dmx values on the backup server based on each
+    /// provided dmx fade
+    ///
+    /// # Note
+    ///
+    /// As the backup handler does not hold a copy of the configuration, this
+    /// method does not verify the validity of the dmx values in any way.
+    /// It is expected that the calling module will perform this check.
+    ///
+    /// # Errors
+    ///
+    /// This function will raise an error if it is unable to connect to the
+    /// Redis server.
+    ///
+    /// Like all BackupHandler functions and methods, this function will fail
+    /// gracefully by notifying of any errors on the update line.
+    ///
+    pub async fn backup_dmx(&mut self, dmx_fade: DmxFade) {
+        // If the redis connection exists
+        if let Some(mut connection) = self.connection.take() {
+            // Update the dmx status
+            self.dmx_status[dmx_fade.channel as usize - 1] = dmx_fade.value; // convert to zero-indexed
+            
+            // Try to serialize the dmx universe
+            let dmx_string = match serde_yaml::to_string(&self.dmx_status) {
+                Ok(string) => string,
+                Err(error) => {
+                    log!(err &self.internal_send => "Unable To Parse Dmx Universe: {}", error);
+
+                    // Put the connection back
+                    self.connection = Some(connection);
+                    return;
+                }
+            };
+
+            // Try to copy the data to the server
+            let result: RedisResult<bool>;
+            result = connection.set(&format!("{}:dmx", self.identifier), &dmx_string);
+
+            // Warn that the dmx status was not set
+            if let Err(..) = result {
+                log!(warn &self.internal_send => "Unable To Backup DMX Onto Backup Server.");
+            }
+
+            // Put the connection back
+            self.connection = Some(connection);
+        }
+    }
+
     /// A function to reload an existing backup from the backup server. If the
     /// data exists, this function returns the existing backup data.
     ///
@@ -267,7 +319,7 @@ impl BackupHandler {
     pub fn reload_backup(
         &mut self,
         mut status_ids: Vec<ItemId>,
-    ) -> Option<(ItemId, Vec<(ItemId, ItemId)>, Vec<QueuedEvent>)> {
+    ) -> Option<(ItemId, Vec<(ItemId, ItemId)>, Vec<QueuedEvent>, DmxUniverse)> {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Check to see if there is an existing scene
@@ -286,6 +338,19 @@ impl BackupHandler {
                     // Try to parse the queue
                     if let Ok(events) = serde_yaml::from_str(queue_string.as_str()) {
                         queued_events = events;
+                    }
+                }
+
+                // Try to read the existing dmx universe
+                let mut dmx_status = DmxUniverse::new();
+                let result: RedisResult<String> =
+                    connection.get(&format!("{}:dmx", self.identifier));
+
+                // If something was received
+                if let Ok(dmx_string) = result {
+                    // Try to parse the data
+                    if let Ok(status) = serde_yaml::from_str(dmx_string.as_str()) {
+                        dmx_status = status;
                     }
                 }
 
@@ -317,7 +382,7 @@ impl BackupHandler {
                         self.connection = Some(connection);
 
                         // Return the current scene and status pairs
-                        return Some((current_scene, status_pairs, queued_events));
+                        return Some((current_scene, status_pairs, queued_events, dmx_status));
                     }
                 }
             }
@@ -362,7 +427,7 @@ impl Drop for BackupHandler {
 mod tests {
     use super::*;
 
-    // FIXME Define tests of this module
+    // Test the backup module
     #[tokio::test]
     async fn backup_game() {
         // Import libraries for testing
@@ -392,17 +457,20 @@ mod tests {
         let status2 = ItemId::new_unchecked(13);
         let state2 = ItemId::new_unchecked(14);
 
-        // Backup the current scene, statuses (unable to easily test coming events)
+        // Backup the current scene, statuses, dmx (unable to easily test coming events)
         backup_handler.backup_current_scene(&current_scene).await;
         backup_handler.backup_status(&status1, &state1).await;
         backup_handler.backup_status(&status2, &state2).await;
+        backup_handler.backup_dmx(DmxFade { channel: 1, value: 255, duration: None }).await;
+        backup_handler.backup_dmx(DmxFade { channel: 3, value: 150, duration: None }).await;
 
         // Reload the backup
-        if let Some((reload_scene, statuses, _)) =
+        if let Some((reload_scene, statuses, queue, dmx)) =
             backup_handler.reload_backup(vec![status1, status2])
         {
             assert_eq!(current_scene, reload_scene);
             assert_eq!(vec!((status1, state1), (status2, state2)), statuses);
+            assert_eq!(vec!(255 as u8, 0 as u8, 150 as u8), dmx);
 
         // If the backup doesn't exist, throw the error
         } else {

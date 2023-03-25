@@ -176,7 +176,7 @@ impl EventHandler {
 
         // Check for existing data from the backup handler
         let possible_backup = backup.reload_backup(config.get_status_ids());
-        if let Some((current_scene, status_pairs, queued_events)) = possible_backup {
+        if let Some((current_scene, status_pairs, queued_events, dmx_status)) = possible_backup {
             // Notify that existing data was found
             log!(err &internal_send => "Detected Lingering Backup Data. Reloading ...");
 
@@ -192,6 +192,12 @@ impl EventHandler {
                     .add_event(EventDelay::new(Some(event.remaining), event.event_id))
                     .await;
             }
+
+            // Restore the existing dmx values
+            if let Some(ref interface) = dmx_interface {
+                interface.restore_status(dmx_status);
+            }
+            
 
             // Wait 10 nanoseconds for the queued events to process
             sleep(Duration::new(0, 20)).await;
@@ -585,8 +591,12 @@ impl EventHandler {
             CueDmx { fade } => {
                 // Send it to the dmx interface, if it exists
                 if let Some(ref interface) = &self.dmx_interface {
-                    if let Err(err) = interface.play_fade(fade) {
+                    if let Err(err) = interface.play_fade(fade.clone()) {
                         log!(err &self.internal_send => "Error with DMX playback: {}", err);
+                    
+                    // If successful, backup the dmx fade
+                    } else {
+                        self.backup.backup_dmx(fade).await;
                     }
 
                 // Warn that there is no active Dmx interface

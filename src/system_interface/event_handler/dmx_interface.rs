@@ -113,6 +113,18 @@ impl DmxInterface {
         // If the fade was processed correctly, indicate success
         Ok(())
     }
+
+    /// A method to load existing values for all the Dmx channels
+    ///
+    pub fn restore_status(&self, mut status: DmxUniverse) {
+        // Check the length of the provided universe
+        status.truncate(DMX_MAX as usize);
+
+        // For each channel, send a fade with no duration
+        for (i, value) in status.drain(..).enumerate() { // note i is zero-indexed - load fade expects one-indexed
+            self.load_fade.send(DmxFade { channel: i as u32 + 1, value, duration: None }).unwrap_or(()); // fail silently
+        }
+    }
 }
 
 /// A convenience enum to indicate whether the dmx fade is still ongoing or is
@@ -159,14 +171,14 @@ impl DmxChange {
             - (self.start_time.elapsed().as_millis() as f64)
                 / (self.duration.as_millis() as f64 + 0.1); // cheap fix to avoid dividing by zero
 
-        // If the fade factor is still less than one
+        // If the fade factor is still greater than zero
         if fade_factor > 0.0 {
             // Return the correct fade amount with an ongoing fade
             return FadeStatus::Ongoing(
                 ((self.end_value as f64) + (self.difference * fade_factor)) as u8,
             );
 
-        // If the fade factor is over one (the fade is complete)
+        // If the fade factor is zero (the fade is complete)
         } else {
             // Return the final value and a complete fade
             return FadeStatus::Complete(self.end_value);
@@ -183,8 +195,8 @@ impl DmxChange {
 ///
 pub struct DmxQueue {
     port: serial::SystemPort,                // the serial port of the connection
-    status: Vec<u8>,                         // the current status of all the channels
-    queue_receive: mpsc::Receiver<DmxFade>, // the queue receiving line that sends additional fade items to the daemon
+    status: DmxUniverse,                       // the current status of all the channels
+    queue_receive: mpsc::Receiver<DmxFade>,  // the queue receiving line that sends additional fade items to the daemon
     dmx_changes: FnvHashMap<u32, DmxChange>, // the dmx queue holding the coming changes, sorted by channel
 }
 
@@ -216,20 +228,19 @@ impl DmxQueue {
             // Check to see if there are changes in the queue
             if !self.dmx_changes.is_empty() {
                 // Update the current status for every fade
-                // TODO: This could perhaps be more efficient with retain()
                 let mut new_changes = FnvHashMap::default();
-                for (channel, change) in self.dmx_changes.iter() {
+                for (channel, change) in self.dmx_changes.drain() {
                     // Check to see if the fade is complete
                     match change.current_fade() {
                         // If ongoing, re-save the change
                         FadeStatus::Ongoing(value) => {
-                            self.status[*channel as usize] = value;
-                            new_changes.insert(channel.clone(), change.clone());
+                            self.status[channel as usize] = value;
+                            new_changes.insert(channel, change);
                         }
 
                         // If complete, drop the change
                         FadeStatus::Complete(value) => {
-                            self.status[*channel as usize] = value;
+                            self.status[channel as usize] = value;
                         }
                     }
                 }
@@ -326,62 +337,24 @@ impl DmxQueue {
 // Tests of the DMXOut module
 #[cfg(test)]
 mod tests {
-    //use super::*;
+    use super::*;
 
-    // FIXME Define tests of this module
+    // Test the fading of a single dmx channel
     #[test]
-    fn missing_tests() {
-        // FIXME: Implement this
-        unimplemented!();
+    fn test_light() {
+        // Import standard library features
+        use std::thread;
+        use std::time::Duration;
+
+        // Create a DMX Interface on USB0
+        let interface = DmxInterface::new(&PathBuf::from("/dev/ttyUSB0")).expect("Unable to connect to DMX on USB0.");
+
+        // Play a fade up on channel 1
+        interface.play_fade(DmxFade { channel: 1, value: 255, duration: Some(Duration::from_secs(3)) }).unwrap();
+        thread::sleep(Duration::from_secs(5));
+
+        // Play a fade down on channel 1
+        interface.play_fade(DmxFade { channel: 1, value: 0, duration: Some(Duration::from_secs(3)) }).unwrap();
+        thread::sleep(Duration::from_secs(5));
     }
-
-    // FIXME Rewrite this test to use the new infrastructure
-    /*
-    // Import the library items for the testing function
-    use std::thread;
-    use std::time::{Duration, Instant};
-
-    // Test the function by
-    fn main() {
-        // Print the current step
-        println!("Starting up ...");
-
-        // Try to open the serial connection
-        match DmxOut::new(&PathBuf::from("/dev/ttyUSB0"), Vec::new(), DmxMap::default()) {
-            // If the connection is a success
-            Ok(mut connection) => {
-                println!("Connected.");
-
-                // Running the dimming cycle indefinitely
-                loop {
-                    // Change the value from low to high over time
-                    for count in 0..125 {
-                        // Notify of the change
-                        println!("Dimming ... {}", count);
-
-                        // Send the updated value
-                        connection.write_frame(count * 2);
-
-                        // Wait a little bit
-                        thread::sleep(Duration::from_millis(25));
-                    }
-
-                    // Dim the light back down
-                    for count in 0..125 {
-                        // Notify of the change
-                        println!("Dimming ... {}", 125-count);
-
-                        // Send the updated value
-                        connection.write_frame((125-count) * 2);
-
-                        // Wait a little bit
-                        thread::sleep(Duration::from_millis(50));
-                    }
-                }
-            },
-
-            // Otherwise, warn of the error
-            _ => println!("Unable to connect."),
-        }
-    }*/
 }

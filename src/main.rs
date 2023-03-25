@@ -49,6 +49,9 @@ extern crate failure;
 // Import tracing features
 use tracing_subscriber;
 
+// Import sysinfo modules
+use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
+
 // Define program constants
 const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
 
@@ -108,6 +111,20 @@ impl Minerva {
 ///
 #[tokio::main]
 async fn main() {
+    // Get system information
+    let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::everything());
+    let sys_info = System::new_with_specifics(refresh_kind);
+    
+    // Check to ensure Minerva is not already running
+    if sys_info.processes_by_exact_name("minerva").collect::<Vec::<&Process>>().len() > 1 {
+        println!("Minerva is already running. Exiting ...");
+        return;
+    }
+
+    // If successful, drop the uneeded information
+    drop(refresh_kind);
+    drop(sys_info);
+
     // Initialize tracing FIXME Consider using this for easier debugging
     tracing_subscriber::fmt::init();
 

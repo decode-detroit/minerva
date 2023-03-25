@@ -182,7 +182,7 @@ export class ItemBox extends React.PureComponent {
                 <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>Remove From Scene</div>
                 <div onMouseDown={(e) => {stopPropogation(e); this.setState({ isDeleteVisible: true })}}>Delete</div>
               </div>}
-              {this.state.isDeleteVisible && <DeleteMenu id={this.props.id} closeMenu={() => {this.setState({ isDeleteVisible: false }); this.props.removeItem(this.props.id)}} saveModifications={this.props.saveModifications} />}
+              {this.state.isDeleteVisible && <DeleteMenu id={this.props.id} afterDelete={() => this.props.removeItem(this.props.id)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
             </div>
             <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={(e) => {stopPropogation(e); this.handleMouseDown(e);}}/>
             {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
