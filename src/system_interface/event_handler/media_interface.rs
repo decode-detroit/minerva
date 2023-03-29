@@ -26,8 +26,7 @@ use tokio::runtime::Handle;
 use tokio::time::{sleep, Duration};
 
 // Import reqwest elements
-use reqwest::blocking::Client;
-use reqwest::Client as AsyncClient;
+use reqwest::{Client};
 
 // Import the failure elements
 use failure::Error;
@@ -87,7 +86,7 @@ impl ApolloThread {
                 sleep(Duration::from_secs(3)).await;
 
                 // Create a client for passing channel definitions
-                let tmp_client = AsyncClient::new();
+                let tmp_client = Client::new();
 
                 // Define the windows
                 for (window_number, window_definition) in window_map.drain() {
@@ -217,7 +216,7 @@ impl MediaInterface {
     }
 
     // A helper method to send a new media cue
-    pub fn play_cue(&mut self, cue: MediaCue) -> Result<(), Error> {
+    pub async fn play_cue(&mut self, cue: MediaCue) -> Result<(), Error> {
         // Check that the channel is valid
         if !self.channel_list.contains(&cue.channel) {
             // If not, note the error
@@ -238,14 +237,14 @@ impl MediaInterface {
             .unwrap()
             .post(&format!("http://{}/cueMedia", &self.address))
             .json(&helper)
-            .send()?;
+            .send().await?;
 
         // Indicate success
         Ok(())
     }
 
     // A helper method to adjust the location of a video frame by one pixel in any direction
-    pub fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<(), Error> {
+    pub async fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<(), Error> {
         // Check that the channel is valid
         if !self.channel_list.contains(&adjustment.channel) {
             // If not, note the error
@@ -266,9 +265,44 @@ impl MediaInterface {
             .unwrap()
             .post(&format!("http://{}/alignChannel", &self.address))
             .json(&helper)
-            .send()?;
+            .send().await?;
 
         // Indicate success
         Ok(())
+    }
+
+    // A helper method to reload a media playlist
+    pub async fn restore_playlist(&mut self, mut playlist: MediaPlaylist) {
+        // Look through the playlist
+        for (channel, playback) in playlist.drain() {
+            // Check that the channel is valid
+            if !self.channel_list.contains(&channel) {
+                // If not, skip this entry
+                continue;
+            }
+
+            // Create the request client if it doesn't exist
+            if self.client.is_none() {
+                self.client = Some(Client::new());
+            }
+
+            // Extract the media cue as a helper and send it
+            let cue: MediaCueHelper = playback.media_cue.into();
+            let _ = self.client
+                .as_ref()
+                .unwrap()
+                .post(&format!("http://{}/cueMedia", &self.address))
+                .json(&cue)
+                .send().await; // Ignore the result
+
+            // Extract the duration change and send it
+            let seek = SeekMediaHelper { channel, position: playback.time_since.as_millis() as u64};
+            let _ = self.client
+                .as_ref()
+                .unwrap()
+                .post(&format!("http://{}/seek", &self.address))
+                .json(&seek)
+                .send().await; // Ignore the result
+        }
     }
 }

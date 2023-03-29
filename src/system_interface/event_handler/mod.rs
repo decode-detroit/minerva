@@ -22,7 +22,7 @@
 //! of the program.
 
 // Define private submodules
-mod backup;
+mod backup_handler;
 mod config;
 mod dmx_interface;
 mod media_interface;
@@ -32,7 +32,7 @@ mod queue;
 use crate::definitions::*;
 
 // Import other definitions
-use self::backup::BackupHandler;
+use self::backup_handler::BackupHandler;
 use self::config::Config;
 use self::dmx_interface::DmxInterface;
 use self::media_interface::MediaInterface;
@@ -175,8 +175,7 @@ impl EventHandler {
         .await?;
 
         // Check for existing data from the backup handler
-        let possible_backup = backup.reload_backup(config.get_status_ids());
-        if let Some((current_scene, status_pairs, queued_events, dmx_status)) = possible_backup {
+        if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) = backup.reload_backup(config.get_status_ids()) {
             // Notify that existing data was found
             log!(err &internal_send => "Detected Lingering Backup Data. Reloading ...");
 
@@ -193,14 +192,26 @@ impl EventHandler {
                     .await;
             }
 
+
             // Restore the existing dmx values
             if let Some(ref interface) = dmx_interface {
-                interface.restore_status(dmx_status);
+                interface.restore_universe(dmx_universe);
             }
-            
+
+            // If there is a media playlist
+            if media_playlist.len() > 0 {
+                // Wait for the media instances to start up
+                sleep(Duration::from_secs(5)).await;
+
+                // Restore the media playlist
+                for interface in media_interfaces.iter_mut() {
+                    interface.restore_playlist(media_playlist.clone()).await;
+                }
+            }
+
 
             // Wait 10 nanoseconds for the queued events to process
-            sleep(Duration::new(0, 20)).await;
+            sleep(Duration::from_nanos(20)).await;
 
             // Trigger a redraw of the window and timeline
             internal_send.send_refresh().await;
@@ -616,13 +627,17 @@ impl EventHandler {
                 // Send the cue to each media interface in turn
                 let mut success = false;
                 for interface in self.media_interfaces.iter_mut() {
-                    if let Ok(_) = interface.play_cue(cue.clone()) {
+                    if let Ok(_) = interface.play_cue(cue.clone()).await {
                         success = true;
                     }
                 }
 
-                // If all media players failed to play the cue, report the error
-                if !success {
+                // If one of the media players played the cue, back it up
+                if success {
+                    self.backup.backup_media(cue).await;
+                
+                // Otherwise, report the error
+                } else {
                     log!(err &self.internal_send => "Failed to play media cue.")
                 }
             }
@@ -632,7 +647,7 @@ impl EventHandler {
                 // Send the cue to each media interface in turn
                 let mut success = false;
                 for interface in self.media_interfaces.iter_mut() {
-                    if let Ok(_) = interface.adjust_media(adjustment.clone()) {
+                    if let Ok(_) = interface.adjust_media(adjustment.clone()).await {
                         success = true;
                     }
                 }

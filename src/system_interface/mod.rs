@@ -297,7 +297,7 @@ impl SystemInterface {
             // Solicit a string from the user
             InternalUpdate::GetUserString(event) => {
                 // FIXME Prompt via the web interface
-                log!(err &mut self.internal_send => "Get User String variant temporarily diabled as of version 0.9.10.");
+                log!(err &mut self.internal_send => "Get User String variant temporarily diabled as of version 0.9.11.");
             }
 
             // Pass an event to the event_handler

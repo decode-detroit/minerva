@@ -167,12 +167,6 @@ pub struct DmxFade {
     pub duration: Option<Duration>, // the duration of the fade (None if instantaneous)
 }
 
-/// A type definition for one set of Dmx channels
-/// 
-/// NOTE: This vector is zero-indexed and must be converted back to comply with the DMX one-indexed approach
-///
-pub type DmxUniverse = Vec<u8>;
-
 /// A struct to define a single media track to play
 ///
 /// # Note

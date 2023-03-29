@@ -43,9 +43,6 @@ use fnv::FnvHashMap;
 // Import the failure features
 use failure::Error;
 
-// Define the DMX constants
-const DMX_MAX: u32 = 512; // the highest channel of DMX, exclusive
-
 // Define the communication constants
 const COMMAND_START: u8 = 0x7E as u8; // the start of the command
 const MESSAGE_LABEL: u8 = 0x06 as u8; // the message type label
@@ -116,13 +113,10 @@ impl DmxInterface {
 
     /// A method to load existing values for all the Dmx channels
     ///
-    pub fn restore_status(&self, mut status: DmxUniverse) {
-        // Check the length of the provided universe
-        status.truncate(DMX_MAX as usize);
-
+    pub fn restore_universe(&self, universe: DmxUniverse) {
         // For each channel, send a fade with no duration
-        for (i, value) in status.drain(..).enumerate() { // note i is zero-indexed - load fade expects one-indexed
-            self.load_fade.send(DmxFade { channel: i as u32 + 1, value, duration: None }).unwrap_or(()); // fail silently
+        for channel in 1..DMX_MAX {
+            self.load_fade.send(DmxFade { channel, value: universe.get(channel), duration: None }).unwrap_or(()); // fail silently
         }
     }
 }
@@ -195,7 +189,7 @@ impl DmxChange {
 ///
 pub struct DmxQueue {
     port: serial::SystemPort,                // the serial port of the connection
-    status: DmxUniverse,                       // the current status of all the channels
+    universe: DmxUniverse,                   // the current universe of all the channels
     queue_receive: mpsc::Receiver<DmxFade>,  // the queue receiving line that sends additional fade items to the daemon
     dmx_changes: FnvHashMap<u32, DmxChange>, // the dmx queue holding the coming changes, sorted by channel
 }
@@ -213,7 +207,7 @@ impl DmxQueue {
         // Return the newly constructed dmx queue
         DmxQueue {
             port,
-            status: vec![0; DMX_MAX as usize],
+            universe: DmxUniverse::new(),
             queue_receive,
             dmx_changes: FnvHashMap::default(),
         }
@@ -234,13 +228,13 @@ impl DmxQueue {
                     match change.current_fade() {
                         // If ongoing, re-save the change
                         FadeStatus::Ongoing(value) => {
-                            self.status[channel as usize] = value;
+                            self.universe.set(channel, value);
                             new_changes.insert(channel, change);
                         }
 
                         // If complete, drop the change
                         FadeStatus::Complete(value) => {
-                            self.status[channel as usize] = value;
+                            self.universe.set(channel, value);
                         }
                     }
                 }
@@ -293,7 +287,7 @@ impl DmxQueue {
             Some(duration) => {
                 // Repack the fade as a dmx change
                 let change =
-                    DmxChange::new(self.status[channel as usize], dmx_fade.value, duration);
+                    DmxChange::new(self.universe.get(channel), dmx_fade.value, duration);
 
                 // Save the new fade, replace the existing fade if necessary
                 self.dmx_changes.insert(channel, change);
@@ -305,7 +299,7 @@ impl DmxQueue {
                 self.dmx_changes.remove(&channel);
 
                 // Make the change immediately
-                self.status[channel as usize] = dmx_fade.value;
+                self.universe.set(channel, dmx_fade.value);
                 self.write_frame();
             }
         }
@@ -322,9 +316,8 @@ impl DmxQueue {
         bytes.push(DATA_MSB);
         bytes.push(DMX_START_CODE);
 
-        // Add the current status to the message
-        let mut status_copy = self.status.clone();
-        bytes.append(&mut status_copy);
+        // Add the current universe to the message
+        bytes.append(&mut self.universe.as_bytes());
 
         // Add the message ending
         bytes.push(COMMAND_END);

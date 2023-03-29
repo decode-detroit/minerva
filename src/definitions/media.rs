@@ -210,3 +210,12 @@ pub struct MediaPlayer {
     pub window_map: WindowMap,   // the map of window numbers to window properties
     pub apollo_params: ApolloParams, // the parameters for Apollo media player, if specified
 }
+
+// A helper struct to specify seeking media on a channel
+//
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SeekMediaHelper {
+    pub channel: u32,   // the channel for the media
+    pub position: u64,  // the new position within the media stream in milliseconds
+}

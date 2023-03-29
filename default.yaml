@@ -1,13 +1,23 @@
-version: 0.9.10
+version: 0.9.11
 identifier:
   id: 0
-server_location: null
+server_location: #redis://127.0.0.1:6379
 dmx_path: null
-media_players: []
+media_players:
+#- channel_map:
+#    1:
+#      video_frame: null
+#      window_dimensions: null
+#      audio_device: null
+#      loop_media: null
+#  window_map: {}
+#  apollo_params:
+#    spawn: true
+#    address: null
 system_connection: []
 background_process: null
 default_scene:
-  id: 100
+  id: 500
 fullscreen: null
 all_scenes:
   ? id: 100
@@ -154,7 +164,11 @@ event_set:
   : null
   ? id: 502
     description: Play A Large Video
-  : []
+  : - !CueMedia
+      cue:
+        uri: https://archive.org/download/never-gonna-give-you-up-4-k/Never%20Gonna%20Give%20You%20Up%204K.ia.mp4
+        channel: 1
+        loop_media: null
   ? id: 400
     description: Data Examples
   : []
@@ -286,6 +300,6 @@ event_set:
       new_scene:
         id: 100
 user_styles:
+  '#scene-100 #id-1000': '{ left: 532px; top: 362px; }'
   '#scene-100 #id-101': '{ left: 379px; top: 98px; }'
   '#scene-200 #id-1000': '{ left: 591px; top: 365px; }'
-  '#scene-100 #id-1000': '{ left: 532px; top: 362px; }'
