@@ -83,7 +83,7 @@ impl ApolloThread {
             // Run indefinitely or until the process fails
             loop {
                 // Wait several seconds for the server to start
-                sleep(Duration::from_secs(3)).await;
+                sleep(Duration::from_secs(2)).await;
 
                 // Create a client for passing channel definitions
                 let tmp_client = Client::new();

@@ -32,7 +32,7 @@ use std::time::{Instant, Duration};
 use failure::Error;
 
 // Imprt redis client library
-use redis::{Commands, RedisResult};
+use redis::{Commands, RedisResult, ConnectionLike};
 
 // Import FNV HashSet and HashMap
 use fnv::FnvHashSet;
@@ -82,7 +82,16 @@ impl BackupHandler {
             // Try to connect to the Redis server
             if let Ok(client) = redis::Client::open(location.as_str()) {
                 // Try to get a copy of the Redis connection
-                if let Ok(connection) = client.get_connection() {
+                if let Ok(mut connection) = client.get_connection() {
+                    // Set the snapshot settings
+                    let result: RedisResult<redis::Value> = connection.req_command(redis::Cmd::new().arg("SAVE").arg(60).arg(1));
+
+                    // Unpack the result from the operation
+                    if let Err(..) = result {
+                        // Warn that it wasn't possible to update the current scene
+                        log!(err internal_send => "Unable To Set Redis Snapshot Settings.");
+                    } 
+
                     // Return the new backup handler
                     return Ok(BackupHandler {
                         identifier,
@@ -124,6 +133,36 @@ impl BackupHandler {
             });
         }
     }
+
+    /// A method to backup the time since the last full backup of the system
+    ///
+    /// # Errors
+    ///
+    /// This function will raise an error if it is unable to connect to the
+    /// Redis server.
+    ///
+    /// Like all BackupHandler functions and methods, this function will fail
+    /// gracefully by notifying of any errors on the update line.
+    ///
+    /*pub async fn backup_last_update(&mut self, current_scene: &ItemId) {
+        // If the redis connection exists
+        if let Some(mut connection) = self.connection.take() {
+            // Try to copy the current scene to the server
+            let result: RedisResult<bool> = connection.set(
+                &format!("{}:current", self.identifier),
+                &format!("{}", current_scene.id()),
+            );
+
+            // Unpack the result from the operation
+            if let Err(..) = result {
+                // Warn that it wasn't possible to update the current scene
+                log!(err self.internal_send => "Unable To Backup Current Scene Onto Backup Server.");
+            }
+
+            // Put the connection back
+            self.connection = Some(connection);
+        }
+    }*/
 
     /// A method to backup the current scene of the system
     ///

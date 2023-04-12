@@ -277,29 +277,25 @@ impl DmxQueue {
     /// A helper function to process new dmx fade messages
     ///
     fn process_fade(&mut self, dmx_fade: DmxFade) {
-        // Correct the channel range (convert to zero-indexed, rather than
-        // the one-indexed standard of dmx
-        let channel = dmx_fade.channel - 1;
-
         // Check whether there is a fade specified
         match dmx_fade.duration {
             // If a fade was specified
             Some(duration) => {
                 // Repack the fade as a dmx change
                 let change =
-                    DmxChange::new(self.universe.get(channel), dmx_fade.value, duration);
+                    DmxChange::new(self.universe.get(dmx_fade.channel), dmx_fade.value, duration);
 
                 // Save the new fade, replace the existing fade if necessary
-                self.dmx_changes.insert(channel, change);
+                self.dmx_changes.insert(dmx_fade.channel, change);
             }
 
             // Otherwise
             None => {
                 // Remove a fade on that channel, if it exists
-                self.dmx_changes.remove(&channel);
+                self.dmx_changes.remove(&dmx_fade.channel);
 
                 // Make the change immediately
-                self.universe.set(channel, dmx_fade.value);
+                self.universe.set(dmx_fade.channel, dmx_fade.value);
                 self.write_frame();
             }
         }

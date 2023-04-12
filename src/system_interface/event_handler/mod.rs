@@ -185,14 +185,6 @@ impl EventHandler {
             // Update the current status states based on the backup
             config.load_backup_status(status_pairs).await;
 
-            // Update the queue with the found events
-            for event in queued_events {
-                queue
-                    .add_event(EventDelay::new(Some(event.remaining), event.event_id))
-                    .await;
-            }
-
-
             // Restore the existing dmx values
             if let Some(ref interface) = dmx_interface {
                 interface.restore_universe(dmx_universe);
@@ -201,7 +193,7 @@ impl EventHandler {
             // If there is a media playlist
             if media_playlist.len() > 0 {
                 // Wait for the media instances to start up
-                sleep(Duration::from_secs(5)).await;
+                sleep(Duration::from_secs(3)).await;
 
                 // Restore the media playlist
                 for interface in media_interfaces.iter_mut() {
@@ -209,6 +201,12 @@ impl EventHandler {
                 }
             }
 
+            // Update the queue with the found events
+            for event in queued_events {
+                queue
+                    .add_event(EventDelay::new(Some(event.remaining), event.event_id))
+                    .await;
+            }
 
             // Wait 10 nanoseconds for the queued events to process
             sleep(Duration::from_nanos(20)).await;
