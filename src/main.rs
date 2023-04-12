@@ -55,7 +55,7 @@ use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
 
 // Define program constants
 const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
-const DEFAULT_LOGLEVEL: Level = Level::WARN;
+const DEFAULT_LOGLEVEL: Level = Level::INFO; // FIXME for testing until proper logging is reimplemented
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -117,7 +117,7 @@ async fn main() {
     let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::everything());
     let sys_info = System::new_with_specifics(refresh_kind);
     
-    // Check to ensure Minerva is not already running
+    // Check to ensure Minerva is not already running FIXME allow multiple instances
     if sys_info.processes_by_exact_name("minerva").collect::<Vec::<&Process>>().len() > 1 {
         println!("Minerva is already running. Exiting ...");
         return;

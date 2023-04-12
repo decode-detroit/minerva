@@ -193,48 +193,6 @@ impl Logger {
 
         // Unpack the event update based on its subtype
         match update {
-            // Log and display errors
-            LogUpdate::Error(error, event) => {
-                // Try to write it to the file
-                if let Some(ref mut file) = self.error_log {
-                    // Try to write to the file
-                    if let Err(_) = file.write_all(
-                        format!("{} — ERROR: {}\n", now.format("%F %H:%M"), &error).as_bytes(),
-                        // Post a message on error
-                    ) {
-                        return Notification::Error {
-                            message: "Unable To Write To Error Log.".to_string(),
-                            time: now,
-                            event: None,
-                        };
-                    }
-
-                // Warn that there is no file
-                } else {
-                    return Notification::Warning {
-                        message: "No Active Error Log.".to_string(),
-                        time: now,
-                        event: None,
-                    };
-                }
-
-                // Return the error either way
-                if let Some(id) = event {
-                    // Switch based on the presence of an event
-                    Notification::Error {
-                        message: error,
-                        time: now,
-                        event: Some(self.index_access.get_pair(&id).await),
-                    }
-                } else {
-                    Notification::Error {
-                        message: error,
-                        time: now,
-                        event: None,
-                    }
-                }
-            }
-
             // Broadcast events and display them
             LogUpdate::Broadcast(id, data) => {
                 // Broadcast the event and data, if specified
@@ -346,19 +304,13 @@ mod tests {
 
         // Pass a series of updates to the logger and verify the output
         let mut result = logger
-            .update(LogUpdate::Error("Test Error".to_string(), None), false)
-            .await;
-        assert_eq!(result[0].message(), "No Active Error Log.".to_string()); // because no error log was specified
-        result = logger
             .update(LogUpdate::Broadcast(ItemId::new_unchecked(3), None), false)
             .await;
         assert_eq!(result[0].message(), "Test Broadcast (3)".to_string());
-        assert_eq!(result[1].message(), "No Active Error Log.".to_string());
         result = logger
             .update(LogUpdate::Current(ItemId::new_unchecked(4)), false)
             .await;
         assert_eq!(result[0].message(), "Test Event (4)".to_string());
         assert_eq!(result[1].message(), "Test Broadcast (3)".to_string());
-        assert_eq!(result[2].message(), "No Active Error Log.".to_string());
     }
 }

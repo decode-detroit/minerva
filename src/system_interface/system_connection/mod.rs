@@ -355,26 +355,12 @@ impl SystemConnection {
 
                     // For a write error, notify the system
                     ReadResult::WriteError(error) => {
-                        // Format the error string
-                        let tmp = format!("Communication Write Error: {}", error);
-
-                        // Send the warning to the mpsc line
-                        internal_send
-                            .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
-
                         // Report the error
                         error!("Communication write error: {}", error);
                     }
 
                     // For a read error, notify the system
                     ReadResult::ReadError(error) => {
-                        // Format the error string
-                        let tmp = format!("Communication Read Error: {}", error);
-
-                        // Send the warning to the mpsc line
-                        internal_send
-                            .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
-
                         // Report the error
                         error!("Communication read error: {}", error);
                     }
@@ -402,31 +388,14 @@ impl SystemConnection {
                     for connection in connections.iter_mut() {
                         // Catch any write errors
                         if let Err(error1) = connection.write_event(id, game_id, data2) {
-                            // Throw the error
-                            // Format the error string
-                            let tmp = format!("Communication Error: {}", error1);
-
-                            // Send the warning to the mpsc line
-                            internal_send
-                                .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
-
                             // Report the error
                             error!("Communication error: {}", error1);
 
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
                             if let Err(error2) = connection.write_event(id, game_id, data2) {
-                                // If failed twice in a row, notify the system
-                                // Format the error string
-                                let tmp = format!("Persistent Communication Error: {}", error2);
-
-                                // Send the warning to the mpsc line
-                                internal_send.blocking_send(InternalUpdate::Update(
-                                    LogUpdate::Error(tmp, None),
-                                ));
-
                                 // Report the error
-                                error!("Communication error: {}", error2);
+                                error!("Persistent communication error: {}", error2);
                             }
                         }
                     }
