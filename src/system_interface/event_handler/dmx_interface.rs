@@ -40,8 +40,8 @@ use serial::prelude::*;
 // Import FNV HashMap
 use fnv::FnvHashMap;
 
-// Import the failure features
-use failure::Error;
+// Import anyhow features
+use anyhow::Result;
 
 // Define the communication constants
 const COMMAND_START: u8 = 0x7E as u8; // the start of the command
@@ -64,7 +64,7 @@ pub struct DmxInterface {
 impl DmxInterface {
     /// A function to create a new instance of the DmxOut
     ///
-    pub fn new(path: &PathBuf) -> Result<Self, Error> {
+    pub fn new(path: &PathBuf) -> Result<Self> {
         // Connect to the underlying serial port
         let mut port = serial::open(path)?;
 
@@ -96,15 +96,15 @@ impl DmxInterface {
 
     /// A method to play a new Dmx fade
     ///
-    pub fn play_fade(&self, fade: DmxFade) -> Result<(), Error> {
+    pub fn play_fade(&self, fade: DmxFade) -> Result<()> {
         // Verify the range of the selected channel
         if (fade.channel > DMX_MAX) | (fade.channel < 1) {
-            return Err(format_err!("Selected DMX channel is out of range."));
+            return Err(anyhow!("Selected DMX channel is out of range."));
         }
 
         // Send the fade to the background thread
         if let Err(_) = self.load_fade.send(fade.clone()) {
-            return Err(format_err!("Background DMX fading control has crashed."));
+            return Err(anyhow!("Background DMX fading control has crashed."));
         }
 
         // If the fade was processed correctly, indicate success

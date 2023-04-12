@@ -10,7 +10,6 @@ edition="2021"
 lto = true
 
 [dependencies]
-failure = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 fnv = "1.0"
 serde = { version = "1.0", features = ["derive"] }
@@ -29,6 +28,7 @@ tracing-subscriber = "0.3.6"
 reqwest = { version = "0.11", default-features=false, features = ["blocking", "json"] }
 thread_local = "^1.1.4"
 sysinfo = "0.28"
+anyhow = "1.0"
 
 [features]
 no_can_limit = []

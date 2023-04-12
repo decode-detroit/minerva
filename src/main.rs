@@ -42,11 +42,12 @@ use self::style_sheet::StyleSheet;
 use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
 
-// Import failure features
+// Import anyhow features
 #[macro_use]
-extern crate failure;
+extern crate anyhow;
 
 // Import tracing features
+use tracing::Level;
 use tracing_subscriber;
 
 // Import sysinfo modules
@@ -54,6 +55,7 @@ use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
 
 // Define program constants
 const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
+const DEFAULT_LOGLEVEL: Level = Level::WARN;
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -125,8 +127,8 @@ async fn main() {
     drop(refresh_kind);
     drop(sys_info);
 
-    // Initialize tracing FIXME Consider using this for easier debugging
-    tracing_subscriber::fmt::init();
+    // Initialize tracing
+    tracing_subscriber::fmt().with_max_level(DEFAULT_LOGLEVEL).with_target(false).init();
 
     // Create the program and run until directed otherwise
     Minerva::run().await;

@@ -50,8 +50,11 @@ use chrono::NaiveDateTime;
 use tokio::fs::File;
 use tokio::time::sleep;
 
-// Import the failure features
-use failure::Error;
+// Import tracing features
+use tracing::{info, warn, error};
+
+// Import anyhow features
+use anyhow::Result;
 
 /// A structure to manage all event triggering and internal event operations
 /// inside the program. This structure allows the main program to be agnostic
@@ -97,7 +100,7 @@ impl EventHandler {
         internal_send: InternalSend,
         interface_send: InterfaceSend,
         log_failure: bool,
-    ) -> Result<EventHandler, Error> {
+    ) -> Result<EventHandler> {
         // If a file was specified
         let mut config;
         let mut resolved_path;
@@ -111,9 +114,9 @@ impl EventHandler {
                 Err(_) => {
                     // Only log failure if the flag is set
                     if log_failure {
-                        log!(err &internal_send => "Unable To Open Configuration File.");
+                        error!("Unable to open configuration file.");
                     }
-                    return Err(format_err!("Unable to open configuration file."));
+                    return Err(anyhow!("Unable to open configuration file."));
                 }
             };
 
@@ -145,7 +148,7 @@ impl EventHandler {
 
             // Otherwise, report the error
             } else {
-                log!(err &internal_send => "Unable to initialize the DMX interface.");
+                error!("Unable to initialize the DMX interface.");
             }
         }
 
@@ -168,7 +171,6 @@ impl EventHandler {
 
         // Attempt to create the backup handler
         let mut backup = BackupHandler::new(
-            internal_send.clone(),
             config.get_identifier(),
             config.get_server_location(),
         )
@@ -177,7 +179,7 @@ impl EventHandler {
         // Check for existing data from the backup handler
         if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) = backup.reload_backup(config.get_status_ids()) {
             // Notify that existing data was found
-            log!(err &internal_send => "Detected Lingering Backup Data. Reloading ...");
+            warn!("Detected lingering backup data. Reloading ...");
 
             // Change the current scene silently (i.e. do not trigger the reset event)
             config.choose_scene(current_scene).await.unwrap_or(());
@@ -400,7 +402,7 @@ impl EventHandler {
     ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) {
         // Send an update to the rest of the system (will preceed error if there is one)
-        log!(update &self.internal_send => "Changing Current Scene ...");
+        info!("Changing current scene ...");
 
         // Try to change the underlying scene
         if self.config.choose_scene(scene_id).await.is_ok() {
@@ -483,7 +485,7 @@ impl EventHandler {
         let config_file = match File::create(&config_path).await {
             Ok(file) => file,
             Err(_) => {
-                log!(err &self.internal_send => "Unable To Open Configuration File.");
+                error!("Unable to open configuration file.");
                 return;
             }
         };
@@ -601,7 +603,7 @@ impl EventHandler {
                 // Send it to the dmx interface, if it exists
                 if let Some(ref interface) = &self.dmx_interface {
                     if let Err(err) = interface.play_fade(fade.clone()) {
-                        log!(err &self.internal_send => "Error with DMX playback: {}", err);
+                        error!("Error with DMX playback: {}.", err);
                     
                     // If successful, backup the dmx fade
                     } else {
@@ -610,7 +612,7 @@ impl EventHandler {
 
                 // Warn that there is no active Dmx interface
                 } else {
-                    log!(err &self.internal_send => "Failed to play DMX fade: no DMX interface available.")
+                    error!("Failed to play DMX fade: No DMX interface available.")
                 }
             }
 
@@ -636,7 +638,7 @@ impl EventHandler {
                 
                 // Otherwise, report the error
                 } else {
-                    log!(err &self.internal_send => "Failed to play media cue.")
+                    error!("Failed to play media cue.");
                 }
             }
 
@@ -652,7 +654,7 @@ impl EventHandler {
 
                 // If all media players failed to play the cue, report the error
                 if !success {
-                    log!(err &self.internal_send => "Failed to adjust media.")
+                    error!("Failed to adjust media.");
                 }
             }
 
@@ -713,7 +715,7 @@ impl EventHandler {
                     // Solicit a string from the user
                     DataType::UserString => {
                         // Error that this is not yet implemented
-                        log!(err &self.internal_send => "Saving a User String is not yet implemented.");
+                        error!("Saving a user string is not yet implemented.");
                     }
                 }
             }

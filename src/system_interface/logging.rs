@@ -32,8 +32,8 @@ use std::path::PathBuf;
 // Import the chrono library
 use chrono::{Duration, Local};
 
-// Import the failure features
-use failure::Error as FailureError;
+// Import anyhow features
+use anyhow::Result;
 
 /// A structure to handle all logging and update processing for the program.
 ///
@@ -66,7 +66,7 @@ impl Logger {
         index_access: IndexAccess,
         internal_send: InternalSend,
         interface_send: InterfaceSend,
-    ) -> Result<Logger, FailureError> {
+    ) -> Result<Logger> {
         // Attempt to open the game log file
         let game_log = match log_path {
             // If a file was specified, try to load it
@@ -77,7 +77,7 @@ impl Logger {
                 // Create the new file instance
                 match File::create(filepath.to_str().unwrap_or("")) {
                     Ok(file) => Some(file),
-                    Err(_) => return Err(format_err!("Unable to create game log file.")),
+                    Err(_) => return Err(anyhow!("Unable to create game log file.")),
                 }
             }
 
@@ -100,7 +100,7 @@ impl Logger {
                     match File::create(filepath.to_str().unwrap_or("")) {
                         Ok(file) => Some(file),
                         Err(_) => {
-                            return Err(format_err!("Unable to create error log file."));
+                            return Err(anyhow!("Unable to create error log file."));
                         }
                     }
                 }
@@ -235,30 +235,6 @@ impl Logger {
                 }
             }
 
-            // Display warnings with or without the event
-            LogUpdate::Warning(warning, event) => {
-                // Switch based on the presence of an event
-                if let Some(id) = event {
-                    Notification::Warning {
-                        message: warning,
-                        time: now,
-                        event: Some(self.index_access.get_pair(&id).await),
-                    }
-                } else {
-                    Notification::Warning {
-                        message: warning,
-                        time: now,
-                        event: None,
-                    }
-                }
-            }
-
-            // Simple display updates
-            LogUpdate::Update(update) => Notification::Update {
-                message: update,
-                time: now,
-            },
-
             // Broadcast events and display them
             LogUpdate::Broadcast(id, data) => {
                 // Broadcast the event and data, if specified
@@ -374,30 +350,15 @@ mod tests {
             .await;
         assert_eq!(result[0].message(), "No Active Error Log.".to_string()); // because no error log was specified
         result = logger
-            .update(LogUpdate::Warning("Test Warning".to_string(), None), false)
-            .await;
-        assert_eq!(result[0].message(), "Test Warning".to_string());
-        assert_eq!(result[1].message(), "No Active Error Log.".to_string());
-        result = logger
             .update(LogUpdate::Broadcast(ItemId::new_unchecked(3), None), false)
             .await;
         assert_eq!(result[0].message(), "Test Broadcast (3)".to_string());
-        assert_eq!(result[1].message(), "Test Warning".to_string());
-        assert_eq!(result[2].message(), "No Active Error Log.".to_string());
+        assert_eq!(result[1].message(), "No Active Error Log.".to_string());
         result = logger
             .update(LogUpdate::Current(ItemId::new_unchecked(4)), false)
             .await;
         assert_eq!(result[0].message(), "Test Event (4)".to_string());
         assert_eq!(result[1].message(), "Test Broadcast (3)".to_string());
-        assert_eq!(result[2].message(), "Test Warning".to_string());
-        assert_eq!(result[3].message(), "No Active Error Log.".to_string());
-        result = logger
-            .update(LogUpdate::Update("Test Update".to_string()), false)
-            .await;
-        assert_eq!(result[0].message(), "Test Update".to_string());
-        assert_eq!(result[1].message(), "Test Event (4)".to_string());
-        assert_eq!(result[2].message(), "Test Broadcast (3)".to_string());
-        assert_eq!(result[3].message(), "Test Warning".to_string());
-        assert_eq!(result[4].message(), "No Active Error Log.".to_string());
+        assert_eq!(result[2].message(), "No Active Error Log.".to_string());
     }
 }

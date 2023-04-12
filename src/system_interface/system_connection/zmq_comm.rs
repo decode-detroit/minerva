@@ -26,8 +26,8 @@ use super::{EventConnection, ReadResult};
 // Import standard library features
 use std::path::PathBuf;
 
-// Import the failure features
-use failure::Error;
+// Import anyhow features
+use anyhow::Result;
 
 // Import the ZMQ C-bindings
 #[cfg(feature = "zmq-comm")]
@@ -51,7 +51,7 @@ impl ZmqBind {
     /// A function to create a new instance of the ZmqBind, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqBind, Error> {
+    pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqBind> {
         // Create the new ZMQ sending socket
         let context = Context::new();
         let zmq_send = context.socket(zmq::PUB)?;
@@ -76,7 +76,7 @@ impl ZmqBind {
     /// A function to create a new instance of the ZmqBind, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqBind, Error> {
+    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqBind> {
         Ok(ZmqBind {})
     }
 }
@@ -107,7 +107,7 @@ impl EventConnection for ZmqBind {
     /// A method to send a new event to the zmq connection, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Send a multipart ZMQ message, formatted as strings
         self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
         self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
@@ -118,8 +118,8 @@ impl EventConnection for ZmqBind {
     /// A method to send a new event to the zmq connection, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
-        return Err(format_err!(
+    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
+        return Err(anyhow!(
             "Program compiled without ZMQ support. See documentation."
         ));
     }
@@ -128,7 +128,7 @@ impl EventConnection for ZmqBind {
     /// not check for duplicate messages (as it isn't necessary for this
     /// connection)
     ///
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         self.write_event(id, data1, data2)
     }
 }
@@ -153,7 +153,7 @@ impl ZmqConnect {
     /// A function to create a new instance of the ZmqConnect, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqConnect, Error> {
+    pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqConnect> {
         // Create the new ZMQ sending socket
         let context = Context::new();
         let zmq_send = context.socket(zmq::PUB)?;
@@ -183,7 +183,7 @@ impl ZmqConnect {
     /// A function to create a new instance of the ZmqConnect, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqConnect, Error> {
+    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqConnect> {
         Ok(ZmqConnect {})
     }
 }
@@ -245,7 +245,7 @@ impl EventConnection for ZmqConnect {
     /// A method to send a new event to the ZMQ connection, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Send a multipart ZMQ message, formatted as strings
         self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
         self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
@@ -260,8 +260,8 @@ impl EventConnection for ZmqConnect {
 
     /// A method to send a new event to the ZMQ connection, inactive version
     #[cfg(not(feature = "zmq-comm"))]
-    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<(), Error> {
-        return Err(format_err!(
+    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
+        return Err(anyhow!(
             "Program compiled without ZMQ support. See documentation."
         ));
     }
@@ -270,7 +270,7 @@ impl EventConnection for ZmqConnect {
     /// This method filters out events that were received on the ZMQ connection.
     ///
     #[cfg(feature = "zmq-comm")]
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Filter each event before adding it to the list
         let mut count = 0;
         for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_in.iter() {
@@ -298,7 +298,7 @@ impl EventConnection for ZmqConnect {
     /// A method to echo events back to the ZMQ connection, inactive version.
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         self.write_event(id, data1, data2)
     }
 }
@@ -315,7 +315,7 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
         id = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
             _ => {
-                return Some(ReadResult::ReadError(format_err!(
+                return Some(ReadResult::ReadError(anyhow!(
                     "Invalid Event Id for ZMQ."
                 )))
             }
@@ -332,7 +332,7 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
         data1 = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
             _ => {
-                return Some(ReadResult::ReadError(format_err!(
+                return Some(ReadResult::ReadError(anyhow!(
                     "Invalid second field for ZMQ."
                 )))
             }
@@ -340,7 +340,7 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
 
     // Notify the system of a read error
     } else {
-        return Some(ReadResult::ReadError(format_err!(
+        return Some(ReadResult::ReadError(anyhow!(
             "Missing second field for ZMQ."
         )));
     }
@@ -351,7 +351,7 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
         data2 = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
             _ => {
-                return Some(ReadResult::ReadError(format_err!(
+                return Some(ReadResult::ReadError(anyhow!(
                     "Invalid third field for ZMQ."
                 )))
             }
@@ -359,7 +359,7 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
 
     // Notify the system of a read error
     } else {
-        return Some(ReadResult::ReadError(format_err!(
+        return Some(ReadResult::ReadError(anyhow!(
             "Missing third field for ZMQ."
         )));
     }

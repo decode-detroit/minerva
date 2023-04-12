@@ -38,8 +38,11 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-// Import the failure features
-use failure::Error;
+// Import tracing features
+use tracing::{warn, error};
+
+// Import anyhow features
+use anyhow::{Error, Result};
 
 // Import program constants
 use super::POLLING_RATE; // the polling rate for the system
@@ -62,7 +65,7 @@ impl ConnectionType {
     /// Type. This method estahblishes the connection to the underlying system.
     /// If the connection fails, it will return the Error.
     ///
-    async fn initialize(&self) -> Result<LiveConnection, Error> {
+    async fn initialize(&self) -> Result<LiveConnection> {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the comedy serial port
@@ -134,7 +137,7 @@ impl EventConnection for LiveConnection {
     }
 
     /// The write event method (does not check duplicates)
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Write to the interior connection
         match self {
             &mut LiveConnection::ComedySerial { ref mut connection } => {
@@ -150,7 +153,7 @@ impl EventConnection for LiveConnection {
     }
 
     /// The echo event method (checks for duplicates from recently read events)
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Echo events to the interior connection
         match self {
             &mut LiveConnection::ComedySerial { ref mut connection } => {
@@ -247,7 +250,7 @@ impl SystemConnection {
 
                     // If it fails, warn the user
                     Err(e) => {
-                        log!(err self.internal_send => "System Connection Error: {}", e);
+                        error!("System connection error: {}.", e);
                         self.is_broken = true;
                     }
                 };
@@ -279,13 +282,13 @@ impl SystemConnection {
         if let Some(ref mut conn) = self.connection_send {
             // Send the new event
             let result = conn.send(ConnectionUpdate::Broadcast(new_event, data));
-            if let Err(e) = result {
-                log!(err &self.internal_send => "Unable To Connect: {}", e);
+            if let Err(error) = result {
+                error!("Unable to connect: {}.", error);
             }
 
             // Warn if one or more connections were not established
             if self.is_broken {
-                log!(err &self.internal_send => "Unable To Reach One Or More System Connections.");
+                error!("Unable to reach one or more system connections.");
             }
         }
     }
@@ -337,16 +340,7 @@ impl SystemConnection {
                             // Otherwise send a notification of an incorrect game number
                             } else {
                                 // Format the warning string
-                                let tmp =
-                                    format!("Game Id Does Not Match. Event Ignored. ({})", id);
-
-                                // Send the warning to the mpsc line
-                                internal_send.blocking_send(InternalUpdate::Update(
-                                    LogUpdate::Warning(tmp, None),
-                                ));
-
-                                // FIXME Move to an async context to use log!
-                                // log!(warn &internal_send => "Game Id Does Not Match. Event Ignored. ({})", id);
+                                warn!("Game Id does not match. Event ignored ({}).", id);
                             }
 
                         // Otherwise, send the event to the program
@@ -368,9 +362,8 @@ impl SystemConnection {
                         internal_send
                             .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
 
-                        // FIXME Move to an async context to use log!
-                        println!("Communication Write Error: {}", error);
-                        // log!(err &internal_send => "Communication Write Error: {}", error);
+                        // Report the error
+                        error!("Communication write error: {}", error);
                     }
 
                     // For a read error, notify the system
@@ -382,9 +375,8 @@ impl SystemConnection {
                         internal_send
                             .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
 
-                        // FIXME Move to an async context to use log!
-                        println!("Communication Read Error: {}", error);
-                        // log!(err &internal_send => "Communication Read Error: {}", error);
+                        // Report the error
+                        error!("Communication read error: {}", error);
                     }
                 }
             }
@@ -418,9 +410,8 @@ impl SystemConnection {
                             internal_send
                                 .blocking_send(InternalUpdate::Update(LogUpdate::Error(tmp, None)));
 
-                            // FIXME Move to an async context to use log!
-                            println!("Communication Error: {}", error1);
-                            // log!(err &internal_send => "Communication Error: {}", error1);
+                            // Report the error
+                            error!("Communication error: {}", error1);
 
                             // Wait a little bit and try again
                             thread::sleep(Duration::from_millis(POLLING_RATE));
@@ -434,9 +425,8 @@ impl SystemConnection {
                                     LogUpdate::Error(tmp, None),
                                 ));
 
-                                // FIXME Move to an async context to use log!
-                                println!("Persistent Communication Error: {}", error2);
-                                // log!(err &internal_send => "Persistent Communication Error: {}", error2);
+                                // Report the error
+                                error!("Communication error: {}", error2);
                             }
                         }
                     }
@@ -468,8 +458,8 @@ trait EventConnection {
     fn read_events(&mut self) -> Vec<ReadResult>;
 
     /// The write event method (does not check duplicates)
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;
+    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
 
     /// The echo event method (checks for duplicates from recently read events)
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error>;
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
 }

@@ -28,8 +28,11 @@ use tokio::time::{sleep, Duration};
 // Import reqwest elements
 use reqwest::{Client};
 
-// Import the failure elements
-use failure::Error;
+// Import tracing features
+use tracing::{info, error};
+
+// Import anyhow features
+use anyhow::Result;
 
 /// A structure to hold and manage the Apollo media player thread
 ///
@@ -45,7 +48,7 @@ impl ApolloThread {
         mut channel_map: ChannelMap,
     ) {
         // Notify that the background process is starting
-        log!(update internal_send => "Starting Apollo Media Player ...");
+        info!("Starting Apollo media player ...");
 
         // Create the child process
         let mut child = match Command::new("apollo")
@@ -71,7 +74,7 @@ impl ApolloThread {
 
                     // Otherwise, warn of the error and return
                     _ => {
-                        log!(err internal_send => "Unable To Start Apollo Media Player.");
+                        error!("Unable to start Apollo media player.");
                         return;
                     }
                 }
@@ -120,11 +123,11 @@ impl ApolloThread {
                     result = child.wait() => {
                         match result {
                             // Notify that the process has terminated
-                            Ok(_) => log!(err internal_send => "Apollo Media Player Stopped."),
+                            Ok(_) => error!("Apollo media player stopped."),
 
                             // If the process failed to run
                             _ => {
-                                log!(err internal_send => "Unable To Run Apollo Media Player.");
+                                error!("Unable to run Apollo media player.");
                                 break;
                             }
                         }
@@ -138,7 +141,7 @@ impl ApolloThread {
                 sleep(Duration::from_secs(3)).await;
 
                 // Notify that the background process is restarting
-                log!(update internal_send => "Restarting Apollo Media Player ...");
+                info!("Restarting Apollo media player ...");
 
                 // Start the process again
                 child = match Command::new("apollo")
@@ -164,7 +167,7 @@ impl ApolloThread {
 
                             // Otherwise, warn of the error and return
                             _ => {
-                                log!(err internal_send => "Unable To Start Apollo Media Player.");
+                                error!("Unable to start Apollo media player.");
                                 break;
                             }
                         }
@@ -192,7 +195,7 @@ impl MediaInterface {
         channel_map: ChannelMap,
         window_map: WindowMap,
         apollo_params: ApolloParams,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         // Copy the specified address or use the default
         let address = apollo_params
             .address
@@ -216,11 +219,11 @@ impl MediaInterface {
     }
 
     // A helper method to send a new media cue
-    pub async fn play_cue(&mut self, cue: MediaCue) -> Result<(), Error> {
+    pub async fn play_cue(&mut self, cue: MediaCue) -> Result<()> {
         // Check that the channel is valid
         if !self.channel_list.contains(&cue.channel) {
             // If not, note the error
-            return Err(format_err!("Channel for Media Cue not found."));
+            return Err(anyhow!("Channel for Media Cue not found."));
         }
 
         // Create the request client if it doesn't exist
@@ -244,11 +247,11 @@ impl MediaInterface {
     }
 
     // A helper method to adjust the location of a video frame by one pixel in any direction
-    pub async fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<(), Error> {
+    pub async fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<()> {
         // Check that the channel is valid
         if !self.channel_list.contains(&adjustment.channel) {
             // If not, note the error
-            return Err(format_err!("Channel for Media Alignment not found."));
+            return Err(anyhow!("Channel for Media Alignment not found."));
         }
 
         // Create the request client if it doesn't exist

@@ -37,8 +37,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 use tokio::runtime::Handle;
 
-// Import the failure crate
-use failure::Error;
+// Import tracing features
+use tracing::{info, warn, error};
+
+// Import anyhow features
+use anyhow::Result;
 
 // Import FNV HashMap
 use fnv::FnvHashMap;
@@ -66,12 +69,11 @@ impl BackgroundThread {
     /// Spawn the monitoring thread
     async fn new(
         background_process: BackgroundProcess,
-        internal_send: InternalSend,
     ) -> Option<BackgroundThread> {
         // Check to see if the file is valid
         if let Ok(path) = background_process.process.canonicalize() {
             // Notify that the background process is starting
-            log!(update internal_send => "Starting Background Process ...");
+            info!("Starting background process ...");
 
             // Create the child process
             let mut child = match Command::new(path.clone())
@@ -84,7 +86,7 @@ impl BackgroundThread {
 
                 // Otherwise, warn of the error and return
                 _ => {
-                    log!(err internal_send => "Unable To Start Background Process.");
+                    error!("Unable to start background process.");
                     return None;
                 }
             };
@@ -103,17 +105,17 @@ impl BackgroundThread {
                         Ok(status) => {
                             // Notify that the process was a success and restart
                             if status.success() {
-                                log!(update internal_send => "Background Process Finished Normally.");
+                                info!("Background process finiished normally.");
 
                             // Otherwise, notify of a failed process
                             } else {
-                                log!(err internal_send => "Background Process Finished Abnormally.");
+                                error!("Background process finished abnormally.");
                             }
                         }
 
                         // If the process failed to run
                         _ => {
-                            log!(err internal_send => "Unable To Run Background Process.");
+                            error!("Unable to run background process.");
                             break;
                         }
                     }
@@ -121,7 +123,7 @@ impl BackgroundThread {
                     // If the process has finished, and we want to keep it alive
                     if keepalive {
                         // Notify that the background process is restarting
-                        log!(update internal_send => "Restarting Background Process ...");
+                        info!("Restarting background process ...");
 
                         // Start the process again
                         child = match Command::new(path.clone()).args(arguments.clone()).kill_on_drop(true).spawn()
@@ -131,7 +133,7 @@ impl BackgroundThread {
 
                             // Otherwise, warn of the error and end the thread
                             _ => {
-                                log!(err internal_send => "Unable To Run Background Process.");
+                                error!("Unable to run background process.");
                                 break;
                             }
                         };
@@ -148,7 +150,7 @@ impl BackgroundThread {
 
         // Warn that the process wasn't found
         } else {
-            log!(err internal_send => "Unable To Find Background Process.");
+            error!("Unable to find background process.");
             None
         }
     }
@@ -211,7 +213,7 @@ impl Config {
         internal_send: InternalSend,
     ) -> Config {
         // Create the new status handler
-        let status_handler = StatusHandler::new(internal_send.clone(), FnvHashMap::default());
+        let status_handler = StatusHandler::new(FnvHashMap::default());
 
         // Clear the item index
         index_access.send_index(DescriptionMap::default()).await;
@@ -264,14 +266,14 @@ impl Config {
         internal_send: InternalSend,
         interface_send: InterfaceSend,
         mut config_file: File,
-    ) -> Result<Config, Error> {
+    ) -> Result<Config> {
         // Try to read from the configuration file
         let mut config_string = String::new();
         match config_file.read_to_string(&mut config_string).await {
             Ok(_) => (),
             Err(error) => {
-                log!(err internal_send => "Invalid Configuration File: {}", error);
-                return Err(format_err!("Invalid configuration file: {}", error));
+                error!("Invalid configuration file: {}.", error);
+                return Err(anyhow!("Invalid configuration file: {}", error));
             }
         }
 
@@ -279,15 +281,15 @@ impl Config {
         let yaml_config: YamlConfig = match serde_yaml::from_str(config_string.as_str()) {
             Ok(config) => config,
             Err(error) => {
-                log!(err internal_send => "Unable To Parse Configuration File: {}", error);
-                return Err(format_err!("Unable to parse configuration file: {}", error));
+                error!("Unable to parse configuration file: {}.", error);
+                return Err(anyhow!("Unable to parse configuration file: {}", error));
             }
         };
 
         // Check the version id and warn the user if they differ
         let version = env!("CARGO_PKG_VERSION");
         if &yaml_config.version != version {
-            log!(warn internal_send => "Version Of Configuration ({}) Does Not Match Software Version ({})", &yaml_config.version, version);
+            warn!("Version of configuration ({}) does not match software version ({}).", &yaml_config.version, version);
         }
 
         // Turn the ItemPairs in to the item index and event set // FIXME This check doesn't seem to work
@@ -298,7 +300,7 @@ impl Config {
             match item_index.insert(item_pair.get_id(), item_pair.get_description()) {
                 // Warn of events defined multiple times
                 Some(_) => {
-                    log!(warn internal_send => "Item {} Has Multiple Definitions In Lookup.", &item_pair.id())
+                    warn!("Item {} has multiple definitions in lookup.", &item_pair.id())
                 }
                 None => (),
             }
@@ -309,7 +311,7 @@ impl Config {
                 match events.insert(item_pair.get_id(), event.clone()) {
                     // Warn of an event defined multiple times
                     Some(_) => {
-                        log!(warn internal_send => "Item {} Has Multiple Definitions In Event List.", &item_pair.id())
+                        warn!("Item {} has multiple definitions in event list.", &item_pair.id())
                     }
                     None => (),
                 }
@@ -320,7 +322,6 @@ impl Config {
         let all_scenes = yaml_config.all_scenes;
         let status_map = yaml_config.status_map;
         Config::verify_config(
-            &internal_send,
             &all_scenes,
             &status_map,
             &item_index,
@@ -335,7 +336,7 @@ impl Config {
         style_access.send_styles(yaml_config.user_styles).await;
 
         // Create the new status handler
-        let status_handler = StatusHandler::new(internal_send.clone(), status_map);
+        let status_handler = StatusHandler::new(status_map);
 
         // Try to load the default scene
         let mut current_scene = ItemId::all_stop(); // an invalid scene id
@@ -345,7 +346,7 @@ impl Config {
                 // Update the current scene id
                 current_scene = scene_id;
             } else {
-                log!(warn internal_send => "Current Scene Is Not Defined.")
+                warn!("Current scene is not defined.");
             }
         }
 
@@ -353,7 +354,7 @@ impl Config {
         let mut background_thread = None;
         if let Some(background_process) = yaml_config.background_process.clone() {
             background_thread =
-                BackgroundThread::new(background_process, internal_send.clone()).await;
+                BackgroundThread::new(background_process).await;
         }
 
         // Adjust fullscreen, if specified
@@ -583,7 +584,7 @@ impl Config {
         // Warn the system that the selected id doesn't exist
         } else {
             // Warn of the error and indicate failure
-            log!(warn &self.internal_send => "Scene ID Not Found In Config: {}", scene_id);
+            warn!("Scene Id not found in configuration: {}.", scene_id);
             return Err(());
         }
     }
@@ -632,11 +633,11 @@ impl Config {
             if let Some(event) = self.events.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
-                log!(update &self.internal_send => "Event Updated: {}", self.index_access.get_description(&event_id).await);
+                info!("Event updated: {}.", self.index_access.get_description(&event_id).await);
 
             // Otherwise, add the event
             } else {
-                log!(update &self.internal_send => "Event Added: {}", self.index_access.get_description(&event_id).await);
+                info!("Event added: {}.", self.index_access.get_description(&event_id).await);
                 self.events.insert(event_id, new_event);
             }
 
@@ -645,7 +646,7 @@ impl Config {
             // If the event is in the event list, remove it
             if let Some(_) = self.events.remove(&event_id) {
                 // Notify the user that it was removed
-                log!(update &self.internal_send => "Event Removed: {}", self.index_access.get_description(&event_id).await);
+                info!("Event removed: {}.", self.index_access.get_description(&event_id).await);
             }
         }
     }
@@ -673,11 +674,11 @@ impl Config {
             if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
                 // Update the scene and notify the system
                 *scene = new_scene;
-                log!(update &self.internal_send => "Scene Updated: {}", self.index_access.get_description(&scene_id).await);
+                info!("Scene updated: {}.", self.index_access.get_description(&scene_id).await);
 
             // Otherwise, add the scene
             } else {
-                log!(update &self.internal_send => "Scene Added: {}", self.index_access.get_description(&scene_id).await);
+                info!("Scene added: {}.", self.index_access.get_description(&scene_id).await);
                 self.all_scenes.insert(scene_id, new_scene);
             }
 
@@ -686,7 +687,7 @@ impl Config {
             // If the scene is in the scene list, remove it
             if let Some(_) = self.all_scenes.remove(&scene_id) {
                 // Notify the user that it was removed
-                log!(update &self.internal_send => "Scene Removed: {}", self.index_access.get_description(&scene_id).await);
+                info!("Scene removed: {}.", self.index_access.get_description(&scene_id).await);
             }
         }
     }
@@ -720,12 +721,12 @@ impl Config {
                 // Check to see if the event is listed in the current scene
                 if !scene.events.contains(id) {
                     // If the event is not listed in the current scene, notify
-                    log!(warnevent &self.internal_send => id.clone() => "Event Not In Current Scene.");
+                    warn!("Event not in current scene: {}", id);
                     return None;
                 }
             // Warn that there isn't a current scene
             } else {
-                log!(err &self.internal_send => "Current Scene Not Found.");
+                error!("Current scene not found.");
                 return None;
             }
         }
@@ -738,7 +739,7 @@ impl Config {
             // Return None if the id doesn't exist
             None => {
                 // Notify of an invalid event
-                log!(errevent &self.internal_send => id.clone() => "Event Not Found.");
+                error!("Event not found: {}", id);
 
                 // Return None
                 None
@@ -808,7 +809,7 @@ impl Config {
         let config_string = match serde_yaml::to_string(&yaml_config) {
             Ok(config_string) => config_string,
             Err(error) => {
-                log!(err &self.internal_send => "Unable To Parse Current Configuration: {}", error);
+                error!("Unable to parse current configuration: {}.", error);
                 return;
             }
         };
@@ -817,7 +818,7 @@ impl Config {
         match config_file.write_all(config_string.as_bytes()).await {
             Ok(_) => (),
             Err(error) => {
-                log!(err &self.internal_send => "Unable To Write Configuration To File: {}", error)
+                error!("Unable to write configuration file: {}.", error)
             }
         }
     }
@@ -834,7 +835,6 @@ impl Config {
     /// guaranteed to catch later inconsistencies.
     ///
     async fn verify_config(
-        internal_send: &InternalSend,
         all_scenes: &FnvHashMap<ItemId, Scene>,
         status_map: &StatusMap,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
@@ -842,15 +842,15 @@ impl Config {
     ) {
         // Verify each scene in the config
         for (id, scene) in all_scenes.iter() {
-            if !Config::verify_scene(internal_send, scene, all_scenes, status_map, lookup, events)
+            if !Config::verify_scene(scene, all_scenes, status_map, lookup, events)
                 .await
             {
-                log!(warn internal_send => "Broken Scene Definition: {}", id);
+                warn!("Broken scene definition: {}.", id);
             }
 
             // Verify that the scene is described in the lookup
             if !lookup.contains_key(&id) {
-                log!(warn internal_send => "Scene Not Described In Lookup: {}", id);
+                warn!("Scene not described in lookup: {}.", id);
             }
         }
     }
@@ -867,7 +867,6 @@ impl Config {
     /// guaranteed to catch later inconsistencies.
     ///
     async fn verify_scene(
-        internal_send: &InternalSend,
         scene: &Scene,
         all_scenes: &FnvHashMap<ItemId, Scene>,
         status_map: &StatusMap,
@@ -881,7 +880,6 @@ impl Config {
             if let Some(event) = events.get(id) {
                 // Verify the event
                 if !Config::verify_event(
-                    internal_send,
                     event,
                     scene,
                     all_scenes,
@@ -891,19 +889,19 @@ impl Config {
                 )
                 .await
                 {
-                    log!(warn internal_send => "Invalid Event: {}", id);
+                    warn!("Invalid event: {}.", id);
                     test = false;
                 }
 
             // Otherwise verify that the item id corresponds to a status
             } else if let None = status_map.get(id) {
                 // Warn that an invalid event or status was listed in the scene
-                log!(warn internal_send => "Item Listed In Scene, But Not Found: {}", id);
+                warn!("Item listed in scene but not found: {}.", id);
                 test = false;
             }
 
             // Verify that the event is described in the event lookup
-            test = test & Config::verify_lookup(internal_send, lookup, id).await;
+            test = test & Config::verify_lookup(lookup, id).await;
         }
 
         // If the key map is specified
@@ -912,7 +910,7 @@ impl Config {
             for (_, id) in key_map.iter() {
                 // Make sure the event is listed in the scene
                 if !scene.events.contains(id) {
-                    log!(warn internal_send => "Event In Shortcuts, But Not In Scene: {}", id);
+                    warn!("Event in keyboard shortcuts, but not in scene: {}", id);
                     test = false;
                 } // Events in the scene have already been tested for other validity
             }
@@ -933,7 +931,6 @@ impl Config {
     /// guaranteed to catch later inconsistencies.
     ///
     async fn verify_event(
-        internal_send: &InternalSend,
         event: &Event,
         scene: &Scene,
         all_scenes: &FnvHashMap<ItemId, Scene>,
@@ -951,19 +948,19 @@ impl Config {
                     if all_scenes.contains_key(new_scene) {
                         // Verify that the newscene event exists in the new scene
                         if !event_list.contains_key(new_scene) {
-                            log!(warn internal_send => "Reset Scene Event Missing From Scene: {}", new_scene);
+                            warn!("Reset scene event missing from scene: {}.", new_scene);
                             return false;
                         }
 
                     // If the desired scene does not exist
                     } else {
                         // Warn the system and indicate failure
-                        log!(warn internal_send => "Event Contains Invalid Scene: {}", new_scene);
+                        warn!("Event contains invalid scene: {}.", new_scene);
                         return false;
                     }
 
                     // If the scene exists, verify the scene is described
-                    return Config::verify_lookup(internal_send, lookup, new_scene).await;
+                    return Config::verify_lookup(lookup, new_scene).await;
                 }
 
                 // If there is a status modification, verify both components of the modification
@@ -975,17 +972,17 @@ impl Config {
                     if let Some(status) = status_map.get(status_id) {
                         // Also verify the new state
                         if !status.is_allowed(new_state) {
-                            log!(warn internal_send => "Event Contains Invalid New State: {}", &new_state);
+                            warn!("Event contains invalid new state: {}.", &new_state);
                             return false;
                         }
                     } else {
-                        log!(warn internal_send => "Event Contains Invalid Status Id: {}", &status_id);
+                        warn!("Event contains invalid status id: {}.", &status_id);
                         return false;
                     }
 
                     // If the status exists, verify the status and state are described
-                    return Config::verify_lookup(internal_send, lookup, status_id).await
-                        & Config::verify_lookup(internal_send, lookup, new_state).await;
+                    return Config::verify_lookup(lookup, status_id).await
+                        & Config::verify_lookup(lookup, new_state).await;
                 }
                 // If there is dmx fade to cue, assume validity
                 &CueDmx { .. } => (),
@@ -994,13 +991,13 @@ impl Config {
                 &CueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
                     if !scene.events.contains(&event.id()) {
-                        log!(warn internal_send => "Event Contains Cue Event, But Not In Scene: {}", &event.id());
+                        warn!("Cued event not in scene: {}.", &event.id());
                         // Do not flag as incorrect
                     }
 
                     // Return false if the event_id is incorrect
                     if !event_list.contains_key(&event.id()) {
-                        log!(warn internal_send => "Event Contains Invalid Cue Event: {}", &event.id());
+                        warn!("Event contains invalid cue event: {}.", &event.id());
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
@@ -1015,7 +1012,7 @@ impl Config {
                 &CancelEvent { ref event } => {
                     // Return false if the event doesn't exist
                     if !event_list.contains_key(&event) {
-                        log!(warn internal_send => "Event Contains Invalid Cancelled Events: {}", &event);
+                        warn!("Event contains invalid cancelled event: {}.", &event);
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked. Don't need to check scene validity because cancelled events are not necessarily in the same scene.
                 }
@@ -1034,7 +1031,7 @@ impl Config {
                         // Verify that the allowed states vector isn't empty
                         let allowed = status.allowed();
                         if allowed.is_empty() {
-                            log!(warn internal_send => "Event Contains Empty Select Event: {}", status_id);
+                            warn!("Event contains empty select event: {}.", status_id);
                             return false;
                         }
 
@@ -1044,7 +1041,7 @@ impl Config {
                             if let Some(target_event) = event_map.get(state) {
                                 // Verify that the event exists
                                 if !event_list.contains_key(&target_event) {
-                                    log!(warn internal_send => "Event Group Contains Invalid Target Event: {}", &target_event);
+                                    warn!("Select event has invalid target event: {}.", &target_event);
                                     return false;
                                 }
                                 // If no event is specified, nothing is triggered
@@ -1053,7 +1050,7 @@ impl Config {
 
                     // If the status doesn't exist, raise a warning
                     } else {
-                        log!(warn internal_send => "Event Contains Invalid Status: {}", status_id);
+                        warn!("Select event contains invalid status: {}.", status_id);
                         return false;
                     }
                 }
@@ -1069,13 +1066,12 @@ impl Config {
     /// does not raise any errors.
     ///
     async fn verify_lookup(
-        internal_send: &InternalSend,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
         id: &ItemId,
     ) -> bool {
         // Check to see if the id is available in the lookup
         if !lookup.contains_key(&id) {
-            log!(warn internal_send => "Item Not Described In Lookup: {}", id);
+            warn!("Item not described in lookup: {}.", id);
             return false;
         }
         true // Otherwise indicate success

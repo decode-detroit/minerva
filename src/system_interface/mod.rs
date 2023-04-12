@@ -42,8 +42,11 @@ use std::path::PathBuf;
 // Import Tokio features
 use tokio::sync::mpsc;
 
-// Import the failure features
-use failure::Error as FailureError;
+// Import tracing features
+use tracing::{info, debug, warn, error};
+
+// Import anyhow features
+use anyhow::Result;
 
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
@@ -80,7 +83,7 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
-    ) -> Result<(Self, WebSend), FailureError> {
+    ) -> Result<(Self, WebSend)> {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
 
@@ -295,9 +298,9 @@ impl SystemInterface {
             }
 
             // Solicit a string from the user
-            InternalUpdate::GetUserString(event) => {
+            InternalUpdate::GetUserString(_event) => {
                 // FIXME Prompt via the web interface
-                log!(err &mut self.internal_send => "Get User String variant temporarily diabled as of version 0.9.11.");
+                error!("Get User String variant temporarily diabled as of version 0.9.11.");
             }
 
             // Pass an event to the event_handler
@@ -324,7 +327,7 @@ impl SystemInterface {
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
-                    log!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
+                    error!("Event could not be processed. No active configuration.");
                 }
             }
 
@@ -403,8 +406,8 @@ impl SystemInterface {
                 // Send the all stop event via the logger
                 log!(broadcast &mut self.internal_send => ItemId::all_stop(), None);
 
-                // Place an error in the debug log
-                log!(err &mut self.internal_send => "An All Stop was triggered by the operator.");
+                // Place an note in the debug log
+                debug!("An All Stop was triggered by the operator.");
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -487,7 +490,7 @@ impl SystemInterface {
 
                 // Otherwise noity the user that a configuration failed to load
                 } else {
-                    log!(err &mut self.internal_send => "Event couldn't be cued. No active configuration.");
+                    error!("Event couldn't be cued. No active configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
                 }
             }
@@ -503,7 +506,7 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(mut handler) = self.event_handler.take() {
                     // Placeholder for the final result
-                    let mut result = UnpackResult::Failure("Invalid Web Request.".into());
+                    let result;
 
                     // Match the type of information request
                     match detail_type {
@@ -566,9 +569,6 @@ impl SystemInterface {
                                 result = UnpackResult::SuccessWithMessage("none".into());
                             }
                         }
-
-                        // For other types, warn of an internal error
-                        _ => log!(warn &mut self.internal_send => "Invalid Web Request."), // FIXME to  be removed
                     }
 
                     // Put the handler back
@@ -579,7 +579,7 @@ impl SystemInterface {
 
                 // Otherwise notify the user that a configuration failed to load
                 } else {
-                    log!(warn &mut self.internal_send => "Information Unavailable. No Active Configuration.");
+                    warn!("Information unavailable. No active configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
                 }
             }
@@ -603,11 +603,11 @@ impl SystemInterface {
                                     )
                                     .await
                                 {
-                                    log!(update &self.internal_send => "Item Description Added: {}", item_pair.description());
+                                    info!("Item description added: {}.", item_pair.description());
 
                                 // If not, notify that the item was updated
                                 } else {
-                                    log!(update &self.internal_send => "Item Description Updated: {}", item_pair.description());
+                                    info!("Item description updated: {}.", item_pair.description());
                                 }
                             }
 
@@ -649,7 +649,7 @@ impl SystemInterface {
 
                                 // Remove the entry in the item index
                                 if self.index_access.remove_item(item_id).await {
-                                    log!(update &self.internal_send => "Item Deleted: {}", description);
+                                    info!("Item deleted: {}.", description);
                                 } // ignore errors
                             }
                         }
@@ -660,7 +660,7 @@ impl SystemInterface {
 
                 // Raise a warning that there is no active configuration
                 } else {
-                    log!(warn &mut self.internal_send => "Change Not Saved: There Is No Active Configuration.");
+                    warn!("Change not saved: There is no active configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
                 }
             }
@@ -711,7 +711,7 @@ impl SystemInterface {
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
-                    log!(err &mut self.internal_send => "Event Could Not Be Processed. No Active Configuration.");
+                    error!("Event could not be processed. No active configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
                 }
             }
@@ -813,7 +813,7 @@ impl SystemInterface {
             .update_system_connection(Some(system_connection))
             .await
         {
-            log!(err &mut self.internal_send => "Unable To Open System Connections.");
+            error!("Unable to open system connections.");
         }
 
         // Get the scenes and full status

@@ -32,6 +32,9 @@ use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
 
+// Import tracing features
+use tracing::error;
+
 /// An internal struct to hold the coming events and associated updates.
 ///
 /// The most soon-to-trigger events (i.e. those with the smallest amount of time
@@ -521,7 +524,7 @@ impl Queue {
 
         // Otherwise, raise an error that the queue has failed
         } else {
-            log!(err &self.interface_send => "Internal Failure Of The Event Queue.");
+            error!("Internal fauliure of the event queue.");
         }
     }
 

@@ -28,8 +28,11 @@ use crate::definitions::*;
 // Import standard library features
 use std::time::{Instant, Duration};
 
-// Import the failure features
-use failure::Error;
+// Import tracing features
+use tracing::error;
+
+// Import anyhow features
+use anyhow::Result;
 
 // Imprt redis client library
 use redis::{Commands, RedisResult, ConnectionLike};
@@ -52,7 +55,6 @@ use serde_yaml;
 pub struct BackupHandler {
     identifier: Identifier,                // the identifier for this instance of the controller, if specified
     connection: Option<redis::Connection>, // the Redis connection, if it exists
-    internal_send: InternalSend,           // the update line for posting any warnings
     last_update: Instant,                  // the time of the last update for the backup
     backup_items: FnvHashSet<ItemId>,      // items currently backed up in the system
     dmx_universe: DmxUniverse,               // the current final value of all DMX fades
@@ -73,10 +75,9 @@ impl BackupHandler {
     /// None.
     ///
     pub async fn new(
-        internal_send: InternalSend,
         identifier: Identifier,
         server_location: Option<String>,
-    ) -> Result<BackupHandler, Error> {
+    ) -> Result<BackupHandler> {
         // If a server location was specified
         if let Some(location) = server_location {
             // Try to connect to the Redis server
@@ -89,14 +90,13 @@ impl BackupHandler {
                     // Unpack the result from the operation
                     if let Err(..) = result {
                         // Warn that it wasn't possible to update the current scene
-                        log!(err internal_send => "Unable To Set Redis Snapshot Settings.");
+                        error!("Unable to set redis snapshot settings.");
                     } 
 
                     // Return the new backup handler
                     return Ok(BackupHandler {
                         identifier,
                         connection: Some(connection),
-                        internal_send,
                         last_update: Instant::now(),
                         backup_items: FnvHashSet::default(),
                         dmx_universe: DmxUniverse::new(),
@@ -105,19 +105,16 @@ impl BackupHandler {
 
                 // Indicate that there was a failure to connect to the server
                 } else {
-                    log!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
+                    error!("Unable to connect to backup server: {}.", location);
                 }
 
             // Indicate that there was a failure to connect to the server
             } else {
-                log!(err &internal_send => "Unable To Connect To Backup Server: {}.", location);
+                error!("Unable to connect to backup server: {}.", location);
             }
 
             // Indicate failure
-            return Err(format_err!(
-                "Unable To Connect To Backup Server: {}.",
-                location
-            ));
+            return Err(anyhow!("Unable to connect to backup server: {}.", location));
 
         // If a location was not specified
         } else {
@@ -125,7 +122,6 @@ impl BackupHandler {
             return Ok(BackupHandler {
                 identifier,
                 connection: None,
-                internal_send,
                 last_update: Instant::now(),
                 backup_items: FnvHashSet::default(),
                 dmx_universe: DmxUniverse::new(),
@@ -156,7 +152,7 @@ impl BackupHandler {
             // Unpack the result from the operation
             if let Err(..) = result {
                 // Warn that it wasn't possible to update the current scene
-                log!(err self.internal_send => "Unable To Backup Current Scene Onto Backup Server.");
+                error!"Unable To Backup Current Scene Onto Backup Server.");
             }
 
             // Put the connection back
@@ -186,7 +182,7 @@ impl BackupHandler {
             // Unpack the result from the operation
             if let Err(..) = result {
                 // Warn that it wasn't possible to update the current scene
-                log!(err self.internal_send => "Unable To Backup Current Scene Onto Backup Server.");
+                error!("Unable to backup current scene onto backup server.");
             }
 
             // Put the connection back
@@ -223,7 +219,7 @@ impl BackupHandler {
 
             // Warn that the particular status was not set
             if let Err(..) = result {
-                log!(warn &self.internal_send => "Unable To Backup Status Onto Backup Server: {}.", status_id);
+                error!("Unable to backup status onto backup server: {}.", status_id);
 
             // Otherwise, add the id to the backup items
             } else {
@@ -273,7 +269,7 @@ impl BackupHandler {
             let event_string = match serde_yaml::to_string(&queued_events) {
                 Ok(string) => string,
                 Err(error) => {
-                    log!(err &self.internal_send => "Unable To Parse Coming Events: {}", error);
+                    error!("Unable to parse coming events: {}.", error);
 
                     // Put the connection back
                     self.connection = Some(connection);
@@ -285,9 +281,9 @@ impl BackupHandler {
             let result: RedisResult<bool>;
             result = connection.set(&format!("{}:queue", self.identifier), &event_string);
 
-            // Warn that the event queue was not set
+            // Alert that the event queue was not set
             if let Err(..) = result {
-                log!(warn &self.internal_send => "Unable To Backup Events Onto Backup Server.");
+                error!("Unable to backup events onto backup server.");
             }
 
             // Put the connection back
@@ -322,7 +318,7 @@ impl BackupHandler {
             let dmx_string = match serde_yaml::to_string(&self.dmx_universe) {
                 Ok(string) => string,
                 Err(error) => {
-                    log!(err &self.internal_send => "Unable To Parse Dmx Universe: {}", error);
+                    error!("Unable to parse DMX universer: {}.", error);
 
                     // Put the connection back
                     self.connection = Some(connection);
@@ -334,9 +330,9 @@ impl BackupHandler {
             let result: RedisResult<bool>;
             result = connection.set(&format!("{}:dmx", self.identifier), &dmx_string);
 
-            // Warn that the dmx status was not set
+            // Alert that the dmx status was not set
             if let Err(..) = result {
-                log!(warn &self.internal_send => "Unable To Backup DMX Onto Backup Server.");
+                error!("Unable to backup DMX onto backup server.");
             }
 
             // Put the connection back
@@ -373,7 +369,7 @@ impl BackupHandler {
             let media_string = match serde_yaml::to_string(&self.media_playlist) {
                 Ok(string) => string,
                 Err(error) => {
-                    log!(err &self.internal_send => "Unable To Parse Media Cue: {}", error);
+                    error!("Unable to parse media cue: {}.", error);
 
                     // Put the connection back
                     self.connection = Some(connection);
@@ -385,9 +381,9 @@ impl BackupHandler {
             let result: RedisResult<bool>;
             result = connection.set(&format!("{}:media", self.identifier), &media_string);
 
-            // Warn that the dmx status was not set
+            // Alert that the dmx status was not set
             if let Err(..) = result {
-                log!(warn &self.internal_send => "Unable To Backup Media Onto Backup Server.");
+                error!("Unable to backup media onto backup server.");
             }
 
             // Put the connection back
@@ -556,14 +552,10 @@ mod tests {
     #[tokio::test]
     async fn backup_game() {
         // Import libraries for testing
-        use crate::definitions::{Identifier, InternalSend, InternalUpdate};
-
-        // Create a channel for receiving messages from the backup handler
-        let (internal_send, mut rx) = InternalSend::new();
+        use crate::definitions::{Identifier};
 
         // Create the backup handler
         let mut backup_handler = BackupHandler::new(
-            internal_send,
             Identifier { id: None },
             Some("redis://127.0.0.1:6379".to_string()),
         )
@@ -605,9 +597,5 @@ mod tests {
         } else {
             panic!("Backup was not reloaded.");
         }
-
-        // Make sure no messages were received (wait at most half a second)
-        let empty: Vec<InternalUpdate> = Vec::new();
-        test_vec!(=rx, empty);
     }
 }

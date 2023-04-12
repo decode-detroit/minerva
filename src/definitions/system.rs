@@ -132,10 +132,6 @@ pub enum DetailType {
     /// A variant for the list of all system connections
     Connections,
 
-    /// A variant for the description of an item
-    /// NOTE: This variant will be retired // FIXME Remove this variant
-    Description { item_id: ItemId },
-
     /// A variant for the event associated with an item
     Event { item_id: ItemId },
 
@@ -147,10 +143,6 @@ pub enum DetailType {
 
     /// A variant for the item type
     Type { item_id: ItemId },
-
-    /// A variant for the list of all items
-    /// NOTE: This vailant will be retired
-    Items,
 }
 
 /// An enum to specify which Edit Action subcomponent has requested the information

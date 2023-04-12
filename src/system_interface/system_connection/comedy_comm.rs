@@ -39,8 +39,8 @@ use std::time::{Duration, Instant};
 use serial;
 use serial::prelude::*;
 
-// Import the failure features
-use failure::Error;
+// Import anyhow features
+use anyhow::Result;
 
 // Import the byteorder module for converting between types
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -81,7 +81,7 @@ pub struct ComedyComm {
 impl ComedyComm {
     /// A function to create a new instance of the ComedyComm
     ///
-    pub fn new(path: &PathBuf, baud: usize, polling_rate: u64) -> Result<ComedyComm, Error> {
+    pub fn new(path: &PathBuf, baud: usize, polling_rate: u64) -> Result<ComedyComm> {
         // Create the new instance
         let mut comedy_comm = ComedyComm {
             path: path.clone(),
@@ -106,7 +106,7 @@ impl ComedyComm {
     ///
     /// Returns the error if unable to connect.
     ///
-    fn connect(&mut self) -> Result<(), Error> {
+    fn connect(&mut self) -> Result<()> {
         // Disconnect from the port, if there is one
         drop(self.port.take());
 
@@ -139,7 +139,7 @@ impl ComedyComm {
     /// A helper function to check on the status of the connection, and if it's
     /// broken, try to reestablish it periodically
     ///
-    fn check_connection(&mut self) -> Result<(), Error> {
+    fn check_connection(&mut self) -> Result<()> {
         // Check to see if the port exists
         if self.port.is_none() {
             // Look at the last retry
@@ -151,7 +151,7 @@ impl ComedyComm {
 
                     // Try to reconnect
                     if self.connect().is_err() {
-                        return Err(format_err!("Comedy Comm port is unavailable."));
+                        return Err(anyhow!("Comedy Comm port is unavailable."));
                     }
                 }
 
@@ -164,7 +164,7 @@ impl ComedyComm {
 
                         // Try to reconnect
                         if self.connect().is_err() {
-                            return Err(format_err!("Comedy Comm port is unavailable."));
+                            return Err(anyhow!("Comedy Comm port is unavailable."));
                         }
                     }
                 }
@@ -211,7 +211,7 @@ impl ComedyComm {
         id: ItemId,
         data1: u32,
         data2: u32,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         // Format the command as a byte
         let mut bytes = Vec::new();
         bytes.push(COMMAND_CHARACTER);
@@ -246,7 +246,7 @@ impl ComedyComm {
 
         // Try to send the bytes to the port
         if port.write(bytes.as_slice()).is_err() {
-            return Err(format_err!("Unable to write to Comedy Comm port."));
+            return Err(anyhow!("Unable to write to Comedy Comm port."));
         }
 
         // Indicate that the event was sent
@@ -300,7 +300,7 @@ impl EventConnection for ComedyComm {
                         // And if time has expired
                         if (instant + Duration::from_millis(ACK_DELAY)) < Instant::now() {
                             // Notify the system of a communication error
-                            results.push(ReadResult::WriteError(format_err!(
+                            results.push(ReadResult::WriteError(anyhow!(
                                 "No Acknowledgement from Comedy Comm. Retrying ..."
                             )));
 
@@ -391,7 +391,7 @@ impl EventConnection for ComedyComm {
                             Ok(id) => id,
                             _ => {
                                 // Return an error and exit
-                                results.push(ReadResult::ReadError(format_err!(
+                                results.push(ReadResult::ReadError(anyhow!(
                                     "Invalid Event Id for Comedy Comm."
                                 )));
                                 break; // end prematurely
@@ -401,7 +401,7 @@ impl EventConnection for ComedyComm {
                             Ok(data1) => data1,
                             _ => {
                                 // Return an error and exit
-                                results.push(ReadResult::ReadError(format_err!(
+                                results.push(ReadResult::ReadError(anyhow!(
                                     "Invalid second field for Comedy Comm."
                                 )));
                                 break; // end prematurely
@@ -411,7 +411,7 @@ impl EventConnection for ComedyComm {
                             Ok(data2) => data2,
                             _ => {
                                 // Return an error and exit
-                                results.push(ReadResult::ReadError(format_err!(
+                                results.push(ReadResult::ReadError(anyhow!(
                                     "Invalid third field for Comedy Comm."
                                 )));
                                 break; // end prematurely
@@ -455,7 +455,7 @@ impl EventConnection for ComedyComm {
                 drop(bad_port); // Ensure the port is promptly dropped
 
                 // Note the error
-                results.push(ReadResult::ReadError(format_err!(
+                results.push(ReadResult::ReadError(anyhow!(
                     "Lost connection to Comedy Comm port."
                 )));
             }
@@ -467,7 +467,7 @@ impl EventConnection for ComedyComm {
 
     /// A method to send a new event to the serial connection
     ///
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Check the USB connection
         self.check_connection()?;
 
@@ -489,7 +489,7 @@ impl EventConnection for ComedyComm {
         if self.outgoing.len() > 1 {
             // If the number of events as piled up, send an error
             if self.outgoing.len() > MAX_SEND_BUFFER {
-                return Err(format_err!("Too many events in outgoing buffer."));
+                return Err(anyhow!("Too many events in outgoing buffer."));
             }
 
             // Otherwise just return normally
@@ -516,7 +516,7 @@ impl EventConnection for ComedyComm {
                 drop(bad_port); // Ensure the port is promptly dropped
 
                 // Return the error
-                return Err(format_err!("Lost connection to Comedy Comm port."));
+                return Err(anyhow!("Lost connection to Comedy Comm port."));
             }
         }
 
@@ -526,7 +526,7 @@ impl EventConnection for ComedyComm {
 
     /// A method to echo an event to the serial connection
     ///
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<(), Error> {
+    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Filter each event before echoing it to the system
         let mut count = 0;
         for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_events.iter() {

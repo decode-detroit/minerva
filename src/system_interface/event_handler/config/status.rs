@@ -25,6 +25,9 @@
 // Import crate definitions
 use crate::definitions::*;
 
+// Import tracing features
+use tracing::{info, warn, error};
+
 /// A structure which holds the local status and manages any state changes.
 ///
 /// # Notes
@@ -34,7 +37,6 @@ use crate::definitions::*;
 ///
 pub struct StatusHandler {
     status_map: StatusMap,     // hash map of the local status
-    update_line: InternalSend, // the update line for posting any warnings
 }
 
 // Implement key features for the status handler
@@ -49,11 +51,10 @@ impl StatusHandler {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn new(update_line: InternalSend, status_map: StatusMap) -> StatusHandler {
+    pub fn new(status_map: StatusMap) -> StatusHandler {
         // Return the new status handler
         StatusHandler {
             status_map,
-            update_line,
         }
     }
 
@@ -78,7 +79,7 @@ impl StatusHandler {
 
         // Warn that there is an error with the provided status id
         } else {
-            log!(err &self.update_line => "Unable To Locate Current State Of Status: {}.", &status_id);
+            error!("Unable to locate current state of status: {}.", &status_id);
             return None;
         }
     }
@@ -107,11 +108,11 @@ impl StatusHandler {
             if let Some(status) = self.status_map.get_mut(&status_id) {
                 // Update the status and notify the system
                 *status = new_status;
-                log!(update &self.update_line => "Status Updated: {}", description);
+                info!("Status updated: {}.", description);
 
             // Otherwise, add the status
             } else {
-                log!(update &self.update_line => "Status Added: {}", description);
+                info!("Status added: {}.", description);
                 self.status_map.insert(status_id, new_status);
             }
 
@@ -120,7 +121,7 @@ impl StatusHandler {
             // If the status is in the status map, remove it
             if let Some(_) = self.status_map.remove(&status_id) {
                 // Notify the user that it was removed
-                log!(update &self.update_line => "Status Removed: {}", description);
+                info!("Status removed: {}.", description);
             }
         }
     }
@@ -153,7 +154,7 @@ impl StatusHandler {
 
         // Warn the system that this is not a valid id
         } else {
-            log!(warn &self.update_line => "Status ID Not Found In Config: {}", status_id);
+            warn!("Status Id not found in config: {}.", status_id);
             None
         }
     }
@@ -237,12 +238,6 @@ mod tests {
     // Test getting and modifying a status
     #[tokio::test]
     async fn change_status() {
-        // Import libraries for testing
-        use crate::definitions::InternalSend;
-
-        // Create the receiving line
-        let (internal_send, _rx) = InternalSend::new();
-
         // Create placeholder ids
         let status1 = ItemId::new_unchecked(1);
         let status2 = ItemId::new_unchecked(2);
@@ -270,7 +265,7 @@ mod tests {
         );
 
         // Create a new status handler
-        let mut status_handler = StatusHandler::new(internal_send, status_map);
+        let mut status_handler = StatusHandler::new(status_map);
 
         // Check the current state
         assert_eq!(Some(state1), status_handler.get_state(&status1).await);
