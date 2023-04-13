@@ -42,20 +42,34 @@ use self::style_sheet::StyleSheet;
 use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
 
+// Import standard library features
+use std::env;
+use std::fs::DirBuilder;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::fs::{File, OpenOptions};
+
 // Import anyhow features
 #[macro_use]
 extern crate anyhow;
 
 // Import tracing features
-use tracing::Level;
-use tracing_subscriber;
+use tracing::error;
+use tracing_subscriber::prelude::*;
+use tracing_subscriber::filter::LevelFilter;
+
+// Import the chrono library
+use chrono::Local;
 
 // Import sysinfo modules
 use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
 
 // Define program constants
 const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
-const DEFAULT_LOGLEVEL: Level = Level::INFO; // FIXME for testing until proper logging is reimplemented
+const DEFAULT_LOGLEVEL: LevelFilter = LevelFilter::INFO; // FIXME for testing until proper logging is reimplemented
+const FILE_LOGLEVEL: LevelFilter = LevelFilter::INFO;
+const LOG_FOLDER: &str = "log/"; // the default log folder
+const GAME_LOG: &str = "game_log"; // the default logging filename
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -64,6 +78,73 @@ struct Minerva;
 
 // Implement the Minerva functionality
 impl Minerva {
+    /// A function to setup the logging configuration
+    /// 
+    fn setup_logging() {
+        // Try to load loggging folder and set the filepath
+        let filepath = match env::current_dir() {
+            // If the path loads
+            Ok(mut path) => {
+                // Create the log folder path
+                path.push(LOG_FOLDER); // append the log folder
+
+                // Make sure the log folder exists
+                let builder = DirBuilder::new();
+                builder.create(path.clone()).unwrap_or(()); // ignore if it already exits
+
+                // Set the file for today
+                path.push(format!("{}_{}.txt", GAME_LOG, Local::now().format("%Y-%m-%d")).as_str());
+
+                // Return the completed path
+                path
+            }
+
+            // Default to relative folder path
+            _ => {
+                let mut path = PathBuf::from(LOG_FOLDER);
+                path.push(format!("{}{}.txt", GAME_LOG, Local::now().format("%Y-%m-%d")).as_str());
+
+                // Return the relative path
+                path
+            }
+        };
+
+        // Open the game log
+        let possible_file = match OpenOptions::new().append(true).open(filepath.to_str().unwrap_or("")) {
+            Ok(file) => Some(file),
+
+            // If the file does not exist
+            Err(_) => {
+                // Try to create the filepath instead
+                match File::create(filepath.to_str().unwrap_or("")) {
+                    Ok(file) => Some(file),
+                    
+                    // If we're unable to open the file, just log to terminal
+                    Err(_) => {
+                        error!("Unable to create game log file.");
+                        None
+                    }
+                }
+            }
+        };
+
+        // Create the stdout layer
+        let stdout_layer = tracing_subscriber::fmt::layer().with_target(false).with_filter(DEFAULT_LOGLEVEL);
+
+        // Create the log file layer, if available
+        if let Some(file) = possible_file {
+            let file_layer = tracing_subscriber::fmt::layer().with_writer(Arc::new(file)).with_ansi(false).with_target(false).with_filter(FILE_LOGLEVEL);
+            
+            // Initialize tracing
+            tracing_subscriber::registry().with(stdout_layer).with(file_layer).init();
+        
+        // Otherwise, just log to the terminal
+        } else {
+            // Initialize tracing
+            tracing_subscriber::registry().with(stdout_layer).init();
+        }
+    }
+
     /// A function to build the main program and the user interface
     ///
     async fn run() {
@@ -92,8 +173,7 @@ impl Minerva {
             style_access.clone(),
             interface_send.clone(),
         )
-        .await
-        .expect("Unable To Create System Interface.");
+        .await;
 
         // Create a new web interface
         let mut web_interface =
@@ -117,7 +197,7 @@ async fn main() {
     let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::everything());
     let sys_info = System::new_with_specifics(refresh_kind);
     
-    // Check to ensure Minerva is not already running FIXME allow multiple instances
+    // Check to ensure Minerva is not already running FIXME allow multiple instances with commandline argument
     if sys_info.processes_by_exact_name("minerva").collect::<Vec::<&Process>>().len() > 1 {
         println!("Minerva is already running. Exiting ...");
         return;
@@ -127,8 +207,8 @@ async fn main() {
     drop(refresh_kind);
     drop(sys_info);
 
-    // Initialize tracing
-    tracing_subscriber::fmt().with_max_level(DEFAULT_LOGLEVEL).with_target(false).init();
+    // Initialize logging
+    Minerva::setup_logging();
 
     // Create the program and run until directed otherwise
     Minerva::run().await;

@@ -43,11 +43,6 @@ pub enum InternalUpdate {
     /// A variant that notifies the system of a change in the coming events
     ComingEvents(Vec<ComingEvent>),
 
-    /// A variant that solicites a string of data from the user to send to the
-    /// system. The string will be sent as a series of events with the same
-    /// item id. TODO Make this more generic for other user input
-    GetUserString(ItemId),
-
     /// A variant that processes a new event with the given item id. If the
     /// check_scene flag is not set, the system will not check if the event is
     /// listed in the current scene. If broadcast is set to true, the event
@@ -118,16 +113,6 @@ impl InternalSend {
                 check_scene,
                 broadcast,
             })
-            .await
-            .unwrap_or(());
-    }
-
-    /// A method to request a string from the user FIXME make this more generic
-    /// for other types of data
-    ///
-    pub async fn send_get_user_string(&self, event: ItemId) {
-        self.internal_send
-            .send(InternalUpdate::GetUserString(event))
             .await
             .unwrap_or(());
     }

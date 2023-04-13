@@ -24,22 +24,15 @@
 // Import crate definitions
 use crate::definitions::*;
 
-// Import standard library modules
-use std::fs::{File, OpenOptions};
-use std::io::Write;
-use std::path::PathBuf;
-
 // Import the chrono library
 use chrono::{Duration, Local};
 
-// Import anyhow features
-use anyhow::Result;
+// Import tracing features
+use tracing::info;
 
 /// A structure to handle all logging and update processing for the program.
 ///
 pub struct Logger {
-    game_log: Option<File>,               // game log file for the program
-    error_log: Option<File>,              // error log file for the program
     old_notifications: Vec<Notification>, // internal list of notifications less than 1 minute old
     index_access: IndexAccess,            // the item index access point
     internal_send: InternalSend,          // broadcast channel for current events
@@ -61,87 +54,16 @@ impl Logger {
     /// will fail gracefully by returning None.
     ///
     pub fn new(
-        log_path: Option<PathBuf>,
-        error_path: Option<PathBuf>,
         index_access: IndexAccess,
         internal_send: InternalSend,
         interface_send: InterfaceSend,
-    ) -> Result<Logger> {
-        // Attempt to open the game log file
-        let game_log = match log_path {
-            // If a file was specified, try to load it
-            Some(mut filepath) => {
-                // Use the current time for each instance
-                filepath.push(format!("game_log_{}", Local::now().format("%F_%H-%M")).as_str());
-
-                // Create the new file instance
-                match File::create(filepath.to_str().unwrap_or("")) {
-                    Ok(file) => Some(file),
-                    Err(_) => return Err(anyhow!("Unable to create game log file.")),
-                }
-            }
-
-            // If a file was not specified, run without a log file
-            None => None,
-        };
-
-        // Attempt to open the error log file
-        let error_log = match error_path {
-            // If a file was specified, try to open it first
-            Some(filepath) => match OpenOptions::new()
-                .append(true)
-                .open(filepath.to_str().unwrap_or(""))
-            {
-                Ok(file) => Some(file),
-
-                // If the file does not exist
-                Err(_) => {
-                    // Try to create the filepath instead
-                    match File::create(filepath.to_str().unwrap_or("")) {
-                        Ok(file) => Some(file),
-                        Err(_) => {
-                            return Err(anyhow!("Unable to create error log file."));
-                        }
-                    }
-                }
-            },
-
-            // If a file was not specified, run without a log file
-            None => None,
-        };
-
+    ) -> Self {
         // Return the new logger
-        Ok(Logger {
-            game_log,
-            error_log,
+        Self {
             old_notifications: Vec::new(),
             index_access,
             internal_send,
             interface_send,
-        })
-    }
-
-    /// A method to set the game log file for the logger.
-    ///
-    /// This function takes a log file name to log saved data.
-    ///
-    pub fn set_game_log(&mut self, log_path: PathBuf) {
-        // Attempt to open the log file
-        self.game_log = match File::create(&log_path.to_str().unwrap_or("")) {
-            Ok(file) => Some(file),
-            Err(_) => None,
-        }
-    }
-
-    /// A method to set the error log file for the logger.
-    ///
-    /// This function takes a log file name to log program-wide errors.
-    ///
-    pub fn set_error_log(&mut self, log_path: PathBuf) {
-        // Attempt to open the log file
-        self.error_log = match File::create(&log_path.to_str().unwrap_or("")) {
-            Ok(file) => Some(file),
-            Err(_) => None,
         }
     }
 
@@ -240,28 +162,8 @@ impl Logger {
 
             // Save data to the system
             LogUpdate::Save(data) => {
-                // Try to write the data to the game log
-                if let Some(ref mut file) = self.game_log {
-                    // Try to write to the file
-                    if let Err(_) = file.write_all(
-                        format!("{} — {}\n", now.format("%F %H:%M"), &data).as_bytes(),
-                        // Post a message on error
-                    ) {
-                        return Notification::Error {
-                            message: "Unable To Write To Game Log.".to_string(),
-                            time: now,
-                            event: None,
-                        };
-                    }
-
-                // Warn that there is no file
-                } else {
-                    return Notification::Warning {
-                        message: "No Active Game Log.".to_string(),
-                        time: now,
-                        event: None,
-                    };
-                }
+                // Send an info update
+                info!("Game data: {}", data);
 
                 // Print the full data to the notification area
                 Notification::Update {
@@ -300,7 +202,7 @@ mod tests {
 
         // Create a new logger instance
         let mut logger =
-            Logger::new(None, None, index_access, internal_send, interface_send).unwrap();
+            Logger::new(index_access, internal_send, interface_send);
 
         // Pass a series of updates to the logger and verify the output
         let mut result = logger

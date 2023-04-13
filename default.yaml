@@ -27,7 +27,6 @@ all_scenes:
     key_map: null
   ? id: 400
   : events:
-    - id: 403
     - id: 400
     - id: 402
     - id: 401
@@ -94,10 +93,6 @@ event_set:
   : - !NewScene
       new_scene:
         id: 200
-  ? id: 403
-    description: Send Custom String
-  : - !SendData
-      data: UserString
   ? id: 312
     description: Off
   : []

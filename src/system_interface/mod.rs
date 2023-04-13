@@ -36,7 +36,6 @@ use self::system_connection::SystemConnection;
 // Import standard library features
 use std::env;
 use std::ffi::OsStr;
-use std::fs::DirBuilder;
 use std::path::PathBuf;
 
 // Import Tokio features
@@ -45,14 +44,9 @@ use tokio::sync::mpsc;
 // Import tracing features
 use tracing::{info, debug, warn, error};
 
-// Import anyhow features
-use anyhow::Result;
-
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
 const DEFAULT_FILE: &str = "default"; // the default configuration filename
-const LOG_FOLDER: &str = "log/"; // the default log folder
-const ERROR_LOG: &str = "debug_log.txt"; // the default logging filename
 
 /// A structure to contain the system interface and handle all updates to the
 /// to the interface.
@@ -83,37 +77,16 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
-    ) -> Result<(Self, WebSend)> {
+    ) -> (Self, WebSend) {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
 
-        // Try to load the default logging file
-        let (log_folder, error_log) = match env::current_dir() {
-            // If the path loads
-            Ok(mut path) => {
-                // Create the log folder path
-                path.push(LOG_FOLDER); // append the log folder
-
-                // Make sure the log folder exists
-                let builder = DirBuilder::new();
-                builder.create(path.clone()).unwrap_or(()); // ignore if it already exits
-
-                // Create the error log path
-                let mut error_path = path.clone();
-                error_path.push(ERROR_LOG); // append the dafault error log filename
-                (Some(path), Some(error_path))
-            }
-            _ => (None, None),
-        };
-
         // Try to create a new logger instance
         let logger = Logger::new(
-            log_folder,
-            error_log,
             index_access.clone(),
             internal_send.clone(),
             interface_send.clone(),
-        )?;
+        );
 
         // Create a new system connection instance
         let system_connection = SystemConnection::new(internal_send.clone(), None).await;
@@ -161,7 +134,7 @@ impl SystemInterface {
         }
 
         // Regardless, return the new SystemInterface and general send line
-        Ok((sys_interface, web_send))
+        (sys_interface, web_send)
     }
 
     /// A method to run one iteration of the system interface to update the user
@@ -295,12 +268,6 @@ impl SystemInterface {
                         events: upcoming_events,
                     })
                     .await;
-            }
-
-            // Solicit a string from the user
-            InternalUpdate::GetUserString(_event) => {
-                // FIXME Prompt via the web interface
-                error!("Get User String variant temporarily diabled as of version 0.9.11.");
             }
 
             // Pass an event to the event_handler
@@ -680,12 +647,6 @@ impl SystemInterface {
                     self.event_handler = Some(handler);
                 }
             }
-
-            // Update the system log provided to the underlying system
-            UserRequest::ErrorLog { filepath } => self.logger.set_error_log(filepath),
-
-            // Update the game log provided to the underlying system
-            UserRequest::GameLog { filepath } => self.logger.set_game_log(filepath),
 
             // Pass an event to the event_handler
             UserRequest::ProcessEvent {

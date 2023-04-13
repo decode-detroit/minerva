@@ -266,26 +266,12 @@ impl From<Edit> for UserRequest {
         }
     }
 }
-impl From<ErrorLog> for UserRequest {
-    fn from(error_log: ErrorLog) -> Self {
-        UserRequest::ErrorLog {
-            filepath: PathBuf::from(error_log.filename),
-        }
-    }
-}
 impl From<EventChange> for UserRequest {
     fn from(event_change: EventChange) -> Self {
         UserRequest::EventChange {
             event_id: event_change.event_id,
             start_time: event_change.start_time,
             new_delay: event_change.new_delay,
-        }
-    }
-}
-impl From<GameLog> for UserRequest {
-    fn from(game_log: GameLog) -> Self {
-        UserRequest::GameLog {
-            filepath: PathBuf::from(game_log.filename),
         }
     }
 }

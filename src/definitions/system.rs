@@ -273,9 +273,6 @@ pub enum UserRequest {
     /// A variant to modify the underlying configuration
     Edit { modifications: Vec<Modification> },
 
-    /// A variant that provides a new error log file for the system interface.
-    ErrorLog { filepath: PathBuf },
-
     /// A variant to change the remaining delay for an existing event in the
     /// queue.
     EventChange {
@@ -283,9 +280,6 @@ pub enum UserRequest {
         start_time: NaiveDateTime, // the start time of the event, for unambiguous identification
         new_delay: Option<Duration>, // new delay relative to the original start time, or None to cancel the event
     },
-
-    /// A variant that provides a new game log file for the system interface.
-    GameLog { filepath: PathBuf },
 
     /// A variant that processes a new event with the given item id. If the
     /// check_scene flag is not set, the system will not check if the event is

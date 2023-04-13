@@ -546,17 +546,6 @@ impl EventHandler {
                         log!(now &self.internal_send => event_id.clone());
                     }
                 }
-
-                // Solicit a string from the user
-                UnpackResult::String => {
-                    // Save that the event was broadcast
-                    was_broadcast = true;
-
-                    // Solicit a string
-                    self.internal_send
-                        .send_get_user_string(event_id.clone())
-                        .await;
-                }
             }
         }
 
@@ -711,12 +700,6 @@ impl EventHandler {
                         // Save the string to the game log
                         log!(save &self.internal_send => string);
                     }
-
-                    // Solicit a string from the user
-                    DataType::UserString => {
-                        // Error that this is not yet implemented
-                        error!("Saving a user string is not yet implemented.");
-                    }
                 }
             }
 
@@ -794,9 +777,6 @@ impl EventHandler {
                         // Return the complete data
                         return UnpackResult::Data(data);
                     }
-
-                    // Solicit a string from the user
-                    DataType::UserString => return UnpackResult::String,
                 }
             }
 
@@ -835,9 +815,6 @@ enum UnpackResult {
 
     /// A variant indicating that some data that should be broadcast to the system.
     Data(Vec<u32>),
-
-    /// A variant indicating that a string should be solicited from the user.
-    String,
 }
 
 // Tests of the event handler module

@@ -148,9 +148,6 @@ pub enum DataType {
     StaticString {
         string: String, // the string, hardcoded into the data
     },
-
-    /// A variant for a string collected from the user
-    UserString,
 }
 
 /// A struct to define a single fade of a DMX channel

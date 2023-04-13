@@ -205,28 +205,12 @@ impl WebInterface {
                 .and(WebInterface::with_json::<DebugMode>())
                 .and_then(WebInterface::handle_request);
 
-            // Create the error log filter
-            let error_log = warp::post()
-                .and(warp::path("errorLog"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(clone_send.clone()))
-                .and(WebInterface::with_json::<ErrorLog>())
-                .and_then(WebInterface::handle_request);
-
             // Create the event change filter
             let event_change = warp::post()
                 .and(warp::path("eventChange"))
                 .and(warp::path::end())
                 .and(WebInterface::with_clone(clone_send.clone()))
                 .and(WebInterface::with_json::<EventChange>())
-                .and_then(WebInterface::handle_request);
-
-            // Create the game log filter
-            let game_log = warp::post()
-                .and(warp::path("gameLog"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(clone_send.clone()))
-                .and(WebInterface::with_json::<GameLog>())
                 .and_then(WebInterface::handle_request);
 
             // Create the item information filter
@@ -289,9 +273,7 @@ impl WebInterface {
                 .or(config_file)
                 .or(cue_event)
                 .or(debug_mode)
-                .or(error_log)
                 .or(event_change)
-                .or(game_log)
                 .or(get_item)
                 .or(get_styles)
                 .or(get_type)
