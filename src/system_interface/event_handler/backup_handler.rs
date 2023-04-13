@@ -85,13 +85,13 @@ impl BackupHandler {
                 // Try to get a copy of the Redis connection
                 if let Ok(mut connection) = client.get_connection() {
                     // Set the snapshot settings
-                    let result: RedisResult<redis::Value> = connection.req_command(redis::Cmd::new().arg("SAVE").arg(60).arg(1));
+                    let result: RedisResult<redis::Value> = connection.req_command(redis::Cmd::new().arg("CONFIG").arg("SET").arg("save").arg("60 1"));
 
                     // Unpack the result from the operation
                     if let Err(..) = result {
                         // Warn that it wasn't possible to update the current scene
                         error!("Unable to set redis snapshot settings.");
-                    } 
+                    }
 
                     // Return the new backup handler
                     return Ok(BackupHandler {
