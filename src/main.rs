@@ -42,31 +42,28 @@ use self::style_sheet::StyleSheet;
 use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
 
-// Import standard library features
-use std::env;
-use std::fs::DirBuilder;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::fs::{File, OpenOptions};
+// Import standard libary features
+use std::io::BufWriter;
+use std::sync::{Arc, Mutex};
 
 // Import anyhow features
 #[macro_use]
 extern crate anyhow;
 
 // Import tracing features
-use tracing::Level;
+use tracing::{info, error, Level};
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::fmt::Layer;
-use tracing_subscriber::reload::Handle;
-use tracing_subscriber::registry::Registry;
-use tracing_subscriber::filter::{filter_fn, Filtered, LevelFilter};
-pub type LogHandle = Handle<Filtered<Layer<Registry>, LevelFilter, Registry>, Registry>;
-
-// Import the chrono library
-use chrono::Local;
+use tracing_subscriber::filter::filter_fn;
+use tracing_appender;
 
 // Import sysinfo modules
 use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
+
+// Define constants
+pub const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
+pub const DEFAULT_LOGLEVEL: Level = Level::ERROR;
+pub const DEBUG_LOGLEVEL: Level = Level::INFO;
+pub const LOG_FOLDER: &str = "log/"; // the default log folder
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -77,85 +74,58 @@ struct Minerva;
 impl Minerva {
     /// A function to setup the logging configuration
     /// 
-    fn setup_logging() -> LogHandle {
-        // Try to load loggging folder and set the filepath
-        let filepath = match env::current_dir() {
-            // If the path loads
-            Ok(mut path) => {
-                // Create the log folder path
-                path.push(LOG_FOLDER); // append the log folder
+    fn setup_logging() -> (Arc<Mutex<bool>>, tracing_appender::non_blocking::WorkerGuard) {
+        // Create the debug mode flag
+        let is_debug = Arc::new(Mutex::new(false));
+        let clone_debug = is_debug.clone();
 
-                // Make sure the log folder exists
-                let builder = DirBuilder::new();
-                builder.create(path.clone()).unwrap_or(()); // ignore if it already exits
-
-                // Set the file for today
-                path.push(format!("{}_{}.txt", GAME_LOG, Local::now().format("%Y-%m-%d")).as_str());
-
-                // Return the completed path
-                path
-            }
-
-            // Default to relative folder path
-            _ => {
-                let mut path = PathBuf::from(LOG_FOLDER);
-                path.push(format!("{}_{}.txt", GAME_LOG, Local::now().format("%Y-%m-%d")).as_str());
-
-                // Return the relative path
-                path
-            }
-        };
-
-        // Open the game log
-        let possible_file = match OpenOptions::new().append(true).open(filepath.to_str().unwrap_or("")) {
-            Ok(file) => Some(file),
-
-            // If the file does not exist
-            Err(_) => {
-                // Try to create the filepath instead
-                match File::create(filepath.to_str().unwrap_or("")) {
-                    Ok(file) => Some(file),
-                    
-                    // If we're unable to open the file, just log to terminal
-                    Err(_) => {
-                        println!("Unable to create game log file.");
-                        None
-                    }
+        // Create the filter function for debug mode
+        let debug_filter = filter_fn(move |metadata| {
+            if let Ok(is_debug) = clone_debug.try_lock() {
+                if *is_debug {
+                    return metadata.level() == &DEBUG_LOGLEVEL;
+                } else {
+                    return metadata.level() == &DEFAULT_LOGLEVEL;
                 }
+            } else {
+                return metadata.level() == &DEFAULT_LOGLEVEL;
             }
-        };
+        });
 
-        // Create the stdout layer and extract a handle for modificaition
-        let stdout_layer = tracing_subscriber::fmt::layer().with_target(false).with_filter(DEFAULT_LOGLEVEL);
-        let (stdout_layer, log_handle) = tracing_subscriber::reload::Layer::new(stdout_layer);
+        // Create the stdout layer
+        let stdout_layer = tracing_subscriber::fmt::layer().with_target(false).with_filter(debug_filter);
 
         // Create a user interface layer
-        //FIXME let buf = BufWriter::new(Vec::new());
-        //let buf: Cursor<Vec<u8>> = Cursor::new(Vec::new());
-        //let user_layer = tracing_subscriber::fmt::layer().with_writer(buf).with_ansi(false).with_target(false).with_filter(DEFAULT_LOGLEVEL);
+        //let buffer = Arc::new(Mutex::new(BufWriter::new(Vec::new())));
+        //let buf_writer = buffer.clone().make_writer();
+        //let user_layer = tracing_subscriber::fmt::layer::<Registry>().with_writer(buf_writer).with_ansi(false).with_target(false).with_filter(DEFAULT_LOGLEVEL);
 
-        // Create the log file layer, if available
-        if let Some(file) = possible_file {
-            let file_layer = tracing_subscriber::fmt::layer().with_writer(Arc::new(file)).with_ansi(false).with_target(false).with_filter(filter_fn(|metadata| { metadata.target() == GAME_LOG || metadata.level() == &Level::ERROR })); // FIXME GAME_LOG messages are filtered out by the stdout filter (for reasons unknown)
-            
-            // Initialize tracing
-            tracing_subscriber::registry().with(stdout_layer).with(file_layer).init();
+        // Create the log file
+        let file_appender = tracing_appender::rolling::daily(LOG_FOLDER, GAME_LOG);
+        let (non_blocking, file_guard) = tracing_appender::non_blocking(file_appender);
+
+        // Create the log file filter
+        let file_filter = {
+            filter_fn(|metadata| {
+                metadata.target() == GAME_LOG || metadata.level() == &Level::ERROR
+            }
+        )};
+
+        // Create the log file layer
+        //let file_layer = tracing_subscriber::fmt::layer().with_writer(non_blocking).with_ansi(false).with_target(false).with_filter(file_filter);
         
-        // Otherwise, just log to the terminal
-        } else {
-            // Initialize tracing
-            tracing_subscriber::registry().with(stdout_layer).init();
-        }
+        // Initialize tracing
+        tracing_subscriber::registry().with(stdout_layer).init(); //.with(file_layer).init();
 
-        // Return the layer handle
-        log_handle
+        // Return the debug flag and file guard
+        (is_debug, file_guard)
     }
 
     /// A function to build the main program and the user interface
     ///
     async fn run() {
-        // Initialize logging
-        let log_handle = Minerva::setup_logging();
+        // Initialize logging (guard is held until the end of run())
+        let (log_handle, _guard) = Minerva::setup_logging();
 
         // Create the item index to process item description requests
         let (mut item_index, index_access) = ItemIndex::new();

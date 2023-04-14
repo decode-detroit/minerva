@@ -35,13 +35,13 @@ use self::system_connection::SystemConnection;
 use std::env;
 use std::ffi::OsStr;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 // Import Tokio features
 use tokio::sync::mpsc;
 
 // Import tracing features
 use tracing::{info, warn, error};
-use super::{LogHandle, DEFAULT_LOGLEVEL, DEBUG_LOGLEVEL};
 
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
@@ -64,7 +64,7 @@ pub struct SystemInterface {
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
     internal_send: InternalSend,         // a sending line to pass internal updates
-    log_handle: LogHandle,           // a handle to change the filter settings for tracing
+    is_debug: Arc<Mutex<bool>>,          // a flag for changing log level
 }
 
 // Implement key SystemInterface functionality
@@ -75,7 +75,7 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
-        log_handle: LogHandle,
+        is_debug: Arc<Mutex<bool>>,
     ) -> (Self, WebSend) {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
@@ -96,7 +96,7 @@ impl SystemInterface {
             web_receive,
             internal_receive,
             internal_send,
-            log_handle,
+            is_debug,
         };
 
         // Try to load a default configuration, if it exists
@@ -448,13 +448,11 @@ impl SystemInterface {
 
             // Swtich between normal mode and debug mode
             UserRequest::DebugMode(is_debug) => {
-                // Switch the mode (redraw triggered by the user interface)
-                if is_debug {
-                    self.log_handle.modify(|layer| *layer.filter_mut() = DEBUG_LOGLEVEL).unwrap_or(());
-                
-                // Return to non-debug mode
+                // Try to get a lock on the debug flag
+                if let Ok(mut debug) = self.is_debug.try_lock() {
+                    *debug = is_debug;
                 } else {
-                    self.log_handle.modify(|layer| *layer.filter_mut() = DEFAULT_LOGLEVEL).unwrap_or(());
+                    error!("Unable to change debug mode.");
                 }
             }
 

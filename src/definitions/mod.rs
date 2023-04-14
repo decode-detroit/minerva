@@ -17,14 +17,7 @@
 
 //! This module defines all structures and types used across modules.
 
-// Import tracing features
-use tracing_subscriber::filter::LevelFilter;
-
 // Define program constants
-pub const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
-pub const DEFAULT_LOGLEVEL: LevelFilter = LevelFilter::ERROR;
-pub const DEBUG_LOGLEVEL: LevelFilter = LevelFilter::INFO;
-pub const LOG_FOLDER: &str = "log/"; // the default log folder
 pub const GAME_LOG: &str = "game_log"; // the default logging filename
 
 // Define testing submodule
