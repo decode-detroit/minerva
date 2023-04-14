@@ -26,10 +26,10 @@ use tokio::runtime::Handle;
 use tokio::time::{sleep, Duration};
 
 // Import reqwest elements
-use reqwest::{Client};
+use reqwest::Client;
 
 // Import tracing features
-use tracing::{info, error};
+use tracing::{error, info};
 
 // Import anyhow features
 use anyhow::Result;
@@ -240,7 +240,8 @@ impl MediaInterface {
             .unwrap()
             .post(&format!("http://{}/cueMedia", &self.address))
             .json(&helper)
-            .send().await?;
+            .send()
+            .await?;
 
         // Indicate success
         Ok(())
@@ -268,7 +269,8 @@ impl MediaInterface {
             .unwrap()
             .post(&format!("http://{}/alignChannel", &self.address))
             .json(&helper)
-            .send().await?;
+            .send()
+            .await?;
 
         // Indicate success
         Ok(())
@@ -291,21 +293,28 @@ impl MediaInterface {
 
             // Extract the media cue as a helper and send it
             let cue: MediaCueHelper = playback.media_cue.into();
-            let _ = self.client
+            let _ = self
+                .client
                 .as_ref()
                 .unwrap()
                 .post(&format!("http://{}/cueMedia", &self.address))
                 .json(&cue)
-                .send().await; // Ignore the result
+                .send()
+                .await; // Ignore the result
 
             // Extract the duration change and send it
-            let seek = SeekMediaHelper { channel, position: playback.time_since.as_millis() as u64};
-            let _ = self.client
+            let seek = SeekMediaHelper {
+                channel,
+                position: playback.time_since.as_millis() as u64,
+            };
+            let _ = self
+                .client
                 .as_ref()
                 .unwrap()
                 .post(&format!("http://{}/seek", &self.address))
                 .json(&seek)
-                .send().await; // Ignore the result
+                .send()
+                .await; // Ignore the result
         }
     }
 }

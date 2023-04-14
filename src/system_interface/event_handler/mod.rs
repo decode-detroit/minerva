@@ -51,7 +51,7 @@ use tokio::fs::File;
 use tokio::time::sleep;
 
 // Import tracing features
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 // Import anyhow features
 use anyhow::Result;
@@ -171,14 +171,13 @@ impl EventHandler {
         let mut queue = Queue::new(internal_send.clone());
 
         // Attempt to create the backup handler
-        let mut backup = BackupHandler::new(
-            config.get_identifier(),
-            config.get_server_location(),
-        )
-        .await;
+        let mut backup =
+            BackupHandler::new(config.get_identifier(), config.get_server_location()).await;
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) = backup.reload_backup(config.get_status_ids()) {
+        if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) =
+            backup.reload_backup(config.get_status_ids())
+        {
             // Notify that existing data was found
             warn!("Detected lingering backup data. Reloading ...");
 
@@ -540,12 +539,16 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            self.internal_send.send_broadcast(event_id.clone(), Some(number)).await;
+                            self.internal_send
+                                .send_broadcast(event_id.clone(), Some(number))
+                                .await;
                         }
 
                     // Otherwise just update the system about the event
                     } else {
-                        self.internal_send.send_broadcast(event_id.clone(), None).await;
+                        self.internal_send
+                            .send_broadcast(event_id.clone(), None)
+                            .await;
                     }
                 }
             }
@@ -556,7 +559,9 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                self.internal_send.send_broadcast(event_id.clone(), None).await;
+                self.internal_send
+                    .send_broadcast(event_id.clone(), None)
+                    .await;
 
             // Otherwise just update the system about the event
             } else {
@@ -595,7 +600,7 @@ impl EventHandler {
                 if let Some(ref interface) = &self.dmx_interface {
                     if let Err(err) = interface.play_fade(fade.clone()) {
                         error!("Error with DMX playback: {}.", err);
-                    
+
                     // If successful, backup the dmx fade
                     } else {
                         self.backup.backup_dmx(fade).await;
@@ -626,7 +631,7 @@ impl EventHandler {
                 // If one of the media players played the cue, back it up
                 if success {
                     self.backup.backup_media(cue).await;
-                
+
                 // Otherwise, report the error
                 } else {
                     error!("Failed to play media cue.");

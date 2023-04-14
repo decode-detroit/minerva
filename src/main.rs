@@ -42,22 +42,18 @@ use self::style_sheet::StyleSheet;
 use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
 
-// Import standard libary features
-use std::io::{Cursor, BufWriter};
-use std::sync::{Arc, Mutex};
-
 // Import anyhow features
 #[macro_use]
 extern crate anyhow;
 
 // Import tracing features
-use tracing::{info, error, Level};
-use tracing_subscriber::prelude::*;
-use tracing_subscriber::filter::{filter_fn, LevelFilter};
+use tracing::Level;
 use tracing_appender;
+use tracing_subscriber::filter::{filter_fn, LevelFilter};
+use tracing_subscriber::prelude::*;
 
 // Import sysinfo modules
-use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
+use sysinfo::{Process, ProcessRefreshKind, RefreshKind, System, SystemExt};
 
 // Define constants
 pub const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
@@ -72,10 +68,12 @@ struct Minerva;
 // Implement the Minerva functionality
 impl Minerva {
     /// A function to setup the logging configuration
-    /// 
-    fn setup_logging() -> (tracing_appender::non_blocking::WorkerGuard) {
+    ///
+    fn setup_logging() -> tracing_appender::non_blocking::WorkerGuard {
         // Create the stdout layer
-        let stdout_layer = tracing_subscriber::fmt::layer().with_target(false).with_filter(DEFAULT_LOGLEVEL);
+        let stdout_layer = tracing_subscriber::fmt::layer()
+            .with_target(false)
+            .with_filter(DEFAULT_LOGLEVEL);
 
         // Create a user interface layer FIXME
         //let buffer = Mutex::new(Writer::new(Arc::new(Vec::new()))); //Arc::new()
@@ -88,16 +86,21 @@ impl Minerva {
 
         // Create the log file filter
         let file_filter = {
-            filter_fn(|metadata| {
-                metadata.target() == GAME_LOG || metadata.level() == &Level::ERROR
-            }
-        )};
+            filter_fn(|metadata| metadata.target() == GAME_LOG || metadata.level() == &Level::ERROR)
+        };
 
         // Create the log file layer
-        let file_layer = tracing_subscriber::fmt::layer().with_writer(non_blocking).with_ansi(false).with_target(false).with_filter(file_filter);
-        
+        let file_layer = tracing_subscriber::fmt::layer()
+            .with_writer(non_blocking)
+            .with_ansi(false)
+            .with_target(false)
+            .with_filter(file_filter);
+
         // Initialize tracing
-        tracing_subscriber::registry().with(stdout_layer).with(user_layer).with(file_layer).init();
+        tracing_subscriber::registry()
+            .with(stdout_layer)
+            .with(file_layer)
+            .init();
 
         // Return and file guard
         file_guard
@@ -157,9 +160,14 @@ async fn main() {
     // Get system information
     let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::everything());
     let sys_info = System::new_with_specifics(refresh_kind);
-    
+
     // Check to ensure Minerva is not already running FIXME allow multiple instances with commandline argument
-    if sys_info.processes_by_exact_name("minerva").collect::<Vec::<&Process>>().len() > 1 {
+    if sys_info
+        .processes_by_exact_name("minerva")
+        .collect::<Vec<&Process>>()
+        .len()
+        > 1
+    {
         println!("Minerva is already running. Exiting ...");
         return;
     }

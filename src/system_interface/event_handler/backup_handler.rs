@@ -26,13 +26,13 @@
 use crate::definitions::*;
 
 // Import standard library features
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 // Import tracing features
 use tracing::error;
 
 // Imprt redis client library
-use redis::{Commands, RedisResult, ConnectionLike};
+use redis::{Commands, ConnectionLike, RedisResult};
 
 // Import FNV HashSet and HashMap
 use fnv::FnvHashSet;
@@ -50,12 +50,12 @@ use serde_yaml;
 /// handler will raise an error and return none.
 ///
 pub struct BackupHandler {
-    identifier: Identifier,                // the identifier for this instance of the controller, if specified
+    identifier: Identifier, // the identifier for this instance of the controller, if specified
     connection: Option<redis::Connection>, // the Redis connection, if it exists
-    last_update: Instant,                  // the time of the last update for the backup
-    backup_items: FnvHashSet<ItemId>,      // items currently backed up in the system
-    dmx_universe: DmxUniverse,               // the current final value of all DMX fades
-    media_playlist: MediaPlaylist,                  // the current media playback for each channel
+    last_update: Instant,   // the time of the last update for the backup
+    backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
+    dmx_universe: DmxUniverse, // the current final value of all DMX fades
+    media_playlist: MediaPlaylist, // the current media playback for each channel
 }
 
 // Implement key features for the status handler
@@ -71,10 +71,7 @@ impl BackupHandler {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub async fn new(
-        identifier: Identifier,
-        server_location: Option<String>,
-    ) -> Self {
+    pub async fn new(identifier: Identifier, server_location: Option<String>) -> Self {
         // If a server location was specified
         if let Some(location) = server_location {
             // Try to connect to the Redis server
@@ -82,7 +79,13 @@ impl BackupHandler {
                 // Try to get a copy of the Redis connection
                 if let Ok(mut connection) = client.get_connection() {
                     // Set the snapshot settings
-                    let result: RedisResult<redis::Value> = connection.req_command(redis::Cmd::new().arg("CONFIG").arg("SET").arg("save").arg("60 1"));
+                    let result: RedisResult<redis::Value> = connection.req_command(
+                        redis::Cmd::new()
+                            .arg("CONFIG")
+                            .arg("SET")
+                            .arg("save")
+                            .arg("60 1"),
+                    );
 
                     // Unpack the result from the operation
                     if let Err(..) = result {
@@ -241,7 +244,6 @@ impl BackupHandler {
     /// gracefully by notifying of any errors on the update line.
     ///
     pub async fn backup_events(&mut self, coming_events: Vec<ComingEvent>) {
-        
         //FIXME Enable timing updates for coming events
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
@@ -305,7 +307,7 @@ impl BackupHandler {
         if let Some(mut connection) = self.connection.take() {
             // Update the dmx status
             self.dmx_universe.set(dmx_fade.channel, dmx_fade.value);
-            
+
             // Try to serialize the dmx universe
             let dmx_string = match serde_yaml::to_string(&self.dmx_universe) {
                 Ok(string) => string,
@@ -355,8 +357,14 @@ impl BackupHandler {
             self.update_timing();
 
             // Add the cue to the media playlist
-            self.media_playlist.insert(media_cue.channel, MediaPlayback { media_cue, time_since: Duration::from_secs(0) }); // replaces an existing media playback, if it exists
- 
+            self.media_playlist.insert(
+                media_cue.channel,
+                MediaPlayback {
+                    media_cue,
+                    time_since: Duration::from_secs(0),
+                },
+            ); // replaces an existing media playback, if it exists
+
             // Try to serialize the media playlist
             let media_string = match serde_yaml::to_string(&self.media_playlist) {
                 Ok(string) => string,
@@ -384,12 +392,12 @@ impl BackupHandler {
     }
 
     /// A helper method to update the timing of all the media events
-    /// 
+    ///
     fn update_timing(&mut self) {
         // Calculate the amount of time that's passed and save the new update time
         let time_passed = self.last_update.elapsed();
         self.last_update = Instant::now();
-        
+
         // Update the timing for the media playlist
         if self.media_playlist.len() > 0 {
             for playback in self.media_playlist.values_mut() {
@@ -413,7 +421,13 @@ impl BackupHandler {
     pub fn reload_backup(
         &mut self,
         mut status_ids: Vec<ItemId>,
-    ) -> Option<(ItemId, Vec<(ItemId, ItemId)>, Vec<QueuedEvent>, DmxUniverse, MediaPlaylist)> {
+    ) -> Option<(
+        ItemId,
+        Vec<(ItemId, ItemId)>,
+        Vec<QueuedEvent>,
+        DmxUniverse,
+        MediaPlaylist,
+    )> {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Check to see if there is an existing scene
@@ -495,7 +509,13 @@ impl BackupHandler {
                         self.connection = Some(connection);
 
                         // Return the current scene and status pairs
-                        return Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist));
+                        return Some((
+                            current_scene,
+                            status_pairs,
+                            queued_events,
+                            dmx_universe,
+                            media_playlist,
+                        ));
                     }
                 }
             }
@@ -544,7 +564,7 @@ mod tests {
     #[tokio::test]
     async fn backup_game() {
         // Import libraries for testing
-        use crate::definitions::{Identifier};
+        use crate::definitions::Identifier;
 
         // Create the backup handler
         let mut backup_handler = BackupHandler::new(
@@ -569,10 +589,34 @@ mod tests {
         backup_handler.backup_current_scene(&current_scene).await;
         backup_handler.backup_status(&status1, &state1).await;
         backup_handler.backup_status(&status2, &state2).await;
-        backup_handler.backup_dmx(DmxFade { channel: 1, value: 255, duration: None }).await;
-        backup_handler.backup_dmx(DmxFade { channel: 3, value: 150, duration: None }).await;
-        backup_handler.backup_media(MediaCue { channel: 1, uri: "video.mp4".to_string(), loop_media: None }).await;
-        backup_handler.backup_media(MediaCue { channel: 1, uri: "new_video.mp4".to_string(), loop_media: None }).await;
+        backup_handler
+            .backup_dmx(DmxFade {
+                channel: 1,
+                value: 255,
+                duration: None,
+            })
+            .await;
+        backup_handler
+            .backup_dmx(DmxFade {
+                channel: 3,
+                value: 150,
+                duration: None,
+            })
+            .await;
+        backup_handler
+            .backup_media(MediaCue {
+                channel: 1,
+                uri: "video.mp4".to_string(),
+                loop_media: None,
+            })
+            .await;
+        backup_handler
+            .backup_media(MediaCue {
+                channel: 1,
+                uri: "new_video.mp4".to_string(),
+                loop_media: None,
+            })
+            .await;
 
         // Reload the backup
         if let Some((reload_scene, statuses, _queue, dmx, media)) =
@@ -582,7 +626,14 @@ mod tests {
             assert_eq!(vec!((status1, state1), (status2, state2)), statuses);
             assert_eq!(255 as u8, dmx.get(1));
             assert_eq!(150 as u8, dmx.get(3));
-            assert_eq!(MediaCue { channel: 1, uri: "new_video.mp4".to_string(), loop_media: None }, media.get(&1).unwrap().media_cue);
+            assert_eq!(
+                MediaCue {
+                    channel: 1,
+                    uri: "new_video.mp4".to_string(),
+                    loop_media: None
+                },
+                media.get(&1).unwrap().media_cue
+            );
 
         // If the backup doesn't exist, throw the error
         } else {

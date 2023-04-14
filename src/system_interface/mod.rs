@@ -35,13 +35,12 @@ use self::system_connection::SystemConnection;
 use std::env;
 use std::ffi::OsStr;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 
 // Import Tokio features
 use tokio::sync::mpsc;
 
 // Import tracing features
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
@@ -63,7 +62,7 @@ pub struct SystemInterface {
     interface_send: InterfaceSend,       // a sending line to pass interface updates
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
-    internal_send: InternalSend,         // a sending line to pass internal updates
+    internal_send: InternalSend,                      // a sending line to pass internal updates
 }
 
 // Implement key SystemInterface functionality
@@ -352,7 +351,9 @@ impl SystemInterface {
                 }
 
                 // Broadcast the all stop event
-                self.internal_send.send_broadcast(ItemId::all_stop(), None).await;
+                self.internal_send
+                    .send_broadcast(ItemId::all_stop(), None)
+                    .await;
 
                 // Place an note in the debug log
                 error!("An All Stop was triggered by the operator.");

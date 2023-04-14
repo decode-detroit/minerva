@@ -38,7 +38,7 @@ use tokio::process::Command;
 use tokio::runtime::Handle;
 
 // Import tracing features
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 // Import anyhow features
 use anyhow::Result;
@@ -67,9 +67,7 @@ struct BackgroundThread {
 // Implement the BackgroundThread Functions
 impl BackgroundThread {
     /// Spawn the monitoring thread
-    async fn new(
-        background_process: BackgroundProcess,
-    ) -> Option<BackgroundThread> {
+    async fn new(background_process: BackgroundProcess) -> Option<BackgroundThread> {
         // Check to see if the file is valid
         if let Ok(path) = background_process.process.canonicalize() {
             // Notify that the background process is starting
@@ -126,7 +124,10 @@ impl BackgroundThread {
                         info!("Restarting background process ...");
 
                         // Start the process again
-                        child = match Command::new(path.clone()).args(arguments.clone()).kill_on_drop(true).spawn()
+                        child = match Command::new(path.clone())
+                            .args(arguments.clone())
+                            .kill_on_drop(true)
+                            .spawn()
                         {
                             // If the child process was created, return it
                             Ok(child) => child,
@@ -289,7 +290,10 @@ impl Config {
         // Check the version id and warn the user if they differ
         let version = env!("CARGO_PKG_VERSION");
         if &yaml_config.version != version {
-            warn!("Version of configuration ({}) does not match software version ({}).", &yaml_config.version, version);
+            warn!(
+                "Version of configuration ({}) does not match software version ({}).",
+                &yaml_config.version, version
+            );
         }
 
         // Turn the ItemPairs in to the item index and event set // FIXME This check doesn't seem to work
@@ -300,7 +304,10 @@ impl Config {
             match item_index.insert(item_pair.get_id(), item_pair.get_description()) {
                 // Warn of events defined multiple times
                 Some(_) => {
-                    warn!("Item {} has multiple definitions in lookup.", &item_pair.id())
+                    warn!(
+                        "Item {} has multiple definitions in lookup.",
+                        &item_pair.id()
+                    )
                 }
                 None => (),
             }
@@ -311,7 +318,10 @@ impl Config {
                 match events.insert(item_pair.get_id(), event.clone()) {
                     // Warn of an event defined multiple times
                     Some(_) => {
-                        warn!("Item {} has multiple definitions in event list.", &item_pair.id())
+                        warn!(
+                            "Item {} has multiple definitions in event list.",
+                            &item_pair.id()
+                        )
                     }
                     None => (),
                 }
@@ -321,13 +331,7 @@ impl Config {
         // Verify the configuration is defined correctly
         let all_scenes = yaml_config.all_scenes;
         let status_map = yaml_config.status_map;
-        Config::verify_config(
-            &all_scenes,
-            &status_map,
-            &item_index,
-            &events,
-        )
-        .await;
+        Config::verify_config(&all_scenes, &status_map, &item_index, &events).await;
 
         // Load the item index
         index_access.send_index(item_index).await;
@@ -353,8 +357,7 @@ impl Config {
         // Try to start the background process and monitor it, if specified
         let mut background_thread = None;
         if let Some(background_process) = yaml_config.background_process.clone() {
-            background_thread =
-                BackgroundThread::new(background_process).await;
+            background_thread = BackgroundThread::new(background_process).await;
         }
 
         // Adjust fullscreen, if specified
@@ -457,16 +460,20 @@ impl Config {
 
             // Notify the system of the successful status change
             warn!("Unable to pass the change to the user interface.");
-            // Send the change to the interface FIXME 
+            // Send the change to the interface FIXME
             /*self.interface_send
-                .send(InterfaceUpdate::UpdateStatus {
-                    status_id: status_pair.clone(),
-                    new_state: state_pair.clone(),
-                })
-                .await;*/
+            .send(InterfaceUpdate::UpdateStatus {
+                status_id: status_pair.clone(),
+                new_state: state_pair.clone(),
+            })
+            .await;*/
 
             // Notify the user of the change
-            info!("Changing {} to {}.", self.index_access.get_pair(&status_id).await, self.index_access.get_pair(&new_state).await);
+            info!(
+                "Changing {} to {}.",
+                self.index_access.get_pair(&status_id).await,
+                self.index_access.get_pair(&new_state).await
+            );
         }
     }
 
@@ -625,16 +632,20 @@ impl Config {
         {
             // Notify the system of the successful status change
             warn!("Unable to pass the change to the user interface.");
-            // Send the change to the interface FIXME 
+            // Send the change to the interface FIXME
             /*self.interface_send
-                .send(InterfaceUpdate::UpdateStatus {
-                    status_id: status_pair.clone(),
-                    new_state: state_pair.clone(),
-                })
-                .await;*/
+            .send(InterfaceUpdate::UpdateStatus {
+                status_id: status_pair.clone(),
+                new_state: state_pair.clone(),
+            })
+            .await;*/
 
             // Notify the user of the change
-            info!("Changing {} to {}.", self.index_access.get_pair(&status_id).await, self.index_access.get_pair(&new_state).await);
+            info!(
+                "Changing {} to {}.",
+                self.index_access.get_pair(&status_id).await,
+                self.index_access.get_pair(&new_state).await
+            );
 
             // Indicate status change
             return Some(new_id);
@@ -653,11 +664,17 @@ impl Config {
             if let Some(event) = self.events.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
-                info!("Event updated: {}.", self.index_access.get_description(&event_id).await);
+                info!(
+                    "Event updated: {}.",
+                    self.index_access.get_description(&event_id).await
+                );
 
             // Otherwise, add the event
             } else {
-                info!("Event added: {}.", self.index_access.get_description(&event_id).await);
+                info!(
+                    "Event added: {}.",
+                    self.index_access.get_description(&event_id).await
+                );
                 self.events.insert(event_id, new_event);
             }
 
@@ -666,7 +683,10 @@ impl Config {
             // If the event is in the event list, remove it
             if let Some(_) = self.events.remove(&event_id) {
                 // Notify the user that it was removed
-                info!("Event removed: {}.", self.index_access.get_description(&event_id).await);
+                info!(
+                    "Event removed: {}.",
+                    self.index_access.get_description(&event_id).await
+                );
             }
         }
     }
@@ -694,11 +714,17 @@ impl Config {
             if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
                 // Update the scene and notify the system
                 *scene = new_scene;
-                info!("Scene updated: {}.", self.index_access.get_description(&scene_id).await);
+                info!(
+                    "Scene updated: {}.",
+                    self.index_access.get_description(&scene_id).await
+                );
 
             // Otherwise, add the scene
             } else {
-                info!("Scene added: {}.", self.index_access.get_description(&scene_id).await);
+                info!(
+                    "Scene added: {}.",
+                    self.index_access.get_description(&scene_id).await
+                );
                 self.all_scenes.insert(scene_id, new_scene);
             }
 
@@ -707,7 +733,10 @@ impl Config {
             // If the scene is in the scene list, remove it
             if let Some(_) = self.all_scenes.remove(&scene_id) {
                 // Notify the user that it was removed
-                info!("Scene removed: {}.", self.index_access.get_description(&scene_id).await);
+                info!(
+                    "Scene removed: {}.",
+                    self.index_access.get_description(&scene_id).await
+                );
             }
         }
     }
@@ -862,9 +891,7 @@ impl Config {
     ) {
         // Verify each scene in the config
         for (id, scene) in all_scenes.iter() {
-            if !Config::verify_scene(scene, all_scenes, status_map, lookup, events)
-                .await
-            {
+            if !Config::verify_scene(scene, all_scenes, status_map, lookup, events).await {
                 warn!("Broken scene definition: {}.", id);
             }
 
@@ -899,15 +926,7 @@ impl Config {
             // Find the matching event
             if let Some(event) = events.get(id) {
                 // Verify the event
-                if !Config::verify_event(
-                    event,
-                    scene,
-                    all_scenes,
-                    status_map,
-                    lookup,
-                    events,
-                )
-                .await
+                if !Config::verify_event(event, scene, all_scenes, status_map, lookup, events).await
                 {
                     warn!("Invalid event: {}.", id);
                     test = false;
@@ -1061,7 +1080,10 @@ impl Config {
                             if let Some(target_event) = event_map.get(state) {
                                 // Verify that the event exists
                                 if !event_list.contains_key(&target_event) {
-                                    warn!("Select event has invalid target event: {}.", &target_event);
+                                    warn!(
+                                        "Select event has invalid target event: {}.",
+                                        &target_event
+                                    );
                                     return false;
                                 }
                                 // If no event is specified, nothing is triggered
@@ -1085,10 +1107,7 @@ impl Config {
     /// gracefully by notifying of warnings on the status line. This function
     /// does not raise any errors.
     ///
-    async fn verify_lookup(
-        lookup: &FnvHashMap<ItemId, ItemDescription>,
-        id: &ItemId,
-    ) -> bool {
+    async fn verify_lookup(lookup: &FnvHashMap<ItemId, ItemDescription>, id: &ItemId) -> bool {
         // Check to see if the id is available in the lookup
         if !lookup.contains_key(&id) {
             warn!("Item not described in lookup: {}.", id);

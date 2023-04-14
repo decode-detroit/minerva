@@ -116,7 +116,13 @@ impl DmxInterface {
     pub fn restore_universe(&self, universe: DmxUniverse) {
         // For each channel, send a fade with no duration
         for channel in 1..DMX_MAX {
-            self.load_fade.send(DmxFade { channel, value: universe.get(channel), duration: None }).unwrap_or(()); // fail silently
+            self.load_fade
+                .send(DmxFade {
+                    channel,
+                    value: universe.get(channel),
+                    duration: None,
+                })
+                .unwrap_or(()); // fail silently
         }
     }
 }
@@ -190,7 +196,7 @@ impl DmxChange {
 pub struct DmxQueue {
     port: serial::SystemPort,                // the serial port of the connection
     universe: DmxUniverse,                   // the current universe of all the channels
-    queue_receive: mpsc::Receiver<DmxFade>,  // the queue receiving line that sends additional fade items to the daemon
+    queue_receive: mpsc::Receiver<DmxFade>, // the queue receiving line that sends additional fade items to the daemon
     dmx_changes: FnvHashMap<u32, DmxChange>, // the dmx queue holding the coming changes, sorted by channel
 }
 
@@ -282,8 +288,11 @@ impl DmxQueue {
             // If a fade was specified
             Some(duration) => {
                 // Repack the fade as a dmx change
-                let change =
-                    DmxChange::new(self.universe.get(dmx_fade.channel), dmx_fade.value, duration);
+                let change = DmxChange::new(
+                    self.universe.get(dmx_fade.channel),
+                    dmx_fade.value,
+                    duration,
+                );
 
                 // Save the new fade, replace the existing fade if necessary
                 self.dmx_changes.insert(dmx_fade.channel, change);
@@ -336,14 +345,27 @@ mod tests {
         use std::time::Duration;
 
         // Create a DMX Interface on USB0
-        let interface = DmxInterface::new(&PathBuf::from("/dev/ttyUSB0")).expect("Unable to connect to DMX on USB0.");
+        let interface = DmxInterface::new(&PathBuf::from("/dev/ttyUSB0"))
+            .expect("Unable to connect to DMX on USB0.");
 
         // Play a fade up on channel 1
-        interface.play_fade(DmxFade { channel: 1, value: 255, duration: Some(Duration::from_secs(3)) }).unwrap();
+        interface
+            .play_fade(DmxFade {
+                channel: 1,
+                value: 255,
+                duration: Some(Duration::from_secs(3)),
+            })
+            .unwrap();
         thread::sleep(Duration::from_secs(5));
 
         // Play a fade down on channel 1
-        interface.play_fade(DmxFade { channel: 1, value: 0, duration: Some(Duration::from_secs(3)) }).unwrap();
+        interface
+            .play_fade(DmxFade {
+                channel: 1,
+                value: 0,
+                duration: Some(Duration::from_secs(3)),
+            })
+            .unwrap();
         thread::sleep(Duration::from_secs(5));
     }
 }

@@ -26,7 +26,7 @@
 use crate::definitions::*;
 
 // Import tracing features
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// A structure which holds the local status and manages any state changes.
 ///
@@ -36,7 +36,7 @@ use tracing::{info, warn, error};
 /// additional copy may be held in the backup module.
 ///
 pub struct StatusHandler {
-    status_map: StatusMap,     // hash map of the local status
+    status_map: StatusMap, // hash map of the local status
 }
 
 // Implement key features for the status handler
@@ -53,9 +53,7 @@ impl StatusHandler {
     ///
     pub fn new(status_map: StatusMap) -> StatusHandler {
         // Return the new status handler
-        StatusHandler {
-            status_map,
-        }
+        StatusHandler { status_map }
     }
 
     /// A method to get the current state of the requested status. This

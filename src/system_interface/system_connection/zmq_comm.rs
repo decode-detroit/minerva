@@ -314,11 +314,7 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
         // Try to convert the message
         id = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
-            _ => {
-                return Some(ReadResult::ReadError(anyhow!(
-                    "Invalid Event Id for ZMQ."
-                )))
-            }
+            _ => return Some(ReadResult::ReadError(anyhow!("Invalid Event Id for ZMQ."))),
         };
 
     // If nothing was received, return nothing

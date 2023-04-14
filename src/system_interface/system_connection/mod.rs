@@ -39,7 +39,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 // Import tracing features
-use tracing::{warn, error};
+use tracing::{error, warn};
 
 // Import anyhow features
 use anyhow::{Error, Result};
