@@ -81,7 +81,7 @@ pub enum InterfaceUpdate {
 
     /// A variant indicating that the system notifications should be updated.
     #[serde(rename_all = "camelCase")]
-    UpdateNotifications { notifications: Vec<Notification> },
+    UpdateNotifications { notifications: Vec<String> },
 
     /// A variant indicating that the event timeline should be updated.
     #[serde(rename_all = "camelCase")]

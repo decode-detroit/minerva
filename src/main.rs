@@ -54,22 +54,19 @@ use std::fs::{File, OpenOptions};
 extern crate anyhow;
 
 // Import tracing features
-use tracing::error;
+use tracing::Level;
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::fmt::Layer;
+use tracing_subscriber::reload::Handle;
+use tracing_subscriber::registry::Registry;
+use tracing_subscriber::filter::{filter_fn, Filtered, LevelFilter};
+pub type LogHandle = Handle<Filtered<Layer<Registry>, LevelFilter, Registry>, Registry>;
 
 // Import the chrono library
 use chrono::Local;
 
 // Import sysinfo modules
 use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
-
-// Define program constants
-const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
-const DEFAULT_LOGLEVEL: LevelFilter = LevelFilter::INFO; // FIXME for testing until proper logging is reimplemented
-const FILE_LOGLEVEL: LevelFilter = LevelFilter::INFO;
-const LOG_FOLDER: &str = "log/"; // the default log folder
-const GAME_LOG: &str = "game_log"; // the default logging filename
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -80,7 +77,7 @@ struct Minerva;
 impl Minerva {
     /// A function to setup the logging configuration
     /// 
-    fn setup_logging() {
+    fn setup_logging() -> LogHandle {
         // Try to load loggging folder and set the filepath
         let filepath = match env::current_dir() {
             // If the path loads
@@ -102,7 +99,7 @@ impl Minerva {
             // Default to relative folder path
             _ => {
                 let mut path = PathBuf::from(LOG_FOLDER);
-                path.push(format!("{}{}.txt", GAME_LOG, Local::now().format("%Y-%m-%d")).as_str());
+                path.push(format!("{}_{}.txt", GAME_LOG, Local::now().format("%Y-%m-%d")).as_str());
 
                 // Return the relative path
                 path
@@ -121,19 +118,25 @@ impl Minerva {
                     
                     // If we're unable to open the file, just log to terminal
                     Err(_) => {
-                        error!("Unable to create game log file.");
+                        println!("Unable to create game log file.");
                         None
                     }
                 }
             }
         };
 
-        // Create the stdout layer
+        // Create the stdout layer and extract a handle for modificaition
         let stdout_layer = tracing_subscriber::fmt::layer().with_target(false).with_filter(DEFAULT_LOGLEVEL);
+        let (stdout_layer, log_handle) = tracing_subscriber::reload::Layer::new(stdout_layer);
+
+        // Create a user interface layer
+        //FIXME let buf = BufWriter::new(Vec::new());
+        //let buf: Cursor<Vec<u8>> = Cursor::new(Vec::new());
+        //let user_layer = tracing_subscriber::fmt::layer().with_writer(buf).with_ansi(false).with_target(false).with_filter(DEFAULT_LOGLEVEL);
 
         // Create the log file layer, if available
         if let Some(file) = possible_file {
-            let file_layer = tracing_subscriber::fmt::layer().with_writer(Arc::new(file)).with_ansi(false).with_target(false).with_filter(FILE_LOGLEVEL);
+            let file_layer = tracing_subscriber::fmt::layer().with_writer(Arc::new(file)).with_ansi(false).with_target(false).with_filter(filter_fn(|metadata| { metadata.target() == GAME_LOG || metadata.level() == &Level::ERROR })); // FIXME GAME_LOG messages are filtered out by the stdout filter (for reasons unknown)
             
             // Initialize tracing
             tracing_subscriber::registry().with(stdout_layer).with(file_layer).init();
@@ -143,11 +146,17 @@ impl Minerva {
             // Initialize tracing
             tracing_subscriber::registry().with(stdout_layer).init();
         }
+
+        // Return the layer handle
+        log_handle
     }
 
     /// A function to build the main program and the user interface
     ///
     async fn run() {
+        // Initialize logging
+        let log_handle = Minerva::setup_logging();
+
         // Create the item index to process item description requests
         let (mut item_index, index_access) = ItemIndex::new();
 
@@ -172,6 +181,7 @@ impl Minerva {
             index_access.clone(),
             style_access.clone(),
             interface_send.clone(),
+            log_handle,
         )
         .await;
 
@@ -206,9 +216,6 @@ async fn main() {
     // If successful, drop the uneeded information
     drop(refresh_kind);
     drop(sys_info);
-
-    // Initialize logging
-    Minerva::setup_logging();
 
     // Create the program and run until directed otherwise
     Minerva::run().await;

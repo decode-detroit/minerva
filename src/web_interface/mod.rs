@@ -399,14 +399,6 @@ impl WebInterface {
             .and(warp::path::end())
             .and_then(WebInterface::handle_request);
 
-        // Create the redraw filter FIXME is this needed anymore?
-        let redraw = warp::post()
-            .and(warp::path("redraw"))
-            .and(warp::path::end())
-            .and(WebInterface::with_clone(self.web_send.clone()))
-            .and(WebInterface::with_clone(UserRequest::Redraw))
-            .and_then(WebInterface::handle_request);
-
         // Create the save config filter FIXME verify filenames
         let save_config = warp::post()
             .and(warp::path("saveConfig"))

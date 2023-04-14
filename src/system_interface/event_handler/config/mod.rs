@@ -456,7 +456,17 @@ impl Config {
                 .await;
 
             // Notify the system of the successful status change
-            log!(status &self.internal_send => status_id, new_state);
+            warn!("Unable to pass the change to the user interface.");
+            // Send the change to the interface FIXME 
+            /*self.interface_send
+                .send(InterfaceUpdate::UpdateStatus {
+                    status_id: status_pair.clone(),
+                    new_state: state_pair.clone(),
+                })
+                .await;*/
+
+            // Notify the user of the change
+            info!("Changing {} to {}.", self.index_access.get_pair(&status_id).await, self.index_access.get_pair(&new_state).await);
         }
     }
 
@@ -614,7 +624,17 @@ impl Config {
             .await
         {
             // Notify the system of the successful status change
-            log!(status &self.internal_send => status_id.clone(), new_state.clone());
+            warn!("Unable to pass the change to the user interface.");
+            // Send the change to the interface FIXME 
+            /*self.interface_send
+                .send(InterfaceUpdate::UpdateStatus {
+                    status_id: status_pair.clone(),
+                    new_state: state_pair.clone(),
+                })
+                .await;*/
+
+            // Notify the user of the change
+            info!("Changing {} to {}.", self.index_access.get_pair(&status_id).await, self.index_access.get_pair(&new_state).await);
 
             // Indicate status change
             return Some(new_id);

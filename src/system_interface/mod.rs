@@ -20,7 +20,6 @@
 //! to the application window.
 
 // Define private submodules
-mod logging;
 #[macro_use]
 mod event_handler;
 mod system_connection;
@@ -30,7 +29,6 @@ use crate::definitions::*;
 
 // Import other definitions
 use self::event_handler::EventHandler;
-use self::logging::Logger;
 use self::system_connection::SystemConnection;
 
 // Import standard library features
@@ -42,7 +40,8 @@ use std::path::PathBuf;
 use tokio::sync::mpsc;
 
 // Import tracing features
-use tracing::{info, debug, warn, error};
+use tracing::{info, warn, error};
+use super::{LogHandle, DEFAULT_LOGLEVEL, DEBUG_LOGLEVEL};
 
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
@@ -58,15 +57,14 @@ const DEFAULT_FILE: &str = "default"; // the default configuration filename
 ///
 pub struct SystemInterface {
     event_handler: Option<EventHandler>, // the event handler instance for the program, if it exists
-    logger: Logger,                      // the logging instance for the program
     system_connection: SystemConnection, // the system connection instance for the program
     index_access: IndexAccess,           // the access point for the item index
     style_access: StyleAccess,           // the access point for the style sheet
     interface_send: InterfaceSend,       // a sending line to pass interface updates
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
-    internal_send: InternalSend,                      // a sending line to pass internal updates
-    is_debug_mode: bool,                              // a flag to indicate debug mode
+    internal_send: InternalSend,         // a sending line to pass internal updates
+    log_handle: LogHandle,           // a handle to change the filter settings for tracing
 }
 
 // Implement key SystemInterface functionality
@@ -77,16 +75,10 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
+        log_handle: LogHandle,
     ) -> (Self, WebSend) {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
-
-        // Try to create a new logger instance
-        let logger = Logger::new(
-            index_access.clone(),
-            internal_send.clone(),
-            interface_send.clone(),
-        );
 
         // Create a new system connection instance
         let system_connection = SystemConnection::new(internal_send.clone(), None).await;
@@ -95,9 +87,8 @@ impl SystemInterface {
         let (web_send, web_receive) = WebSend::new();
 
         // Create the new system interface instance
-        let mut sys_interface = SystemInterface {
+        let mut sys_interface = Self {
             event_handler: None,
-            logger,
             system_connection,
             index_access,
             style_access,
@@ -105,7 +96,7 @@ impl SystemInterface {
             web_receive,
             internal_receive,
             internal_send,
-            is_debug_mode: false,
+            log_handle,
         };
 
         // Try to load a default configuration, if it exists
@@ -238,8 +229,12 @@ impl SystemInterface {
     async fn unpack_internal_update(&mut self, update: InternalUpdate) {
         // Unpack the different variant types
         match update {
-            // Broadcast the event via the system connection
+            // Broadcast the event via the system connection and notify the system
             InternalUpdate::BroadcastEvent(event_id, data) => {
+                // Notify the system
+                info!("Event: {}.", self.index_access.get_pair(&event_id).await);
+
+                // Pass the event to the system connection
                 self.system_connection.broadcast(event_id, data).await;
             }
 
@@ -319,17 +314,6 @@ impl SystemInterface {
                         .await;
                 }
             }
-
-            // Pass the information update to the logger
-            InternalUpdate::Update(log_update) => {
-                // Find the most recent notifications
-                let notifications = self.logger.update(log_update, self.is_debug_mode).await;
-
-                // Send a notification update to the system
-                self.interface_send
-                    .send(InterfaceUpdate::UpdateNotifications { notifications })
-                    .await;
-            }
         }
     }
 
@@ -370,11 +354,11 @@ impl SystemInterface {
                     self.event_handler = Some(handler);
                 }
 
-                // Send the all stop event via the logger
-                log!(broadcast &mut self.internal_send => ItemId::all_stop(), None);
+                // Broadcast the all stop event
+                self.internal_send.send_broadcast(ItemId::all_stop(), None).await;
 
                 // Place an note in the debug log
-                debug!("An All Stop was triggered by the operator.");
+                error!("An All Stop was triggered by the operator.");
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -388,8 +372,8 @@ impl SystemInterface {
             // the user interface, not for internal messaging. See
             // GeneralUpdate::BroadcastEvent)
             UserRequest::BroadcastEvent { event_id, data } => {
-                // Broadcast the event via the logger
-                log!(broadcast &mut self.internal_send => event_id, data);
+                // Broadcast the event
+                self.internal_send.send_broadcast(event_id, data).await;
 
                 // Get the event description
                 let message = self
@@ -463,9 +447,15 @@ impl SystemInterface {
             }
 
             // Swtich between normal mode and debug mode
-            UserRequest::DebugMode(mode) => {
+            UserRequest::DebugMode(is_debug) => {
                 // Switch the mode (redraw triggered by the user interface)
-                self.is_debug_mode = mode;
+                if is_debug {
+                    self.log_handle.modify(|layer| *layer.filter_mut() = DEBUG_LOGLEVEL).unwrap_or(());
+                
+                // Return to non-debug mode
+                } else {
+                    self.log_handle.modify(|layer| *layer.filter_mut() = DEFAULT_LOGLEVEL).unwrap_or(());
+                }
             }
 
             // Reqpond with a detail about a particular item
@@ -477,7 +467,7 @@ impl SystemInterface {
 
                     // Match the type of information request
                     match detail_type {
-                        // Reply to a request for the scenes FIXME Consider moving this to the index
+                        // Reply to a request for the scenes
                         DetailType::AllScenes => {
                             // Get the scene list
                             result = UnpackResult::SuccessWithItems(handler.get_scenes());

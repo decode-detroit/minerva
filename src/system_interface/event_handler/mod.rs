@@ -67,6 +67,7 @@ pub struct EventHandler {
     media_interfaces: Vec<MediaInterface>, // list of available media interfaces
     config: Config,              // current configuration
     config_path: PathBuf,        // current configuration path
+    index_access: IndexAccess,   // access point to the item index
     backup: BackupHandler,       // current backup server
 }
 
@@ -100,7 +101,7 @@ impl EventHandler {
         internal_send: InternalSend,
         interface_send: InterfaceSend,
         log_failure: bool,
-    ) -> Result<EventHandler> {
+    ) -> Result<Self> {
         // If a file was specified
         let mut config;
         let mut resolved_path;
@@ -122,7 +123,7 @@ impl EventHandler {
 
             // Attempt to process the configuration file
             config = Config::from_config(
-                index_access,
+                index_access.clone(),
                 style_access,
                 internal_send.clone(),
                 interface_send,
@@ -132,7 +133,7 @@ impl EventHandler {
 
         // Otherwise, create an empty configuration
         } else {
-            config = Config::new(index_access, style_access, internal_send.clone()).await;
+            config = Config::new(index_access.clone(), style_access, internal_send.clone()).await;
 
             // Set the path to "default.yaml" in the current directory
             resolved_path = env::current_dir().unwrap_or(PathBuf::new());
@@ -162,7 +163,7 @@ impl EventHandler {
                     details.window_map,
                     details.apollo_params,
                 )
-                .await?,
+                .await,
             );
         }
 
@@ -174,7 +175,7 @@ impl EventHandler {
             config.get_identifier(),
             config.get_server_location(),
         )
-        .await?;
+        .await;
 
         // Check for existing data from the backup handler
         if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) = backup.reload_backup(config.get_status_ids()) {
@@ -229,13 +230,14 @@ impl EventHandler {
             .await;
 
         // Return the completed EventHandler with a new queue
-        Ok(EventHandler {
+        Ok(Self {
             internal_send: internal_send,
             queue,
             dmx_interface,
             media_interfaces,
             config,
             config_path: resolved_path,
+            index_access,
             backup,
         })
     }
@@ -538,12 +540,12 @@ impl EventHandler {
                     if broadcast {
                         // Broadcast the event and each piece of data
                         for number in data.drain(..) {
-                            log!(broadcast &self.internal_send => event_id.clone(), Some(number));
+                            self.internal_send.send_broadcast(event_id.clone(), Some(number)).await;
                         }
 
                     // Otherwise just update the system about the event
                     } else {
-                        log!(now &self.internal_send => event_id.clone());
+                        self.internal_send.send_broadcast(event_id.clone(), None).await;
                     }
                 }
             }
@@ -554,11 +556,11 @@ impl EventHandler {
             // If we should broadcast the event
             if broadcast {
                 // Send it to the system
-                log!(broadcast &self.internal_send => event_id.clone(), None);
+                self.internal_send.send_broadcast(event_id.clone(), None).await;
 
             // Otherwise just update the system about the event
             } else {
-                log!(now &self.internal_send => event_id.clone());
+                info!("Event: {}.", self.index_access.get_pair(&event_id).await);
             }
         }
 
@@ -669,7 +671,7 @@ impl EventHandler {
                             let data_string = format!("Time {}:{}", minutes, seconds);
 
                             // Save the data to the game log
-                            log!(save &self.internal_send => data_string);
+                            info!(target: GAME_LOG, "Game data: {}.", data_string);
                         }
                     }
 
@@ -690,7 +692,7 @@ impl EventHandler {
                                 let data_string = format!("Time {}:{}", minutes, seconds);
 
                                 // Save the data to the game log
-                                log!(save &self.internal_send => data_string);
+                                info!(target: GAME_LOG, "Game data: {}.", data_string);
                             }
                         }
                     }
@@ -698,7 +700,7 @@ impl EventHandler {
                     // Send the static string to the event
                     DataType::StaticString { string } => {
                         // Save the string to the game log
-                        log!(save &self.internal_send => string);
+                        info!(target: GAME_LOG, "Game data: {}.", string);
                     }
                 }
             }

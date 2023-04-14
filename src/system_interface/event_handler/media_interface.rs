@@ -195,7 +195,7 @@ impl MediaInterface {
         channel_map: ChannelMap,
         window_map: WindowMap,
         apollo_params: ApolloParams,
-    ) -> Result<Self> {
+    ) -> Self {
         // Copy the specified address or use the default
         let address = apollo_params
             .address
@@ -211,11 +211,11 @@ impl MediaInterface {
         }
 
         // Return the complete module
-        Ok(Self {
+        Self {
             channel_list,
             client: None,
             address,
-        })
+        }
     }
 
     // A helper method to send a new media cue

@@ -31,9 +31,6 @@ use std::time::{Instant, Duration};
 // Import tracing features
 use tracing::error;
 
-// Import anyhow features
-use anyhow::Result;
-
 // Imprt redis client library
 use redis::{Commands, RedisResult, ConnectionLike};
 
@@ -77,7 +74,7 @@ impl BackupHandler {
     pub async fn new(
         identifier: Identifier,
         server_location: Option<String>,
-    ) -> Result<BackupHandler> {
+    ) -> Self {
         // If a server location was specified
         if let Some(location) = server_location {
             // Try to connect to the Redis server
@@ -90,18 +87,18 @@ impl BackupHandler {
                     // Unpack the result from the operation
                     if let Err(..) = result {
                         // Warn that it wasn't possible to update the current scene
-                        error!("Unable to set redis snapshot settings.");
+                        error!("Unable to set Redis snapshot settings.");
                     }
 
                     // Return the new backup handler
-                    return Ok(BackupHandler {
+                    return Self {
                         identifier,
                         connection: Some(connection),
                         last_update: Instant::now(),
                         backup_items: FnvHashSet::default(),
                         dmx_universe: DmxUniverse::new(),
                         media_playlist: MediaPlaylist::default(),
-                    });
+                    };
 
                 // Indicate that there was a failure to connect to the server
                 } else {
@@ -112,21 +109,16 @@ impl BackupHandler {
             } else {
                 error!("Unable to connect to backup server: {}.", location);
             }
+        }
 
-            // Indicate failure
-            return Err(anyhow!("Unable to connect to backup server: {}.", location));
-
-        // If a location was not specified
-        } else {
-            // Return the new Backup handler without a redis connection
-            return Ok(BackupHandler {
-                identifier,
-                connection: None,
-                last_update: Instant::now(),
-                backup_items: FnvHashSet::default(),
-                dmx_universe: DmxUniverse::new(),
-                media_playlist: MediaPlaylist::default(),
-            });
+        // If a location was not specified or the connection failed, return without a redis connection
+        Self {
+            identifier,
+            connection: None,
+            last_update: Instant::now(),
+            backup_items: FnvHashSet::default(),
+            dmx_universe: DmxUniverse::new(),
+            media_playlist: MediaPlaylist::default(),
         }
     }
 
@@ -559,8 +551,7 @@ mod tests {
             Identifier { id: None },
             Some("redis://127.0.0.1:6379".to_string()),
         )
-        .await
-        .unwrap();
+        .await;
 
         // Make sure there is no existing backup
         if let Some(_) = backup_handler.reload_backup(Vec::new()) {

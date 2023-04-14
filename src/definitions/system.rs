@@ -31,6 +31,114 @@ use tokio::sync::{mpsc, oneshot};
 // Import Chrono features
 use chrono::NaiveDateTime;
 
+/// An enum to provide and receive updates from the various internal
+/// components of the system interface and external updates from the interface.
+///
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum InternalUpdate {
+    /// A variant that broadcasts an event with the given item id. This event id
+    /// is not processed or otherwise checked for validity. If data is provided,
+    /// it will be broadcast with the event.
+    BroadcastEvent(ItemId, Option<u32>),
+
+    /// A variant that notifies the system of a change in the coming events
+    ComingEvents(Vec<ComingEvent>),
+
+    /// A variant that processes a new event with the given item id. If the
+    /// check_scene flag is not set, the system will not check if the event is
+    /// listed in the current scene. If broadcast is set to true, the event
+    /// will be broadcast to the system
+    ProcessEvent {
+        event: ItemId,
+        check_scene: bool,
+        broadcast: bool,
+    },
+
+    /// A variant to trigger a refresh of the user interface
+    RefreshInterface,
+}
+
+/// The stucture and methods to send internal updates to the system interface.
+///
+#[derive(Clone, Debug)]
+pub struct InternalSend {
+    internal_send: mpsc::Sender<InternalUpdate>, // the line to pass internal updates to the system interface
+}
+
+// Implement the key features of the internal update
+impl InternalSend {
+    /// A function to create a new Internal Update
+    ///
+    /// The function returns the the Internal Update structure and the internal
+    /// receive channel which will return the provided updates.
+    ///
+    pub fn new() -> (InternalSend, mpsc::Receiver<InternalUpdate>) {
+        // Create the new channel
+        let (internal_send, receive) = mpsc::channel(128);
+
+        // Create and return both new items
+        (InternalSend { internal_send }, receive)
+    }
+
+    /// A method to broadcast an event via the system interface (with data,
+    /// if it is provided)
+    ///
+    pub async fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
+        self.internal_send
+            .send(InternalUpdate::BroadcastEvent(event_id, data))
+            .await
+            .unwrap_or(());
+    }
+
+    /// A method to send new coming events to the system
+    ///
+    pub async fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
+        self.internal_send
+            .send(InternalUpdate::ComingEvents(coming_events))
+            .await
+            .unwrap_or(());
+    }
+
+    // A method to process a new event. If the check_scene flag is not set,
+    // the system will not check if the event is in the current scene. If
+    // broadcast is set to true, the event will be broadcast to the system.
+    //
+    pub async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
+        self.internal_send
+            .send(InternalUpdate::ProcessEvent {
+                event,
+                check_scene,
+                broadcast,
+            })
+            .await
+            .unwrap_or(());
+    }
+
+    // A method to trigger a refresh of the user interface
+    //
+    pub async fn send_refresh(&self) {
+        self.internal_send
+            .send(InternalUpdate::RefreshInterface)
+            .await
+            .unwrap_or(());
+    }
+
+    /// A method to send an update in an sync context
+    ///
+    /// # Note
+    /// This method will panic if used inside an async context.
+    ///
+    pub fn blocking_send(&self, update: InternalUpdate) {
+        self.internal_send.blocking_send(update).unwrap_or(());
+    }
+
+    /// A method that will only return if the line has been closed by the receiver
+    ///
+    pub async fn closed(&self) {
+        self.internal_send.closed().await
+    }
+}
+
 /// The stucture and methods to send WebRequests to the system interface
 ///
 #[derive(Clone, Debug)]
