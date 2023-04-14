@@ -197,14 +197,6 @@ impl WebInterface {
                 .and(WebInterface::with_json::<FullCueEvent>())
                 .and_then(WebInterface::handle_request);
 
-            // Create the debug mode filter
-            let debug_mode = warp::post()
-                .and(warp::path("debugMode"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(clone_send.clone()))
-                .and(WebInterface::with_json::<DebugMode>())
-                .and_then(WebInterface::handle_request);
-
             // Create the event change filter
             let event_change = warp::post()
                 .and(warp::path("eventChange"))
@@ -272,7 +264,6 @@ impl WebInterface {
                 .or(close)
                 .or(config_file)
                 .or(cue_event)
-                .or(debug_mode)
                 .or(event_change)
                 .or(get_item)
                 .or(get_styles)

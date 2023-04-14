@@ -372,9 +372,6 @@ pub enum UserRequest {
     /// will trigger after the specified delay has passed.
     CueEvent { event_delay: EventDelay },
 
-    /// A special variant to switch to or from debug mode for the program.
-    DebugMode(bool),
-
     /// A variant to provide details as requested by the web interface
     Detail { detail_type: DetailType },
 

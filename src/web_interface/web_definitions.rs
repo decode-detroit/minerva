@@ -254,11 +254,6 @@ impl From<FullCueEvent> for UserRequest {
         }
     }
 }
-impl From<DebugMode> for UserRequest {
-    fn from(debug_mode: DebugMode) -> Self {
-        UserRequest::DebugMode(debug_mode.is_debug)
-    }
-}
 impl From<Edit> for UserRequest {
     fn from(edit: Edit) -> Self {
         UserRequest::Edit {

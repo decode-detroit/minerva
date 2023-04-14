@@ -43,7 +43,7 @@ use self::system_interface::SystemInterface;
 use self::web_interface::WebInterface;
 
 // Import standard libary features
-use std::io::BufWriter;
+use std::io::{Cursor, BufWriter};
 use std::sync::{Arc, Mutex};
 
 // Import anyhow features
@@ -53,7 +53,7 @@ extern crate anyhow;
 // Import tracing features
 use tracing::{info, error, Level};
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::filter::filter_fn;
+use tracing_subscriber::filter::{filter_fn, LevelFilter};
 use tracing_appender;
 
 // Import sysinfo modules
@@ -61,8 +61,7 @@ use sysinfo::{System, SystemExt, Process, RefreshKind, ProcessRefreshKind};
 
 // Define constants
 pub const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
-pub const DEFAULT_LOGLEVEL: Level = Level::ERROR;
-pub const DEBUG_LOGLEVEL: Level = Level::INFO;
+pub const DEFAULT_LOGLEVEL: LevelFilter = LevelFilter::INFO;
 pub const LOG_FOLDER: &str = "log/"; // the default log folder
 
 /// The Minerva structure to contain the program launching and overall
@@ -74,31 +73,14 @@ struct Minerva;
 impl Minerva {
     /// A function to setup the logging configuration
     /// 
-    fn setup_logging() -> (Arc<Mutex<bool>>, tracing_appender::non_blocking::WorkerGuard) {
-        // Create the debug mode flag
-        let is_debug = Arc::new(Mutex::new(false));
-        let clone_debug = is_debug.clone();
-
-        // Create the filter function for debug mode
-        let debug_filter = filter_fn(move |metadata| {
-            if let Ok(is_debug) = clone_debug.try_lock() {
-                if *is_debug {
-                    return metadata.level() == &DEBUG_LOGLEVEL;
-                } else {
-                    return metadata.level() == &DEFAULT_LOGLEVEL;
-                }
-            } else {
-                return metadata.level() == &DEFAULT_LOGLEVEL;
-            }
-        });
-
+    fn setup_logging() -> (tracing_appender::non_blocking::WorkerGuard) {
         // Create the stdout layer
-        let stdout_layer = tracing_subscriber::fmt::layer().with_target(false).with_filter(debug_filter);
+        let stdout_layer = tracing_subscriber::fmt::layer().with_target(false).with_filter(DEFAULT_LOGLEVEL);
 
-        // Create a user interface layer
-        //let buffer = Arc::new(Mutex::new(BufWriter::new(Vec::new())));
+        // Create a user interface layer FIXME
+        //let buffer = Mutex::new(Writer::new(Arc::new(Vec::new()))); //Arc::new()
         //let buf_writer = buffer.clone().make_writer();
-        //let user_layer = tracing_subscriber::fmt::layer::<Registry>().with_writer(buf_writer).with_ansi(false).with_target(false).with_filter(DEFAULT_LOGLEVEL);
+        //let user_layer = tracing_subscriber::fmt::layer().with_writer(buffer).with_ansi(false).with_target(false).with_filter(DEFAULT_LOGLEVEL);
 
         // Create the log file
         let file_appender = tracing_appender::rolling::daily(LOG_FOLDER, GAME_LOG);
@@ -112,20 +94,20 @@ impl Minerva {
         )};
 
         // Create the log file layer
-        //let file_layer = tracing_subscriber::fmt::layer().with_writer(non_blocking).with_ansi(false).with_target(false).with_filter(file_filter);
+        let file_layer = tracing_subscriber::fmt::layer().with_writer(non_blocking).with_ansi(false).with_target(false).with_filter(file_filter);
         
         // Initialize tracing
-        tracing_subscriber::registry().with(stdout_layer).init(); //.with(file_layer).init();
+        tracing_subscriber::registry().with(stdout_layer).with(user_layer).with(file_layer).init();
 
-        // Return the debug flag and file guard
-        (is_debug, file_guard)
+        // Return and file guard
+        file_guard
     }
 
     /// A function to build the main program and the user interface
     ///
     async fn run() {
         // Initialize logging (guard is held until the end of run())
-        let (log_handle, _guard) = Minerva::setup_logging();
+        let _guard = Minerva::setup_logging();
 
         // Create the item index to process item description requests
         let (mut item_index, index_access) = ItemIndex::new();
@@ -151,7 +133,6 @@ impl Minerva {
             index_access.clone(),
             style_access.clone(),
             interface_send.clone(),
-            log_handle,
         )
         .await;
 

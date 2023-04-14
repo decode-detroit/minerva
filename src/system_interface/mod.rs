@@ -64,7 +64,6 @@ pub struct SystemInterface {
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
     internal_send: InternalSend,         // a sending line to pass internal updates
-    is_debug: Arc<Mutex<bool>>,          // a flag for changing log level
 }
 
 // Implement key SystemInterface functionality
@@ -75,7 +74,6 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
-        is_debug: Arc<Mutex<bool>>,
     ) -> (Self, WebSend) {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
@@ -96,7 +94,6 @@ impl SystemInterface {
             web_receive,
             internal_receive,
             internal_send,
-            is_debug,
         };
 
         // Try to load a default configuration, if it exists
@@ -443,16 +440,6 @@ impl SystemInterface {
                 } else {
                     error!("Event couldn't be cued. No active configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
-                }
-            }
-
-            // Swtich between normal mode and debug mode
-            UserRequest::DebugMode(is_debug) => {
-                // Try to get a lock on the debug flag
-                if let Ok(mut debug) = self.is_debug.try_lock() {
-                    *debug = is_debug;
-                } else {
-                    error!("Unable to change debug mode.");
                 }
             }
 
