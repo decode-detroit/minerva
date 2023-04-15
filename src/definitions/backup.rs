@@ -34,6 +34,19 @@ pub struct QueuedEvent {
     pub event_id: ItemId,    // id of the event to launch
 }
 
+/// Implement time updates for the QueuedEvent
+impl QueuedEvent {
+    /// A method to add time to the time_since field
+    ///
+    pub fn update(&mut self, additional_time: Duration) {
+        self.remaining = self
+            .remaining
+            .checked_sub(additional_time)
+            .unwrap_or(Duration::from_secs(0)); // default to zero it none left
+    }
+}
+
+
 // Define the DMX constants
 pub const DMX_MAX: u32 = 512; // the highest channel of DMX, exclusive
 
@@ -103,7 +116,7 @@ impl MediaPlayback {
         self.time_since = self
             .time_since
             .checked_add(additional_time)
-            .unwrap_or(self.time_since) // keep current time if overflow
+            .unwrap_or(self.time_since); // keep current time if overflow
     }
 }
 

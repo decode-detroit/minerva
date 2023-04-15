@@ -40,6 +40,14 @@ use fnv::FnvHashSet;
 // Import YAML processing library
 use serde_yaml;
 
+/// A helper structure to hold the last update
+/// 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct LastUpdates {
+    queue_update: Duration,   // the time since the last update for the queue backup
+    media_update: Duration,   // the time since the last update for the media backup
+}
+
 /// A structure which holds a reference to the Redis server (if it exists) and
 /// syncronizes local data to and from the server.
 ///
@@ -52,7 +60,8 @@ use serde_yaml;
 pub struct BackupHandler {
     identifier: Identifier, // the identifier for this instance of the controller, if specified
     connection: Option<redis::Connection>, // the Redis connection, if it exists
-    last_update: Instant,   // the time of the last update for the backup
+    last_queue_update: Instant,   // the time of the last update for the queue backup
+    last_media_update: Instant,   // the time of the last update for the media backup
     backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
     dmx_universe: DmxUniverse, // the current final value of all DMX fades
     media_playlist: MediaPlaylist, // the current media playback for each channel
@@ -97,7 +106,8 @@ impl BackupHandler {
                     return Self {
                         identifier,
                         connection: Some(connection),
-                        last_update: Instant::now(),
+                        last_queue_update: Instant::now(),
+                        last_media_update: Instant::now(),
                         backup_items: FnvHashSet::default(),
                         dmx_universe: DmxUniverse::new(),
                         media_playlist: MediaPlaylist::default(),
@@ -118,42 +128,13 @@ impl BackupHandler {
         Self {
             identifier,
             connection: None,
-            last_update: Instant::now(),
+            last_queue_update: Instant::now(),
+            last_media_update: Instant::now(),
             backup_items: FnvHashSet::default(),
             dmx_universe: DmxUniverse::new(),
             media_playlist: MediaPlaylist::default(),
         }
     }
-
-    /// A method to backup the time since the last full backup of the system
-    ///
-    /// # Errors
-    ///
-    /// This function will raise an error if it is unable to connect to the
-    /// Redis server.
-    ///
-    /// Like all BackupHandler functions and methods, this function will fail
-    /// gracefully by notifying of any errors on the update line.
-    ///
-    /*pub async fn backup_last_update(&mut self, current_scene: &ItemId) {
-        // If the redis connection exists
-        if let Some(mut connection) = self.connection.take() {
-            // Try to copy the current scene to the server
-            let result: RedisResult<bool> = connection.set(
-                &format!("{}:current", self.identifier),
-                &format!("{}", current_scene.id()),
-            );
-
-            // Unpack the result from the operation
-            if let Err(..) = result {
-                // Warn that it wasn't possible to update the current scene
-                error!"Unable To Backup Current Scene Onto Backup Server.");
-            }
-
-            // Put the connection back
-            self.connection = Some(connection);
-        }
-    }*/
 
     /// A method to backup the current scene of the system
     ///
@@ -179,6 +160,9 @@ impl BackupHandler {
                 // Warn that it wasn't possible to update the current scene
                 error!("Unable to backup current scene onto backup server.");
             }
+
+            // Backup the update times
+            self.backup_last_update(&mut connection).await;
 
             // Put the connection back
             self.connection = Some(connection);
@@ -220,6 +204,9 @@ impl BackupHandler {
             } else {
                 self.backup_items.insert(status_id.clone());
             }
+
+            // Backup the update times
+            self.backup_last_update(&mut connection).await;
 
             // Put the connection back
             self.connection = Some(connection);
@@ -280,12 +267,12 @@ impl BackupHandler {
                 error!("Unable to backup events onto backup server.");
             }
 
+            // Backup the update times
+            self.backup_last_update(&mut connection).await;
+
             // Put the connection back
             self.connection = Some(connection);
         }
-
-        // Update the media timing
-        self.save_media(None).await;
     }
 
     /// A method to backup the dmx values on the backup server based on each
@@ -332,12 +319,15 @@ impl BackupHandler {
                 error!("Unable to backup DMX onto backup server.");
             }
 
+            // Save the new update time
+            self.last_queue_update = Instant::now();
+
+            // Backup the update times
+            self.backup_last_update(&mut connection).await;
+
             // Put the connection back
             self.connection = Some(connection);
         }
-
-        // Update the media timing
-        self.save_media(None).await;
     }
 
     /// A method to backup the currently playing media to the backup server.
@@ -358,31 +348,16 @@ impl BackupHandler {
     /// gracefully by notifying of any errors on the update line.
     ///
     pub async fn backup_media(&mut self, media_cue: MediaCue) {
-        // Pass the media cue to the helper function
-        self.save_media(Some(media_cue)).await;
-    }
-
-    /// A helper method to backup the currently playing media to the backup server.
-    /// If a cue is provided, it is assumed to start playing now. If no
-    /// cue is provided, this method refreshes the timing for the playlist.
-    ///
-    async fn save_media(&mut self, possible_cue: Option<MediaCue>) {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
-            // Update the media timing
-            self.update_timing();
-
-            // If the cue exists
-            if let Some(media_cue) = possible_cue {
-                // Add the cue to the media playlist
-                self.media_playlist.insert(
-                    media_cue.channel,
-                    MediaPlayback {
-                        media_cue,
-                        time_since: Duration::from_secs(0),
-                    },
-                ); // replaces an existing media playback, if it exists
-            }
+            // Add the cue to the media playlist
+            self.media_playlist.insert(
+                media_cue.channel,
+                MediaPlayback {
+                    media_cue,
+                    time_since: Duration::from_secs(0),
+                },
+            ); // replaces an existing media playback, if it exists
 
             // Try to serialize the media playlist
             let media_string = match serde_yaml::to_string(&self.media_playlist) {
@@ -405,23 +380,14 @@ impl BackupHandler {
                 error!("Unable to backup media onto backup server.");
             }
 
+            // Save the new update time
+            self.last_media_update = Instant::now();
+            
+            // Backup the update times
+            self.backup_last_update(&mut connection).await;
+
             // Put the connection back
             self.connection = Some(connection);
-        }
-    }
-
-    /// A helper method to update the timing of the media playlist
-    ///
-    fn update_timing(&mut self) {
-        // Calculate the amount of time that's passed and save the new update time
-        let time_passed = self.last_update.elapsed();
-        self.last_update = Instant::now();
-
-        // Update the timing for the media playlist
-        if self.media_playlist.len() > 0 {
-            for playback in self.media_playlist.values_mut() {
-                playback.update(time_passed);
-            }
         }
     }
 
@@ -455,6 +421,19 @@ impl BackupHandler {
 
             // If the current scene exists
             if let Ok(current_str) = result {
+                // Try to read the last update times
+                let mut last_updates = LastUpdates { queue_update: Duration::from_secs(0), media_update: Duration::from_secs(0) };
+                let result: RedisResult<String> =
+                    connection.get(&format!("{}:lastupdate", self.identifier));
+
+                // If something was received
+                if let Ok(update_string) = result {
+                    // Try to parse the data
+                    if let Ok(updates) = serde_yaml::from_str(update_string.as_str()) {
+                        last_updates = updates;
+                    }
+                }
+
                 // Try to read the exising event queue
                 let mut queued_events: Vec<QueuedEvent> = Vec::new();
                 let result: RedisResult<String> =
@@ -465,6 +444,13 @@ impl BackupHandler {
                     // Try to parse the queue
                     if let Ok(events) = serde_yaml::from_str(queue_string.as_str()) {
                         queued_events = events;
+                    }
+                }
+
+                // Update the timing for the media playlist
+                if queued_events.len() > 0 {
+                    for event in queued_events.iter_mut() {
+                        event.update(last_updates.queue_update);
                     }
                 }
 
@@ -494,6 +480,13 @@ impl BackupHandler {
                     // Try to parse the data
                     if let Ok(media) = serde_yaml::from_str(media_string.as_str()) {
                         media_playlist = media;
+                    }
+                }
+
+                // Update the timing for the media playlist
+                if media_playlist.len() > 0 {
+                    for playback in media_playlist.values_mut() {
+                        playback.update(last_updates.media_update);
                     }
                 }
 
@@ -546,6 +539,31 @@ impl BackupHandler {
         // Silently return nothing if the connection does not exist or there was not a current scene
         None
     }
+
+    /// A helper function to backup the last update times for the queue and media 
+    /// 
+    async fn backup_last_update(&mut self, connection: &mut redis::Connection) {
+        // Create the last updates structure
+        let last_updates = LastUpdates { queue_update: self.last_queue_update.elapsed(), media_update: self.last_media_update.elapsed() };
+
+        // Try to serialize the update times
+        let update_string = match serde_yaml::to_string(&last_updates) {
+            Ok(string) => string,
+            Err(error) => {
+                error!("Unable to parse update times {}.", error);
+                return ;
+            }
+        };
+
+        // Try to copy the data to the server
+        let result: RedisResult<bool>;
+        result = connection.set(&format!("{}:lastupdate", self.identifier), &update_string);
+
+        // Alert that the media playlist was not set
+        if let Err(..) = result {
+            error!("Unable to backup update times onto backup server.");
+        }
+    }
 }
 
 // Implement the drop trait for the backup handler struct.
@@ -562,6 +580,9 @@ impl Drop for BackupHandler {
         if let Some(mut connection) = self.connection.take() {
             // Try to delete the current scene if it exists (unable to manually specify types)
             let _: RedisResult<bool> = connection.del(&format!("{}:current", self.identifier));
+
+            // Try to delete the last update backup if it exists
+            let _: RedisResult<bool> = connection.del(&format!("{}:lastupdate", self.identifier));
 
             // Try to delete the queue if it exists
             let _: RedisResult<bool> = connection.del(&format!("{}:queue", self.identifier));
