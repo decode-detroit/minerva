@@ -138,7 +138,7 @@ impl ApolloThread {
                 }
 
                 // Wait several seconds to restart the server
-                sleep(Duration::from_secs(3)).await;
+                sleep(Duration::from_secs(2)).await;
 
                 // Notify that the background process is restarting
                 info!("Restarting Apollo media player ...");
@@ -278,6 +278,12 @@ impl MediaInterface {
 
     // A helper method to reload a media playlist
     pub async fn restore_playlist(&mut self, mut playlist: MediaPlaylist) {
+        // Wait for the media instances to start up and channels to load
+        sleep(Duration::from_secs(3)).await;
+
+        // Track the cumulative delay
+        let mut delay_millis: u64 = 3000; // the 3 second delay above
+
         // Look through the playlist
         for (channel, playback) in playlist.drain() {
             // Check that the channel is valid
@@ -302,10 +308,14 @@ impl MediaInterface {
                 .send()
                 .await; // Ignore the result
 
+            // Wait for the media to start playing and count the delay
+            sleep(Duration::from_secs(1)).await;
+            delay_millis += 1000;
+
             // Extract the duration change and send it
             let seek = SeekMediaHelper {
                 channel,
-                position: playback.time_since.as_millis() as u64,
+                position: playback.time_since.as_millis() as u64 + delay_millis, // compensate for our additional delays
             };
             let _ = self
                 .client

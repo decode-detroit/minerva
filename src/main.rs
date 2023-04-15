@@ -75,7 +75,7 @@ impl Minerva {
             .with_target(false)
             .with_filter(DEFAULT_LOGLEVEL);
 
-        // Create a user interface layer FIXME
+        // Create a user interface layer FIXME collect warning and error messages to display to the user
         //let buffer = Mutex::new(Writer::new(Arc::new(Vec::new()))); //Arc::new()
         //let buf_writer = buffer.clone().make_writer();
         //let user_layer = tracing_subscriber::fmt::layer().with_writer(buffer).with_ansi(false).with_target(false).with_filter(DEFAULT_LOGLEVEL);

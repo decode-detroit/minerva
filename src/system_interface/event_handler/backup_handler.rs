@@ -283,6 +283,9 @@ impl BackupHandler {
             // Put the connection back
             self.connection = Some(connection);
         }
+
+        // Update the media timing
+        self.save_media(None).await;
     }
 
     /// A method to backup the dmx values on the backup server based on each
@@ -332,9 +335,13 @@ impl BackupHandler {
             // Put the connection back
             self.connection = Some(connection);
         }
+
+        // Update the media timing
+        self.save_media(None).await;
     }
 
-    /// A method to backup the currently playing media to the backup server
+    /// A method to backup the currently playing media to the backup server.
+    /// It assumes the media started playing as this function was called.
     ///
     /// # Note
     ///
@@ -351,25 +358,37 @@ impl BackupHandler {
     /// gracefully by notifying of any errors on the update line.
     ///
     pub async fn backup_media(&mut self, media_cue: MediaCue) {
+        // Pass the media cue to the helper function
+        self.save_media(Some(media_cue)).await;
+    }
+
+    /// A helper method to backup the currently playing media to the backup server.
+    /// If a cue is provided, it is assumed to start playing now. If no
+    /// cue is provided, this method refreshes the timing for the playlist.
+    ///
+    async fn save_media(&mut self, possible_cue: Option<MediaCue>) {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Update the media timing
             self.update_timing();
 
-            // Add the cue to the media playlist
-            self.media_playlist.insert(
-                media_cue.channel,
-                MediaPlayback {
-                    media_cue,
-                    time_since: Duration::from_secs(0),
-                },
-            ); // replaces an existing media playback, if it exists
+            // If the cue exists
+            if let Some(media_cue) = possible_cue {
+                // Add the cue to the media playlist
+                self.media_playlist.insert(
+                    media_cue.channel,
+                    MediaPlayback {
+                        media_cue,
+                        time_since: Duration::from_secs(0),
+                    },
+                ); // replaces an existing media playback, if it exists
+            }
 
             // Try to serialize the media playlist
             let media_string = match serde_yaml::to_string(&self.media_playlist) {
                 Ok(string) => string,
                 Err(error) => {
-                    error!("Unable to parse media cue: {}.", error);
+                    error!("Unable to parse media playlist: {}.", error);
 
                     // Put the connection back
                     self.connection = Some(connection);
@@ -381,7 +400,7 @@ impl BackupHandler {
             let result: RedisResult<bool>;
             result = connection.set(&format!("{}:media", self.identifier), &media_string);
 
-            // Alert that the dmx status was not set
+            // Alert that the media playlist was not set
             if let Err(..) = result {
                 error!("Unable to backup media onto backup server.");
             }
@@ -391,7 +410,7 @@ impl BackupHandler {
         }
     }
 
-    /// A helper method to update the timing of all the media events
+    /// A helper method to update the timing of the media playlist
     ///
     fn update_timing(&mut self) {
         // Calculate the amount of time that's passed and save the new update time
@@ -546,6 +565,12 @@ impl Drop for BackupHandler {
 
             // Try to delete the queue if it exists
             let _: RedisResult<bool> = connection.del(&format!("{}:queue", self.identifier));
+
+            // Try to delete the dmx backup if it exists
+            let _: RedisResult<bool> = connection.del(&format!("{}:dmx", self.identifier));
+
+            // Try to delete the media backup if it exists
+            let _: RedisResult<bool> = connection.del(&format!("{}:media", self.identifier));
 
             // Try to delete all the items that were backed up
             for item in self.backup_items.drain() {

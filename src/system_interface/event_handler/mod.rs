@@ -194,9 +194,6 @@ impl EventHandler {
 
             // If there is a media playlist
             if media_playlist.len() > 0 {
-                // Wait for the media instances to start up
-                sleep(Duration::from_secs(3)).await;
-
                 // Restore the media playlist
                 for interface in media_interfaces.iter_mut() {
                     interface.restore_playlist(media_playlist.clone()).await;
@@ -210,7 +207,7 @@ impl EventHandler {
                     .await;
             }
 
-            // Wait 10 nanoseconds for the queued events to process
+            // Wait 20 nanoseconds for the queued events to process
             sleep(Duration::from_nanos(20)).await;
 
             // Trigger a redraw of the window and timeline
