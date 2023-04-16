@@ -159,7 +159,6 @@ impl EventHandler {
         for details in config.get_media_players() {
             media_interfaces.push(
                 MediaInterface::new(
-                    internal_send.clone(),
                     details.channel_map,
                     details.window_map,
                     details.apollo_params,

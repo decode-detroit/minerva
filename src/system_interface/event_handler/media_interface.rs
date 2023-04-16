@@ -21,6 +21,7 @@
 use crate::definitions::*;
 
 // Import tokio elements
+use tokio::sync::mpsc;
 use tokio::process::Command;
 use tokio::runtime::Handle;
 use tokio::time::{sleep, Duration};
@@ -42,7 +43,7 @@ struct ApolloThread;
 impl ApolloThread {
     /// Spawn the monitoring thread
     async fn spawn(
-        internal_send: InternalSend,
+        mut close_receiver: mpsc::Receiver<()>,
         address: String,
         mut window_map: WindowMap,
         mut channel_map: ChannelMap,
@@ -133,8 +134,20 @@ impl ApolloThread {
                         }
                     }
 
-                    // Check if the internal send line has been dropped
-                    _ = internal_send.closed() => break,
+                    // Check if the close notification line has been dropped
+                    _ = close_receiver.recv() => {
+                        // Notify of the closure
+                        info!("Closing Apollo media player ...");
+
+                        // Tell Apollo to close
+                        let _ = tmp_client
+                                        .post(&format!("http://{}/close", &address))
+                                        .send()
+                                        .await;
+
+                        // Exit the loop and close the background thread
+                        break;
+                    }
                 }
 
                 // Wait several seconds to restart the server
@@ -181,9 +194,11 @@ impl ApolloThread {
 /// A structure to hold and manipulate the connection to the media backend
 ///
 pub struct MediaInterface {
-    channel_list: Vec<u32>, // a list of valid channels for this instance
-    client: Option<Client>, // the reqwest client for pass media changes
-    address: String,        // the address for requests to Apollo
+    channel_list: Vec<u32>,         // a list of valid channels for this instance
+    client: Option<Client>,         // the reqwest client for passing media changes
+    address: String,                // the address for requests to Apollo
+    _close_sender: mpsc::Sender<()>, // a line to notify the background thread to close
+                                    // the line is never used, but is poisoned when dropped
 }
 
 // Implement key functionality for the Media Interface structure
@@ -191,7 +206,6 @@ impl MediaInterface {
     /// A function to create a new instance of the MediaInterface
     ///
     pub async fn new(
-        internal_send: InternalSend,
         channel_map: ChannelMap,
         window_map: WindowMap,
         apollo_params: ApolloParams,
@@ -205,9 +219,12 @@ impl MediaInterface {
         // Collect the list of valid channels
         let channel_list = channel_map.keys().map(|key| key.clone()).collect();
 
+        // Create a channel to notify the background thread to close
+        let (_close_sender, close_receiver ) = mpsc::channel(1); // Only need space for one message
+
         // Spin out thread to monitor and restart apollo, if requested
         if apollo_params.spawn {
-            ApolloThread::spawn(internal_send, address.clone(), window_map, channel_map).await;
+            ApolloThread::spawn(close_receiver, address.clone(), window_map, channel_map).await;
         }
 
         // Return the complete module
@@ -215,6 +232,7 @@ impl MediaInterface {
             channel_list,
             client: None,
             address,
+            _close_sender,
         }
     }
 
