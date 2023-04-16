@@ -40,6 +40,7 @@ use self::queue::Queue;
 
 // Import standard library features
 use std::env;
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -51,7 +52,7 @@ use tokio::fs::File;
 use tokio::time::sleep;
 
 // Import tracing features
-use tracing::{error, info, warn};
+use tracing::{info, error};
 
 // Import anyhow features
 use anyhow::Result;
@@ -178,10 +179,8 @@ impl EventHandler {
         if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) =
             backup.reload_backup(config.get_status_ids())
         {
-            // Notify that existing data was found
-            warn!("Detected lingering backup data. Reloading ...");
-
             // Change the current scene silently (i.e. do not trigger the reset event)
+            info!("Changing current scene: {}.", index_access.get_pair(&current_scene).await);
             config.choose_scene(current_scene).await.unwrap_or(());
 
             // Update the current status states based on the backup
@@ -400,7 +399,7 @@ impl EventHandler {
     ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) {
         // Send an update to the rest of the system (will preceed error if there is one)
-        info!("Changing current scene ...");
+        info!("Changing current scene: {}.", self.index_access.get_pair(&scene_id).await);
 
         // Try to change the underlying scene
         if self.config.choose_scene(scene_id).await.is_ok() {
@@ -487,6 +486,9 @@ impl EventHandler {
                 return;
             }
         };
+
+        // Notify success
+        info!("Writing configuration to file: {}.", config_path.file_name().unwrap_or(OsStr::new("filename unavailable")).to_str().unwrap_or("filename unavailable"));
 
         // Save the configuration to the provided file
         self.config.to_config(config_file).await;

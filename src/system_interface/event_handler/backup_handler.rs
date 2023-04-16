@@ -29,7 +29,7 @@ use crate::definitions::*;
 use std::time::{Duration, Instant};
 
 // Import tracing features
-use tracing::error;
+use tracing::{info, warn, error};
 
 // Imprt redis client library
 use redis::{Commands, ConnectionLike, RedisResult};
@@ -231,7 +231,6 @@ impl BackupHandler {
     /// gracefully by notifying of any errors on the update line.
     ///
     pub async fn backup_events(&mut self, coming_events: Vec<ComingEvent>) {
-        //FIXME Enable timing updates for coming events
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Covert the coming events to queued events
@@ -266,6 +265,9 @@ impl BackupHandler {
             if let Err(..) = result {
                 error!("Unable to backup events onto backup server.");
             }
+
+            // Save the new update time
+            self.last_queue_update = Instant::now();
 
             // Backup the update times
             self.backup_last_update(&mut connection).await;
@@ -319,9 +321,6 @@ impl BackupHandler {
                 error!("Unable to backup DMX onto backup server.");
             }
 
-            // Save the new update time
-            self.last_queue_update = Instant::now();
-
             // Backup the update times
             self.backup_last_update(&mut connection).await;
 
@@ -338,6 +337,12 @@ impl BackupHandler {
     /// As the backup handler does not hold a copy of the configuration, this
     /// method does not verify the validity of the media cue values in any way.
     /// It is expected that the calling module will perform this check.
+    /// 
+    /// The media interface only waits half a second for media to load before
+    /// seeking to the corrent position of the media. This delay may not be
+    /// sufficient for network-loaded media which can take several seconds
+    /// to load. If the media takes too long to load, the media with resume
+    /// playback from the start rather than its correct position. 
     ///
     /// # Errors
     ///
@@ -421,6 +426,9 @@ impl BackupHandler {
 
             // If the current scene exists
             if let Ok(current_str) = result {
+                // Warn that existing data was found
+                warn!("Detected lingering backup data. Reloading ...");
+
                 // Try to read the last update times
                 let mut last_updates = LastUpdates { queue_update: Duration::from_secs(0), media_update: Duration::from_secs(0) };
                 let result: RedisResult<String> =
@@ -448,6 +456,7 @@ impl BackupHandler {
                 }
 
                 // Update the timing for the media playlist
+                info!("Adjusting event queue by {}.{:0>3}.", last_updates.queue_update.as_secs(), (last_updates.queue_update.as_millis() % 1000));
                 if queued_events.len() > 0 {
                     for event in queued_events.iter_mut() {
                         event.update(last_updates.queue_update);
@@ -484,6 +493,7 @@ impl BackupHandler {
                 }
 
                 // Update the timing for the media playlist
+                info!("Adjusting media playlist by {}.{:0>3}.", last_updates.media_update.as_secs(), (last_updates.media_update.as_millis() % 1000));
                 if media_playlist.len() > 0 {
                     for playback in media_playlist.values_mut() {
                         playback.update(last_updates.media_update);

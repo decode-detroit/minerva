@@ -29,7 +29,7 @@ use tokio::time::{sleep, Duration};
 use reqwest::Client;
 
 // Import tracing features
-use tracing::{error, info};
+use tracing::{info, error};
 
 // Import anyhow features
 use anyhow::Result;
@@ -85,8 +85,8 @@ impl ApolloThread {
         Handle::current().spawn(async move {
             // Run indefinitely or until the process fails
             loop {
-                // Wait several seconds for the server to start
-                sleep(Duration::from_secs(2)).await;
+                // Wait a second for the server to start
+                sleep(Duration::from_secs(1)).await;
 
                 // Create a client for passing channel definitions
                 let tmp_client = Client::new();
@@ -279,10 +279,10 @@ impl MediaInterface {
     // A helper method to reload a media playlist
     pub async fn restore_playlist(&mut self, mut playlist: MediaPlaylist) {
         // Wait for the media instances to start up and channels to load
-        sleep(Duration::from_secs(3)).await;
+        sleep(Duration::from_millis(1200)).await;
 
         // Track the cumulative delay
-        let mut delay_millis: u64 = 3000; // the 3 second delay above
+        let mut delay_millis: u64 = 1200; // the delay above
 
         // Look through the playlist
         for (channel, playback) in playlist.drain() {
@@ -309,13 +309,15 @@ impl MediaInterface {
                 .await; // Ignore the result
 
             // Wait for the media to start playing and count the delay
-            sleep(Duration::from_secs(1)).await;
-            delay_millis += 1000;
+            sleep(Duration::from_millis(500)).await;
+            delay_millis += 500;
 
             // Extract the duration change and send it
+            let change = playback.time_since.as_millis() as u64 + delay_millis; // compensate for our additional delays
+            info!("Seeking media to {}.{:0>3}.", (change / 1000 as u64), (change % 1000));
             let seek = SeekMediaHelper {
                 channel,
-                position: playback.time_since.as_millis() as u64 + delay_millis, // compensate for our additional delays
+                position: change, 
             };
             let _ = self
                 .client
