@@ -220,7 +220,7 @@ impl MediaInterface {
         let channel_list = channel_map.keys().map(|key| key.clone()).collect();
 
         // Create a channel to notify the background thread to close
-        let (_close_sender, close_receiver ) = mpsc::channel(1); // Only need space for one message
+        let (_close_sender, close_receiver ) = mpsc::channel(1); // don't need space for any messages
 
         // Spin out thread to monitor and restart apollo, if requested
         if apollo_params.spawn {

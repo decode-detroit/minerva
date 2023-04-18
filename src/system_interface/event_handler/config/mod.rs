@@ -224,7 +224,7 @@ impl Config {
 
         // Return a new empty configuration
         Config {
-            identifier: Identifier { id: Some(1) },
+            identifier: Identifier { id: None },
             system_connection: ConnectionSet::new(),
             dmx_path: None,
             media_players: Vec::new(),

@@ -6,11 +6,18 @@ dmx_path: null
 media_players:
 - channel_map:
     1:
-      video_frame: null
-      window_dimensions: null
+      video_frame:
+        window_number: 1
+        top: 100
+        left: 100
+        height: 600
+        width: 800
       audio_device: null
       loop_media: null
-  window_map: {}
+  window_map:
+    1:
+      fullscreen: true
+      dimensions: null
   apollo_params:
     spawn: true
     address: null
