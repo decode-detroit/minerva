@@ -150,10 +150,6 @@ In addition to any packages above (e.g. ZMQ), you need to cross compile [Apollo]
 
 Hardware decoding works well for videos up to 1080p at 30 fps. There is a short delay when switching between playing videos, but there is no delay when playing a new video after the first has stopped.
 
-## Contributing
-
-Please join us in the pursuit of free and open source software for the arts! Email patton@DecodeDetroit.com to discuss how your skills might help the project.
-
 ## License
 
 This project is licensed under the GNU GPL Version 3 - see the [LICENSE](LICENSE) file for details
