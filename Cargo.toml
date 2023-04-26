@@ -30,6 +30,7 @@ reqwest = { version = "0.11", default-features=false, features = ["blocking", "j
 thread_local = "1.1"
 sysinfo = "0.28"
 anyhow = "1.0"
+clap = { version = "4.2", features = ["derive"] }
 
 [features]
 no_can_limit = []

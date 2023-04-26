@@ -24,7 +24,7 @@ media_players:
 system_connection: []
 background_process: null
 default_scene:
-  id: 500
+  id: 100
 fullscreen: null
 all_scenes:
   ? id: 100

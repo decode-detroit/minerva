@@ -44,7 +44,6 @@ use tracing::{error, info, warn};
 
 // Define module constants
 const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
-const DEFAULT_FILE: &str = "default"; // the default configuration filename
 
 /// A structure to contain the system interface and handle all updates to the
 /// to the interface.
@@ -73,6 +72,7 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
+        config_file: String,
     ) -> (Self, WebSend) {
         // Create the new general update structure and receive channel
         let (internal_send, internal_receive) = InternalSend::new();
@@ -97,26 +97,16 @@ impl SystemInterface {
 
         // Try to load a default configuration, if it exists
         if let Ok(mut path) = env::current_dir() {
-            // Add the default filename
-            path.push(DEFAULT_FILE);
-
-            // Add the mnv filetype
-            path.set_extension("mnv");
+            // Add the default filename FIXME only allows for relative filepaths
+            path.push(config_file.as_str());
 
             // Try the file, if it exists
             if path.exists() {
                 sys_interface.load_config(Some(path), false).await;
 
-            // Otherwise, try the yaml path
+            // Otherwise, create an empty config
             } else {
-                path.set_extension("yaml");
-                if path.exists() {
-                    sys_interface.load_config(Some(path), false).await;
-
-                // If neither are found, create an empty config
-                } else {
-                    sys_interface.load_config(None, false).await;
-                }
+                sys_interface.load_config(None, false).await;
             }
         }
 

@@ -49,16 +49,41 @@ extern crate anyhow;
 // Import tracing features
 use tracing::Level;
 use tracing_appender;
-use tracing_subscriber::filter::{filter_fn, LevelFilter};
+use tracing_subscriber::filter::filter_fn;
 use tracing_subscriber::prelude::*;
+
+// Import clap features
+use clap::Parser;
 
 // Import sysinfo modules
 use sysinfo::{Process, ProcessRefreshKind, RefreshKind, System, SystemExt};
 
-// Define constants
-pub const USER_STYLE_SHEET: &str = "/tmp/userStyles.css";
-pub const DEFAULT_LOGLEVEL: LevelFilter = LevelFilter::INFO;
-pub const LOG_FOLDER: &str = "log/"; // the default log folder
+/// Struct to hold the optional arguments for Minerva
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Arguments {
+    /// Relative path to a configuration file
+    #[arg(short, long, default_value = DEFAULT_FILE)]
+    config: String,
+
+    /// Flag to allow for multiple instances
+    #[arg(short = 'm', long, default_value = "false")]
+    allow_multiple: bool,
+
+    /// Run address for the web interface
+    #[arg(long, default_value = DEFAULT_RUN_ADDRESS)]
+    run_addr: String,
+
+    /// Edit address for the web interface
+    #[arg(long, default_value = DEFAULT_EDIT_ADDRESS)]
+    edit_addr: String,
+
+    /// Limited access address for the web interface
+    #[arg(long, default_value = DEFAULT_LIMITED_ADDRESS)]
+    limited_addr: String,
+
+}
+
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -108,7 +133,7 @@ impl Minerva {
 
     /// A function to build the main program and the user interface
     ///
-    async fn run() {
+    async fn run(arguments: Arguments) {
         // Initialize logging (guard is held until the end of run())
         let _guard = Minerva::setup_logging();
 
@@ -136,6 +161,7 @@ impl Minerva {
             index_access.clone(),
             style_access.clone(),
             interface_send.clone(),
+            arguments.config,
         )
         .await;
 
@@ -145,7 +171,7 @@ impl Minerva {
 
         // Run the web interface in a new thread
         tokio::spawn(async move {
-            web_interface.run(web_interface_recv).await;
+            web_interface.run(web_interface_recv, arguments.limited_addr, arguments.run_addr, arguments.edit_addr).await;
         });
 
         // Block on the system interface
@@ -157,25 +183,27 @@ impl Minerva {
 ///
 #[tokio::main]
 async fn main() {
-    // Get system information
-    let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::everything());
-    let sys_info = System::new_with_specifics(refresh_kind);
+    // Get the commandline arguments
+    let arguments = Arguments::parse();
 
-    // Check to ensure Minerva is not already running FIXME allow multiple instances with commandline argument
-    if sys_info
-        .processes_by_exact_name("minerva")
-        .collect::<Vec<&Process>>()
-        .len()
-        > 1
-    {
-        println!("Minerva is already running. Exiting ...");
-        return;
+    // If not allowing multiple instances
+    if !arguments.allow_multiple {
+        // Get system information
+        let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::everything());
+        let sys_info = System::new_with_specifics(refresh_kind);
+
+        // Check to ensure Minerva is not already running
+        if sys_info
+            .processes_by_exact_name("minerva")
+            .collect::<Vec<&Process>>()
+            .len()
+            > 1
+        {
+            println!("Minerva is already running. Exiting ...");
+            return;
+        }
     }
 
-    // If successful, drop the uneeded information
-    drop(refresh_kind);
-    drop(sys_info);
-
     // Create the program and run until directed otherwise
-    Minerva::run().await;
+    Minerva::run(arguments).await;
 }

@@ -31,9 +31,6 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 
-// Import constants
-use crate::USER_STYLE_SHEET;
-
 /// A structure to store the style sheet and provide asyncronous responses
 /// to information requests
 ///

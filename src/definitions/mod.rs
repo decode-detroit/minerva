@@ -17,8 +17,20 @@
 
 //! This module defines all structures and types used across modules.
 
+// Import tracing features
+use tracing_subscriber::filter::LevelFilter;
+
 // Define program constants
+pub const DEFAULT_FILE: &str = "default.yaml"; // the default configuration filename
+pub const USER_STYLE_SHEET: &str = "/tmp/userStyles.css"; // the default location for user styles
+pub const DEFAULT_LOGLEVEL: LevelFilter = LevelFilter::INFO;
+pub const LOG_FOLDER: &str = "log/"; // the default log folder
 pub const GAME_LOG: &str = "game_log"; // the default logging filename
+
+// Define web interface constants
+pub const DEFAULT_LIMITED_ADDRESS: &str = "127.0.0.1:64635";
+pub const DEFAULT_RUN_ADDRESS: &str = "127.0.0.1:64636";
+pub const DEFAULT_EDIT_ADDRESS: &str = "127.0.0.1:64637";
 
 // Define testing submodule
 #[cfg(test)]
