@@ -81,9 +81,7 @@ struct Arguments {
     /// Limited access address for the web interface
     #[arg(long, default_value = DEFAULT_LIMITED_ADDRESS)]
     limited_addr: String,
-
 }
-
 
 /// The Minerva structure to contain the program launching and overall
 /// communication code.
@@ -171,7 +169,14 @@ impl Minerva {
 
         // Run the web interface in a new thread
         tokio::spawn(async move {
-            web_interface.run(web_interface_recv, arguments.limited_addr, arguments.run_addr, arguments.edit_addr).await;
+            web_interface
+                .run(
+                    web_interface_recv,
+                    arguments.limited_addr,
+                    arguments.run_addr,
+                    arguments.edit_addr,
+                )
+                .await;
         });
 
         // Block on the system interface

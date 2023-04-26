@@ -64,12 +64,18 @@ impl WebInterface {
 
     /// A method to listen for connections from the internet
     ///
-    pub async fn run(&mut self, mut interface_receive: mpsc::Receiver<InterfaceUpdate>, limited_addr: String, run_addr: String, edit_addr: String) {
+    pub async fn run(
+        &mut self,
+        mut interface_receive: mpsc::Receiver<InterfaceUpdate>,
+        limited_addr: String,
+        run_addr: String,
+        edit_addr: String,
+    ) {
         // Parse any provided addresses, or use defaults
         let limited_address = limited_addr.parse::<std::net::SocketAddr>();
         let run_address = run_addr.parse::<std::net::SocketAddr>();
         let edit_address = edit_addr.parse::<std::net::SocketAddr>();
-        
+
         // Create a channel for sending new listener handles
         let (listener_send, mut listener_recv): (
             mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>,
@@ -117,9 +123,7 @@ impl WebInterface {
                     .and_then(WebInterface::handle_request);
 
                 // Serve this route on a separate port
-                warp::serve(limited_cue_event)
-                    .run(address)
-                    .await;
+                warp::serve(limited_cue_event).run(address).await;
             });
         }
 

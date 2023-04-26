@@ -29,7 +29,7 @@ use crate::definitions::*;
 use std::time::{Duration, Instant};
 
 // Import tracing features
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 // Imprt redis client library
 use redis::{Commands, ConnectionLike, RedisResult};
@@ -41,11 +41,11 @@ use fnv::FnvHashSet;
 use serde_yaml;
 
 /// A helper structure to hold the last update
-/// 
+///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct LastUpdates {
-    queue_update: Duration,   // the time since the last update for the queue backup
-    media_update: Duration,   // the time since the last update for the media backup
+    queue_update: Duration, // the time since the last update for the queue backup
+    media_update: Duration, // the time since the last update for the media backup
 }
 
 /// A structure which holds a reference to the Redis server (if it exists) and
@@ -60,8 +60,8 @@ struct LastUpdates {
 pub struct BackupHandler {
     identifier: Identifier, // the identifier for this instance of the controller, if specified
     connection: Option<redis::Connection>, // the Redis connection, if it exists
-    last_queue_update: Instant,   // the time of the last update for the queue backup
-    last_media_update: Instant,   // the time of the last update for the media backup
+    last_queue_update: Instant, // the time of the last update for the queue backup
+    last_media_update: Instant, // the time of the last update for the media backup
     backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
     dmx_universe: DmxUniverse, // the current final value of all DMX fades
     media_playlist: MediaPlaylist, // the current media playback for each channel
@@ -337,12 +337,12 @@ impl BackupHandler {
     /// As the backup handler does not hold a copy of the configuration, this
     /// method does not verify the validity of the media cue values in any way.
     /// It is expected that the calling module will perform this check.
-    /// 
+    ///
     /// The media interface only waits half a second for media to load before
     /// seeking to the corrent position of the media. This delay may not be
     /// sufficient for network-loaded media which can take several seconds
     /// to load. If the media takes too long to load, the media with resume
-    /// playback from the start rather than its correct position. 
+    /// playback from the start rather than its correct position.
     ///
     /// # Errors
     ///
@@ -387,7 +387,7 @@ impl BackupHandler {
 
             // Save the new update time
             self.last_media_update = Instant::now();
-            
+
             // Backup the update times
             self.backup_last_update(&mut connection).await;
 
@@ -430,7 +430,10 @@ impl BackupHandler {
                 warn!("Detected lingering backup data. Reloading ...");
 
                 // Try to read the last update times
-                let mut last_updates = LastUpdates { queue_update: Duration::from_secs(0), media_update: Duration::from_secs(0) };
+                let mut last_updates = LastUpdates {
+                    queue_update: Duration::from_secs(0),
+                    media_update: Duration::from_secs(0),
+                };
                 let result: RedisResult<String> =
                     connection.get(&format!("{}:lastupdate", self.identifier));
 
@@ -456,7 +459,11 @@ impl BackupHandler {
                 }
 
                 // Update the timing for the media playlist
-                info!("Adjusting event queue by {}.{:0>3}.", last_updates.queue_update.as_secs(), (last_updates.queue_update.as_millis() % 1000));
+                info!(
+                    "Adjusting event queue by {}.{:0>3}.",
+                    last_updates.queue_update.as_secs(),
+                    (last_updates.queue_update.as_millis() % 1000)
+                );
                 if queued_events.len() > 0 {
                     for event in queued_events.iter_mut() {
                         event.update(last_updates.queue_update);
@@ -493,7 +500,11 @@ impl BackupHandler {
                 }
 
                 // Update the timing for the media playlist
-                info!("Adjusting media playlist by {}.{:0>3}.", last_updates.media_update.as_secs(), (last_updates.media_update.as_millis() % 1000));
+                info!(
+                    "Adjusting media playlist by {}.{:0>3}.",
+                    last_updates.media_update.as_secs(),
+                    (last_updates.media_update.as_millis() % 1000)
+                );
                 if media_playlist.len() > 0 {
                     for playback in media_playlist.values_mut() {
                         playback.update(last_updates.media_update);
@@ -550,18 +561,21 @@ impl BackupHandler {
         None
     }
 
-    /// A helper function to backup the last update times for the queue and media 
-    /// 
+    /// A helper function to backup the last update times for the queue and media
+    ///
     async fn backup_last_update(&mut self, connection: &mut redis::Connection) {
         // Create the last updates structure
-        let last_updates = LastUpdates { queue_update: self.last_queue_update.elapsed(), media_update: self.last_media_update.elapsed() };
+        let last_updates = LastUpdates {
+            queue_update: self.last_queue_update.elapsed(),
+            media_update: self.last_media_update.elapsed(),
+        };
 
         // Try to serialize the update times
         let update_string = match serde_yaml::to_string(&last_updates) {
             Ok(string) => string,
             Err(error) => {
                 error!("Unable to parse update times {}.", error);
-                return ;
+                return;
             }
         };
 

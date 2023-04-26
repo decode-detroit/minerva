@@ -21,16 +21,16 @@
 use crate::definitions::*;
 
 // Import tokio elements
-use tokio::sync::mpsc;
 use tokio::process::Command;
 use tokio::runtime::Handle;
+use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 
 // Import reqwest elements
 use reqwest::Client;
 
 // Import tracing features
-use tracing::{info, error};
+use tracing::{error, info};
 
 // Import anyhow features
 use anyhow::Result;
@@ -194,11 +194,11 @@ impl ApolloThread {
 /// A structure to hold and manipulate the connection to the media backend
 ///
 pub struct MediaInterface {
-    channel_list: Vec<u32>,         // a list of valid channels for this instance
-    client: Option<Client>,         // the reqwest client for passing media changes
-    address: String,                // the address for requests to Apollo
+    channel_list: Vec<u32>, // a list of valid channels for this instance
+    client: Option<Client>, // the reqwest client for passing media changes
+    address: String,        // the address for requests to Apollo
     _close_sender: mpsc::Sender<()>, // a line to notify the background thread to close
-                                    // the line is never used, but is poisoned when dropped
+                            // the line is never used, but is poisoned when dropped
 }
 
 // Implement key functionality for the Media Interface structure
@@ -220,7 +220,7 @@ impl MediaInterface {
         let channel_list = channel_map.keys().map(|key| key.clone()).collect();
 
         // Create a channel to notify the background thread to close
-        let (_close_sender, close_receiver ) = mpsc::channel(1); // don't need space for any messages
+        let (_close_sender, close_receiver) = mpsc::channel(1); // don't need space for any messages
 
         // Spin out thread to monitor and restart apollo, if requested
         if apollo_params.spawn {
@@ -332,10 +332,14 @@ impl MediaInterface {
 
             // Extract the duration change and send it
             let change = playback.time_since.as_millis() as u64 + delay_millis; // compensate for our additional delays
-            info!("Seeking media to {}.{:0>3}.", (change / 1000 as u64), (change % 1000));
+            info!(
+                "Seeking media to {}.{:0>3}.",
+                (change / 1000 as u64),
+                (change % 1000)
+            );
             let seek = SeekMediaHelper {
                 channel,
-                position: change, 
+                position: change,
             };
             let _ = self
                 .client

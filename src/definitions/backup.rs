@@ -46,7 +46,6 @@ impl QueuedEvent {
     }
 }
 
-
 // Define the DMX constants
 pub const DMX_MAX: u32 = 512; // the highest channel of DMX, exclusive
 
