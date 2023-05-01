@@ -134,11 +134,6 @@ impl SystemInterface {
                         request.reply_to.send(WebReply::success()).unwrap_or(());
                     }
 
-                    // The unpacking yielded a connection
-                    UnpackResult::SuccessWithConnections(connections) => {
-                        request.reply_to.send(WebReply::Connections { is_valid: true, connections: Some(connections) }).unwrap_or(());
-                    }
-
                     // The unpacking yielded an event
                     UnpackResult::SuccessWithEvent(event) => {
                         request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event.into()) }).unwrap_or(());
@@ -152,6 +147,11 @@ impl SystemInterface {
                     // The unpacking yielded a message
                     UnpackResult::SuccessWithMessage(message) => {
                         request.reply_to.send(WebReply::Generic { is_valid: true, message }).unwrap_or(());
+                    }
+
+                    // The unpacking yielded parameters
+                    UnpackResult::SuccessWithParameters(parameters) => {
+                        request.reply_to.send(WebReply::Parameters { is_valid: true, parameters }).unwrap_or(());
                     }
 
                     // The unpacking yielded a path
@@ -258,7 +258,7 @@ impl SystemInterface {
                 broadcast,
             } => {
                 // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event
                     if handler.process_event(&event, check_scene, broadcast).await {
                         // Notify the user interface of the event
@@ -269,9 +269,6 @@ impl SystemInterface {
                             })
                             .await;
                     }
-
-                    // Put the handler back
-                    self.event_handler = Some(handler);
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
@@ -317,12 +314,9 @@ impl SystemInterface {
                 is_negative,
             } => {
                 // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     // Adjust the current time of the event
                     handler.adjust_all_events(adjustment, is_negative).await;
-
-                    // Put the handler back
-                    self.event_handler = Some(handler);
 
                 // Otherwise, return a failure
                 } else {
@@ -333,11 +327,8 @@ impl SystemInterface {
             // Handle the All Stop command which clears the queue and sends the "all stop" (a.k.a. emergency stop) command.
             UserRequest::AllStop => {
                 // Try to clear all the events in the queue
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     handler.clear_events().await;
-
-                    // Put the handler back
-                    self.event_handler = Some(handler);
                 }
 
                 // Broadcast the all stop event
@@ -379,11 +370,8 @@ impl SystemInterface {
             // Clear the events currently in the queue
             UserRequest::ClearQueue => {
                 // Try to clear all the events in the queue
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     handler.clear_events().await;
-
-                    // Put the handler back
-                    self.event_handler = Some(handler);
 
                 // Otherwise, return a failure
                 } else {
@@ -406,6 +394,28 @@ impl SystemInterface {
             }
 
             // Return the name of the current configuration file, if available
+            UserRequest::ConfigParameters => {
+                // Collect all the configuration parameters
+                if let Some(ref handler) = self.event_handler {
+                    return UnpackResult::SuccessWithParameters(
+                        ConfigParameters {
+                            identifier: handler.get_identifier(),
+                            server_location: handler.get_server_location(),
+                            dmx_path: handler.get_dmx_path(),
+                            media_players: false,
+                            system_connections: handler.get_connections(),
+                            background_process: handler.get_background_process(),
+                            default_scene: handler.get_default_scene(),
+                        }
+                    );
+
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
+                }
+            }
+
+            // Return the name of the current configuration file, if available
             UserRequest::ConfigPath => {
                 // Try to get the config name
                 if let Some(ref handler) = self.event_handler {
@@ -420,12 +430,9 @@ impl SystemInterface {
             // Cue an event
             UserRequest::CueEvent { event_delay } => {
                 // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     // Cue the event
                     handler.add_event(event_delay).await;
-
-                    // Put the handler back
-                    self.event_handler = Some(handler);
 
                 // Otherwise noity the user that a configuration failed to load
                 } else {
@@ -437,7 +444,7 @@ impl SystemInterface {
             // Reqpond with a detail about a particular item
             UserRequest::Detail { detail_type } => {
                 // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     // Placeholder for the final result
                     let result;
 
@@ -447,10 +454,6 @@ impl SystemInterface {
                         DetailType::AllScenes => {
                             // Get the scene list
                             result = UnpackResult::SuccessWithItems(handler.get_scenes());
-                        }
-
-                        DetailType::Connections => {
-                            result = UnpackResult::SuccessWithConnections(handler.get_connections())
                         }
 
                         // Reply to a request for the event
@@ -504,9 +507,6 @@ impl SystemInterface {
                         }
                     }
 
-                    // Put the handler back
-                    self.event_handler = Some(handler);
-
                     // Return the result
                     return result;
 
@@ -520,7 +520,7 @@ impl SystemInterface {
             // Modify the underlying configuration
             UserRequest::Edit { mut modifications } => {
                 // Check to see if there is an active configuration
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     // Process each modification in order
                     for modification in modifications.drain(..) {
                         // Match the specified moficiation
@@ -588,9 +588,6 @@ impl SystemInterface {
                         }
                     }
 
-                    // Put the handler back
-                    self.event_handler = Some(handler);
-
                 // Raise a warning that there is no active configuration
                 } else {
                     warn!("Change not saved: There is no active configuration.");
@@ -605,12 +602,13 @@ impl SystemInterface {
                 new_delay,
             } => {
                 // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     // Adjust the current time of the event
                     handler.adjust_event(event_id, start_time, new_delay).await;
 
-                    // Put the handler back
-                    self.event_handler = Some(handler);
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
@@ -621,7 +619,7 @@ impl SystemInterface {
                 broadcast,
             } => {
                 // If the event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event
                     if handler.process_event(&event, check_scene, broadcast).await {
                         // Notify the user interface of the event
@@ -632,9 +630,6 @@ impl SystemInterface {
                             })
                             .await;
                     }
-
-                    // Put the handler back
-                    self.event_handler = Some(handler);
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
@@ -662,42 +657,71 @@ impl SystemInterface {
                             key_map,
                         })
                         .await;
+
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
             // Save the current configuration to the provided file
             UserRequest::SaveConfig { filepath } => {
-                // Extract the current event handler (if it exists)
-                if let Some(mut handler) = self.event_handler.take() {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
                     // Save the current configuration
                     handler.save_config(filepath).await;
 
-                    // Put the handler back
-                    self.event_handler = Some(handler);
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
+            // Save the provided parameters to the configuration
+            UserRequest::SaveParameters { parameters } => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // Save the configuration parameters
+                    handler.save_parameters(parameters).await;
+
+                    // Restart the system connections
+                    if !self
+                        .system_connection
+                        .update_system_connections(Some((handler.get_connections(), handler.get_identifier())))
+                        .await
+                    {
+                        error!("Unable to open system connections.");
+                    }
+
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
+                }
+            }               
+
             // Change the current scene based on the provided id and get a list of available events
             UserRequest::SceneChange { scene } => {
-                // Change the current scene, if event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
                     // Change the current scene (automatically triggers a redraw)
                     handler.choose_scene(scene).await;
 
-                    // Put the handler back
-                    self.event_handler = Some(handler);
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
 
             // Change the state of a particular status
             UserRequest::StatusChange { status, state } => {
-                // Change the status, if event handler exists
-                if let Some(mut handler) = self.event_handler.take() {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
                     // Change the state of the indicated status
                     handler.modify_status(&status, &state).await;
 
-                    // Put the handler back
-                    self.event_handler = Some(handler);
+                // Otherwise, return a failure
+                } else {
+                    return UnpackResult::Failure("No active configuration.".into());
                 }
             }
         }
@@ -715,16 +739,12 @@ impl SystemInterface {
     /// all other types of errors will be logged.
     ///
     async fn load_config(&mut self, filepath: Option<PathBuf>, log_failure: bool) {
-        // Clone the interface send
-        let interface_send = self.interface_send.clone();
-
         // Create a new event handler
         let mut event_handler = match EventHandler::new(
             filepath,
             self.index_access.clone(),
             self.style_access.clone(),
             self.internal_send.clone(),
-            interface_send,
             log_failure,
         )
         .await
@@ -734,10 +754,9 @@ impl SystemInterface {
         };
 
         // Create a new connection to the underlying system
-        let system_connection = event_handler.system_connection();
         if !self
             .system_connection
-            .update_system_connection(Some(system_connection))
+            .update_system_connections(Some((event_handler.get_connections(), event_handler.get_identifier())))
             .await
         {
             error!("Unable to open system connections.");
@@ -797,9 +816,6 @@ enum UnpackResult {
     // A variant for successful unpacking
     Success,
 
-    // A varient for successful unpacking with system connections
-    SuccessWithConnections(ConnectionSet),
-
     // A variant for successful unpacking with an event
     SuccessWithEvent(Event),
 
@@ -809,7 +825,10 @@ enum UnpackResult {
     // A variant for successful unpacking with message
     SuccessWithMessage(String),
 
-    // A variant for successful unpacking with a path buffer
+    // A variant for successful unpacking with system parameters
+    SuccessWithParameters(ConfigParameters),
+
+    // A variant for successful unpacking with config path
     SuccessWithPath(PathBuf),
 
     // A variant for successful unpacking with a scene

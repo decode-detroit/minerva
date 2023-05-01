@@ -340,22 +340,20 @@ impl WebInterface {
                 .and(WebInterface::with_json::<Edit>())
                 .and_then(WebInterface::handle_request);
 
+            // Create the get config parameters filter
+            let get_config_param = warp::get()
+                .and(warp::path("getConfigParam"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(self.web_send.clone()))
+                .and(WebInterface::with_clone(UserRequest::ConfigParameters))
+                .and_then(WebInterface::handle_request);
+
             // Create the get config path filter
             let get_config_path = warp::get()
                 .and(warp::path("getConfigPath"))
                 .and(warp::path::end())
                 .and(WebInterface::with_clone(self.web_send.clone()))
                 .and(WebInterface::with_clone(UserRequest::ConfigPath))
-                .and_then(WebInterface::handle_request);
-
-            // Create the get connections filter
-            let get_connections = warp::get()
-                .and(warp::path("getConnections"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_clone(UserRequest::Detail {
-                    detail_type: DetailType::Connections,
-                }))
                 .and_then(WebInterface::handle_request);
 
             // Create the get event filter
@@ -412,6 +410,14 @@ impl WebInterface {
                 .and(WebInterface::with_json::<SaveConfig>())
                 .and_then(WebInterface::handle_request);
 
+            // Create the save parameters config filter
+            let save_parameters = warp::post()
+                .and(warp::path("saveParameters"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(self.web_send.clone()))
+                .and(WebInterface::with_json::<SaveParameters>())
+                .and_then(WebInterface::handle_request);
+
             // Create the save styles filter FIXME verify content
             let save_style = warp::post()
                 .and(warp::path("saveStyles"))
@@ -430,8 +436,8 @@ impl WebInterface {
                 .or(close)
                 .or(config_file)
                 .or(edit)
+                .or(get_config_param)
                 .or(get_config_path)
-                .or(get_connections)
                 .or(get_event)
                 .or(get_item)
                 .or(get_scene)
@@ -439,6 +445,7 @@ impl WebInterface {
                 .or(get_styles)
                 .or(get_type)
                 .or(save_config)
+                .or(save_parameters)
                 .or(save_style)
                 .or(edit_page);
 

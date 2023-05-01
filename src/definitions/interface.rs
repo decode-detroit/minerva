@@ -21,6 +21,9 @@
 // Import crate definitions
 use crate::definitions::*;
 
+// Import standard library features
+use std::path::PathBuf;
+
 // Import Tokio and warp features
 use tokio::sync::mpsc;
 use warp::ws::Message;
@@ -29,9 +32,6 @@ use warp::ws::Message;
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum DisplaySetting {
-    /// A variant to change the fullscreen mode of the display
-    FullScreen(bool),
-
     /// A variant to change the debug mode of the display
     DebugMode(bool),
 
@@ -40,6 +40,20 @@ pub enum DisplaySetting {
 
     /// A variant to change the color mode of the display
     HighContrast(bool),
+}
+
+/// A structure to hold the parameters of the configuration file
+/// 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigParameters {
+    pub identifier: Identifier,
+    pub server_location: Option<String>,
+    pub dmx_path: Option<PathBuf>,
+    pub media_players: bool,
+    pub system_connections: ConnectionSet,
+    pub background_process: Option<BackgroundProcess>,
+    pub default_scene: ItemId,
 }
 
 /// An enum type to provide interface to the web interface

@@ -49,15 +49,6 @@ use fnv::FnvHashMap;
 // Import YAML processing library
 use serde_yaml;
 
-/// A struct to define the elements of a background process
-///
-#[derive(Clone, Serialize, Deserialize)]
-struct BackgroundProcess {
-    process: PathBuf,       // the location (relative or absolute) of the process to run
-    arguments: Vec<String>, // any arguments to pass to the process
-    keepalive: bool, // a flag to indicate if the process should be restarted if it stops/fails
-}
-
 /// A simple structure to hold and manage the background process
 ///
 struct BackgroundThread {
@@ -173,10 +164,9 @@ struct YamlConfig {
     server_location: Option<String>, // the location of the backup server, if specified
     dmx_path: Option<PathBuf>, // the location of the dmx connection, if specified
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
-    system_connection: ConnectionSet, // the type of connection(s) to the underlying system
+    system_connections: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
-    default_scene: Option<ItemId>, // the starting scene for the configuration
-    fullscreen: Option<bool>, // whether the interface should begin fullscreen
+    default_scene: ItemId, // the starting scene for the configuration
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap,  // hash map of the default game status
     event_set: FnvHashMap<ItemPair, Option<Event>>, // hash map of all the item pairs and events
@@ -190,11 +180,12 @@ struct YamlConfig {
 ///
 pub struct Config {
     identifier: Identifier, // unique identifier for the controller instance
-    system_connection: ConnectionSet, // the type of connection(s) to the underlying system
+    system_connections: ConnectionSet, // the type of connection(s) to the underlying system
     dmx_path: Option<PathBuf>, // the location of the dmx connection, if specified
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
     server_location: Option<String>, // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
+    default_scene: ItemId, // the starting scene for the configuration
     current_scene: ItemId,  // identifier for the current scene
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_handler: StatusHandler, // status handler for the current game status
@@ -225,11 +216,12 @@ impl Config {
         // Return a new empty configuration
         Config {
             identifier: Identifier { id: None },
-            system_connection: ConnectionSet::new(),
+            system_connections: ConnectionSet::new(),
             dmx_path: None,
             media_players: Vec::new(),
             server_location: None,
             background_thread: None,
+            default_scene: ItemId::all_stop(),
             current_scene: ItemId::all_stop(),
             all_scenes: FnvHashMap::default(),
             status_handler,
@@ -265,7 +257,6 @@ impl Config {
         index_access: IndexAccess,
         style_access: StyleAccess,
         internal_send: InternalSend,
-        interface_send: InterfaceSend,
         mut config_file: File,
     ) -> Result<Config> {
         // Try to read from the configuration file
@@ -296,7 +287,7 @@ impl Config {
             );
         }
 
-        // Turn the ItemPairs in to the item index and event set // FIXME This check doesn't seem to work
+        // Turn the ItemPairs in to the item index and event set
         let mut item_index = DescriptionMap::default();
         let mut events = FnvHashMap::default();
         for (item_pair, possible_event) in yaml_config.event_set.iter() {
@@ -307,7 +298,7 @@ impl Config {
                     warn!(
                         "Item {} has multiple definitions in lookup.",
                         &item_pair.id()
-                    )
+                    ) // FIXME This check doesn't work due to the deserialization process
                 }
                 None => (),
             }
@@ -342,41 +333,29 @@ impl Config {
         // Create the new status handler
         let status_handler = StatusHandler::new(status_map);
 
-        // Try to load the default scene
-        let mut current_scene = ItemId::all_stop(); // an invalid scene id
-        if let Some(scene_id) = yaml_config.default_scene {
-            // Check to see if the scene_id is valid and warn of an error
-            if let Some(..) = all_scenes.get(&scene_id) {
-                // Update the current scene id
-                current_scene = scene_id;
-            } else {
-                warn!("Current scene is not defined.");
-            }
+        // Load the default scene
+        let current_scene = yaml_config.default_scene;
+
+        // Check to see if the default scene is valid and warn if not defined
+        if let None = all_scenes.get(&current_scene) {
+            warn!("Current scene is not defined.");
         }
 
         // Try to start the background process and monitor it, if specified
         let mut background_thread = None;
-        if let Some(background_process) = yaml_config.background_process.clone() {
+        if let Some(background_process) = yaml_config.background_process {
             background_thread = BackgroundThread::new(background_process).await;
-        }
-
-        // Adjust fullscreen, if specified
-        if let Some(fullscreen) = yaml_config.fullscreen {
-            interface_send
-                .send(InterfaceUpdate::ChangeSettings {
-                    display_setting: DisplaySetting::FullScreen(fullscreen),
-                })
-                .await;
         }
 
         // Return the new configuration
         Ok(Config {
             identifier: yaml_config.identifier,
-            system_connection: yaml_config.system_connection,
+            system_connections: yaml_config.system_connections,
             dmx_path: yaml_config.dmx_path,
             server_location: yaml_config.server_location,
             media_players: yaml_config.media_players,
             background_thread,
+            default_scene: yaml_config.default_scene,
             current_scene,
             all_scenes,
             status_handler,
@@ -387,22 +366,38 @@ impl Config {
         })
     }
 
-    /// A method to return the identifier for this program instance
+    /// A method to return a copy of the background process
     ///
-    pub fn get_identifier(&self) -> Identifier {
-        self.identifier.clone()
+    pub fn get_background_process(&self) -> Option<BackgroundProcess> {
+        // Get a copy of the background process, if it exists
+        match &self.background_thread {
+            &Some(ref bt) => Some(bt.background_process()),
+            &None => None,
+        }
     }
 
     /// A method to return a copy of the system connections
     ///
     pub fn get_connections(&self) -> ConnectionSet {
-        self.system_connection.clone()
+        self.system_connections.clone()
+    }
+
+    /// A method to return the default scene
+    ///
+    pub fn get_default_scene(&self) -> ItemId {
+        self.default_scene
     }
 
     /// A method to return a copy of the dmx path
     ///
     pub fn get_dmx_path(&self) -> Option<PathBuf> {
         self.dmx_path.clone()
+    }
+
+    /// A method to return the identifier
+    ///
+    pub fn get_identifier(&self) -> Identifier {
+        self.identifier
     }
 
     /// A method to return a copy of the media player details
@@ -412,20 +407,12 @@ impl Config {
     }
 
     /// A method to return the backup server location
+    /// 
     pub fn get_server_location(&self) -> Option<String> {
         self.server_location.clone()
     }
 
     /// A method to return a status from the status handler.
-    ///
-    /// # Errors
-    ///
-    /// This method will return None if the provided id was not found in
-    /// the status handler. This usually indicates that the provided id was incorrect or
-    /// that the configuration file is incomplete.
-    ///
-    /// Like all EventHandler functions and methods, this method will fail
-    /// gracefully by notifying of errors on the update line and returning None.
     ///
     pub fn get_status(&self, item_id: &ItemId) -> Option<Status> {
         // Return a status based on the provided item id
@@ -434,22 +421,12 @@ impl Config {
 
     /// A method to return a vector of the valid status ids.
     ///
-    /// # Errors
-    ///
-    /// This method doesn't return any errors.
-    ///
     pub fn get_status_ids(&self) -> Vec<ItemId> {
         self.status_handler.get_ids()
     }
 
     /// A method to silently update the status of the system based on a previous
     /// backup.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error if one of the status ids was not found
-    /// in the status map. This indicates that the configuration file is
-    /// incomplete or that one of the provided pairs was was incorrect.
     ///
     pub async fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
         // For every status in the status pairs, set the current value
@@ -479,7 +456,6 @@ impl Config {
 
     /// A method to return a hashmap of the statuses available in this
     /// configuration.
-    ///
     ///
     pub fn get_statuses(&self) -> PartialStatus {
         // Get the statuses from the status handler
@@ -560,11 +536,6 @@ impl Config {
     /// A method to return an item id of the current state of the provided
     /// item id, or None if it was not found.
     ///
-    /// # Errors
-    ///
-    /// This method will raise an error the provided status id was not found.
-    /// This indicates that the configuration file is incomplete.
-    ///
     pub async fn get_state(&self, status_id: &ItemId) -> Option<ItemId> {
         // Return the internal state of the status handler
         self.status_handler.get_state(status_id).await
@@ -576,16 +547,31 @@ impl Config {
         self.current_scene.clone()
     }
 
+    /// A method to save new parameters to the configuration
+    /// 
+    /// This method restarts the background process, even if it
+    /// hasn't changed.
+    pub async fn save_parameters(&mut self, parameters: ConfigParameters) {
+        // Update the fields of the current configuration
+        self.identifier = parameters.identifier;
+        self.server_location = parameters.server_location;
+        self.dmx_path = parameters.dmx_path;
+        // FIXME self.media_players
+        self.system_connections = parameters.system_connections;
+        self.default_scene = self.default_scene;
+
+        // Drop the current background thread
+        drop(self.background_thread.take()); // Do nothing if the background thread is None
+
+        // Try to start the new background process and monitor it, if specified
+        if let Some(background_process) = parameters.background_process {
+            self.background_thread = BackgroundThread::new(background_process).await;
+        }
+    }
+
     /// A method to select a scene map from existing configuration based on the
-    /// provided scene id. If successful, the method returns true. Otherwise,
-    /// false.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error if the provided id was not found in
-    /// the configuration. This usually indicates a problem with the underlying
-    /// configuration file.
-    ///
+    /// provided scene id.
+    /// 
     pub async fn choose_scene(&mut self, scene_id: ItemId) -> Result<(), ()> {
         // Check to see if the scene_id is valid
         if self.all_scenes.contains_key(&scene_id) {
@@ -828,12 +814,6 @@ impl Config {
             }
         }
 
-        // Try to get a copy of the background process
-        let background_process = match &self.background_thread {
-            &Some(ref bt) => Some(bt.background_process()),
-            &None => None,
-        };
-
         // Try to get a copy of the style sheet
         let user_styles = self.style_access.get_all_rules().await;
 
@@ -842,12 +822,11 @@ impl Config {
             version: env!("CARGO_PKG_VERSION").to_string(),
             identifier: self.get_identifier(),
             server_location: self.server_location.clone(),
-            system_connection: self.system_connection.clone(),
+            system_connections: self.get_connections(),
             dmx_path: self.dmx_path.clone(),
             media_players: self.media_players.clone(),
-            background_process,
-            default_scene: Some(self.current_scene.clone()),
-            fullscreen: None, // FIXME default to no entry, must be manually changed
+            background_process: self.get_background_process(),
+            default_scene: self.default_scene,
             all_scenes: self.all_scenes.clone(),
             status_map: self.status_handler.get_map(),
             event_set,

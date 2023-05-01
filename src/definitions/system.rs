@@ -231,9 +231,6 @@ pub enum DetailType {
     /// NOTE: Consider moving this to the index module (see AllItems)
     AllScenes,
 
-    /// A variant for the list of all system connections
-    Connections,
-
     /// A variant for the event associated with an item
     Event { item_id: ItemId },
 
@@ -245,87 +242,6 @@ pub enum DetailType {
 
     /// A variant for the item type
     Type { item_id: ItemId },
-}
-
-/// An enum to specify which Edit Action subcomponent has requested the information
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum EditActionElement {
-    /// A variant for the edit new scene action
-    EditNewScene,
-
-    /// A variant for the edit modify status
-    EditModifyStatus { is_status: bool },
-
-    /// A variant for the edit cue event
-    EditCueEvent,
-
-    /// A variant for the edit cancel event
-    EditCancelEvent,
-
-    /// A variant for the edit save data
-    EditSaveData,
-
-    /// A variant for the edit send data
-    EditSendData,
-
-    /// A variant for the select event status description
-    SelectEventDescription {
-        position: Option<usize>,
-        is_event: bool,
-    },
-
-    /// A variant for the select event states
-    SelectEventStates,
-}
-
-/// An enum to specify which Edit Item subcomponent has requested the information
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum EditItemElement {
-    /// A variant for the item description
-    ItemDescription,
-
-    /// A variant for the group field
-    Group,
-
-    /// A variant for the status field
-    Status { state: Option<ItemId> },
-
-    /// A variant for the state dropdown
-    State,
-
-    /// A variant for the different edit item details
-    Details,
-}
-
-/// An enum to specify which display component has requested the information
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum DisplayComponent {
-    /// A variant for the edit item window
-    EditItemOverview {
-        is_left: bool,
-        variant: EditItemElement,
-    },
-
-    /// A variant for the edit action element
-    EditActionElement {
-        is_left: bool,
-        variant: EditActionElement,
-    },
-
-    /// A variant for the edit multistate status element
-    EditMultiStateStatus {
-        is_left: bool,
-        position: Option<usize>,
-    },
-
-    /// A variant for the edit counted state status element
-    EditCountedStateStatus { is_left: bool, state_type: String },
-
-    /// A variant for the item list panel
-    ItemList,
-
-    /// A variant for the trigger dialog
-    TriggerDialog,
 }
 
 /// An enum to carry requests from the user
@@ -358,9 +274,14 @@ pub enum UserRequest {
     /// If None is provided as the filepath, no configuration will be loaded.
     ConfigFile { filepath: Option<PathBuf> },
 
-    /// A variant that retrieves the path of the current configuration file.
+    /// A variant that retrieves the file path of the current configuration.
     /// If there is no active configuration, this request will throw an error.
     ConfigPath,
+
+    /// A variant that retrieves the paramters of the current configuration
+    /// including filename, system connections, default scene, etc.
+    /// If there is no active configuration, this request will throw an error.
+    ConfigParameters,
 
     /// A variant that cues a new event with the given item id. The event
     /// will trigger after the specified delay has passed.
@@ -397,6 +318,9 @@ pub enum UserRequest {
     /// configuration.
     SaveConfig { filepath: PathBuf },
 
+    /// A variant that provides new parameters for the current configuration
+    SaveParameters { parameters: ConfigParameters },
+
     /// A variant to change the selected scene provided by the user interface.
     SceneChange { scene: ItemId },
 
@@ -409,13 +333,6 @@ pub enum UserRequest {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WebReply {
-    // A variant that contains a system connection set
-    #[serde(rename_all = "camelCase")]
-    Connections {
-        is_valid: bool,                     // a flag to introduce the result of the request
-        connections: Option<ConnectionSet>, // the connection set, if found
-    },
-
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
     Event {
@@ -442,6 +359,13 @@ pub enum WebReply {
     Generic {
         is_valid: bool,  // a flag to indicate the result of the request
         message: String, // a message describing the success or failure
+    },
+
+    // A variant that contains configuration paramters
+    #[serde(rename_all = "camelCase")]
+    Parameters {
+        is_valid: bool,  // a flag to introduce the result of the request
+        parameters: ConfigParameters, // the configuration parameters
     },
 
     // A variant that contains a file path
@@ -494,11 +418,11 @@ impl WebReply {
     ///
     pub fn is_success(&self) -> bool {
         match self {
-            &WebReply::Connections { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Event { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Item { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Items { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Generic { ref is_valid, .. } => is_valid.clone(),
+            &WebReply::Parameters { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Path { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Scene { ref is_valid, .. } => is_valid.clone(),
             &WebReply::Status { ref is_valid, .. } => is_valid.clone(),

@@ -100,7 +100,6 @@ impl EventHandler {
         index_access: IndexAccess,
         style_access: StyleAccess,
         internal_send: InternalSend,
-        interface_send: InterfaceSend,
         log_failure: bool,
     ) -> Result<Self> {
         // If a file was specified
@@ -127,7 +126,6 @@ impl EventHandler {
                 index_access.clone(),
                 style_access,
                 internal_send.clone(),
-                interface_send,
                 config_file,
             )
             .await?;
@@ -239,12 +237,6 @@ impl EventHandler {
         })
     }
 
-    /// A method to return the configured system connection type.
-    ///
-    pub fn system_connection(&self) -> (ConnectionSet, Identifier) {
-        (self.config.get_connections(), self.config.get_identifier())
-    }
-
     /// A method to add an event to the timed queue.
     ///
     pub async fn add_event(&mut self, event_delay: EventDelay) {
@@ -268,39 +260,91 @@ impl EventHandler {
         self.backup.backup_events(events).await;
     }
 
-    /// A method to return a copy of the current path for the configuration.
+    /// A method to return a copy of the background process
+    ///
+    pub fn get_background_process(&self) -> Option<BackgroundProcess> {
+        // Return a copy of the background process
+        self.config.get_background_process()
+    }
+
+    /// A method to return a copy of the current path for the configuration
     ///
     pub fn get_config_path(&self) -> PathBuf {
         // Return a copy of the pathbuf
         self.config_path.clone()
     }
 
-    /// A method to return a copy of the system connections.
+    /// A method to return a copy of the system connections
     ///
     pub fn get_connections(&self) -> ConnectionSet {
         self.config.get_connections()
     }
 
+    /// A method to return a list of all available items in the current scene.
+    /// This method will always return the items from lowest to highest id.
+    ///
+    pub fn get_current_items(&self) -> Vec<ItemId> {
+        // Return a list of available items in the current scene
+        self.config.get_current_items()
+    }
+
+    /// A method to return the current scene.
+    ///
+    pub fn get_current_scene(&self) -> ItemId {
+        // Return an item pair for the current scene
+        self.config.get_current_scene()
+    }
+
+    /// A method to return the default scene
+    ///
+    pub fn get_default_scene(&self) -> ItemId {
+        self.config.get_default_scene()
+    }
+
+    /// A method to return a copy of the dmx path
+    ///
+    pub fn get_dmx_path(&self) -> Option<PathBuf> {
+        self.config.get_dmx_path()
+    }
+
+    /// A method to return the identifier number.
+    ///
+    pub fn get_identifier(&self) -> Identifier {
+        self.config.get_identifier()
+    }
+
     /// A method to return a copy of the event for the provided id.
-    ///
-    /// # Errors
-    ///
-    /// This method will return None if the provided id was not found in
-    /// configuration. This usually indicates that the provided id was incorrect
-    /// or that the configuration file is incomplete.
     ///
     pub fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
         // Try to get a copy of the event
         self.config.get_event(event_id)
     }
 
+    /// A method to return an key map for the current scene, with all items
+    /// as an itempair.
+    ///
+    pub async fn get_key_map(&self) -> KeyMap {
+        // Return the key mapping for this scene
+        self.config.get_key_map().await
+    }
+
+    /// A method to return a scene with available events and optional keymap, given
+    /// an item id
+    pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
+        // Return a scene corresponding to the id, or None if none
+        self.config.get_scene(item_id)
+    }
+
+    /// A method to return a list of all available scenes in this
+    /// configuration. This method will always return the scenes from lowest to
+    /// highest id.
+    ///
+    pub fn get_scenes(&self) -> Vec<ItemId> {
+        // Return a list of available scenes
+        self.config.get_scenes()
+    }
+
     /// A method to return a copy of the status detail of the provided item id.
-    ///
-    /// # Errors
-    ///
-    /// This method will return None if the provided id was not found in
-    /// configuration. This usually indicates that the provided id was incorrect
-    ///  or that the configuration file is incomplete.
     ///
     pub fn get_status(&mut self, item_id: &ItemId) -> Option<Status> {
         // Try to retrieve the status
@@ -315,52 +359,53 @@ impl EventHandler {
         self.config.get_statuses()
     }
 
-    /// A method to return a list of all available scenes in this
-    /// configuration. This method will always return the scenes from lowest to
-    /// highest id.
-    ///
-    pub fn get_scenes(&self) -> Vec<ItemId> {
-        // Return a list of available scenes
-        self.config.get_scenes()
+    /// A method to return the backup server location
+    pub fn get_server_location(&self) -> Option<String> {
+        self.config.get_server_location()
     }
 
-    /// A method to return a scene with available events and optional keymap, given
-    /// an item id
-    pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
-        // Return a scene corresponding to the id, or None if none
-        self.config.get_scene(item_id)
-    }
+    /// A method to save the new configuration parameters
+    pub async fn save_parameters(&mut self, parameters: ConfigParameters) {
+        // Save the new parameters to the configuration
+        self.config.save_parameters(parameters).await;
 
-    /// A method to return a list of all available items in the current scene.
-    /// This method will always return the items from lowest to highest id.
-    ///
-    pub fn get_current_items(&self) -> Vec<ItemId> {
-        // Return a list of available items in the current scene
-        self.config.get_current_items()
-    }
+        // Replace the backup server
+        self.backup =
+        BackupHandler::new(self.config.get_identifier(), self.config.get_server_location()).await;
 
-    /// A method to return an key map for the current scene, with all items
-    /// as an itempair.
-    ///
-    pub async fn get_key_map(&self) -> KeyMap {
-        // Return the key mapping for this scene
-        self.config.get_key_map().await
-    }
+        // Replace the dmx interface, if specified
+        if let Some(path) = self.config.get_dmx_path() {
+            // Try to connect to the interface
+            if let Ok(interface) = DmxInterface::new(&path) {
+                self.dmx_interface = Some(interface);
 
-    /// A method to return the current scene.
-    ///
-    pub fn get_current_scene(&self) -> ItemId {
-        // Return an item pair for the current scene
-        self.config.get_current_scene()
+            // Otherwise, report the error
+            } else {
+                error!("Unable to initialize the DMX interface.");
+            }
+        }
+
+        // Attempt to create any media interfaces
+        // FIXME 
+        /* let mut media_interfaces = Vec::new();
+        for details in config.get_media_players() {
+            media_interfaces.push(
+                MediaInterface::new(
+                    details.channel_map,
+                    details.window_map,
+                    details.apollo_params,
+                )
+                .await,
+            );
+        }*/
+
+         // Load the current scene into the backup (to detect any crash after this point)
+         self.backup
+         .backup_current_scene(&self.config.get_current_scene())
+         .await;
     }
 
     /// A method to change the selected status within the current configuration.
-    ///
-    /// # Errors
-    ///
-    /// This method will raise an error if the provided id was not found as
-    /// a status in the configuration. This usually indicates that the provided
-    /// id was incorrect or that the configuration file is incorrect.
     ///
     pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // Try to modify the underlying status

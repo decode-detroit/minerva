@@ -125,6 +125,11 @@ pub struct ProcessEvent {
 pub struct SaveConfig {
     filename: String,
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveParameters {
+    parameters: ConfigParameters,
+}
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveStyles {
@@ -319,6 +324,13 @@ impl From<SaveConfig> for UserRequest {
     fn from(save_config: SaveConfig) -> Self {
         UserRequest::SaveConfig {
             filepath: PathBuf::from(save_config.filename),
+        }
+    }
+}
+impl From<SaveParameters> for UserRequest {
+    fn from(save_param: SaveParameters) -> Self {
+        UserRequest::SaveParameters {
+            parameters: save_param.parameters,
         }
     }
 }

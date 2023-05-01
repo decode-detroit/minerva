@@ -73,3 +73,4 @@ pub enum ConnectionType {
 /// A type to contain any number of connection types
 ///
 pub type ConnectionSet = Vec<ConnectionType>;
+

@@ -216,7 +216,7 @@ impl SystemConnection {
 
         // Try to update the system connection using the provided connection type(s)
         system_connection
-            .update_system_connection(connections)
+            .update_system_connections(connections)
             .await;
 
         // Return the system connection
@@ -226,7 +226,7 @@ impl SystemConnection {
     /// A method to update the system connection type. This method returns false
     /// if it was unable to connect to the underlying system and warns the user.
     ///
-    pub async fn update_system_connection(
+    pub async fn update_system_connections(
         &mut self,
         connections: Option<(ConnectionSet, Identifier)>,
     ) -> bool {
