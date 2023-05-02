@@ -366,43 +366,7 @@ impl EventHandler {
 
     /// A method to save the new configuration parameters
     pub async fn save_parameters(&mut self, parameters: ConfigParameters) {
-        // Save the new parameters to the configuration
         self.config.save_parameters(parameters).await;
-
-        // Replace the backup server
-        self.backup =
-        BackupHandler::new(self.config.get_identifier(), self.config.get_server_location()).await;
-
-        // Replace the dmx interface, if specified
-        if let Some(path) = self.config.get_dmx_path() {
-            // Try to connect to the interface
-            if let Ok(interface) = DmxInterface::new(&path) {
-                self.dmx_interface = Some(interface);
-
-            // Otherwise, report the error
-            } else {
-                error!("Unable to initialize the DMX interface.");
-            }
-        }
-
-        // Attempt to create any media interfaces
-        // FIXME 
-        /* let mut media_interfaces = Vec::new();
-        for details in config.get_media_players() {
-            media_interfaces.push(
-                MediaInterface::new(
-                    details.channel_map,
-                    details.window_map,
-                    details.apollo_params,
-                )
-                .await,
-            );
-        }*/
-
-         // Load the current scene into the backup (to detect any crash after this point)
-         self.backup
-         .backup_current_scene(&self.config.get_current_scene())
-         .await;
     }
 
     /// A method to change the selected status within the current configuration.

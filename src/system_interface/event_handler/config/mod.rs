@@ -549,8 +549,6 @@ impl Config {
 
     /// A method to save new parameters to the configuration
     /// 
-    /// This method restarts the background process, even if it
-    /// hasn't changed.
     pub async fn save_parameters(&mut self, parameters: ConfigParameters) {
         // Update the fields of the current configuration
         self.identifier = parameters.identifier;
@@ -559,14 +557,6 @@ impl Config {
         // FIXME self.media_players
         self.system_connections = parameters.system_connections;
         self.default_scene = self.default_scene;
-
-        // Drop the current background thread
-        drop(self.background_thread.take()); // Do nothing if the background thread is None
-
-        // Try to start the new background process and monitor it, if specified
-        if let Some(background_process) = parameters.background_process {
-            self.background_thread = BackgroundThread::new(background_process).await;
-        }
     }
 
     /// A method to select a scene map from existing configuration based on the

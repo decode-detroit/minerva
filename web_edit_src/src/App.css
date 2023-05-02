@@ -365,6 +365,56 @@ button.green {
   background-color: #b2500c;
 }
 
+.configArea {
+  position: absolute;
+  background-color: #21242a;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 1rem;
+  height: 100%;
+  width: 100%;
+}
+
+.configArea div {
+  z-index: 1;
+  min-width: 15rem;
+  color: #fff;
+  background-color: #2f343e;
+  border: 1px solid #868fa2;
+  border-radius: 2px;
+  box-shadow: 2px 2px 5px 3px #0a0c0e;
+  font-size: 1rem;
+  margin: 0 1rem;
+  padding: 10px;
+}
+
+.configArea div:first-of-type {
+  margin-top: 4rem;
+}
+
+.configArea div input {
+  appearance: none;
+  background: transparent;
+  color: #fff;
+  width: 5rem;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  padding: 0;
+  font-family: Inter, sans-serif;
+  font-weight: bold;
+  text-align: center;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 1rem;
+}
+
+.configArea div input[type="text"] {
+  width: unset;
+}
+
 .editArea {
   position: absolute;
   background-color: #21242a;

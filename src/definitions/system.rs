@@ -174,7 +174,7 @@ pub struct WebRequest {
 
 /// An enum to execute one modification to the configuration
 ///
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Modification {
     /// A modification to add an item or modify an existing one
@@ -189,12 +189,11 @@ pub enum Modification {
         event: Option<Event>,
     },
 
-    /// A modification to add an event (web-safe), modify an existing one, or delete it
+    /// A modification to change the configuration parameters
     /// (if None provided)
     #[serde(rename_all = "camelCase")]
-    ModifyWebEvent {
-        item_id: ItemId,
-        event: Option<WebEvent>,
+    ModifyParameters {
+        parameters: ConfigParameters,
     },
 
     /// A modification to add a status, modify an existing one, or delete it
@@ -318,9 +317,6 @@ pub enum UserRequest {
     /// configuration.
     SaveConfig { filepath: PathBuf },
 
-    /// A variant that provides new parameters for the current configuration
-    SaveParameters { parameters: ConfigParameters },
-
     /// A variant to change the selected scene provided by the user interface.
     SceneChange { scene: ItemId },
 
@@ -336,8 +332,8 @@ pub enum WebReply {
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
     Event {
-        is_valid: bool,          // a flag to indicate the result of the request
-        event: Option<WebEvent>, // the event detail, if found
+        is_valid: bool,       // a flag to indicate the result of the request
+        event: Option<Event>, // the event detail, if found
     },
 
     // A variant that contains item detail

@@ -189,6 +189,11 @@ export class ModifyStatus extends React.PureComponent {
 
   // Helper function to update the item information
   async updateItems() {
+    // Ignore invalid status numbers
+    if (this.props.modifyStatus.status_id.id === 0) {
+      return;
+    }
+
     try {
       // Fetch the description of the status
       let response = await fetch(`getItem/${this.props.modifyStatus.status_id.id}`);

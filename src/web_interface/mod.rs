@@ -423,14 +423,6 @@ impl WebInterface {
                 .and(WebInterface::with_json::<SaveConfig>())
                 .and_then(WebInterface::handle_request);
 
-            // Create the save parameters config filter
-            let save_parameters = warp::post()
-                .and(warp::path("saveParameters"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_json::<SaveParameters>())
-                .and_then(WebInterface::handle_request);
-
             // Create the save styles filter FIXME verify content
             let save_style = warp::post()
                 .and(warp::path("saveStyles"))
@@ -458,7 +450,6 @@ impl WebInterface {
                 .or(get_styles)
                 .or(get_type)
                 .or(save_config)
-                .or(save_parameters)
                 .or(save_style)
                 .or(edit_page);
 

@@ -364,9 +364,9 @@ export class ViewArea extends React.PureComponent {
       <>
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onContextMenu={this.showContextMenu}>
-          {this.state.sceneId === -1 && this.state.configParams.identifier != null && <ConfigArea parameters={this.state.configParams} saveModifications={this.props.saveModifications} /> }
+          {this.state.sceneId === -1 && this.state.configParams.identifier != null && <ConfigArea parameters={this.state.configParams} filename={this.props.filename} handleFileChange={this.props.handleFileChange} saveModifications={this.props.saveModifications} /> }
           {this.state.sceneId !== -1 && <>
-            <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown}handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
+            <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown} handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
             {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
           </>}
         </div>
@@ -386,11 +386,12 @@ export class ConfigArea extends React.PureComponent {
   // Render the configuration parameters area
   render() {
     return (
-      <>
-        <div><br/><br/><br/>Identifier: <input type="number" min="0" value={this.props.parameters.identifier.id} onInput={() => console.log("Changed")}></input></div>
-      </>
+      <div id="configArea" className="configArea">
+        <div>Filename: <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input></div>
+        <div>Identifier: <input type="number" min="0" value={this.props.parameters.identifier.id} onInput={() => console.log("Changed")}></input></div>
+      </div>
     )
-  }
+  }s
 }
 
 // The draggable edit area

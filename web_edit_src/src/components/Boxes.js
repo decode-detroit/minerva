@@ -387,7 +387,7 @@ export class EventFragment extends React.PureComponent {
       // If valid, save the result to the state
       if (json.event.isValid) {
         this.setState({
-          eventActions: json.event.event.actions,
+          eventActions: json.event.event,
         });
       }
     
@@ -439,11 +439,9 @@ export class EventFragment extends React.PureComponent {
 
       // Save the changes
       let modifications = [{
-        modifyWebEvent: {
+        modifyEvent: {
           itemId: { id: this.props.id },
-          event: {
-            actions: newActions,
-          }
+          event: newActions,
         },
       }];
       this.props.saveModifications(modifications);

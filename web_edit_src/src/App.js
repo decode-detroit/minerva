@@ -83,6 +83,7 @@ export class App extends React.PureComponent {
     // Save the new value as the filename
     this.setState({
       configFile: e.target.value,
+      saved: false,
     });
   }
 
@@ -155,11 +156,6 @@ export class App extends React.PureComponent {
           'Content-Type': 'application/json',
       },
     });
-
-    // Mark the program as closed
-    this.setState({
-      connectionActive: false,
-    });
   }
 
   // Render the complete application
@@ -169,7 +165,7 @@ export class App extends React.PureComponent {
         <link id="userStyles" rel="stylesheet" href={`/getStyles/${this.state.randomCss}.css`} />
         <div className="app">
           <HeaderMenu closeMinerva={this.closeMinerva} saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} openFile={this.openFile} saveFile={this.saveFile} />
-          <ViewArea saveModifications={this.saveModifications} saveStyle={this.saveStyle} />
+          <ViewArea saveModifications={this.saveModifications} saveStyle={this.saveStyle} filename={this.state.configFile} handleFileChange={this.handleFileChange}/>
         </div>
         {!this.state.connectionActive && <FullscreenDialog dialogType="error" dialogTitle="Minerva Is Unavailable" dialogMessage="Minerva is closed or currently inaccessible. Please restart the program."/>}
       </>
