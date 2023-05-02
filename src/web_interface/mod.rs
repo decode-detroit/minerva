@@ -39,6 +39,19 @@ use futures_util::StreamExt;
 // Import serde feaures
 use serde::de::DeserializeOwned;
 
+// Import rust embed and warp embed features
+use warp_embed::embed;
+use rust_embed::RustEmbed;
+
+// Define the static resources
+#[derive(RustEmbed)]
+#[folder = "public_run"]
+struct RunWebsite;
+
+#[derive(RustEmbed)]
+#[folder = "public_edit"]
+struct EditWebsite;
+
 /// A structure to contain the web interface and handle all updates to the
 /// to the interface.
 ///
@@ -263,7 +276,7 @@ impl WebInterface {
                     .and_then(WebInterface::handle_request);
 
                 // Create the main page filter
-                let run_page = warp::get().and(warp::fs::dir("./public_run/"));
+                let run_page = warp::get().and(embed(&RunWebsite));
 
                 // Combine the filters
                 let run_routes = listen
@@ -427,7 +440,7 @@ impl WebInterface {
                 .and_then(WebInterface::handle_save_styles);
 
             // Create the main page filter
-            let edit_page = warp::get().and(warp::fs::dir("./public_edit/"));
+            let edit_page = warp::get().and(embed(&EditWebsite));
 
             // Combine the filters
             let edit_routes = listen

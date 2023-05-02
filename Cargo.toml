@@ -31,6 +31,8 @@ thread_local = "1.1"
 sysinfo = "0.28"
 anyhow = "1.0"
 clap = { version = "4.2", features = ["derive"] }
+rust-embed = "6.6"
+warp-embed = "0.4"
 
 [features]
 no_can_limit = []

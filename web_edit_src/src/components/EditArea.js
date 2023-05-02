@@ -12,6 +12,7 @@ export class ViewArea extends React.PureComponent {
     this.state = {
       sceneId: -1, // the current scene id
       idList: [], // list of all shown item ids
+      configParams: {}, // structure of the config parameters
       focusId: -1, // the highlighted item box
       connections: [], // list of all connectors
       top: 0, // edit area translation properties
@@ -285,6 +286,22 @@ export class ViewArea extends React.PureComponent {
     })
   }
 
+  // Did mount function to trigger refresh of config params
+  async componentDidMount(prevProps, prevState) {
+    // Load the configuration parameters
+    const response = await fetch(`getConfigParam`);
+    const json = await response.json();
+
+    console.log(json.parameters.parameters);
+
+    // Save the paramters, if valid
+    if (json.parameters.isValid) {
+      this.setState({
+        configParams: json.parameters.parameters,
+      });
+    } 
+  }
+
   // Did update function to trigger refresh of idList
   async componentDidUpdate(prevProps, prevState) {
     // Update if the scene changed
@@ -297,9 +314,15 @@ export class ViewArea extends React.PureComponent {
   async refresh() {
     // Check for the empty scene
     if (parseInt(this.state.sceneId) === -1) {
+      // Reload the configuration parameters
+      const response = await fetch(`getConfigParam`);
+      const json = await response.json();
+
+      // Save the paramters and the empty list
       this.setState({
         idList: [], // reset the item list
         connections: [], // reset the connectors
+        configParams: json.parameters.parameters,
       });
     
     // Otherwise, load the scene
@@ -341,6 +364,7 @@ export class ViewArea extends React.PureComponent {
       <>
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onContextMenu={this.showContextMenu}>
+          {this.state.sceneId === -1 && this.state.configParams.identifier != null && <ConfigArea parameters={this.state.configParams} saveModifications={this.props.saveModifications} /> }
           {this.state.sceneId !== -1 && <>
             <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown}handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
             {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
@@ -348,6 +372,24 @@ export class ViewArea extends React.PureComponent {
         </div>
       </>
     );
+  }
+}
+
+// The configuration parameters area
+export class ConfigArea extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props and set initial state
+    super(props);
+  }
+
+  // Render the configuration parameters area
+  render() {
+    return (
+      <>
+        <div><br/><br/><br/>Identifier: <input type="number" min="0" value={this.props.parameters.identifier.id} onInput={() => console.log("Changed")}></input></div>
+      </>
+    )
   }
 }
 

@@ -142,7 +142,7 @@ export class SceneMenu extends React.PureComponent {
       // If the response is valid
       if (json.items.isValid) {
         // Get the detail of each item
-        let sceneList = [{id: -1, description: " "}];
+        let sceneList = [{id: -1, description: "Overall Configuration"}];
         await asyncForEach(json.items.items, async (item) => {
           // Fetch the description of the item
           response = await fetch(`/getItem/${item.id}`);
@@ -225,7 +225,7 @@ export class SceneMenu extends React.PureComponent {
     // Return the complete menu
     return (
       <div className="sceneMenu">
-        <div className="title">Show Items From Scene:</div>
+        <div className="title">Select Scene:</div>
         <select className="select" value={this.props.value} onChange={this.handleChange}>
           {options}
         </select>
