@@ -119,7 +119,7 @@ export class NewScene extends React.PureComponent {
     // Pass the select menu upstream, if visible
     if (!this.state.isMenuVisible) {
       // Try to claim the select menu, return on failure
-      if (!this.props.selectMenu(<SelectMenu type="scene" addItem={(id) => {this.toggleMenu(); this.props.changeAction({
+      if (!this.props.selectMenu(<SelectMenu type="scene" closeMenu={this.toggleMenu} addItem={(id) => {this.toggleMenu(); this.props.changeAction({
         NewScene: {
           new_scene: {
             id: id
@@ -227,7 +227,7 @@ export class ModifyStatus extends React.PureComponent {
     // Pass the select menu upstream, if visible
     if (!this.state.isStatusMenuVisible) {
       // Try to claim the select menu, return on failure
-      if (!this.props.selectMenu(<SelectMenu type="status" addItem={(id) => {this.toggleStatusMenu(); this.props.changeAction({
+      if (!this.props.selectMenu(<SelectMenu type="status" closeMenu={this.toggleStatusMenu} addItem={(id) => {this.toggleStatusMenu(); this.props.changeAction({
         ModifyStatus: {
           status_id: {
             id: id,
@@ -254,7 +254,7 @@ export class ModifyStatus extends React.PureComponent {
     // Pass the select menu upstream, if visible
     if (!this.state.isStateMenuVisible) {
       // Try to claim the select menu, return on failure
-      if (!this.props.selectMenu(<SelectMenu type="event" items={this.state.validStates} addItem={(id) => {this.toggleStateMenu(); this.props.changeAction({
+      if (!this.props.selectMenu(<SelectMenu type="event" items={this.state.validStates} closeMenu={this.toggleStateMenu} addItem={(id) => {this.toggleStateMenu(); this.props.changeAction({
         ModifyStatus: {
           status_id: this.props.modifyStatus.status_id,
           new_state: {
@@ -573,7 +573,7 @@ export class CueEvent extends React.PureComponent {
     // Pass the select menu upstream, if visible
     if (!this.state.isMenuVisible) {
       // Try to claim the select menu, return on failure
-      if (!this.props.selectMenu(<SelectMenu type="event" addItem={(id) => {this.toggleMenu(); this.updateAction(id)}}/>)) {
+      if (!this.props.selectMenu(<SelectMenu type="event" closeMenu={this.toggleMenu} addItem={(id) => {this.toggleMenu(); this.updateAction(id)}}/>)) {
         return;
       }
     } else {
@@ -862,7 +862,7 @@ export class CancelEvent extends React.PureComponent {
     // Pass the select menu upstream, if visible
     if (!this.state.isMenuVisible) {
       // Try to claim the select menu, return on failure
-      if (!this.props.selectMenu(<SelectMenu type="event" addItem={(id) => {this.toggleMenu(); this.props.changeAction({
+      if (!this.props.selectMenu(<SelectMenu type="event" closeMenu={this.toggleMenu} addItem={(id) => {this.toggleMenu(); this.props.changeAction({
         CancelEvent: {
           event: {
             id: id
@@ -975,7 +975,7 @@ export class SelectEvent extends React.PureComponent {
     // Pass the select menu upstream, if visible
     if (!this.state.isMenuVisible) {
       // Try to claim the select menu, return on failure
-      if (!this.props.selectMenu(<SelectMenu type="status" addItem={(id) => {this.toggleMenu(); this.props.changeAction({
+      if (!this.props.selectMenu(<SelectMenu type="status" closeMenu={this.toggleMenu} addItem={(id) => {this.toggleMenu(); this.props.changeAction({
         SelectEvent: {
           status_id: {
             id: id,

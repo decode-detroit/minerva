@@ -349,7 +349,7 @@ export class StatusFragment extends React.PureComponent {
         </div>
         <div className="addButton" onClick={() => {this.setState(prevState => ({ isAddMenuVisible: !prevState.isAddMenuVisible }))}}>
           {this.state.isAddMenuVisible ? `-` : `+`}
-          {this.state.isAddMenuVisible && <AddMenu type="event" left={180} top={60} addItem={(id) => {this.setState({ isAddMenuVisible: false }); this.addState(id)}} saveModifications={this.props.saveModifications}/>}
+          {this.state.isAddMenuVisible && <AddMenu type="event" left={180} top={60} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={(id) => {this.setState({ isAddMenuVisible: false }); this.addState(id)}} saveModifications={this.props.saveModifications}/>}
         </div>
       </>
     );

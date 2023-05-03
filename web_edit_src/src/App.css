@@ -116,7 +116,7 @@ button.green {
 .dialogWindow {
   position: relative;
   display: inline-block;
-  height: 20vw;
+  height: 24vw;
   width: 50vw;
   top: 10vw;
   left: 25vw;
@@ -144,6 +144,15 @@ button.green {
   padding-top: 1vw;
   font-size: 1.8vw;
   text-align: center;
+  width: 100%;
+}
+
+.dialogRetry {
+  padding: 2vw;
+  padding-top: 1vw;
+  font-size: 1.8vw;
+  text-align: center;
+  cursor: pointer;
   width: 100%;
 }
 
@@ -251,13 +260,13 @@ button.green {
   font-size: 0.7rem;
   padding: 0 0.7rem;
   cursor: pointer;
+  border-right: 1px solid #efefef;
 }
 
 .newScene {
   font-size: 0.7rem;
   padding: 0 0.7rem;
   cursor: pointer;
-  border-left: 1px solid #efefef;
 }
 
 .addMenu {
@@ -292,6 +301,12 @@ button.green {
 
 .addMenu.scene .title {
   background-color: #b2500c;
+}
+
+.addMenu .closeButton {
+  position: absolute;
+  right: 5px;
+  cursor: pointer;
 }
 
 .addMenu .searchBar {
@@ -377,10 +392,10 @@ button.green {
   width: 100%;
 }
 
-.configArea div {
+.configArea>div {
   z-index: 1;
   min-width: 15rem;
-  color: #fff;
+  color: #efefef;
   background-color: #2f343e;
   border: 1px solid #868fa2;
   border-radius: 2px;
@@ -390,14 +405,14 @@ button.green {
   padding: 10px;
 }
 
-.configArea div:first-of-type {
+.configArea>div:first-of-type {
   margin-top: 4rem;
 }
 
-.configArea div input {
+.configArea>div>input {
   appearance: none;
   background: transparent;
-  color: #fff;
+  color: #efefef;
   width: 5rem;
   border: none;
   border-radius: 0;
@@ -411,8 +426,31 @@ button.green {
   font-size: 1rem;
 }
 
-.configArea div input[type="text"] {
+.configArea>div>input[type="text"] {
   width: unset;
+  text-align: left;
+  border-bottom: 1px solid #bbb;
+  margin-left: 10px;
+}
+
+.configArea .defaultScene {
+  z-index: 10;
+}
+
+@keyframes flash {
+  0% {
+    background-color: #2f343e;
+  }
+  10%, 30% {
+    background-color: #afafaf;
+  }
+  40%, 90% {
+    background-color: #2f343e;
+  }
+}
+
+.isEditing {
+  animation: flash ease-in-out 1s infinite ;
 }
 
 .editArea {
@@ -785,22 +823,6 @@ button.green {
   padding-bottom: 0.2rem;
   text-align: right;
   font-size: 0.5rem;
-}
-
-@keyframes flash {
-  0% {
-    background-color: #2f343e;
-  }
-  10%, 30% {
-    background-color: #afafaf;
-  }
-  40%, 90% {
-    background-color: #2f343e;
-  }
-}
-
-.actionDetail .isEditing {
-  animation: flash ease-in-out 1s infinite ;
 }
 
 .actionDetail .additionalInfo {

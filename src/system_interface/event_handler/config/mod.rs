@@ -29,7 +29,7 @@ mod status;
 use self::status::StatusHandler;
 
 // Import standard library features
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // Import tokio features
 use tokio::fs::File;
@@ -554,7 +554,7 @@ impl Config {
         self.identifier = parameters.identifier;
         self.server_location = parameters.server_location;
         self.dmx_path = parameters.dmx_path;
-        // FIXME self.media_players
+        self.media_players = parameters.media_players;
         self.system_connections = parameters.system_connections;
         self.default_scene = self.default_scene;
     }
@@ -1010,8 +1010,26 @@ impl Config {
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
 
-                // If there is media to cue, assume validity
-                &CueMedia { .. } => (),
+                // If there is media to cue, check if the file exists
+                &CueMedia { ref cue } => {
+                    // If the cue is referencing a local file
+                    if cue.uri.starts_with("file://") {
+                        if !Path::new(&cue.uri[7..]).exists() {
+                            warn!("Media file missing for cue media: {}.", cue.uri);
+                            return false;
+                        }
+                    }
+
+                    // If the loop media exists and is referencing a local file
+                    if let Some(ref media) = cue.loop_media {
+                        if media.starts_with("file://") {
+                            if !Path::new(&media[7..]).exists() {
+                                warn!("Media file missing for cue media: {}.", &media);
+                                return false;
+                            }
+                        }
+                    }
+                },
 
                 // If there is media to adjust, assume validity
                 &AdjustMedia { .. } => (),

@@ -50,7 +50,7 @@ pub struct ConfigParameters {
     pub identifier: Identifier,
     pub server_location: Option<String>,
     pub dmx_path: Option<PathBuf>,
-    pub media_players: bool,
+    pub media_players: Vec<MediaPlayer>,
     pub system_connections: ConnectionSet,
     pub background_process: Option<BackgroundProcess>,
     pub default_scene: ItemId,

@@ -328,6 +328,12 @@ impl EventHandler {
         self.config.get_key_map().await
     }
 
+    /// A method to return a copy of the media players
+    ///
+    pub fn get_media_players(&self) -> Vec<MediaPlayer> {
+        self.config.get_media_players()
+    }
+
     /// A method to return a scene with available events and optional keymap, given
     /// an item id
     pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {

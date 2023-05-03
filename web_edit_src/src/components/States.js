@@ -171,7 +171,7 @@ export class SelectedEvent extends React.PureComponent {
     // Pass the select menu upstream, if visible
     if (!this.state.isMenuVisible) {
       // Try to claim the select menu, return on failure
-      if (!this.props.selectMenu(<SelectMenu type="event" addItem={(id) => {this.toggleMenu(); this.props.changeEvent(id);}} />)) {
+      if (!this.props.selectMenu(<SelectMenu type="event" closeMenu={this.toggleMenu} addItem={(id) => {this.toggleMenu(); this.props.changeEvent(id);}} />)) {
         return;
       }
     } else {

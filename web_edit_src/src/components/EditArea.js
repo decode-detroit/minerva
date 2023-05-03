@@ -1,7 +1,7 @@
 import React from 'react';
 import { ItemBox } from './Boxes';
-import { AddMenu, SceneMenu } from './Menus';
-import { stopPropogation, vh, vw } from './Functions';
+import { AddMenu, SceneMenu, SelectMenu } from './Menus';
+import { vh, vw } from './Functions';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -12,7 +12,6 @@ export class ViewArea extends React.PureComponent {
     this.state = {
       sceneId: -1, // the current scene id
       idList: [], // list of all shown item ids
-      configParams: {}, // structure of the config parameters
       focusId: -1, // the highlighted item box
       connections: [], // list of all connectors
       top: 0, // edit area translation properties
@@ -286,22 +285,6 @@ export class ViewArea extends React.PureComponent {
     })
   }
 
-  // Did mount function to trigger refresh of config params
-  async componentDidMount(prevProps, prevState) {
-    // Load the configuration parameters
-    const response = await fetch(`getConfigParam`);
-    const json = await response.json();
-
-    console.log(json.parameters.parameters);
-
-    // Save the paramters, if valid
-    if (json.parameters.isValid) {
-      this.setState({
-        configParams: json.parameters.parameters,
-      });
-    } 
-  }
-
   // Did update function to trigger refresh of idList
   async componentDidUpdate(prevProps, prevState) {
     // Update if the scene changed
@@ -314,15 +297,10 @@ export class ViewArea extends React.PureComponent {
   async refresh() {
     // Check for the empty scene
     if (parseInt(this.state.sceneId) === -1) {
-      // Reload the configuration parameters
-      const response = await fetch(`getConfigParam`);
-      const json = await response.json();
-
-      // Save the paramters and the empty list
+      // Save the empty list
       this.setState({
         idList: [], // reset the item list
         connections: [], // reset the connectors
-        configParams: json.parameters.parameters,
       });
     
     // Otherwise, load the scene
@@ -364,10 +342,10 @@ export class ViewArea extends React.PureComponent {
       <>
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onContextMenu={this.showContextMenu}>
-          {this.state.sceneId === -1 && this.state.configParams.identifier != null && <ConfigArea parameters={this.state.configParams} filename={this.props.filename} handleFileChange={this.props.handleFileChange} saveModifications={this.props.saveModifications} /> }
+          {this.state.sceneId === -1 && <ConfigArea filename={this.props.filename} handleFileChange={this.props.handleFileChange} saveModifications={this.props.saveModifications} /> }
           {this.state.sceneId !== -1 && <>
             <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown} handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
-            {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
+            {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
           </>}
         </div>
       </>
@@ -381,14 +359,141 @@ export class ConfigArea extends React.PureComponent {
   constructor(props) {
     // Collect props and set initial state
     super(props);
+
+    // Set initial state
+    this.state = {
+      parameters: {
+        identifier: { id: 0 },
+        defaultScene: { id: 0 },
+      },
+      isMenuVisible: false,
+      defaultDescription: "Loading ...",
+    }
+
+    // Bind the various functions
+    this.updateDefaultScene = this.updateDefaultScene.bind(this);
+    this.handleIdentifierChange = this.handleIdentifierChange.bind(this);
+    this.updateParameters = this.updateParameters.bind(this);
+    this.toggleDefaultMenu = this.toggleDefaultMenu.bind(this);
+  }
+
+  // Helper function to update the default scene information
+  async updateDefaultScene() {
+    try {
+      // Fetch the description of the status
+      let response = await fetch(`getItem/${this.state.parameters.defaultScene.id}`);
+      const json = await response.json();
+
+      // If valid, save the result to the state
+      if (json.item.isValid) {
+        this.setState({
+          description: json.item.itemPair.description,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // Function to handle new identifier value
+  handleIdentifierChange(e) {
+    // Extract the value
+    let value = parseInt(e.target.value);
+
+    // Update the parameters if it's valid
+    if (!isNaN(value)) {
+      this.updateParameters("identifier", { id: value });
+    }
+  }
+
+  // Helper function to update the parameters
+  updateParameters(key, value) {
+    // Save the parameter change
+    this.setState((prevState) => {
+      // Copy the current parameters
+      let new_params = {...prevState.parameters};
+
+      // Update the seleted value
+      new_params[`${key}`] = value;
+
+      // Save the changes
+      let modifications = [{
+        modifyParameters: {
+          parameters: new_params,
+        },
+      }];
+      this.props.saveModifications(modifications);
+
+      // Update the local state
+      return {
+        parameters: new_params,
+      };
+    });
+  }
+
+  // Helper function to show or hide the default scene select menu
+  toggleDefaultMenu() {
+    // Set the new state of the menu
+    this.setState(prevState => {
+      return ({
+        isMenuVisible: !prevState.isMenuVisible,
+      });
+    });
+  }
+
+  // On initial load, pull the description of the default scene
+  async componentDidMount() {
+    // Reload the configuration parameters
+    const response = await fetch(`getConfigParam`);
+    const json = await response.json();
+
+    // If the response is valid
+    if (json.parameters.isValid) {
+      // Save the parameters
+      this.setState({
+        parameters: json.parameters.parameters,
+      });
+    }
+
+    // Update the default scene listing
+    this.updateDefaultScene();
+  }
+
+  // Did update function to trigger refresh of default scene
+  async componentDidUpdate(prevProps, prevState) {
+    // Update if the scene changed
+    if (prevState.parameters.defaultScene.id !== this.state.parameters.defaultScene.id) {
+      this.updateDefaultScene();
+    }
   }
 
   // Render the configuration parameters area
   render() {
     return (
       <div id="configArea" className="configArea">
-        <div>Filename: <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input></div>
-        <div>Identifier: <input type="number" min="0" value={this.props.parameters.identifier.id} onInput={() => console.log("Changed")}></input></div>
+        <div>Filename:
+          <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange} />
+        </div>
+        <div>Identifier:
+          <input type="number" min="0" value={this.state.parameters.identifier.id} onInput={this.handleIdentifierChange} />
+        </div>
+        <div className="defaultScene">Default Scene:
+          <span className={this.state.isMenuVisible && "isEditing"} onClick={this.toggleDefaultMenu}> {this.state.description}</span>
+          {this.state.isMenuVisible && <SelectMenu type="scene" closeMenu={this.toggleDefaultMenu} addItem={(id) => {this.toggleDefaultMenu(); this.updateParameters("defaultScene", { id: id })}}/>}
+        </div>
+        <div>Backup Server Location:
+          {!this.state.parameters.serverLocation && <input type="text" value="" size={20} onInput={(e) => {this.updateParameters("serverLocation", `${e.target.value}`)}} />}
+          {this.state.parameters.serverLocation && <input type="text" value={this.state.parameters.serverLocation} size={this.state.parameters.serverLocation.length > 30 ? this.state.parameters.serverLocation.length - 10 : 20} onInput={(e) => {this.updateParameters("serverLocation", `${e.target.value}`)}} />}
+        </div>
+        <div>DMX Connection Path:
+          {!this.state.parameters.dmxPath && <input type="text" value="" size={20} onInput={(e) => {this.updateParameters("dmxPath", `${e.target.value}`)}} />}
+          {this.state.parameters.dmxPath && <input type="text" value={this.state.parameters.dmxPath} size={this.state.parameters.dmxPath.length > 30 ? this.state.parameters.dmxPath.length - 10 : 20} onInput={(e) => {this.updateParameters("dmxPath", `${e.target.value}`)}} />}
+        </div>
+        <div>Background Process: Not Yet Implemented</div>
+        <div>System Connections: Not Yet Implemented</div>
+        <div>Media Players: Not Yet Implemented</div>
       </div>
     )
   }s

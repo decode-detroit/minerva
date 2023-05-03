@@ -167,7 +167,7 @@ export class App extends React.PureComponent {
           <HeaderMenu closeMinerva={this.closeMinerva} saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} openFile={this.openFile} saveFile={this.saveFile} />
           <ViewArea saveModifications={this.saveModifications} saveStyle={this.saveStyle} filename={this.state.configFile} handleFileChange={this.handleFileChange}/>
         </div>
-        {!this.state.connectionActive && <FullscreenDialog dialogType="error" dialogTitle="Minerva Is Unavailable" dialogMessage="Minerva is closed or currently inaccessible. Please restart the program."/>}
+        {!this.state.connectionActive && <FullscreenDialog dialogType="error" dialogTitle="Minerva Is Unavailable" dialogMessage="Minerva is closed or currently inaccessible. Please restart the program." dialogRetry={this.connectSocket}/>}
       </>
     )
   }
