@@ -453,6 +453,23 @@ button.green {
   animation: flash ease-in-out 1s infinite ;
 }
 
+.toggleSwitch {
+  display: inline-block;
+  background-color: #4d5564;
+  border: 1px solid #bbb;
+  cursor: pointer;
+}
+
+.toggleSwitch .toggleOption {
+  display: inline-block;
+  padding: 2px 10px;
+}
+
+.toggleSwitch .toggleOption.active {
+  background-color: #ddd;
+  color: #000;
+}
+
 .editArea {
   position: absolute;
   background-color: #21242a;

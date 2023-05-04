@@ -100,3 +100,29 @@ export class ConfirmButton extends React.PureComponent {
     );
   }
 }
+
+// An input for text with variable length based on the length of the input
+export class TextInput extends React.PureComponent {
+  // Return the text input
+  render() {
+    return (
+      <>
+        {!this.props.value && <input type="text" value="" size={20} onInput={this.props.handleInput} />}
+        {this.props.value && <input type="text" value={this.props.value} size={this.props.value.length > 30 ? this.props.value.length - 10 : 20} onInput={this.props.handleInput} />}
+      </>
+    );
+  }
+}
+
+// A toggle switch to change between two options
+export class ToggleSwitch extends React.PureComponent {
+  // Return the toggle switch
+  render() {
+    return (
+      <span className="toggleSwitch" onClick={this.props.handleToggle}>
+        <span className={`toggleOption ${!this.props.value ? "active" : ""}`}>{this.props.offOption}</span>
+        <span className={`toggleOption ${this.props.value ? "active" : ""}`}>{this.props.onOption}</span>
+      </span>
+    );
+  }
+}

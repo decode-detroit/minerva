@@ -2,6 +2,7 @@ import React from 'react';
 import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu, SelectMenu } from './Menus';
 import { vh, vw } from './Functions';
+import { TextInput, ToggleSwitch } from './Buttons';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -372,7 +373,8 @@ export class ConfigArea extends React.PureComponent {
 
     // Bind the various functions
     this.updateDefaultScene = this.updateDefaultScene.bind(this);
-    this.handleIdentifierChange = this.handleIdentifierChange.bind(this);
+    this.updateIdentifier = this.updateIdentifier.bind(this);
+    this.updateBackgroundProcess = this.updateBackgroundProcess.bind(this);
     this.updateParameters = this.updateParameters.bind(this);
     this.toggleDefaultMenu = this.toggleDefaultMenu.bind(this);
   }
@@ -398,7 +400,7 @@ export class ConfigArea extends React.PureComponent {
   }
 
   // Function to handle new identifier value
-  handleIdentifierChange(e) {
+  updateIdentifier(e) {
     // Extract the value
     let value = parseInt(e.target.value);
 
@@ -406,6 +408,30 @@ export class ConfigArea extends React.PureComponent {
     if (!isNaN(value)) {
       this.updateParameters("identifier", { id: value });
     }
+  }
+
+  // Helper function to update the background process
+  updateBackgroundProcess(key, value) {
+    // Compose the new background process
+    let new_background = {
+      process: "",
+      arguments: [],
+      keepalive: false,
+    };
+    if (this.state.parameters.backgroundProcess) {
+      new_background = {...this.state.parameters.backgroundProcess};
+    }
+
+    // Update the background process
+    new_background[`${key}`] = value;
+
+    // If the process is empty, use null instead
+    if (new_background.process === "") {
+      new_background = null;
+    }
+    
+    // Save the change
+    this.updateParameters("backgroundProcess", new_background);
   }
 
   // Helper function to update the parameters
@@ -474,24 +500,29 @@ export class ConfigArea extends React.PureComponent {
     return (
       <div id="configArea" className="configArea">
         <div>Filename:
-          <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange} />
+          <TextInput value={this.props.filename} handleInput={this.props.handleFileChange} />
         </div>
         <div>Identifier:
-          <input type="number" min="0" value={this.state.parameters.identifier.id} onInput={this.handleIdentifierChange} />
+          <input type="number" min="0" value={this.state.parameters.identifier.id} onInput={this.updateIdentifier} />
         </div>
         <div className="defaultScene">Default Scene:
           <span className={this.state.isMenuVisible && "isEditing"} onClick={this.toggleDefaultMenu}> {this.state.description}</span>
           {this.state.isMenuVisible && <SelectMenu type="scene" closeMenu={this.toggleDefaultMenu} addItem={(id) => {this.toggleDefaultMenu(); this.updateParameters("defaultScene", { id: id })}}/>}
         </div>
         <div>Backup Server Location:
-          {!this.state.parameters.serverLocation && <input type="text" value="" size={20} onInput={(e) => {this.updateParameters("serverLocation", `${e.target.value}`)}} />}
-          {this.state.parameters.serverLocation && <input type="text" value={this.state.parameters.serverLocation} size={this.state.parameters.serverLocation.length > 30 ? this.state.parameters.serverLocation.length - 10 : 20} onInput={(e) => {this.updateParameters("serverLocation", `${e.target.value}`)}} />}
+          <TextInput value={this.state.parameters.serverLocation} handleInput={(e) => {this.updateParameters("serverLocation", `${e.target.value === "" ? null : e.target.value}`)}} />
         </div>
         <div>DMX Connection Path:
-          {!this.state.parameters.dmxPath && <input type="text" value="" size={20} onInput={(e) => {this.updateParameters("dmxPath", `${e.target.value}`)}} />}
-          {this.state.parameters.dmxPath && <input type="text" value={this.state.parameters.dmxPath} size={this.state.parameters.dmxPath.length > 30 ? this.state.parameters.dmxPath.length - 10 : 20} onInput={(e) => {this.updateParameters("dmxPath", `${e.target.value}`)}} />}
+          <TextInput value={this.state.parameters.dmxPath} handleInput={(e) => {this.updateParameters("dmxPath", `${e.target.value === "" ? null : e.target.value}`)}} />
         </div>
-        <div>Background Process: Not Yet Implemented</div>
+        <div>Background Process:
+          {!this.state.parameters.backgroundProcess && <TextInput value="" handleInput={(e) => {this.updateBackgroundProcess("process", `${e.target.value}`)}} />}
+          {this.state.parameters.backgroundProcess && <>
+            <TextInput value={this.state.parameters.backgroundProcess.process} handleInput={(e) => {this.updateBackgroundProcess("process", `${e.target.value}`)}} /><br/>
+            Process Arguments: <TextInput value={this.state.parameters.backgroundProcess.arguments.join(' ')} handleInput={(e) => {this.updateBackgroundProcess("arguments", `${e.target.value}`.split(' '))}} /><br/>
+            Keep Process Running? <ToggleSwitch value={this.state.parameters.backgroundProcess.keepalive} offOption="No" onOption="Yes" handleToggle={() => {this.updateBackgroundProcess("keepalive", !this.state.parameters.backgroundProcess.keepalive)}} />
+          </>}
+        </div>
         <div>System Connections: Not Yet Implemented</div>
         <div>Media Players: Not Yet Implemented</div>
       </div>
