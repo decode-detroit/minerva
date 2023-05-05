@@ -136,41 +136,45 @@ impl SystemInterface {
 
                     // The unpacking yielded an event
                     UnpackResult::SuccessWithEvent(event) => {
-                        request.reply_to.send(WebReply::Event { is_valid: true, event: Some(event) }).unwrap_or(());
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Event(Some(event)) } ).unwrap_or(());
                     }
 
                     // The unpacking yielded items
                     UnpackResult::SuccessWithItems(items) => {
-                        request.reply_to.send(WebReply::Items { is_valid: true, items }).unwrap_or(());
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Items(items) }).unwrap_or(());
+                    }
+
+                    // The unpacking yielded a group
+                    UnpackResult::SuccessWithGroup(group) => {
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Group(Some(group)) }).unwrap_or(());
                     }
 
                     // The unpacking yielded a message
                     UnpackResult::SuccessWithMessage(message) => {
-                        request.reply_to.send(WebReply::Generic { is_valid: true, message }).unwrap_or(());
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Message(message) }).unwrap_or(());
                     }
 
                     // The unpacking yielded parameters
                     UnpackResult::SuccessWithParameters(parameters) => {
-                        request.reply_to.send(WebReply::Parameters { is_valid: true, parameters }).unwrap_or(());
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Parameters(parameters) }).unwrap_or(());
                     }
 
                     // The unpacking yielded a path
                     UnpackResult::SuccessWithPath(path) => {
-                        request.reply_to.send(WebReply::Path {
-                            is_valid: true,
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Path {
                             filename: path.file_stem().unwrap_or_else(|| { OsStr::new("") }).to_str().unwrap_or("").to_string(),
                             path: path.to_str().unwrap_or("").to_string(),
-                        }).unwrap_or(());
+                        } }).unwrap_or(());
                     }
 
                     // The unpacking yielded a status
                     UnpackResult::SuccessWithStatus(status) => {
-                        request.reply_to.send(WebReply::Status { is_valid: true, status: Some(status) }).unwrap_or(());
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Status(Some(status)) }).unwrap_or(());
                     }
 
                     // The unpacking yielded a scene
                     UnpackResult::SuccessWithScene(scene) => {
-                        request.reply_to.send(WebReply::Scene { is_valid: true, scene: Some(scene) }).unwrap_or(());
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Scene(Some(scene)) }).unwrap_or(());
                     }
 
                     // The unpacking was a failure
@@ -450,6 +454,12 @@ impl SystemInterface {
 
                     // Match the type of information request
                     match detail_type {
+                        // Reply to a request for the groups
+                        DetailType::AllGroups => {
+                            // Get the scene list
+                            result = UnpackResult::SuccessWithItems(handler.get_groups());
+                        }
+
                         // Reply to a request for the scenes
                         DetailType::AllScenes => {
                             // Get the scene list
@@ -463,6 +473,16 @@ impl SystemInterface {
                                 result = UnpackResult::SuccessWithEvent(event);
                             } else {
                                 result = UnpackResult::Failure("Event Not Found.".into());
+                            }
+                        }
+
+                        // Reply to a request for the group
+                        DetailType::Group { item_id } => {
+                            // Try to get the event
+                            if let Some(event) = handler.get_group(&item_id) {
+                                result = UnpackResult::SuccessWithGroup(event);
+                            } else {
+                                result = UnpackResult::Failure("Group Not Found.".into());
                             }
                         }
 
@@ -497,9 +517,9 @@ impl SystemInterface {
                             // Check to see if there is an event
                             } else if let Some(_) = handler.get_event(&item_id) {
                                 result = UnpackResult::SuccessWithMessage("event".into());
-                            // Check to see if the item has a description
-                            } else if self.index_access.is_listed(&item_id).await {
-                                result = UnpackResult::SuccessWithMessage("label".into());
+                            // Check to see if there is a group
+                            } else if let Some(_) = handler.get_group(&item_id) {
+                                result = UnpackResult::SuccessWithMessage("group".into());
                             // Otherwise, return none
                             } else {
                                 result = UnpackResult::SuccessWithMessage("none".into());
@@ -547,6 +567,11 @@ impl SystemInterface {
                             // Add or modify the event
                             Modification::ModifyEvent { item_id, event } => {
                                 handler.edit_event(item_id, event).await;
+                            }
+
+                            // Add or modify the group
+                            Modification::ModifyGroup { item_id, group } => {
+                                handler.edit_group(item_id, group).await;
                             }
 
                             // Update the configuration parameters
@@ -794,6 +819,9 @@ enum UnpackResult {
 
     // A variant for successful unpacking with items
     SuccessWithItems(Vec<ItemId>),
+
+    // A variant for successful unpacking with a group
+    SuccessWithGroup(Group),
 
     // A variant for successful unpacking with message
     SuccessWithMessage(String),

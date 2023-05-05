@@ -163,6 +163,16 @@ impl WebInterface {
                     .and(WebInterface::with_json::<AllEventChange>())
                     .and_then(WebInterface::handle_request);
 
+                // Create the all groups filter
+                let all_groups = warp::get()
+                    .and(warp::path("allGroups"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(clone_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::Detail {
+                        detail_type: DetailType::AllGroups,
+                    }))
+                    .and_then(WebInterface::handle_request);
+
                 // Create the all scenes filter
                 let all_scenes = warp::get()
                     .and(warp::path("allScenes"))
@@ -281,6 +291,7 @@ impl WebInterface {
                 // Combine the filters
                 let run_routes = listen
                     .or(all_event_change)
+                    .or(all_groups)
                     .or(all_scenes)
                     .or(all_stop)
                     .or(broadcast_event)
@@ -318,6 +329,16 @@ impl WebInterface {
                 .and(warp::path::end())
                 .and(WebInterface::with_clone(self.index_access.clone()))
                 .and_then(WebInterface::handle_all_items);
+
+            // Create the all groups filter
+            let all_groups = warp::get()
+                .and(warp::path("allGroups"))
+                .and(warp::path::end())
+                .and(WebInterface::with_clone(self.web_send.clone()))
+                .and(WebInterface::with_clone(UserRequest::Detail {
+                    detail_type: DetailType::AllGroups,
+                }))
+                .and_then(WebInterface::handle_request);
 
             // Create the all scenes filter
             let all_scenes = warp::get()
@@ -385,6 +406,14 @@ impl WebInterface {
                 .and(warp::path::end())
                 .and_then(WebInterface::handle_get_item);
 
+            // Create the get group filter
+            let get_group = warp::get()
+                .and(warp::path("getGroup"))
+                .and(WebInterface::with_clone(self.web_send.clone()))
+                .and(warp::path::param::<GetGroup>())
+                .and(warp::path::end())
+                .and_then(WebInterface::handle_request);
+
             // Create the get scene filter
             let get_scene = warp::get()
                 .and(warp::path("getScene"))
@@ -437,6 +466,7 @@ impl WebInterface {
             // Combine the filters
             let edit_routes = listen
                 .or(all_items)
+                .or(all_groups)
                 .or(all_scenes)
                 .or(close)
                 .or(config_file)
@@ -445,6 +475,7 @@ impl WebInterface {
                 .or(get_config_path)
                 .or(get_event)
                 .or(get_item)
+                .or(get_group)
                 .or(get_scene)
                 .or(get_status)
                 .or(get_styles)
@@ -507,9 +538,9 @@ impl WebInterface {
 
         // Return the item pair (even if it is the default)
         return Ok(warp::reply::with_status(
-            warp::reply::json(&WebReply::Items {
+            warp::reply::json(&WebReply {
                 is_valid: true,
-                items,
+                data: WebReplyData::Items(items),
             }),
             http::StatusCode::OK,
         ));
@@ -528,9 +559,9 @@ impl WebInterface {
 
         // Return the item pair (even if it is the default)
         return Ok(warp::reply::with_status(
-            warp::reply::json(&WebReply::Item {
+            warp::reply::json(&WebReply {
                 is_valid: true,
-                item_pair,
+                data: WebReplyData::Item(item_pair),
             }),
             http::StatusCode::OK,
         ));

@@ -94,9 +94,9 @@ export class App extends React.PureComponent {
     const json = await response.json();
 
     // If valid, save configuration
-    if (json.path.isValid) {
+    if (json.isValid) {
       this.setState({
-        configFile: json.path.path,
+        configFile: json.data.path.path,
       });
     }
 

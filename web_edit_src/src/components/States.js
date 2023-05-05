@@ -27,9 +27,9 @@ export class State extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     
@@ -90,9 +90,9 @@ export class UnmodifiableState extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     
@@ -154,9 +154,9 @@ export class SelectedEvent extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     

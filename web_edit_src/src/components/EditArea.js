@@ -1,7 +1,7 @@
 import React from 'react';
 import { ItemBox } from './Boxes';
 import { AddMenu, SceneMenu, SelectMenu } from './Menus';
-import { vh, vw } from './Functions';
+import { vh, vw, stopPropogation } from './Functions';
 import { TextInput, ToggleSwitch } from './Buttons';
 
 // A box to contain the draggable edit area
@@ -38,13 +38,12 @@ export class ViewArea extends React.PureComponent {
     this.createConnector = this.createConnector.bind(this);
     this.grabFocus = this.grabFocus.bind(this);
     this.saveLocation = this.saveLocation.bind(this);
+    this.saveDimensions = this.saveDimensions.bind(this);
   }
   
   // Function to respond to clicking the area
   handleMouseDown(e) {
-    // Prevent any other event handlers
-    e = e || window.event;
-    e.preventDefault();
+    stopPropogation(e);
    
     // Connect the mouse event handlers to the document
     document.onmousemove = this.handleMouseMove;
@@ -61,9 +60,7 @@ export class ViewArea extends React.PureComponent {
 
   // Function to respond to dragging the area
   handleMouseMove(e) {
-    // Prevent the default event handler
-    e = e || window.event;
-    e.preventDefault();
+    stopPropogation(e);
 
     // Update the state
     this.setState((state) => {
@@ -275,6 +272,23 @@ export class ViewArea extends React.PureComponent {
     this.props.saveStyle(`#scene-${this.state.sceneId} #id-${id}`, `{ left: ${left}px; top: ${top}px; }`);
   }
   
+  // A function to save the new dimentions of a group area to the stylesheet
+  saveDimensions(id, width, height) {
+    // Save the new style rule
+    this.props.saveStyle(`#scene-${this.state.sceneId} #id-${id} .groupArea`, `{ width: ${width}px; height: ${height}px; }`);
+  }
+
+  // Function to create a new connector between boxes
+  createConnector(type, ref, id) {
+    // Add the item, if it doesn't already exist
+    this.addItem(id);
+    
+    // Add the connection
+    this.setState({
+      connections: [...this.state.connections, {type: type, ref: ref, id: id}],
+    })
+  }
+  
   // Function to create a new connector between boxes
   createConnector(type, ref, id) {
     // Add the item, if it doesn't already exist
@@ -312,9 +326,9 @@ export class ViewArea extends React.PureComponent {
         const json = await response.json();
 
         // If valid, save the result to the state
-        if (json.scene.isValid) {
+        if (json.isValid) {
           // Strip ids from the items
-          let ids = json.scene.scene.events.map((item) => item.id);
+          let ids = json.data.scene.events.map((item) => item.id);
           ids.sort();
 
           this.setState({
@@ -345,7 +359,7 @@ export class ViewArea extends React.PureComponent {
         <div className="viewArea" onContextMenu={this.showContextMenu}>
           {this.state.sceneId === -1 && <ConfigArea filename={this.props.filename} handleFileChange={this.props.handleFileChange} saveModifications={this.props.saveModifications} /> }
           {this.state.sceneId !== -1 && <>
-            <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown} handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} />
+            <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown} handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} saveDimensions={this.saveDimensions} />
             {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
           </>}
         </div>
@@ -387,9 +401,9 @@ export class ConfigArea extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     
@@ -476,10 +490,10 @@ export class ConfigArea extends React.PureComponent {
     const json = await response.json();
 
     // If the response is valid
-    if (json.parameters.isValid) {
+    if (json.isValid) {
       // Save the parameters
       this.setState({
-        parameters: json.parameters.parameters,
+        parameters: json.data.parameters,
       });
     }
 
@@ -541,7 +555,7 @@ export class EditArea extends React.PureComponent {
   // Render the draggable edit area
   render() {
     // Create a box for each event
-    const boxes = this.props.idList.map((id, index) => <ItemBox key={id.toString()} isFocus={this.props.focusId === id} id={id} row={parseInt(index / 12)} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
+    const boxes = this.props.idList.map((id, index) => <ItemBox key={id.toString()} id={id} focusId={this.props.focusId} row={parseInt(index / 12)} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
     
     // Render the event boxes
     return (

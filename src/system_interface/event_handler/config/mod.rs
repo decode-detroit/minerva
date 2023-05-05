@@ -167,6 +167,7 @@ struct YamlConfig {
     system_connections: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
     default_scene: ItemId, // the starting scene for the configuration
+    all_groups: FnvHashMap<ItemId, Group>, // hash map of all availble groups
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap,  // hash map of the default game status
     event_set: FnvHashMap<ItemPair, Option<Event>>, // hash map of all the item pairs and events
@@ -187,6 +188,7 @@ pub struct Config {
     background_thread: Option<BackgroundThread>, // a copy of the background process info
     default_scene: ItemId, // the starting scene for the configuration
     current_scene: ItemId,  // identifier for the current scene
+    all_groups: FnvHashMap<ItemId, Group>, // hash map of all availble groups
     all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_handler: StatusHandler, // status handler for the current game status
     events: FnvHashMap<ItemId, Event>, // hash map of all the events
@@ -223,6 +225,7 @@ impl Config {
             background_thread: None,
             default_scene: ItemId::all_stop(),
             current_scene: ItemId::all_stop(),
+            all_groups: FnvHashMap::default(),
             all_scenes: FnvHashMap::default(),
             status_handler,
             events: FnvHashMap::default(),
@@ -321,6 +324,7 @@ impl Config {
 
         // Verify the configuration is defined correctly
         let all_scenes = yaml_config.all_scenes;
+        let all_groups = yaml_config.all_groups;
         let status_map = yaml_config.status_map;
         Config::verify_config(&all_scenes, &status_map, &item_index, &events).await;
 
@@ -357,6 +361,7 @@ impl Config {
             background_thread,
             default_scene: yaml_config.default_scene,
             current_scene,
+            all_groups,
             all_scenes,
             status_handler,
             events,
@@ -398,6 +403,32 @@ impl Config {
     ///
     pub fn get_identifier(&self) -> Identifier {
         self.identifier
+    }
+
+    /// A method to return a group, given an ItemId. If the id corresponds to a valid group,
+    /// the method returns the group. Otherwise, it returns None.
+    ///
+    pub fn get_group(&self, item_id: &ItemId) -> Option<Group> {
+        // Return the scene, if found, and return a copy
+        self.all_groups.get(item_id).map(|group| group.clone())
+    }
+
+    /// A method to return a list of all available scenes in this
+    /// configuration. This method will always return the scenes from lowest to
+    /// highest id.
+    ///
+    pub fn get_groups(&self) -> Vec<ItemId> {
+        // Compile a list of the available groups
+        let mut groups = Vec::new();
+        for group_id in self.all_groups.keys() {
+            groups.push(group_id.clone());
+        }
+
+        // Sort them in order
+        groups.sort_unstable();
+
+        // Return the result
+        groups
     }
 
     /// A method to return a copy of the media player details
@@ -462,6 +493,14 @@ impl Config {
         self.status_handler.get_partial_status()
     }
 
+    /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
+    /// the method returns the scene. Otherwise, it returns None.
+    ///
+    pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
+        // Return the scene, if found, and return a copy
+        self.all_scenes.get(item_id).map(|scene| scene.clone())
+    }
+
     /// A method to return a list of all available scenes in this
     /// configuration. This method will always return the scenes from lowest to
     /// highest id.
@@ -473,19 +512,11 @@ impl Config {
             scenes.push(scene_id.clone());
         }
 
-        // Sort them in order and then pair them with their descriptions
+        // Sort them in order
         scenes.sort_unstable();
 
         // Return the result
         scenes
-    }
-
-    /// A method to return a scene, given an ItemId. If the id corresponds to a valid scene,
-    /// the method returns the scene. Otherwise, it returns None.
-    ///
-    pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
-        // Return the scene, if found, and return a copy
-        self.all_scenes.get(item_id).map(|scene| scene.clone())
     }
 
     /// A method to return a list of all available items in the current scene.
@@ -667,6 +698,42 @@ impl Config {
         }
     }
 
+    /// A method to modify or add a group with provided id.
+    ///
+    pub async fn edit_group(&mut self, group_id: ItemId, possible_group: Option<Group>) {
+        // If a new group was specified
+        if let Some(new_group) = possible_group {
+            // If the group is in the group list, update the group
+            if let Some(group) = self.all_groups.get_mut(&group_id) {
+                // Update the group and notify the system
+                *group = new_group;
+                info!(
+                    "Group updated: {}.",
+                    self.index_access.get_description(&group_id).await
+                );
+
+            // Otherwise, add the group
+            } else {
+                info!(
+                    "Group added: {}.",
+                    self.index_access.get_description(&group_id).await
+                );
+                self.all_groups.insert(group_id, new_group);
+            }
+
+        // If no new group was specified
+        } else {
+            // If the group is in the group list, remove it
+            if let Some(_) = self.all_groups.remove(&group_id) {
+                // Notify the user that it was removed
+                info!(
+                    "Group removed: {}.",
+                    self.index_access.get_description(&group_id).await
+                );
+            }
+        }
+    }
+
     /// A method to modify or add a status with provided id.
     ///
     pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
@@ -704,7 +771,7 @@ impl Config {
                 self.all_scenes.insert(scene_id, new_scene);
             }
 
-        // If no new event was specified
+        // If no new scene was specified
         } else {
             // If the scene is in the scene list, remove it
             if let Some(_) = self.all_scenes.remove(&scene_id) {
@@ -817,6 +884,7 @@ impl Config {
             media_players: self.media_players.clone(),
             background_process: self.get_background_process(),
             default_scene: self.default_scene,
+            all_groups: self.all_groups.clone(),
             all_scenes: self.all_scenes.clone(),
             status_map: self.status_handler.get_map(),
             event_set,

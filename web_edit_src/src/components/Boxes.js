@@ -14,8 +14,8 @@ export class ItemBox extends React.PureComponent {
 
     // Set initial state
     this.state = {
-      left: 0, // horizontal offset of the area
-      top: 0, // vertical offest of the area
+      left: 0, // horizontal offset of the box
+      top: 0, // vertical offest of the box
       cursorX: 0, // starting point of the cursor
       cursorY: 0,
       description: "Loading ...", // placeholder for the real data
@@ -37,7 +37,7 @@ export class ItemBox extends React.PureComponent {
   
   // Function to respond to clicking the area
   handleMouseDown(e) {
-    stopPropogation();
+    stopPropogation(e);
    
     // Connect the mouse event handlers to the document
     document.onmousemove = this.handleMouseMove;
@@ -58,9 +58,7 @@ export class ItemBox extends React.PureComponent {
 
   // Function to respond to dragging the area
   handleMouseMove(e) {
-    // Prevent the default event handler
-    e = e || window.event;
-    e.preventDefault();
+    stopPropogation(e);
 
     // Update the state
     this.setState((state) => {
@@ -107,11 +105,11 @@ export class ItemBox extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         // Save the itemPair
         this.setState({
-          description: json.item.itemPair.description,
-          display: json.item.itemPair.display,
+          description: json.data.item.description,
+          display: json.data.item.display,
         });
       }
 
@@ -120,9 +118,9 @@ export class ItemBox extends React.PureComponent {
       const json2 = await response.json();
 
       // If valid, save the result to the state
-      if (json2.generic.isValid) {
+      if (json2.isValid) {
         this.setState({
-          type: json2.generic.message,
+          type: json2.data.message,
         });
       }
     
@@ -170,25 +168,29 @@ export class ItemBox extends React.PureComponent {
     let left = this.state.left ? `${this.state.left}px` : ``;
     let top = this.state.top ? `${this.state.top}px` : ``;
 
+    // Calculate isFocus
+    let isFocus = this.props.focusId === this.props.id;
+
     // Return the item box
     return (
       <>
         {this.state.type !== "" &&
-          <div id={`id-${this.props.id}`} className={`box ${this.state.type} row${this.props.row} ${this.props.isFocus ? 'focus' : ''}`} style={{ left: left, top: top }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
+          <div id={`id-${this.props.id}`} className={`box ${this.state.type} row${this.props.row} ${isFocus ? 'focus' : ''}`} style={{ left: left, top: top }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
             <div className="title">
               <input type="text" value={this.state.description} size={this.state.description.length > 30 ? this.state.description.length - 10 : 20} onInput={this.handleChange}></input>
-              <div className="disableSelect">({this.props.id})</div>
-              {this.props.isFocus && <div className="removeMenu disableSelect">
+              <div className="itemId disableSelect">({this.props.id})</div>
+              {isFocus && <div className="removeMenu disableSelect">
                 <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>Remove From Scene</div>
                 <div onMouseDown={(e) => {stopPropogation(e); this.setState({ isDeleteVisible: true })}}>Delete</div>
               </div>}
               {this.state.isDeleteVisible && <DeleteMenu id={this.props.id} afterDelete={() => this.props.removeItem(this.props.id)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
             </div>
-            <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={(e) => {stopPropogation(e); this.handleMouseDown(e);}}/>
-            {this.props.isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
-            {this.props.isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
-            {this.props.isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
-            {this.props.isFocus && (this.state.type === "label" || this.state.type === "none") && <BlankFragment id={this.props.id} updateItem={this.updateItem} saveModifications={this.props.saveModifications}/>}
+            <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
+            {isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
+            {this.state.type === "group" && <GroupFragment id={this.props.id} focusId={this.props.focusId} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />}
+            {isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
+            {isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
+            {isFocus && this.state.type === "none" && <BlankFragment id={this.props.id} updateItem={this.updateItem} saveModifications={this.props.saveModifications}/>}
           </div>
         }
       </>
@@ -207,6 +209,7 @@ export class BlankFragment extends React.PureComponent {
           <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: [], }}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Event</div>
           <div className="divButton status" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Status</div>
           <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { events: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Scene</div>
+          <div className="divButton group" onClick={() => {let modifications = [{ modifyGroup: { itemId: { id: this.props.id }, group: { items: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Group</div>
         </div>
       </>
     );
@@ -223,6 +226,176 @@ export class SceneFragment extends React.PureComponent {
   }
 }
 
+// A group box with other boxes inside
+export class GroupFragment extends React.PureComponent {
+  // Class constructor
+  constructor(props) {
+    // Collect props
+    super(props);
+
+    // Set initial state
+    this.state = {
+      idList: [],
+      isHidden: true,
+      width: 0,
+      height: 0,
+    }
+
+    // Bind the various functions
+    this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.handleMouseMove = this.handleMouseMove.bind(this);
+    this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.updateGroup = this.updateGroup.bind(this);
+    this.toggleShow = this.toggleShow.bind(this);
+  }
+  
+  // Function to respond to clicking the area
+  handleMouseDown(e) {
+    stopPropogation(e);
+   
+    // Connect the mouse event handlers to the document
+    document.onmousemove = this.handleMouseMove;
+    document.onmouseup = this.handleMouseClose;
+
+    // Get the current size
+    let width = e.target.parentNode.querySelector('div[class="groupArea"]').offsetWidth;
+    let height = e.target.parentNode.querySelector('div[class="groupArea"]').offsetHeight;
+
+    // Save the size and cursor position
+    this.setState({
+      width: width,
+      height: height,
+      cursorX: e.clientX,
+      cursorY: e.clientY,
+    });
+  }
+
+  // Function to respond to dragging the area
+  handleMouseMove(e) {
+    stopPropogation(e);
+
+    // Update the state
+    this.setState((state) => {
+      // Calculate change from old cursor position
+      let changeX = state.cursorX - e.clientX;
+      let changeY = state.cursorY - e.clientY;
+  
+      // Calculate the new dimensions
+      let width = state.width - parseInt(changeX / this.props.zoom);
+      let height = state.height - parseInt(changeY / this.props.zoom);
+  
+      // Enforce bounds on the new dimensions
+      width = (width >= 250) ? width : 250;
+      height = (height >= 100) ? height : 100;
+  
+      // Save the new dimensions and current cursor position
+      return {
+        width: width,
+        height: height,
+        cursorX: e.clientX,
+        cursorY: e.clientY,
+      }
+    });
+  }
+  
+  // Function to respond to releasing the mouse
+  handleMouseClose() {
+    // Stop moving when mouse button is released
+    document.onmousemove = null;
+    document.onmouseup = null;
+
+    // Save the updated dimensions
+    this.props.saveDimensions(this.props.id, this.state.width, this.state.height);
+
+    // Clear the left and top state
+    this.setState({width: 0, height: 0});
+  }
+
+  // Helper function to update the group information
+  async updateGroup() {
+    try {
+      // Fetch the detail of the status
+      const response = await fetch(`getGroup/${this.props.id}`);
+      const json = await response.json();
+
+      // If valid, save the result to the state
+      if (json.isValid) {
+        // Strip ids from the items
+        let ids = json.data.group.items.map((item) => item.id);
+
+        // Exclude this id to prevent recursion
+        let clean_ids = ids.filter((id) => id !== this.props.id)
+
+        // Sort the ids and save        
+        clean_ids.sort();
+        this.setState({
+          isHidden: json.data.group.is_hidden, // FIXME create version with isHidden
+          idList: clean_ids,
+        });
+      }
+    
+    // Ignore errors
+    } catch {
+      console.log("Server inaccessible.");
+    }
+  }
+
+  // Helper function to hide or show the group items
+  toggleShow() {
+    // Toggle the hidden state
+    this.setState((prevState) => {
+      // Recompose the item ids
+      let items = prevState.idList.map((id) => {return { id : id };});
+
+      // Compose the new group
+      let newGroup = { items: items, is_hidden: !prevState.isHidden}; // FIXME create version with isHidden
+
+      // Save the changes
+      let modifications = [{
+        modifyGroup: {
+          itemId: { id: this.props.id },
+          group: newGroup,
+        },
+      }];
+      this.props.saveModifications(modifications);
+
+      // Update the local state
+      return {
+        isHidden: !prevState.isHidden,
+      };
+    });
+  }
+
+  // On initial load, pull the group information
+  componentDidMount() {
+    // Pull the new group information
+    this.updateGroup();
+  }
+
+  // Return the fragment
+  render() {
+    // Calculate the width and height
+    let width = this.state.width ? `${this.state.width}px` : ``;
+    let height = this.state.height ? `${this.state.height}px` : ``;
+
+    // Create a box for items that are in this group
+    const boxes = this.state.idList.map((id, index) => <ItemBox key={id.toString()} id={id} focusId={this.props.focusId} row={parseInt(index / 12)} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.props.removeItem} createConnector={this.props.createConnector}/>);
+    
+    // Return the group box
+    return (
+      <>
+        {!this.state.isHidden && <div className="placeholder disableSelect">Drag Items Here</div>}
+        {!this.state.isHidden && <div className="groupArea" style={{ width: width, height: height }}>
+          {boxes}
+        </div>}
+        <div className="showCorner disableSelect" onMouseDown={(e) => {stopPropogation(e); this.toggleShow()}}>{this.state.isHidden ? "+Show+" : "-Hide-"}</div>
+        {!this.state.isHidden && <div className="resizeCorner disableSelect" onMouseDown={this.handleMouseDown}>//</div>}
+      </>
+    );
+  }
+}
+
+
 // A statue box with a status and status detail
 export class StatusFragment extends React.PureComponent {
   // Class constructor
@@ -238,6 +411,8 @@ export class StatusFragment extends React.PureComponent {
 
     // Bind the various functions
     this.updateStatus = this.updateStatus.bind(this);
+    this.addState = this.addState.bind(this);
+    this.removeState = this.removeState.bind(this);
   }
 
   // Helper function to update the status information
@@ -248,9 +423,9 @@ export class StatusFragment extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.status.isValid) {
+      if (json.isValid) {
         this.setState({
-          status: json.status.status,
+          status: json.data.status,
         });
       }
     
@@ -385,9 +560,9 @@ export class EventFragment extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.event.isValid) {
+      if (json.isValid) {
         this.setState({
-          eventActions: json.event.event,
+          eventActions: json.data.event,
         });
       }
     

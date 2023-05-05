@@ -100,6 +100,11 @@ pub struct GetItem {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GetGroup {
+    id: u32,
+}
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GetScene {
     id: u32,
 }
@@ -161,6 +166,16 @@ impl FromStr for GetItem {
         // Parse as a u32 and return the result
         let id = s.parse::<u32>()?;
         Ok(GetItem { id })
+    }
+}
+impl FromStr for GetGroup {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(GetGroup { id })
     }
 }
 impl FromStr for GetScene {
@@ -275,6 +290,15 @@ impl From<GetEvent> for UserRequest {
         UserRequest::Detail {
             detail_type: DetailType::Event {
                 item_id: ItemId::new_unchecked(get_event.id),
+            },
+        }
+    }
+}
+impl From<GetGroup> for UserRequest {
+    fn from(get_group: GetGroup) -> Self {
+        UserRequest::Detail {
+            detail_type: DetailType::Group {
+                item_id: ItemId::new_unchecked(get_group.id),
             },
         }
     }

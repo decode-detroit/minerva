@@ -320,6 +320,22 @@ impl EventHandler {
         self.config.get_event(event_id)
     }
 
+    /// A method to return a group with available events given
+    /// an item id
+    pub fn get_group(&self, item_id: &ItemId) -> Option<Group> {
+        // Return a group corresponding to the id, or None if none
+        self.config.get_group(item_id)
+    }
+
+    /// A method to return a list of all available groups in this
+    /// configuration. This method will always return the groups from lowest to
+    /// highest id.
+    ///
+    pub fn get_groups(&self) -> Vec<ItemId> {
+        // Return a list of available groups
+        self.config.get_groups()
+    }
+
     /// A method to return an key map for the current scene, with all items
     /// as an itempair.
     ///
@@ -392,6 +408,12 @@ impl EventHandler {
     ///
     pub async fn edit_event(&mut self, event_id: ItemId, new_event: Option<Event>) {
         self.config.edit_event(event_id, new_event).await;
+    }
+
+    /// A method to add or modify a group within the current configuration.
+    ///
+    pub async fn edit_group(&mut self, group_id: ItemId, new_group: Option<Group>) {
+        self.config.edit_group(group_id, new_group).await;
     }
 
     /// A method to add or modify a status within the current configuration.

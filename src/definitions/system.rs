@@ -189,6 +189,14 @@ pub enum Modification {
         event: Option<Event>,
     },
 
+    /// A modification to add a group, modify an existing one, or delete it
+    /// (if None provided)
+    #[serde(rename_all = "camelCase")]
+    ModifyGroup {
+        item_id: ItemId,
+        group: Option<Group>,
+    },
+
     /// A modification to change the configuration parameters
     /// (if None provided)
     #[serde(rename_all = "camelCase")]
@@ -226,12 +234,19 @@ pub enum Modification {
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DetailType {
+    /// A variant for the list of all groups
+    /// NOTE: Consider moving this to the index module (see AllItems)
+    AllGroups,
+
     /// A variant for the list of all scenes
     /// NOTE: Consider moving this to the index module (see AllItems)
     AllScenes,
 
     /// A variant for the event associated with an item
     Event { item_id: ItemId },
+
+    /// A variant for the list of all events in a group
+    Group { item_id: ItemId },
 
     /// A variant for the status associated with an item
     Status { item_id: ItemId },
@@ -324,67 +339,59 @@ pub enum UserRequest {
     StatusChange { status: ItemId, state: ItemId },
 }
 
-/// A type to cover all web replies
+
+/// A struct to cover all web replies
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum WebReply {
+pub struct WebReply {
+    pub is_valid: bool,
+    pub data: WebReplyData,
+}
+
+/// A type to cover all web reply data
+///
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WebReplyData {
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
-    Event {
-        is_valid: bool,       // a flag to indicate the result of the request
-        event: Option<Event>, // the event detail, if found
-    },
+    Event (Option<Event>),
 
     // A variant that contains item detail
     #[serde(rename_all = "camelCase")]
-    Item {
-        is_valid: bool,      // a flag to indicate the result of the request
-        item_pair: ItemPair, // the item pair
-    },
+    Item (ItemPair),
 
     // A variant that contains an item list
     #[serde(rename_all = "camelCase")]
-    Items {
-        is_valid: bool,     // a flag to indicate the result of the request
-        items: Vec<ItemId>, // the list of all items, if found
-    },
+    Items (Vec<ItemId>),
 
-    // A variant for replies with no specific content
+    // A variant for replies with a message
     #[serde(rename_all = "camelCase")]
-    Generic {
-        is_valid: bool,  // a flag to indicate the result of the request
-        message: String, // a message describing the success or failure
-    },
+    Message (String),
+
+    // A variant that contains group detail
+    #[serde(rename_all = "camelCase")]
+    Group (Option<Group>),
 
     // A variant that contains configuration paramters
     #[serde(rename_all = "camelCase")]
-    Parameters {
-        is_valid: bool,  // a flag to introduce the result of the request
-        parameters: ConfigParameters, // the configuration parameters
-    },
+    Parameters (ConfigParameters),
 
     // A variant that contains a file path
     #[serde(rename_all = "camelCase")]
     Path {
-        is_valid: bool,   // a flag to indicate the result of the request
         filename: String, // the filename, including the file extension
-        path: String,     //
+        path: String,     // the full file path, including the filenme
     },
 
     // A variant that contains scene detail
     #[serde(rename_all = "camelCase")]
-    Scene {
-        is_valid: bool,       // a flag to indicate the result of the request
-        scene: Option<Scene>, // the scene detail, if found
-    },
+    Scene (Option<Scene>),
 
     // A variant that contains status detail
     #[serde(rename_all = "camelCase")]
-    Status {
-        is_valid: bool,         // a flag to indicate the result of the request
-        status: Option<Status>, // the status detail, if found
-    },
+    Status (Option<Status>),
 }
 
 // Implement key features of the web reply
@@ -392,9 +399,9 @@ impl WebReply {
     /// A function to return a new, successful web reply
     ///
     pub fn success() -> WebReply {
-        WebReply::Generic {
+        WebReply {
             is_valid: true,
-            message: "Request completed.".to_string(),
+            data: WebReplyData::Message("Request completed.".to_string())
         }
     }
 
@@ -404,24 +411,15 @@ impl WebReply {
     where
         S: Into<String>,
     {
-        WebReply::Generic {
-            is_valid: false,
-            message: reason.into(),
+        WebReply {
+            is_valid: true,
+            data: WebReplyData::Message(reason.into())
         }
     }
 
     /// A method to check if the reply is a success
     ///
     pub fn is_success(&self) -> bool {
-        match self {
-            &WebReply::Event { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Item { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Items { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Generic { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Parameters { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Path { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Scene { ref is_valid, .. } => is_valid.clone(),
-            &WebReply::Status { ref is_valid, .. } => is_valid.clone(),
-        }
+        self.is_valid
     }
 }

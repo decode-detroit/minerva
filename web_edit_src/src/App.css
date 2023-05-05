@@ -671,6 +671,11 @@ button.green {
   font-weight: lighter;
 }
 
+.box>.title .itemId {
+  font-size: 0.8rem;
+  font-weight: lighter;
+}
+
 .box>.title .removeMenu {
   width: 100%;
   left: 0;
@@ -732,8 +737,8 @@ button.green {
   background-color: #b2500c;
 }
 
-.node.label {
-  background-color: #4d5564;
+.node.group {
+  background-color: #713d80;
 }
 
 .node.none {
@@ -771,6 +776,51 @@ button.green {
 
 .box.scene .divButton:hover {
   outline: #efefef88 solid 2px;
+}
+
+.box.group {
+  background-color: transparent;
+}
+
+.box.group>.title {
+  background-color: #713d80;
+}
+
+.box.group>.title::after {
+  content: "Group";
+}
+
+.box.group .groupArea {
+  position: relative;
+  overflow: scroll;
+  background-color: #713d8022;
+  padding: 10px;
+  min-width: 250px;
+  min-height: 100px;
+}
+
+.box.group .placeholder {
+  position: absolute;
+  padding: 10px;
+  color: #fffa;
+}
+
+.box.group .showCorner {
+  position: absolute;
+  left: 0px;
+  bottom: 0px;
+  padding: 3px;
+  color: #fffa;
+  cursor: pointer;
+}
+
+.box.group .resizeCorner {
+  position: absolute;
+  right: 0px;
+  bottom: 0px;
+  padding: 3px;
+  color: #fffa;
+  cursor: pointer;
 }
 
 .box.status>.title {
@@ -1081,6 +1131,11 @@ button.green {
 
 .box.none .divButton.scene {
   background-color: #b2500c;
+  border-radius: 0;
+}
+
+.box.none .divButton.group {
+  background-color: #713d80;
   border-radius: 0 0 6px 0;
 }
 

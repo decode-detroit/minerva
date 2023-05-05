@@ -28,10 +28,10 @@ export class DeleteMenu extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         // Save the itemPair
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     
@@ -173,19 +173,19 @@ export class SceneMenu extends React.PureComponent {
       const json = await response.json();
 
       // If the response is valid
-      if (json.items.isValid) {
+      if (json.isValid) {
         // Get the detail of each item
         let sceneList = [{id: -1, description: " "}];
-        await asyncForEach(json.items.items, async (item) => {
+        await asyncForEach(json.data.items, async (item) => {
           // Fetch the description of the item
           response = await fetch(`/getItem/${item.id}`);
           const json2 = await response.json();
 
           // If valid, save the id and description
-          if (json2.item.isValid) {
+          if (json2.isValid) {
             sceneList.push({
               id: item.id,
-              description: json2.item.itemPair.description,
+              description: json2.data.item.description,
             });
           }
         });
@@ -256,18 +256,18 @@ export class AddMenu extends React.PureComponent {
       const json = await response.json();
 
       // If the response is valid
-      if (json.items.isValid) {
+      if (json.isValid) {
         // Get the detail of each item
         let list = [];
-        await asyncForEach(json.items.items, async (item) => {
+        await asyncForEach(json.data.items, async (item) => {
           // Check to see the item type
           let response = await fetch(`getType/${item.id}`);
           let type = "none";
 
           // If type is valid, save it
           const json = await response.json();
-          if (json.generic.isValid) {
-            type = json.generic.message;
+          if (json.isValid) {
+            type = json.data.message;
           }
           
           // Fetch the description of the item
@@ -394,8 +394,8 @@ export class SelectMenu extends React.PureComponent {
         const json = await response.json();
         
         // Try to read these items
-        if (json.items.isValid) {
-          items = json.items.items;
+        if (json.isValid) {
+          items = json.data.items;
         } else {
           console.log(`Server inaccessible.`);
           return;
@@ -411,8 +411,8 @@ export class SelectMenu extends React.PureComponent {
 
         // If type is valid, save it
         const json = await response.json();
-        if (json.generic.isValid) {
-          type = json.generic.message;
+        if (json.isValid) {
+          type = json.data.message;
         }
         
         // If the add menu type isn't none and this type doesn't match

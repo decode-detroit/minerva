@@ -26,11 +26,17 @@ background_process: null
 default_scene:
   id: 100
 fullscreen: null
+all_groups:
+  ? id: 700
+  : is_hidden: true
+    items:
+    - id: 101
 all_scenes:
   ? id: 100
   : events:
     - id: 101
     - id: 100
+    - id: 700
     key_map: null
   ? id: 400
   : events:
@@ -123,6 +129,9 @@ event_set:
         id: 310
       new_state:
         id: 311
+  ? id: 700
+    description: A Group
+  : null
   ? id: 320
     description: Change The Event
   : null

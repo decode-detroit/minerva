@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2021 Decode Detroit
+// Copyright (c) 2017-2023 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -15,25 +15,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-//! This module implements the scene structure for grouping events to
-//! limit access to one set of events at a time.
+//! This module implements the group structure for grouping events.
+//! Groups do not limit access and are useful for organizing events.
 
 // Import crate definitions
 use crate::definitions::*;
 
-// Import FNV HashMap and HashSet
-use fnv::{FnvHashMap, FnvHashSet};
+// Import FNV HashSet
+use fnv::FnvHashSet;
 
-/// Define the itemid and itempair definition of a key map
-///
-type KeyMapId = FnvHashMap<u32, ItemId>;
-pub type KeyMap = FnvHashMap<u32, ItemPair>;
-
-/// A structure to define the parameters of a scene
+/// A structure to define the parameters of a group
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
-pub struct Scene {
-    pub events: FnvHashSet<ItemId>, // hash set of the events in this scene
-    pub key_map: Option<KeyMapId>,  // an optional mapping of key codes to events
+pub struct Group {
+    pub items: FnvHashSet<ItemId>, // hash set of the items in this scene
+    pub is_hidden: bool, // a flag to indicate whether the items in the group are visible
 }
 

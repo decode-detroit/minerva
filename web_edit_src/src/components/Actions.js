@@ -102,9 +102,9 @@ export class NewScene extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     
@@ -208,11 +208,11 @@ export class ModifyStatus extends React.PureComponent {
       const json3 = await response.json();
 
       // If all three are valid, save the result to the state
-      if (json1.item.isValid && json2.item.isValid && json3.status.isValid) {
+      if (json1.isValid && json2.isValid && json3.isValid) {
         this.setState({
-          description: json1.item.itemPair.description,
-          stateDescription: json2.item.itemPair.description,
-          validStates: [...json3.status.status.MultiState.allowed],
+          description: json1.data.item.description,
+          stateDescription: json2.data.item.description,
+          validStates: [...json3.data.status.MultiState.allowed],
         });
       }
     
@@ -499,9 +499,9 @@ export class CueEvent extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     
@@ -845,9 +845,9 @@ export class CancelEvent extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
-      if (json.item.isValid) {
+      if (json.isValid) {
         this.setState({
-          description: json.item.itemPair.description,
+          description: json.data.item.description,
         });
       }
     
@@ -940,10 +940,10 @@ export class SelectEvent extends React.PureComponent {
       const json2 = await response.json();
 
       // If both are valid, save the result to the state
-      if (json1.item.isValid && json2.status.isValid) {
+      if (json1.isValid && json2.isValid) {
         this.setState({
-          description: json1.item.itemPair.description,
-          validStates: [...json2.status.status.MultiState.allowed],
+          description: json1.data.item.description,
+          validStates: [...json2.data.status.MultiState.allowed],
         });
       }
     
