@@ -275,11 +275,11 @@ export class AddMenu extends React.PureComponent {
           const json2 = await response.json();
 
           // If description is valid, save the id, type, and description
-          if (json2.item.isValid) {
+          if (json2.isValid) {
             list.push({
               id: item.id,
               type: type,
-              description: json2.item.itemPair.description,
+              description: json2.data.item.description,
             });
           }
         });
@@ -425,11 +425,11 @@ export class SelectMenu extends React.PureComponent {
         const json2 = await response.json();
 
         // If description is valid, save the id, type, and description
-        if (json2.item.isValid) {
+        if (json2.isValid) {
           list.push({
             id: item.id,
             type: type,
-            description: json2.item.itemPair.description,
+            description: json2.data.item.description,
           });
         }
       });

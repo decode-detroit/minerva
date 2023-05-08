@@ -33,7 +33,31 @@ pub type KeyMap = FnvHashMap<u32, ItemPair>;
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct Scene {
-    pub events: FnvHashSet<ItemId>, // hash set of the events in this scene
+    pub items: FnvHashSet<ItemId>, // hash set of the items in this scene (excluding groups)
+    pub groups: FnvHashSet<ItemId>, // hash set of the groups in this scene
     pub key_map: Option<KeyMapId>,  // an optional mapping of key codes to events
+}
+
+/// A structure to define the parameters of a scene, web version
+///
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebScene {
+    pub items: FnvHashSet<ItemId>, // hash set of the items in this scene (including group ids)
+    pub key_map: Option<KeyMapId>,  // an optional mapping of key codes to events
+}
+
+// Implement conversion from Scene to WebScene
+impl From<Scene> for WebScene {
+    fn from(mut scene: Scene) -> Self {
+        // Combine the items and groups lists
+        scene.items.extend(&scene.groups);
+
+        // Recompose as a WebScene
+        Self {
+            items: scene.items,
+            key_map: scene.key_map,
+        }
+    }
 }
 

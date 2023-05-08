@@ -12,7 +12,7 @@ export class ViewArea extends React.PureComponent {
     super(props);
     this.state = {
       sceneId: -1, // the current scene id
-      idList: [], // list of all shown item ids
+      idList: [], // list of all item ids in this scene
       focusId: -1, // the highlighted item box
       connections: [], // list of all connectors
       top: 0, // edit area translation properties
@@ -31,9 +31,7 @@ export class ViewArea extends React.PureComponent {
     this.showContextMenu = this.showContextMenu.bind(this);
     this.changeScene = this.changeScene.bind(this);
     this.refresh = this.refresh.bind(this);
-    this.addItem = this.addItem.bind(this);
     this.addItemToScene = this.addItemToScene.bind(this);
-    this.removeItem = this.removeItem.bind(this);
     this.removeItemFromScene = this.removeItemFromScene.bind(this);
     this.createConnector = this.createConnector.bind(this);
     this.grabFocus = this.grabFocus.bind(this);
@@ -95,14 +93,14 @@ export class ViewArea extends React.PureComponent {
 
   // Function to respond to wheel events
   handleWheel(e) {
-    // FIXME Disabled
+
     return;
+    // FIXME Disabled
+    /*stopPropogation(e);
 
     // Extract the event, delta, and mouse location
-    e = e || window.event;
-    e.preventDefault();
     let delta = e.deltaY / 5000; // convert the speed of the zoom
-    let locX = e.clientX;
+    let locX = e.clientX; // FIXME triangulate correct location
     let locY = e.clientY;
 
     // Get the window dimensions
@@ -138,14 +136,13 @@ export class ViewArea extends React.PureComponent {
         left: left,
         zoom: zoom,
       })
-    });
+    });*/
   }
 
   // Function to show the context menu at the correct location
   showContextMenu(e) {
-    // Prevent the default event handler
-    e = e || window.event;
-    e.preventDefault();
+    stopPropogation(e);
+    e.preventDefault(); // block the browser menu
 
     // Update the cusor location and mark the menu as visible
     this.setState({
@@ -165,38 +162,23 @@ export class ViewArea extends React.PureComponent {
     });
   }
 
-  // Function to add a specific item to the viewarea, if not present
-  addItem(id) {
-    // Add the item to the list, if missing
-    this.setState(prevState => {
-      // Add the id if not present
-      if (!prevState.idList.includes(id)) {
-        return ({
-          idList: [...prevState.idList, id],
-        });
-      }
-    });
-  }
-
   // Function to hide the menu and add an item to the scene and the viewport
   addItemToScene(id, left, top) {
     // Add the item to the list, if missing
-    this.setState(prevState => {
-      // Add the id if not present
+    this.setState((prevState) => {
+      // If the id is not present
       if (!prevState.idList.includes(id)) {
+        // Add it to the list
         const newList = [...prevState.idList, id];
 
-        // If not in the empty scene
-        if (parseInt(this.state.sceneId) !== -1) {
-          // Convert the list to item ids
-          let events = newList.map((id) => {return { id: id }});
+        // Convert the item and group lists to item ids
+        let items = newList.map((id) => {return { id: id }});
 
-          // Submit the modification to the scene
-          this.props.saveModifications([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { events: events, }}}]); // FIXME copy key map
+        // Submit the modification to the scene
+        this.props.saveModifications([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { items: items, groups: [], }}}]); // FIXME copy key map
 
-          // Save the location
-          this.saveLocation(id, parseInt((left / this.state.zoom) - this.state.left), parseInt((top / this.state.zoom) - this.state.top));
-        }
+        // Save the location
+        this.saveLocation(id, parseInt((left / this.state.zoom) - this.state.left), parseInt((top / this.state.zoom) - this.state.top));
         
         // Update the state
         return ({
@@ -205,23 +187,10 @@ export class ViewArea extends React.PureComponent {
         });
       }
 
-      // Close the add menu
+      // Otherwise, just close the add menu
       return ({
         isMenuVisible: false,
       });
-    });
-  }
-
-  // Function to remove a specific item to the viewarea, if present
-  removeItem(id) {
-    // Remove the item from the list, if present
-    this.setState(prevState => {
-      // Remove the id if present
-      if (prevState.idList.includes(id)) {
-        return ({
-          idList: prevState.idList.filter(listId => listId !== id),
-        });
-      }
     });
   }
 
@@ -229,37 +198,30 @@ export class ViewArea extends React.PureComponent {
   removeItemFromScene(id) {
     // Remove the item from the list, if present
     this.setState(prevState => {
-      // Remove the id if present
+      // Remove the id if present in the id list or group list
       if (prevState.idList.includes(id)) {
-        const newList = prevState.idList.filter(listId => listId !== id);
+        // Filter from both lists
+        const newIdList = prevState.idList.filter(listId => listId !== id);
 
-        // If not in the empty scene
-        if (parseInt(this.state.sceneId) !== -1) {
-          // Convert the list to item ids
-          let events = newList.map((id) => {return { id: id }});
+        // Convert both lists to item ids
+        let items = newIdList.map((id) => {return { id: id }});
 
-          // Submit the modification to the scene
-          this.props.saveModifications([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { events: events, }}}]); // FIXME copy key map
-        }
+        // Submit the modification to the scene
+        this.props.saveModifications([{ modifyScene: { itemId: { id: parseInt(this.state.sceneId) }, scene: { items: items, groups: [], }}}]); // FIXME copy key map
         
+        // Update the state
         return ({
-          idList: newList,
-          isMenuVisible: false,
+          idList: newIdList,
         });
       }
 
-      // Close the add menu
-      return ({
-        isMenuVisible: false,
-      });
+      // Otherwise, do nothing
+      return ({});
     });
   }
 
   // Function to grab focus for a specific item box
   grabFocus(id) {
-    // Make sure the item exists
-    this.addItem(id);
-    
     // Save the focus id
     this.setState({
       focusId: id,
@@ -281,18 +243,7 @@ export class ViewArea extends React.PureComponent {
   // Function to create a new connector between boxes
   createConnector(type, ref, id) {
     // Add the item, if it doesn't already exist
-    this.addItem(id);
-    
-    // Add the connection
-    this.setState({
-      connections: [...this.state.connections, {type: type, ref: ref, id: id}],
-    })
-  }
-  
-  // Function to create a new connector between boxes
-  createConnector(type, ref, id) {
-    // Add the item, if it doesn't already exist
-    this.addItem(id);
+    //this.addItem(id); // FIXME handle this edge case
     
     // Add the connection
     this.setState({
@@ -328,9 +279,10 @@ export class ViewArea extends React.PureComponent {
         // If valid, save the result to the state
         if (json.isValid) {
           // Strip ids from the items
-          let ids = json.data.scene.events.map((item) => item.id);
+          let ids = json.data.scene.items.map((item) => item.id);
           ids.sort();
 
+          // Update the state
           this.setState({
             idList: ids,
             connections: [], // reset the connectors
@@ -347,8 +299,8 @@ export class ViewArea extends React.PureComponent {
   // Render the edit area inside the viewbox
   render() {
     // Add the scene to the list, if it doesn't already exist
-    let idList = this.state.idList;
-    if (idList.indexOf(this.state.sceneId) < 0) {
+    let idList = [...this.state.idList];
+    if (!idList.includes(this.state.sceneId)) {
       idList = [this.state.sceneId, ...this.state.idList];
     }
 
@@ -555,7 +507,7 @@ export class EditArea extends React.PureComponent {
   // Render the draggable edit area
   render() {
     // Create a box for each event
-    const boxes = this.props.idList.map((id, index) => <ItemBox key={id.toString()} id={id} focusId={this.props.focusId} row={parseInt(index / 12)} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
+    const boxes = this.props.idList.map((id, index) => <ItemBox key={id.toString()} id={id} focusId={this.props.focusId} row={parseInt(index / 12)} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.props.removeItem} removeText="Remove From Scene" createConnector={this.props.createConnector} />);
     
     // Render the event boxes
     return (

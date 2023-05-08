@@ -25,29 +25,29 @@ system_connections: []
 background_process: null
 default_scene:
   id: 100
-fullscreen: null
-all_groups:
+group_map:
   ? id: 700
-  : is_hidden: true
-    items:
+  : items:
     - id: 101
-all_scenes:
+    is_hidden: false
+scene_map:
   ? id: 100
-  : events:
-    - id: 101
+  : items:
     - id: 100
+    groups:
     - id: 700
     key_map: null
   ? id: 400
-  : events:
+  : items:
     - id: 402
     - id: 400
     - id: 401
+    groups: []
     key_map:
       32:
         id: 401
   ? id: 200
-  : events:
+  : items:
     - id: 205
     - id: 204
     - id: 206
@@ -55,9 +55,10 @@ all_scenes:
     - id: 200
     - id: 203
     - id: 202
+    groups: []
     key_map: null
   ? id: 300
-  : events:
+  : items:
     - id: 302
     - id: 323
     - id: 312
@@ -71,14 +72,16 @@ all_scenes:
     - id: 311
     - id: 300
     - id: 321
+    groups: []
     key_map: null
   ? id: 500
-  : events:
+  : items:
     - id: 502
     - id: 504
     - id: 501
     - id: 503
     - id: 500
+    groups: []
     key_map:
       32:
         id: 501
@@ -129,9 +132,6 @@ event_set:
         id: 310
       new_state:
         id: 311
-  ? id: 700
-    description: A Group
-  : null
   ? id: 320
     description: Change The Event
   : null
@@ -154,6 +154,9 @@ event_set:
   ? id: 100
     description: Introduction
   : []
+  ? id: 700
+    description: An Example Group
+  : null
   ? id: 303
     description: Add Delayed Events
   : - !CueEvent
@@ -311,6 +314,9 @@ event_set:
       new_scene:
         id: 100
 user_styles:
-  '#scene-200 #id-1000': '{ left: 591px; top: 365px; }'
-  '#scene-100 #id-101': '{ left: 379px; top: 98px; }'
+  '#scene-100 #id-203': '{ left: 94px; top: 60px; }'
+  '#scene-100 #id-700 .groupArea': '{ width: 397px; height: 224px; }'
   '#scene-100 #id-1000': '{ left: 532px; top: 362px; }'
+  '#scene-100 #id-700': '{ left: 379px; top: 96px; }'
+  '#scene-200 #id-1000': '{ left: 591px; top: 365px; }'
+  '#scene-100 #id-101': '{ left: 58px; top: 51px; }'

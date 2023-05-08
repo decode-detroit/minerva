@@ -32,3 +32,32 @@ pub struct Group {
     pub is_hidden: bool, // a flag to indicate whether the items in the group are visible
 }
 
+/// A structure to define the parameters of a group, web version
+///
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebGroup {
+    pub items: FnvHashSet<ItemId>, // hash set of the items in this scene
+    pub is_hidden: bool, // a flag to indicate whether the items in the group are visible
+}
+
+// Implement conversion to and from Group and WebGroup
+impl From<WebGroup> for Group {
+    fn from(group: WebGroup) -> Self {
+        // Recompose as a Group
+        Self {
+            items: group.items,
+            is_hidden: group.is_hidden,
+        }
+    }
+}
+impl From<Group> for WebGroup {
+    fn from(group: Group) -> Self {
+        // Recompose as a WebGroup
+        Self {
+            items: group.items,
+            is_hidden: group.is_hidden,
+        }
+    }
+}
+

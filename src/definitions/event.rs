@@ -197,7 +197,7 @@ pub struct MediaCueHelper {
 impl From<MediaCue> for MediaCueHelper {
     fn from(media_cue: MediaCue) -> Self {
         // Recompose as a media cue helper
-        MediaCueHelper {
+        Self {
             uri: media_cue.uri,
             channel: media_cue.channel,
             loop_media: media_cue.loop_media,

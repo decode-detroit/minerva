@@ -167,8 +167,8 @@ struct YamlConfig {
     system_connections: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
     default_scene: ItemId, // the starting scene for the configuration
-    all_groups: FnvHashMap<ItemId, Group>, // hash map of all availble groups
-    all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
+    group_map: FnvHashMap<ItemId, Group>, // hash map of all availble groups
+    scene_map: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap,  // hash map of the default game status
     event_set: FnvHashMap<ItemPair, Option<Event>>, // hash map of all the item pairs and events
     user_styles: StyleMap, // A string representing arbitrary css for styling the user and edit interfaces
@@ -188,10 +188,10 @@ pub struct Config {
     background_thread: Option<BackgroundThread>, // a copy of the background process info
     default_scene: ItemId, // the starting scene for the configuration
     current_scene: ItemId,  // identifier for the current scene
-    all_groups: FnvHashMap<ItemId, Group>, // hash map of all availble groups
-    all_scenes: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
+    group_map: FnvHashMap<ItemId, Group>, // hash map of all availble groups
+    scene_map: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_handler: StatusHandler, // status handler for the current game status
-    events: FnvHashMap<ItemId, Event>, // hash map of all the events
+    event_set: FnvHashMap<ItemId, Event>, // hash map of all the events
     index_access: IndexAccess, // access point to the item index
     style_access: StyleAccess, // access point to the style sheet
     internal_send: InternalSend, // line to provide updates to the higher-level system
@@ -225,10 +225,10 @@ impl Config {
             background_thread: None,
             default_scene: ItemId::all_stop(),
             current_scene: ItemId::all_stop(),
-            all_groups: FnvHashMap::default(),
-            all_scenes: FnvHashMap::default(),
+            group_map: FnvHashMap::default(),
+            scene_map: FnvHashMap::default(),
             status_handler,
-            events: FnvHashMap::default(),
+            event_set: FnvHashMap::default(),
             index_access,
             style_access,
             internal_send,
@@ -292,7 +292,7 @@ impl Config {
 
         // Turn the ItemPairs in to the item index and event set
         let mut item_index = DescriptionMap::default();
-        let mut events = FnvHashMap::default();
+        let mut event_set = FnvHashMap::default();
         for (item_pair, possible_event) in yaml_config.event_set.iter() {
             // Insert the event description into the lookup
             match item_index.insert(item_pair.get_id(), item_pair.get_description()) {
@@ -309,7 +309,7 @@ impl Config {
             // If the event is specified
             if let &Some(ref event) = possible_event {
                 // Insert the event into the events hash map
-                match events.insert(item_pair.get_id(), event.clone()) {
+                match event_set.insert(item_pair.get_id(), event.clone()) {
                     // Warn of an event defined multiple times
                     Some(_) => {
                         warn!(
@@ -323,10 +323,10 @@ impl Config {
         }
 
         // Verify the configuration is defined correctly
-        let all_scenes = yaml_config.all_scenes;
-        let all_groups = yaml_config.all_groups;
+        let scene_map = yaml_config.scene_map;
+        let group_map = yaml_config.group_map;
         let status_map = yaml_config.status_map;
-        Config::verify_config(&all_scenes, &status_map, &item_index, &events).await;
+        Config::verify_config(&scene_map, &group_map, &status_map, &item_index, &event_set).await; // FIXME check groups as well
 
         // Load the item index
         index_access.send_index(item_index).await;
@@ -341,7 +341,7 @@ impl Config {
         let current_scene = yaml_config.default_scene;
 
         // Check to see if the default scene is valid and warn if not defined
-        if let None = all_scenes.get(&current_scene) {
+        if let None = scene_map.get(&current_scene) {
             warn!("Current scene is not defined.");
         }
 
@@ -361,10 +361,10 @@ impl Config {
             background_thread,
             default_scene: yaml_config.default_scene,
             current_scene,
-            all_groups,
-            all_scenes,
+            group_map,
+            scene_map,
             status_handler,
-            events,
+            event_set,
             index_access,
             style_access,
             internal_send,
@@ -410,7 +410,7 @@ impl Config {
     ///
     pub fn get_group(&self, item_id: &ItemId) -> Option<Group> {
         // Return the scene, if found, and return a copy
-        self.all_groups.get(item_id).map(|group| group.clone())
+        self.group_map.get(item_id).map(|group| group.clone())
     }
 
     /// A method to return a list of all available scenes in this
@@ -420,7 +420,7 @@ impl Config {
     pub fn get_groups(&self) -> Vec<ItemId> {
         // Compile a list of the available groups
         let mut groups = Vec::new();
-        for group_id in self.all_groups.keys() {
+        for group_id in self.group_map.keys() {
             groups.push(group_id.clone());
         }
 
@@ -498,7 +498,7 @@ impl Config {
     ///
     pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
         // Return the scene, if found, and return a copy
-        self.all_scenes.get(item_id).map(|scene| scene.clone())
+        self.scene_map.get(item_id).map(|scene| scene.clone())
     }
 
     /// A method to return a list of all available scenes in this
@@ -508,7 +508,7 @@ impl Config {
     pub fn get_scenes(&self) -> Vec<ItemId> {
         // Compile a list of the available scenes
         let mut scenes = Vec::new();
-        for scene_id in self.all_scenes.keys() {
+        for scene_id in self.scene_map.keys() {
             scenes.push(scene_id.clone());
         }
 
@@ -519,19 +519,27 @@ impl Config {
         scenes
     }
 
-    /// A method to return a list of all available items in the current scene.
+    /// A method to return a list of all items in the current scene.
     /// This method will always return the items from lowest to highest id.
+    /// 
+    /// # Note
+    /// 
+    /// For grouped items this method only returnes the group id.
+    /// Group items much be queried separately.
     ///
     pub fn get_current_items(&self) -> Vec<ItemId> {
         // Create an empty item vector
         let mut items = Vec::new();
 
         // Try to open the current scene
-        if let Some(scene) = self.all_scenes.get(&self.current_scene) {
+        if let Some(scene) = self.scene_map.get(&self.current_scene) {
             // Compile the list of the available items
-            for item_id in scene.events.iter() {
+            for item_id in scene.items.iter() {
                 items.push(item_id.clone());
             }
+
+            // Add the list of group ids
+            items.extend(&scene.groups);
 
             // Sort them in order and then pair them with their descriptions
             items.sort_unstable();
@@ -549,7 +557,7 @@ impl Config {
         let mut map = FnvHashMap::default();
 
         // Try to open the current scene
-        if let Some(scene) = self.all_scenes.get(&self.current_scene) {
+        if let Some(scene) = self.scene_map.get(&self.current_scene) {
             // If the key map exists
             if let Some(key_map) = &scene.key_map {
                 // Iterate through the key map for this scene
@@ -595,7 +603,7 @@ impl Config {
     /// 
     pub async fn choose_scene(&mut self, scene_id: ItemId) -> Result<(), ()> {
         // Check to see if the scene_id is valid
-        if self.all_scenes.contains_key(&scene_id) {
+        if self.scene_map.contains_key(&scene_id) {
             // Update the current scene id
             self.current_scene = scene_id;
 
@@ -668,7 +676,7 @@ impl Config {
         // If a new event was specified
         if let Some(new_event) = possible_event {
             // If the event is in the event list, update the event
-            if let Some(event) = self.events.get_mut(&event_id) {
+            if let Some(event) = self.event_set.get_mut(&event_id) {
                 // Update the event and notify the system
                 *event = new_event;
                 info!(
@@ -682,13 +690,13 @@ impl Config {
                     "Event added: {}.",
                     self.index_access.get_description(&event_id).await
                 );
-                self.events.insert(event_id, new_event);
+                self.event_set.insert(event_id, new_event);
             }
 
         // If no new event was specified
         } else {
             // If the event is in the event list, remove it
-            if let Some(_) = self.events.remove(&event_id) {
+            if let Some(_) = self.event_set.remove(&event_id) {
                 // Notify the user that it was removed
                 info!(
                     "Event removed: {}.",
@@ -704,7 +712,7 @@ impl Config {
         // If a new group was specified
         if let Some(new_group) = possible_group {
             // If the group is in the group list, update the group
-            if let Some(group) = self.all_groups.get_mut(&group_id) {
+            if let Some(group) = self.group_map.get_mut(&group_id) {
                 // Update the group and notify the system
                 *group = new_group;
                 info!(
@@ -718,13 +726,13 @@ impl Config {
                     "Group added: {}.",
                     self.index_access.get_description(&group_id).await
                 );
-                self.all_groups.insert(group_id, new_group);
+                self.group_map.insert(group_id, new_group);
             }
 
         // If no new group was specified
         } else {
             // If the group is in the group list, remove it
-            if let Some(_) = self.all_groups.remove(&group_id) {
+            if let Some(_) = self.group_map.remove(&group_id) {
                 // Notify the user that it was removed
                 info!(
                     "Group removed: {}.",
@@ -754,7 +762,7 @@ impl Config {
         // If a new scene was specified
         if let Some(new_scene) = possible_scene {
             // If the scene is in the scene list, update the scene
-            if let Some(scene) = self.all_scenes.get_mut(&scene_id) {
+            if let Some(scene) = self.scene_map.get_mut(&scene_id) {
                 // Update the scene and notify the system
                 *scene = new_scene;
                 info!(
@@ -768,13 +776,13 @@ impl Config {
                     "Scene added: {}.",
                     self.index_access.get_description(&scene_id).await
                 );
-                self.all_scenes.insert(scene_id, new_scene);
+                self.scene_map.insert(scene_id, new_scene);
             }
 
         // If no new scene was specified
         } else {
             // If the scene is in the scene list, remove it
-            if let Some(_) = self.all_scenes.remove(&scene_id) {
+            if let Some(_) = self.scene_map.remove(&scene_id) {
                 // Notify the user that it was removed
                 info!(
                     "Scene removed: {}.",
@@ -794,7 +802,7 @@ impl Config {
     ///
     pub fn get_event(&mut self, id: &ItemId) -> Option<Event> {
         // Try to return a copy of the event
-        self.events.get(id).map(|event| event.clone())
+        self.event_set.get(id).map(|event| event.clone())
     }
 
     /// A method to return the event based on the event id.
@@ -809,12 +817,26 @@ impl Config {
         // If the checkscene flag is set
         if checkscene {
             // Try to open the current scene
-            if let Some(scene) = self.all_scenes.get(&self.current_scene) {
+            if let Some(scene) = self.scene_map.get(&self.current_scene) {
                 // Check to see if the event is listed in the current scene
-                if !scene.events.contains(id) {
-                    // If the event is not listed in the current scene, notify
-                    warn!("Event not in current scene: {}", id);
-                    return None;
+                if !scene.items.contains(id) {
+                    // If not, check all the groups in the scene
+                    let mut is_found = false;
+                    for group_id in scene.groups.iter() {
+                        if let Some(group) = self.group_map.get(&group_id) {
+                            if group.items.contains(id) {
+                                is_found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // If not found
+                    if !(is_found) {
+                        // If the event is not listed in the current scene or scene groups, notify
+                        warn!("Event not in current scene: {}", id);
+                        return None;
+                    }
                 }
             // Warn that there isn't a current scene
             } else {
@@ -858,7 +880,7 @@ impl Config {
         // Look through the item index
         for item_pair in item_index.drain(..) {
             // Add the event if found
-            match self.events.get(&item_pair.get_id()) {
+            match self.event_set.get(&item_pair.get_id()) {
                 // Include the event, when found
                 Some(event) => {
                     event_set.insert(item_pair, Some(event.clone()));
@@ -884,8 +906,8 @@ impl Config {
             media_players: self.media_players.clone(),
             background_process: self.get_background_process(),
             default_scene: self.default_scene,
-            all_groups: self.all_groups.clone(),
-            all_scenes: self.all_scenes.clone(),
+            group_map: self.group_map.clone(),
+            scene_map: self.scene_map.clone(),
             status_map: self.status_handler.get_map(),
             event_set,
             user_styles,
@@ -921,14 +943,15 @@ impl Config {
     /// guaranteed to catch later inconsistencies.
     ///
     async fn verify_config(
-        all_scenes: &FnvHashMap<ItemId, Scene>,
+        scene_map: &FnvHashMap<ItemId, Scene>,
+        group_map: &FnvHashMap<ItemId, Group>,
         status_map: &StatusMap,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
         events: &FnvHashMap<ItemId, Event>,
     ) {
         // Verify each scene in the config
-        for (id, scene) in all_scenes.iter() {
-            if !Config::verify_scene(scene, all_scenes, status_map, lookup, events).await {
+        for (id, scene) in scene_map.iter() {
+            if !Config::verify_scene(scene, scene_map, group_map, status_map, lookup, events).await {
                 warn!("Broken scene definition: {}.", id);
             }
 
@@ -952,22 +975,33 @@ impl Config {
     ///
     async fn verify_scene(
         scene: &Scene,
-        all_scenes: &FnvHashMap<ItemId, Scene>,
+        scene_map: &FnvHashMap<ItemId, Scene>,
+        group_map: &FnvHashMap<ItemId, Group>,
         status_map: &StatusMap,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
         events: &FnvHashMap<ItemId, Event>,
     ) -> bool {
-        // Verify that each event in the scene is valid
+        // Verify that each item in the scene is valid
         let mut test = true;
-        for id in scene.events.iter() {
+        for id in scene.items.iter() {
             // Find the matching event
             if let Some(event) = events.get(id) {
                 // Verify the event
-                if !Config::verify_event(event, scene, all_scenes, status_map, lookup, events).await
+                if !Config::verify_event(event, scene, scene_map, group_map, status_map, lookup, events).await
                 {
                     warn!("Invalid event: {}.", id);
                     test = false;
                 }
+
+            // Otherwise verify that the item id corresponds to a group
+            } else if let None = group_map.get(id) {
+                // Verify the group
+                /*if !Config::verify_group(event, scene, scene_map, status_map, lookup, events).await
+                {
+                    warn!("Invalid event: {}.", id);
+                    test = false;
+                }*/
+                error!("Group verification not implemented.");
 
             // Otherwise verify that the item id corresponds to a status
             } else if let None = status_map.get(id) {
@@ -985,9 +1019,23 @@ impl Config {
             // Verify that each key mapping matches a valid event
             for (_, id) in key_map.iter() {
                 // Make sure the event is listed in the scene
-                if !scene.events.contains(id) {
-                    warn!("Event in keyboard shortcuts, but not in scene: {}", id);
-                    test = false;
+                if !scene.items.contains(id) {
+                    // If not, check all the groups in the scene
+                    let mut is_found = false;
+                    for group_id in scene.groups.iter() {
+                        if let Some(group) = group_map.get(&group_id) {
+                            if group.items.contains(id) {
+                                is_found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // If not found
+                    if !(is_found) {
+                        warn!("Event in keyboard shortcuts, but not in scene: {}", id);
+                        test = false;
+                    }
                 } // Events in the scene have already been tested for other validity
             }
         }
@@ -1009,7 +1057,8 @@ impl Config {
     async fn verify_event(
         event: &Event,
         scene: &Scene,
-        all_scenes: &FnvHashMap<ItemId, Scene>,
+        scene_map: &FnvHashMap<ItemId, Scene>,
+        group_map: &FnvHashMap<ItemId, Group>,
         status_map: &StatusMap,
         lookup: &FnvHashMap<ItemId, ItemDescription>,
         event_list: &FnvHashMap<ItemId, Event>,
@@ -1021,7 +1070,7 @@ impl Config {
                 // If there is a new scene, verify the id is valid
                 &NewScene { ref new_scene } => {
                     // If the desired scene does exist
-                    if all_scenes.contains_key(new_scene) {
+                    if scene_map.contains_key(new_scene) {
                         // Verify that the newscene event exists in the new scene
                         if !event_list.contains_key(new_scene) {
                             warn!("Reset scene event missing from scene: {}.", new_scene);
@@ -1066,9 +1115,23 @@ impl Config {
                 // If there is an event to cue, verify that it exists
                 &CueEvent { ref event } => {
                     // Verify that the event is listed in the current scene
-                    if !scene.events.contains(&event.id()) {
-                        warn!("Cued event not in scene: {}.", &event.id());
-                        // Do not flag as incorrect
+                    if !scene.items.contains(&event.id()) {
+                        // If not, check all the groups in the scene
+                        let mut is_found = false;
+                        for group_id in scene.groups.iter() {
+                            if let Some(group) = group_map.get(&group_id) {
+                                if group.items.contains(&event.id()) {
+                                    is_found = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // If not found
+                        if !(is_found) {
+                            warn!("Cued event not in scene: {}.", &event.id());
+                            // Do not flag as incorrect
+                        }
                     }
 
                     // Return false if the event_id is incorrect
@@ -1216,8 +1279,8 @@ mod tests {
         one_scene.insert(ItemId::new(12).unwrap(), SaveData { data: vec![12] });
         one_scene.insert(ItemId::new(20).unwrap(), one_select_event);
         one_scene.insert(ItemId::new(22).unwrap(), trigger_event);
-        let mut all_scenes = FnvHashMap::default();
-        all_scenes.insert(ItemId::new(24).unwrap(), one_scene);
+        let mut scene_map = FnvHashMap::default();
+        scene_map.insert(ItemId::new(24).unwrap(), one_scene);
 
         // Write the example status map
         let mut status_map = StatusMap::default();
@@ -1231,7 +1294,7 @@ mod tests {
 
         // Write the example config
         let yaml_config = YamlConfig {
-            all_scenes,
+            scene_map,
             lookup: vec![
                 ItemPair::from_item(
                     ItemId::new(12).unwrap(),

@@ -36,6 +36,9 @@ use std::env;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
+// Import FNV HashSet
+use fnv::FnvHashSet;
+
 // Import Tokio features
 use tokio::sync::mpsc;
 
@@ -479,8 +482,8 @@ impl SystemInterface {
                         // Reply to a request for the group
                         DetailType::Group { item_id } => {
                             // Try to get the event
-                            if let Some(event) = handler.get_group(&item_id) {
-                                result = UnpackResult::SuccessWithGroup(event);
+                            if let Some(group) = handler.get_group(&item_id) {
+                                result = UnpackResult::SuccessWithGroup(group.into());
                             } else {
                                 result = UnpackResult::Failure("Group Not Found.".into());
                             }
@@ -500,7 +503,7 @@ impl SystemInterface {
                         DetailType::Scene { item_id } => {
                             // Try to get the scene
                             if let Some(scene) = handler.get_scene(&item_id) {
-                                result = UnpackResult::SuccessWithScene(scene);
+                                result = UnpackResult::SuccessWithScene(scene.into());
                             } else {
                                 result = UnpackResult::Failure("Scene Not Found.".into());
                             }
@@ -571,7 +574,9 @@ impl SystemInterface {
 
                             // Add or modify the group
                             Modification::ModifyGroup { item_id, group } => {
-                                handler.edit_group(item_id, group).await;
+                                // Recompose the web group into a group
+                                let new_group = group.map(|group| {group.into()});
+                                handler.edit_group(item_id, new_group).await;
                             }
 
                             // Update the configuration parameters
@@ -587,14 +592,45 @@ impl SystemInterface {
 
                             // Add or modify the scene
                             Modification::ModifyScene { item_id, scene } => {
-                                handler.edit_scene(item_id, scene).await;
+                                // Recompose the web scene into a scene
+                                let new_scene = match scene {
+                                    Some(scene) => {
+                                        // Extract the groups from the item list
+                                        let mut items = FnvHashSet::default();
+                                        let mut groups = FnvHashSet::default();
+                                        for item_id in scene.items.iter() {
+                                            // If it's a group, add it to the group list
+                                            if let Some(_) = handler.get_group(item_id) {
+                                                groups.insert(item_id.clone());
+                                            
+                                            // Otherwise, save it to the item list
+                                            } else {
+                                                items.insert(item_id.clone());
+                                            }
+                                        }
+
+                                        // Return the new scene
+                                        Some(Scene {
+                                            items,
+                                            groups,
+                                            key_map: scene.key_map,
+                                        })
+                                    },
+
+                                    // Do nothing if empty
+                                    None => None,
+                                };
+
+                                // Update the scene
+                                handler.edit_scene(item_id, new_scene).await;
                             }
 
                             // Remove an item and its event, status, or scene
                             Modification::RemoveItem { item_id } => {
-                                // Remove any event, status, or scene
+                                // Remove any event, status, group, or scene
                                 handler.edit_event(item_id, None).await;
                                 handler.edit_status(item_id, None).await;
+                                handler.edit_group(item_id, None).await;
                                 handler.edit_scene(item_id, None).await;
 
                                 // Get the description
@@ -821,7 +857,7 @@ enum UnpackResult {
     SuccessWithItems(Vec<ItemId>),
 
     // A variant for successful unpacking with a group
-    SuccessWithGroup(Group),
+    SuccessWithGroup(WebGroup),
 
     // A variant for successful unpacking with message
     SuccessWithMessage(String),
@@ -833,7 +869,7 @@ enum UnpackResult {
     SuccessWithPath(PathBuf),
 
     // A variant for successful unpacking with a scene
-    SuccessWithScene(Scene),
+    SuccessWithScene(WebScene),
 
     // A variant for successful unpacking with a status
     SuccessWithStatus(Status),

@@ -203,7 +203,13 @@ export class SceneMenu extends React.PureComponent {
 
       // Add the scene definition to the modifications
       modifications.push({
-        modifyScene: { itemId: { id: id }, scene: { events: [] }}
+        modifyScene: {
+          itemId: { id: id },
+          scene: {
+            items: [],
+            groups: [],
+          }
+        }
       });
 
       // Save the new scene
@@ -338,12 +344,12 @@ export class AddMenu extends React.PureComponent {
   // Return the completed box
   render() {
     // Compose the filtered items into a visible list
-    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={(e) => {this.props.addItem(item.id, e.clientX, e.clientY)}}>{item.description}</div>)
+    let list = this.state.filtered.map((item) => <div className={`divButton ${item.type}`} onClick={(e) => {this.props.addItem(item.id, this.props.left, this.props.top - 40)}}>{item.description}</div>)
     
     // Return the box
     return (
       <div className={`addMenu`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
-        <div className="title">Add Item To Scene<span className="closeButton" onClick={this.props.closeMenu}>X</span></div>
+        <div className="title">Add Item<span className="closeButton" onClick={this.props.closeMenu}>X</span></div>
         <input className="searchBar" ref={this.search} type="text" placeholder={this.state.ready ? "Type to search ..." : "  Loading ...  "} disabled={!this.state.ready} value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">
           <div>{list}</div>
@@ -362,8 +368,8 @@ export class AddMenu extends React.PureComponent {
           }}}];
           this.props.saveModifications(modifications);
 
-          // Make the item visible in this scene
-          this.props.addItem(id, this.props.left, this.props.top)}}>+<div className="description">Add New</div></div>
+          // Make the item visible
+          this.props.addItem(id, this.props.left, this.props.top - 40)}}>+<div className="description">Add New</div></div>
         }
       </div>
     );

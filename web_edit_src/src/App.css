@@ -303,6 +303,10 @@ button.green {
   background-color: #b2500c;
 }
 
+.addMenu.group .title {
+  background-color: #713d80;
+}
+
 .addMenu .closeButton {
   position: absolute;
   right: 5px;
@@ -378,6 +382,10 @@ button.green {
 
 .verticalScroll .divButton.scene {
   background-color: #b2500c;
+}
+
+.verticalScroll .divButton.group {
+  background-color: #713d80;
 }
 
 .configArea {
@@ -1140,47 +1148,6 @@ button.green {
 }
 
 .box.none .divButton:hover {
-  outline: #efefef88 solid 2px;
-  z-index: 3;
-}
-
-.box.label>.title {
-  background-color: #4d5564;
-}
-
-.box.label>.title::after {
-  content: "New Item";
-}
-
-.box.label .typeChooser {
-  display: flex;
-  flex-direction: row;
-}
-
-.box.label .divButton {
-  width: 33.33%;
-  padding: 0.3rem;
-  font-size: 1rem;
-  text-align: center;
-  cursor: pointer;
-}
-
-.box.label .divButton.event {
-  background-color: #008106;
-  border-radius: 0 0 0 6px;
-}
-
-.box.label .divButton.status {
-  background-color: #0074a3;
-  border-radius: 0;
-}
-
-.box.label .divButton.scene {
-  background-color: #b2500c;
-  border-radius: 0 0 6px 0;
-}
-
-.box.label .divButton:hover {
   outline: #efefef88 solid 2px;
   z-index: 3;
 }

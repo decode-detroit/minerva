@@ -180,14 +180,14 @@ export class ItemBox extends React.PureComponent {
               <input type="text" value={this.state.description} size={this.state.description.length > 30 ? this.state.description.length - 10 : 20} onInput={this.handleChange}></input>
               <div className="itemId disableSelect">({this.props.id})</div>
               {isFocus && <div className="removeMenu disableSelect">
-                <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>Remove From Scene</div>
+                <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>{this.props.removeText}</div>
                 <div onMouseDown={(e) => {stopPropogation(e); this.setState({ isDeleteVisible: true })}}>Delete</div>
               </div>}
               {this.state.isDeleteVisible && <DeleteMenu id={this.props.id} afterDelete={() => this.props.removeItem(this.props.id)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
             </div>
             <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
             {isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
-            {this.state.type === "group" && <GroupFragment id={this.props.id} focusId={this.props.focusId} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />}
+            {this.state.type === "group" && <GroupFragment id={this.props.id} focusId={this.props.focusId} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} createConnector={this.props.createConnector}/>}
             {isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
             {isFocus && this.state.type === "event" && <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
             {isFocus && this.state.type === "none" && <BlankFragment id={this.props.id} updateItem={this.updateItem} saveModifications={this.props.saveModifications}/>}
@@ -208,7 +208,7 @@ export class BlankFragment extends React.PureComponent {
         <div className="typeChooser">
           <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: [], }}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Event</div>
           <div className="divButton status" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Status</div>
-          <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { events: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Scene</div>
+          <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { items: [], groups: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Scene</div>
           <div className="divButton group" onClick={() => {let modifications = [{ modifyGroup: { itemId: { id: this.props.id }, group: { items: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Group</div>
         </div>
       </>
@@ -239,12 +239,20 @@ export class GroupFragment extends React.PureComponent {
       isHidden: true,
       width: 0,
       height: 0,
+      cursorX: 0,
+      cursorY: 0,
+      addLocX: 0,
+      addLocY: 0,
+      isMenuVisible: false,
     }
 
     // Bind the various functions
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.showContextMenu = this.showContextMenu.bind(this);
+    this.addItemToGroup = this.addItemToGroup.bind(this);
+    this.removeItemFromGroup = this.removeItemFromGroup.bind(this);
     this.updateGroup = this.updateGroup.bind(this);
     this.toggleShow = this.toggleShow.bind(this);
   }
@@ -311,6 +319,97 @@ export class GroupFragment extends React.PureComponent {
     this.setState({width: 0, height: 0});
   }
 
+  // Function to show the context menu at the correct location
+  showContextMenu(e) {
+    stopPropogation(e);
+    e.preventDefault(); // block the browser menu
+
+    // Update the cusor location and mark the menu as visible
+    let rect = e.target.parentNode.getBoundingClientRect();
+    this.setState({
+      addLocX: e.clientX - rect.left,
+      addLocY: e.clientY - rect.top,
+      isMenuVisible: true,
+    });
+  }
+
+  // Function to hide the menu and add an item to the group
+  addItemToGroup(id, left, top) {
+    // Add the item to the group, if missing
+    this.setState((prevState) => {
+      // If the id is not present
+      if (!prevState.idList.includes(id)) {        
+        // Add it to the list
+        const newList = [...prevState.idList, id];
+
+        // Convert the item list to item ids
+        let items = newList.map((id) => {return { id: id }});
+
+        // Compose the new group
+        let newGroup = { items: items, isHidden: prevState.isHidden };
+
+        // Save the changes
+        console.log(newGroup);
+        let modifications = [{
+          modifyGroup: {
+            itemId: { id: this.props.id },
+            group: newGroup,
+          },
+        }];
+        this.props.saveModifications(modifications);
+
+        // Save the location
+        this.props.saveLocation(id, parseInt((left / this.props.zoom)), parseInt((top / this.props.zoom)));
+        
+        // Update the state
+        return ({
+          idList: newList,
+          isMenuVisible: false,
+        });
+      }
+
+      // Otherwise, just close the add menu
+      return ({
+        isMenuVisible: false,
+      });
+    });
+  }
+
+  // Function to remove an item from the group
+  removeItemFromGroup(id) {
+    // Remove the item from the list, if present
+    this.setState(prevState => {
+      // Remove the id if present in the id list
+      if (prevState.idList.includes(id)) {
+        // Filter from the lists
+        const newIdList = prevState.idList.filter(listId => listId !== id);
+
+        // Convert list to item ids
+        let items = newIdList.map((id) => {return { id: id }});
+
+        // Compose the new group
+        let newGroup = { items: items, isHidden: prevState.isHidden};
+
+        // Save the changes
+        let modifications = [{
+          modifyGroup: {
+            itemId: { id: this.props.id },
+            group: newGroup,
+          },
+        }];
+        this.props.saveModifications(modifications);
+        
+        // Update the state
+        return ({
+          idList: newIdList,
+        });
+      }
+
+      // Otherwise, do nothing
+      return ({});
+    });
+  }
+
   // Helper function to update the group information
   async updateGroup() {
     try {
@@ -329,7 +428,7 @@ export class GroupFragment extends React.PureComponent {
         // Sort the ids and save        
         clean_ids.sort();
         this.setState({
-          isHidden: json.data.group.is_hidden, // FIXME create version with isHidden
+          isHidden: json.data.group.isHidden,
           idList: clean_ids,
         });
       }
@@ -348,7 +447,7 @@ export class GroupFragment extends React.PureComponent {
       let items = prevState.idList.map((id) => {return { id : id };});
 
       // Compose the new group
-      let newGroup = { items: items, is_hidden: !prevState.isHidden}; // FIXME create version with isHidden
+      let newGroup = { items: items, isHidden: !prevState.isHidden};
 
       // Save the changes
       let modifications = [{
@@ -379,17 +478,18 @@ export class GroupFragment extends React.PureComponent {
     let height = this.state.height ? `${this.state.height}px` : ``;
 
     // Create a box for items that are in this group
-    const boxes = this.state.idList.map((id, index) => <ItemBox key={id.toString()} id={id} focusId={this.props.focusId} row={parseInt(index / 12)} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.props.removeItem} createConnector={this.props.createConnector}/>);
+    const boxes = this.state.idList.map((id, index) => <ItemBox key={id.toString()} id={id} focusId={this.props.focusId} row={parseInt(index / 12)} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} removeItem={this.removeItemFromGroup} removeText="Remove From Group" createConnector={this.props.createConnector}/>);
     
     // Return the group box
     return (
       <>
-        {!this.state.isHidden && <div className="placeholder disableSelect">Drag Items Here</div>}
-        {!this.state.isHidden && <div className="groupArea" style={{ width: width, height: height }}>
+        {!this.state.isHidden && <div className="placeholder disableSelect">Right Click To Add Items</div>}
+        {!this.state.isHidden && <div className="groupArea" style={{ width: width, height: height }} onContextMenu={this.showContextMenu}>
           {boxes}
         </div>}
         <div className="showCorner disableSelect" onMouseDown={(e) => {stopPropogation(e); this.toggleShow()}}>{this.state.isHidden ? "+Show+" : "-Hide-"}</div>
         {!this.state.isHidden && <div className="resizeCorner disableSelect" onMouseDown={this.handleMouseDown}>//</div>}
+        {this.state.isMenuVisible && <AddMenu left={this.state.addLocX} top={this.state.addLocY} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addItemToGroup} saveModifications={this.props.saveModifications}/>}
       </>
     );
   }
@@ -406,7 +506,7 @@ export class StatusFragment extends React.PureComponent {
     // Set initial state
     this.state = {
       status: {},
-      isAddMenuVisible: "",
+      isMenuVisible: false,
     }
 
     // Bind the various functions
@@ -454,9 +554,10 @@ export class StatusFragment extends React.PureComponent {
         }];
         this.props.saveModifications(modifications);
 
-        // Update the local state
+        // Update the local state and close the menu
         return {
           status: newStatus,
+          isMenuVisible: false,
         };
       });
     
@@ -522,9 +623,9 @@ export class StatusFragment extends React.PureComponent {
         <div className="verticalList" onWheel={stopPropogation}>{children}
           {this.state.selectMenu}
         </div>
-        <div className="addButton" onClick={() => {this.setState(prevState => ({ isAddMenuVisible: !prevState.isAddMenuVisible }))}}>
-          {this.state.isAddMenuVisible ? `-` : `+`}
-          {this.state.isAddMenuVisible && <AddMenu type="event" left={180} top={60} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={(id) => {this.setState({ isAddMenuVisible: false }); this.addState(id)}} saveModifications={this.props.saveModifications}/>}
+        <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
+          {this.state.isMenuVisible ? `-` : `+`}
+          {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addState} saveModifications={this.props.saveModifications}/>}
         </div>
       </>
     );
@@ -541,7 +642,7 @@ export class EventFragment extends React.PureComponent {
     // Set initial state
     this.state = {
       eventActions: [], // placeholder for the read data
-      isAddMenuVisible: false,
+      isMenuVisible: false,
       selectMenu: null,
     }
 
@@ -591,7 +692,7 @@ export class EventFragment extends React.PureComponent {
       // Update the local state
       return {
         eventActions: [...newActions],
-        isAddMenuVisible: false,
+        isMenuVisible: false,
       };
     });
   }
@@ -661,9 +762,9 @@ export class EventFragment extends React.PureComponent {
           {children}
           {this.state.selectMenu}
         </div>
-        <div className="addButton" onClick={() => {this.setState(prevState => ({ isAddMenuVisible: !prevState.isAddMenuVisible }))}}>
-          {this.state.isAddMenuVisible ? `-` : `+`}
-          {this.state.isAddMenuVisible && <AddActionMenu left={180} top={60} addAction={this.addAction}/>}
+        <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
+          {this.state.isMenuVisible ? `-` : `+`}
+          {this.state.isMenuVisible && <AddActionMenu left={180} top={60} addAction={this.addAction}/>}
         </div>
       </>
     );

@@ -158,9 +158,9 @@ export class ItemButton extends React.PureComponent {
       const json2 = await response.json();
 
       // If valid, save the result to the state
-      if (json2.generic.isValid) {
+      if (json2.isValid) {
         this.setState({
-          type: json2.generic.message,
+          type: json2.data.message,
         });
       }
     

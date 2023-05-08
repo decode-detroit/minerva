@@ -194,7 +194,7 @@ pub enum Modification {
     #[serde(rename_all = "camelCase")]
     ModifyGroup {
         item_id: ItemId,
-        group: Option<Group>,
+        group: Option<WebGroup>,
     },
 
     /// A modification to change the configuration parameters
@@ -217,7 +217,7 @@ pub enum Modification {
     #[serde(rename_all = "camelCase")]
     ModifyScene {
         item_id: ItemId,
-        scene: Option<Scene>,
+        scene: Option<WebScene>,
     },
 
     /// A modification to remove an item and any event, scene, or status connected to it
@@ -372,7 +372,7 @@ pub enum WebReplyData {
 
     // A variant that contains group detail
     #[serde(rename_all = "camelCase")]
-    Group (Option<Group>),
+    Group (Option<WebGroup>),
 
     // A variant that contains configuration paramters
     #[serde(rename_all = "camelCase")]
@@ -387,7 +387,7 @@ pub enum WebReplyData {
 
     // A variant that contains scene detail
     #[serde(rename_all = "camelCase")]
-    Scene (Option<Scene>),
+    Scene (Option<WebScene>),
 
     // A variant that contains status detail
     #[serde(rename_all = "camelCase")]
