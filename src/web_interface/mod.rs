@@ -612,7 +612,7 @@ impl WebInterface {
         }
 
         // Wait for the line to be dropped (ignore incoming messages)
-        while let Some(_) = ws_rx.next().await {}
+        while ws_rx.next().await.is_some() {}
     }
 
     /// A function to add a fake listener
@@ -622,7 +622,7 @@ impl WebInterface {
         let (_tx, mut ws_rx) = socket.split();
 
         // Wait for the line to be dropped (ignore incoming messages)
-        while let Some(_) = ws_rx.next().await {}
+        while ws_rx.next().await.is_some() {}
     }
 
     // A function to extract a helper type from the body of the message

@@ -173,7 +173,7 @@ impl ItemIndex {
         }
 
         // Otherwise, try to remove the item
-        if let Some(_) = self.index.remove(&item_id) {
+        if self.index.remove(&item_id).is_some() {
             // If the item exists
             return true;
         }

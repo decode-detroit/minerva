@@ -117,7 +117,7 @@ impl StatusHandler {
         // If no new status was specified
         } else {
             // If the status is in the status map, remove it
-            if let Some(_) = self.status_map.remove(&status_id) {
+            if self.status_map.remove(&status_id).is_some() {
                 // Notify the user that it was removed
                 info!("Status removed: {}.", description);
             }

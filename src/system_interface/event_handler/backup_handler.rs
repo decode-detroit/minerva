@@ -644,7 +644,7 @@ mod tests {
         .await;
 
         // Make sure there is no existing backup
-        if let Some(_) = backup_handler.reload_backup(Vec::new()) {
+        if backup_handler.reload_backup(Vec::new()).is_some() {
             panic!("Backup already existed before beginning of the test.");
         }
 

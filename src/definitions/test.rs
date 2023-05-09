@@ -259,7 +259,7 @@ impl IndexAccess {
         }
 
         // Otherwise, try to remove the item
-        if let Some(_) = index.remove(&item_id) {
+        if index.remove(&item_id).is_some() {
             // If the item exists
             return true;
         }
@@ -434,7 +434,7 @@ impl StyleAccess {
         }
 
         // Otherwise, try to remove the item
-        if let Some(_) = map.remove(&selector) {
+        if map.remove(&selector).is_some() {
             // If the item exists
             return true;
         }

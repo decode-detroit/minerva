@@ -139,7 +139,7 @@ impl SystemInterface {
 
                     // The unpacking yielded an event
                     UnpackResult::SuccessWithEvent(event) => {
-                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Event(Some(event)) } ).unwrap_or(());
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::Event(Some(event.into())) } ).unwrap_or(());
                     }
 
                     // The unpacking yielded items
@@ -512,16 +512,16 @@ impl SystemInterface {
                         // Reply to a request for item type
                         DetailType::Type { item_id } => {
                             // Check to see if there is a scene
-                            if let Some(_) = handler.get_scene(&item_id) {
+                            if handler.get_scene(&item_id).is_some() {
                                 result = UnpackResult::SuccessWithMessage("scene".into());
                             // Check to see if there is a status
-                            } else if let Some(_) = handler.get_status(&item_id) {
+                            } else if handler.get_status(&item_id).is_some() {
                                 result = UnpackResult::SuccessWithMessage("status".into());
                             // Check to see if there is an event
-                            } else if let Some(_) = handler.get_event(&item_id) {
+                            } else if handler.get_event(&item_id).is_some() {
                                 result = UnpackResult::SuccessWithMessage("event".into());
                             // Check to see if there is a group
-                            } else if let Some(_) = handler.get_group(&item_id) {
+                            } else if handler.get_group(&item_id).is_some() {
                                 result = UnpackResult::SuccessWithMessage("group".into());
                             // Otherwise, return none
                             } else {
@@ -569,7 +569,7 @@ impl SystemInterface {
 
                             // Add or modify the event
                             Modification::ModifyEvent { item_id, event } => {
-                                handler.edit_event(item_id, event).await;
+                                handler.edit_event(item_id, event.map(|e| e.into())).await;
                             }
 
                             // Add or modify the group
@@ -600,7 +600,7 @@ impl SystemInterface {
                                         let mut groups = FnvHashSet::default();
                                         for item_id in scene.items.iter() {
                                             // If it's a group, add it to the group list
-                                            if let Some(_) = handler.get_group(item_id) {
+                                            if handler.get_group(item_id).is_some() {
                                                 groups.insert(item_id.clone());
                                             
                                             // Otherwise, save it to the item list
@@ -632,6 +632,9 @@ impl SystemInterface {
                                 handler.edit_status(item_id, None).await;
                                 handler.edit_group(item_id, None).await;
                                 handler.edit_scene(item_id, None).await;
+
+                                // Remove the item from any scene, group, or status it's a part of
+                                handler.remove_item(item_id).await;
 
                                 // Get the description
                                 let description = self.index_access.get_description(&item_id).await;

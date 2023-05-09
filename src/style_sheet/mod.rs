@@ -175,7 +175,7 @@ impl StyleSheet {
         }
 
         // Otherwise, try to remove the item
-        if let Some(_) = self.style_map.remove(&selector) {
+        if self.style_map.remove(&selector).is_some() {
             // If the item exists
             return true;
         }

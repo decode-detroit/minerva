@@ -186,7 +186,7 @@ pub enum Modification {
     #[serde(rename_all = "camelCase")]
     ModifyEvent {
         item_id: ItemId,
-        event: Option<Event>,
+        event: Option<WebEvent>,
     },
 
     /// A modification to add a group, modify an existing one, or delete it
@@ -356,7 +356,7 @@ pub struct WebReply {
 pub enum WebReplyData {
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
-    Event (Option<Event>),
+    Event (Option<WebEvent>),
 
     // A variant that contains item detail
     #[serde(rename_all = "camelCase")]

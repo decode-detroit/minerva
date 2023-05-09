@@ -429,6 +429,12 @@ impl EventHandler {
         self.config.edit_scene(scene_id, new_scene).await;
     }
 
+    /// A method to remove all references to an item from the current configuration.
+    ///
+    pub async fn remove_item(&mut self, item_id: ItemId) {
+        self.config.remove_item(item_id).await;
+    }
+
     /// A method to change the selected scene within the current configuration.
     ///
     /// # Errors

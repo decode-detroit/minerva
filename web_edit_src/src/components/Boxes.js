@@ -206,10 +206,10 @@ export class BlankFragment extends React.PureComponent {
       <>
         <div className="subtitle">Choose Item Type</div>
         <div className="typeChooser">
-          <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: [], }}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Event</div>
+          <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: { actions: [] }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Event</div>
           <div className="divButton status" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Status</div>
           <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { items: [], groups: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Scene</div>
-          <div className="divButton group" onClick={() => {let modifications = [{ modifyGroup: { itemId: { id: this.props.id }, group: { items: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Group</div>
+          <div className="divButton group" onClick={() => {let modifications = [{ modifyGroup: { itemId: { id: this.props.id }, group: { items: [], isHidden: true }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Group</div>
         </div>
       </>
     );
@@ -221,7 +221,10 @@ export class SceneFragment extends React.PureComponent {
   // Return the fragment
   render() {
     return (
-      <div className="divButton" onClick={() => {this.props.changeScene(this.props.id)}}>View This Scene</div>
+      <>
+        <div className="divButton" onClick={() => {this.props.changeScene(this.props.id)}}>View This Scene</div>
+        <EventFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>
+      </>
     );
   }
 }
@@ -661,9 +664,10 @@ export class EventFragment extends React.PureComponent {
       const json = await response.json();
 
       // If valid, save the result to the state
+
       if (json.isValid) {
         this.setState({
-          eventActions: json.data.event,
+          eventActions: json.data.event.actions,
         });
       }
     
@@ -684,7 +688,9 @@ export class EventFragment extends React.PureComponent {
       let modifications = [{
         modifyEvent: {
           itemId: { id: this.props.id },
-          event: newActions,
+          event: {
+            actions: newActions,
+          }
         },
       }];
       this.props.saveModifications(modifications);
@@ -717,7 +723,9 @@ export class EventFragment extends React.PureComponent {
       let modifications = [{
         modifyEvent: {
           itemId: { id: this.props.id },
-          event: newActions,
+          event: {
+            actions: newActions,
+          }
         },
       }];
       this.props.saveModifications(modifications);

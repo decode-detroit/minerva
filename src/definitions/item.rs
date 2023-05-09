@@ -179,7 +179,7 @@ impl ItemDescription {
     #[allow(dead_code)]
     pub fn new_default() -> ItemDescription {
         ItemDescription {
-            description: "No Description.".to_string(),
+            description: "No Description".to_string(),
         }
     }
 }

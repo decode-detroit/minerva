@@ -341,7 +341,7 @@ impl Config {
         let current_scene = yaml_config.default_scene;
 
         // Check to see if the default scene is valid and warn if not defined
-        if let None = scene_map.get(&current_scene) {
+        if scene_map.get(&current_scene).is_none() {
             warn!("Current scene is not defined.");
         }
 
@@ -675,6 +675,22 @@ impl Config {
     pub async fn edit_event(&mut self, event_id: ItemId, possible_event: Option<Event>) {
         // If a new event was specified
         if let Some(new_event) = possible_event {
+            // Verify that the event is not a status
+            if self.status_handler.get_status(&event_id).is_some() {
+                error!(
+                    "Cannot add event. Item is already a status: {}.",
+                    self.index_access.get_description(&event_id).await
+                );
+            }
+
+            // Verify that the event is not a group
+            if self.group_map.contains_key(&event_id) {
+                error!(
+                    "Cannot add event. Item is already a group: {}.",
+                    self.index_access.get_description(&event_id).await
+                );
+            }
+            
             // If the event is in the event list, update the event
             if let Some(event) = self.event_set.get_mut(&event_id) {
                 // Update the event and notify the system
@@ -696,12 +712,21 @@ impl Config {
         // If no new event was specified
         } else {
             // If the event is in the event list, remove it
-            if let Some(_) = self.event_set.remove(&event_id) {
+            if self.event_set.remove(&event_id).is_some() {
                 // Notify the user that it was removed
                 info!(
                     "Event removed: {}.",
                     self.index_access.get_description(&event_id).await
                 );
+
+                // If the event is also a scene, remove it
+                if self.scene_map.remove(&event_id).is_some() {
+                    // Notify the user that it was removed
+                    info!(
+                        "Matching scene removed: {}.",
+                        self.index_access.get_description(&event_id).await
+                    );
+                }
             }
         }
     }
@@ -711,6 +736,30 @@ impl Config {
     pub async fn edit_group(&mut self, group_id: ItemId, possible_group: Option<Group>) {
         // If a new group was specified
         if let Some(new_group) = possible_group {
+            // Verify that the group is not an event
+            if self.event_set.contains_key(&group_id) {
+                error!(
+                    "Cannot add group. Item is already an event: {}.",
+                    self.index_access.get_description(&group_id).await
+                );
+            }
+
+            // Verify that the group is not a status
+            if self.status_handler.get_status(&group_id).is_some() {
+                error!(
+                    "Cannot add group. Item is already a status: {}.",
+                    self.index_access.get_description(&group_id).await
+                );
+            }
+
+            // Verify that the group is not a scene
+            if self.scene_map.contains_key(&group_id) {
+                error!(
+                    "Cannot add group. Item is already a scene: {}.",
+                    self.index_access.get_description(&group_id).await
+                );
+            }
+
             // If the group is in the group list, update the group
             if let Some(group) = self.group_map.get_mut(&group_id) {
                 // Update the group and notify the system
@@ -727,17 +776,35 @@ impl Config {
                     self.index_access.get_description(&group_id).await
                 );
                 self.group_map.insert(group_id, new_group);
+
+                // If the group is in a scene, move it to the correct list
+                for scene in self.scene_map.values_mut() {
+                    // If the group is in the item list
+                    if scene.items.remove(&group_id) {
+                        // Add it to the group list instead
+                        scene.groups.insert(group_id);
+                    }
+                }
             }
 
         // If no new group was specified
         } else {
             // If the group is in the group list, remove it
-            if let Some(_) = self.group_map.remove(&group_id) {
+            if self.group_map.remove(&group_id).is_some() {
                 // Notify the user that it was removed
                 info!(
                     "Group removed: {}.",
                     self.index_access.get_description(&group_id).await
                 );
+
+                // If the group is in a scene, move it to the correct list
+                for scene in self.scene_map.values_mut() {
+                    // If the group is in the group list
+                    if scene.groups.remove(&group_id) {
+                        // Add it to the item list instead
+                        scene.items.insert(group_id);
+                    }
+                }
             }
         }
     }
@@ -745,6 +812,33 @@ impl Config {
     /// A method to modify or add a status with provided id.
     ///
     pub async fn edit_status(&mut self, status_id: ItemId, new_status: Option<Status>) {
+        // If adding or modifying a status
+        if new_status.is_some() {
+            // Verify that the status is not an event
+            if self.event_set.contains_key(&status_id) {
+                error!(
+                    "Cannot add status. Item is already an event: {}.",
+                    self.index_access.get_description(&status_id).await
+                );
+            }
+
+            // Verify that the status is not a scene
+            if self.scene_map.contains_key(&status_id) {
+                error!(
+                    "Cannot add status. Item is already a scene: {}.",
+                    self.index_access.get_description(&status_id).await
+                );
+            }
+
+            // Verify that the status is not a group
+            if self.group_map.contains_key(&status_id) {
+                error!(
+                    "Cannot add status. Item is already a group: {}.",
+                    self.index_access.get_description(&status_id).await
+                );
+            }
+        }
+
         // Get the item description and then pass the change to the status handler
         let description = self
             .index_access
@@ -761,6 +855,22 @@ impl Config {
     pub async fn edit_scene(&mut self, scene_id: ItemId, possible_scene: Option<Scene>) {
         // If a new scene was specified
         if let Some(new_scene) = possible_scene {
+            // Verify that the scene is not a status
+            if self.status_handler.get_status(&scene_id).is_some() {
+                error!(
+                    "Cannot add scene. Item is already a status: {}.",
+                    self.index_access.get_description(&scene_id).await
+                );
+            }
+
+            // Verify that the scene is not a group
+            if self.group_map.contains_key(&scene_id) {
+                error!(
+                    "Cannot add scene. Item is already a group: {}.",
+                    self.index_access.get_description(&scene_id).await
+                );
+            }
+
             // If the scene is in the scene list, update the scene
             if let Some(scene) = self.scene_map.get_mut(&scene_id) {
                 // Update the scene and notify the system
@@ -770,6 +880,11 @@ impl Config {
                     self.index_access.get_description(&scene_id).await
                 );
 
+                // Make sure the scene is also an event
+                if !self.event_set.contains_key(&scene_id) {
+                    self.event_set.insert(scene_id, Event::new());
+                }
+
             // Otherwise, add the scene
             } else {
                 info!(
@@ -777,17 +892,114 @@ impl Config {
                     self.index_access.get_description(&scene_id).await
                 );
                 self.scene_map.insert(scene_id, new_scene);
+                
+                // Make sure the scene is also an event
+                if !self.event_set.contains_key(&scene_id) {
+                    self.event_set.insert(scene_id, Event::new());
+                }
             }
 
         // If no new scene was specified
         } else {
             // If the scene is in the scene list, remove it
-            if let Some(_) = self.scene_map.remove(&scene_id) {
+            if self.scene_map.remove(&scene_id).is_some() {
                 // Notify the user that it was removed
                 info!(
                     "Scene removed: {}.",
                     self.index_access.get_description(&scene_id).await
                 );
+
+                // Also remove the matching event (if it exists)
+                self.event_set.remove(&scene_id);
+            }
+        }
+    }
+
+    /// A method to remove all references to an item from the current configuration.
+    ///
+    pub async fn remove_item(&mut self, item_id: ItemId) {
+        // Look through each scene and remove the item if it exists
+        for scene in self.scene_map.values_mut() {
+            // Remove the item if it exists
+            scene.items.remove(&item_id);
+        }
+
+        // Look through each group and remove the item if it exists
+        for group in self.group_map.values_mut() {
+            // Remove the item if it exists
+            group.items.remove(&item_id);
+        }
+
+        // Look through each status and check if the item exists
+        let statuses = self.status_handler.get_map();
+        for (status_id, status) in statuses.iter() {
+            // If the item is one of the allowed states
+            if status.is_allowed(&item_id) {
+                // Warn the user that the status is broken
+                warn!("Item appears in status {}. Status has a broken definition.", self.index_access.get_description(&status_id).await);
+            }
+        }
+
+        // Look through each event and remove the item if it exists
+        for (event_id, event) in self.event_set.iter() {
+            // Look through each action
+            let mut is_broken = false;
+            for action in event {
+                // Match the action type
+                match action {
+                    // If the item id appears in the action, mark the event as broken
+                    CancelEvent { event } => {
+                        if event == &item_id {
+                            is_broken = true;
+                            break;
+                        }
+                    }
+
+                    CueEvent { event } => {
+                        if event.id() == item_id {
+                            is_broken = true;
+                            break;
+                        }
+                    }
+
+                    ModifyStatus { status_id, new_state} => {
+                        if status_id == &item_id || new_state == &item_id {
+                            is_broken = true;
+                            break;
+                        }
+                    }
+
+                    NewScene { new_scene } => {
+                        if new_scene == &item_id {
+                            is_broken = true;
+                            break;
+                        }
+                    }
+
+                    SelectEvent { status_id, event_map } => {
+                        // Check the status id
+                        if status_id == &item_id {
+                            is_broken = true;
+                            break;
+                        }
+
+                        // Check all events in the event map
+                        for (state, select_event) in event_map.iter() {
+                            if state == &item_id || select_event == &item_id {
+                                is_broken = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Ignore other action types
+                    _ => (),
+                }
+            }
+
+            // If the event is broken, warn the user
+            if is_broken {
+                warn!("Item appears in event {}. Event has a broken definition.", self.index_access.get_description(&event_id).await);
             }
         }
     }
@@ -814,9 +1026,9 @@ impl Config {
     /// configuration file.
     ///
     pub async fn try_event(&mut self, id: &ItemId, checkscene: bool) -> Option<Event> {
-        // If the checkscene flag is set
-        if checkscene {
-            // Try to open the current scene
+        // If the checkscene flag is set and the event is not the current scene
+        if checkscene && id != &self.current_scene {
+            // Check if the event is the current scene, or try to open the current scene
             if let Some(scene) = self.scene_map.get(&self.current_scene) {
                 // Check to see if the event is listed in the current scene
                 if !scene.items.contains(id) {
@@ -994,7 +1206,7 @@ impl Config {
                 }
 
             // Otherwise verify that the item id corresponds to a group
-            } else if let None = group_map.get(id) {
+            } else if group_map.get(id).is_none() {
                 // Verify the group
                 /*if !Config::verify_group(event, scene, scene_map, status_map, lookup, events).await
                 {
@@ -1004,7 +1216,7 @@ impl Config {
                 error!("Group verification not implemented.");
 
             // Otherwise verify that the item id corresponds to a status
-            } else if let None = status_map.get(id) {
+            } else if status_map.get(id).is_none() {
                 // Warn that an invalid event or status was listed in the scene
                 warn!("Item listed in scene but not found: {}.", id);
                 test = false;

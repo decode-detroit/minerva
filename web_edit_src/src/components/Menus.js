@@ -207,7 +207,6 @@ export class SceneMenu extends React.PureComponent {
           itemId: { id: id },
           scene: {
             items: [],
-            groups: [],
           }
         }
       });
@@ -215,10 +214,11 @@ export class SceneMenu extends React.PureComponent {
       // Save the new scene
       this.props.saveModifications(modifications);
 
-      // After a moment, reload the scenes
+      // After a moment, reload the scenes and change to that scene
       setTimeout(() => {
         this.loadScenes();
-      }, 500);
+        this.props.changeScene(id);
+      }, 100);
     } // FIXME fail silently
   }
   
@@ -237,7 +237,7 @@ export class SceneMenu extends React.PureComponent {
         </select>
         {this.props.value !== -1 && <div className="deleteScene" onMouseDown={() => {this.setState({ isDeleteVisible: true })}}>
           Delete<br/>Scene
-          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} afterDelete={() => setTimeout(() => { this.loadScenes(); }, 500)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
+          {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} afterDelete={() => setTimeout(() => { this.loadScenes(); this.props.changeScene(-1); }, 100)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
         </div>}
         <div className="newScene" onMouseDown={this.newScene}>
           New<br/>Scene
@@ -364,7 +364,7 @@ export class AddMenu extends React.PureComponent {
             modifyItem: {
               itemPair: {
                 id: id,
-                description: "No Description.",
+                description: "No Description",
           }}}];
           this.props.saveModifications(modifications);
 
