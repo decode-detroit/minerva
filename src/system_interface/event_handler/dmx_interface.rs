@@ -26,7 +26,7 @@ use crate::definitions::*;
 
 // Import standard library features
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
@@ -64,7 +64,7 @@ pub struct DmxInterface {
 impl DmxInterface {
     /// A function to create a new instance of the DmxOut
     ///
-    pub fn new(path: &PathBuf) -> Result<Self> {
+    pub fn new(path: &Path) -> Result<Self> {
         // Connect to the underlying serial port
         let mut port = serial::open(path)?;
 
@@ -345,7 +345,7 @@ mod tests {
         use std::time::Duration;
 
         // Create a DMX Interface on USB0
-        let interface = DmxInterface::new(&PathBuf::from("/dev/ttyUSB0"))
+        let interface = DmxInterface::new(&Path::new("/dev/ttyUSB0"))
             .expect("Unable to connect to DMX on USB0.");
 
         // Play a fade up on channel 1

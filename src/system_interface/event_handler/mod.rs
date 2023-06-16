@@ -143,7 +143,7 @@ impl EventHandler {
         let mut dmx_interface = None;
         if let Some(path) = config.get_dmx_path() {
             // Try to connect to the interface
-            if let Ok(interface) = DmxInterface::new(&path) {
+            if let Ok(interface) = DmxInterface::new(path.as_path()) {
                 dmx_interface = Some(interface);
 
             // Otherwise, report the error

@@ -24,7 +24,7 @@ use crate::definitions::*;
 use super::{EventConnection, ReadResult};
 
 // Import standard library features
-use std::path::PathBuf;
+use std::path::Path;
 
 // Import anyhow features
 use anyhow::Result;
@@ -51,7 +51,7 @@ impl ZmqBind {
     /// A function to create a new instance of the ZmqBind, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqBind> {
+    pub fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqBind> {
         // Create the new ZMQ sending socket
         let context = Context::new();
         let zmq_send = context.socket(zmq::PUB)?;
@@ -76,7 +76,7 @@ impl ZmqBind {
     /// A function to create a new instance of the ZmqBind, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqBind> {
+    pub fn new(_send_path: &Path, _recv_path: &Path) -> Result<ZmqBind> {
         Ok(ZmqBind {})
     }
 }
@@ -153,7 +153,7 @@ impl ZmqConnect {
     /// A function to create a new instance of the ZmqConnect, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    pub fn new(send_path: &PathBuf, recv_path: &PathBuf) -> Result<ZmqConnect> {
+    pub fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqConnect> {
         // Create the new ZMQ sending socket
         let context = Context::new();
         let zmq_send = context.socket(zmq::PUB)?;
@@ -183,7 +183,7 @@ impl ZmqConnect {
     /// A function to create a new instance of the ZmqConnect, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    pub fn new(_send_path: &PathBuf, _recv_path: &PathBuf) -> Result<ZmqConnect> {
+    pub fn new(_send_path: &Path, _recv_path: &Path) -> Result<ZmqConnect> {
         Ok(ZmqConnect {})
     }
 }
