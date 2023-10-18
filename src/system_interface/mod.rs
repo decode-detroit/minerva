@@ -62,6 +62,7 @@ pub struct SystemInterface {
     index_access: IndexAccess,           // the access point for the item index
     style_access: StyleAccess,           // the access point for the style sheet
     interface_send: InterfaceSend,       // a sending line to pass interface updates
+    limited_send: LimitedSend,         // a sending line to pass limited updates
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
     internal_send: InternalSend,                      // a sending line to pass internal updates
@@ -75,6 +76,7 @@ impl SystemInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         interface_send: InterfaceSend,
+        limited_send: LimitedSend,
         config_file: String,
     ) -> (Self, WebSend) {
         // Create the new general update structure and receive channel
@@ -93,6 +95,7 @@ impl SystemInterface {
             index_access,
             style_access,
             interface_send,
+            limited_send,
             web_receive,
             internal_receive,
             internal_send,
@@ -229,6 +232,9 @@ impl SystemInterface {
 
                 // Pass the event to the system connection
                 self.system_connection.broadcast(event_id, data).await;
+
+                // Pass the event as a limited update
+                self.limited_send.send(LimitedUpdate::CurrentEvent { event: self.index_access.get_pair(&event_id).await }).await;
             }
 
             // Update the timeline with the new list of coming events

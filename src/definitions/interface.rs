@@ -56,7 +56,7 @@ pub struct ConfigParameters {
     pub default_scene: ItemId,
 }
 
-/// An enum type to provide interface to the web interface
+/// An enum type to provide updates to the web interface
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -119,7 +119,7 @@ impl From<InterfaceUpdate> for Result<Message, warp::Error> {
 ///
 #[derive(Clone, Debug)]
 pub struct InterfaceSend {
-    web_interface_send: mpsc::Sender<InterfaceUpdate>, // the line to pass updates to the web user interface
+    interface_send: mpsc::Sender<InterfaceUpdate>, // the line to pass updates to the web user interface
 }
 
 // Implement the key features of interface send
@@ -131,15 +131,69 @@ impl InterfaceSend {
     ///
     pub fn new() -> (Self, mpsc::Receiver<InterfaceUpdate>) {
         // Create one or two new channels
-        let (web_interface_send, web_receive) = mpsc::channel(256);
+        let (interface_send, interface_recv) = mpsc::channel(256);
 
         // Create and return the new items
-        (InterfaceSend { web_interface_send }, web_receive)
+        (InterfaceSend { interface_send }, interface_recv)
     }
 
     /// A method to send an interface update. This method fails silently.
     ///
     pub async fn send(&self, update: InterfaceUpdate) {
-        self.web_interface_send.send(update).await.unwrap_or(());
+        self.interface_send.send(update).await.unwrap_or(());
+    }
+}
+
+/// An enum type to provide updates to the limited interface
+///
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LimitedUpdate {
+    /// A variant to send a current event id
+    #[serde(rename_all = "camelCase")]
+    CurrentEvent {
+        event: ItemPair, // current event id
+    },
+}
+
+// Implement from<LimitedUpdate> for Message)
+impl From<LimitedUpdate> for Result<Message, warp::Error> {
+    fn from(update: LimitedUpdate) -> Self {
+        // Try to serialize the update
+        match serde_json::to_string(&update) {
+            Ok(string) => Ok(Message::text(string)),
+
+            // On failure, return an empty string (unable to convert the error)
+            _ => Ok(Message::text("")),
+        }
+    }
+}
+
+/// The stucture and methods to send updates to the limited interface.
+///
+#[derive(Clone, Debug)]
+pub struct LimitedSend {
+    limited_send: mpsc::Sender<LimitedUpdate>, // the line to pass updates to the limited interface
+}
+
+// Implement the key features of limited send
+impl LimitedSend {
+    /// A function to create a new LimitedSend
+    ///
+    /// The function returns the LimitedSend structure and the limited
+    /// receive channels which will return the provided updates.
+    ///
+    pub fn new() -> (Self, mpsc::Receiver<LimitedUpdate>) {
+        // Create one or two new channels
+        let (limited_send, limited_recv) = mpsc::channel(256);
+
+        // Create and return the new items
+        (LimitedSend { limited_send }, limited_recv)
+    }
+
+    /// A method to send a limited update. This method fails silently.
+    ///
+    pub async fn send(&self, update: LimitedUpdate) {
+        self.limited_send.send(update).await.unwrap_or(());
     }
 }

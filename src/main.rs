@@ -152,13 +152,17 @@ impl Minerva {
         });
 
         // Create the interface send
-        let (interface_send, web_interface_recv) = InterfaceSend::new();
+        let (interface_send, interface_recv) = InterfaceSend::new();
+
+        // Create the limited send
+        let (limited_send, limited_recv) = LimitedSend::new();
 
         // Launch the system interface to monitor and handle events
         let (system_interface, web_send) = SystemInterface::new(
             index_access.clone(),
             style_access.clone(),
             interface_send.clone(),
+            limited_send.clone(),
             arguments.config,
         )
         .await;
@@ -171,7 +175,8 @@ impl Minerva {
         tokio::spawn(async move {
             web_interface
                 .run(
-                    web_interface_recv,
+                    interface_recv,
+                    limited_recv,
                     arguments.limited_addr,
                     arguments.run_addr,
                     arguments.edit_addr,

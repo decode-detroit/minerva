@@ -80,6 +80,7 @@ impl WebInterface {
     pub async fn run(
         &mut self,
         mut interface_receive: mpsc::Receiver<InterfaceUpdate>,
+        mut limited_receive: mpsc::Receiver<LimitedUpdate>,
         limited_addr: String,
         run_addr: String,
         edit_addr: String,
@@ -88,6 +89,66 @@ impl WebInterface {
         let limited_address = limited_addr.parse::<std::net::SocketAddr>();
         let run_address = run_addr.parse::<std::net::SocketAddr>();
         let edit_address = edit_addr.parse::<std::net::SocketAddr>();
+
+        // Create a channel for sending new limited listener handles
+        let (limited_listener_send, mut limited_listener_recv): (
+            mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>,
+            mpsc::Receiver<mpsc::Sender<Result<Message, warp::Error>>>,
+        ) = mpsc::channel(128);
+
+        // Spin up a thread to pass messages to all the limited web sockets
+        tokio::spawn(async move {
+            // Create a list of listeners
+            let mut listeners = Vec::new();
+
+            // Loop until failure of one of the channels
+            loop {
+                // Check for updates on any line
+                tokio::select! {
+                    // A new listener handle
+                    Some(new_listener) = limited_listener_recv.recv() => {
+                        // Add the tx line to the listeners
+                        listeners.push(new_listener);
+                    }
+
+                    // Updates to the limited interface
+                    Some(update) = limited_receive.recv() => {
+                        // For every listener, send the update
+                        for listener in listeners.iter() {
+                            // Send a message with the new entries
+                            listener.send(update.clone().into()).await.unwrap_or(()); // FIXME Discard broken channels
+                        }
+                    }
+                }
+            }
+        });
+
+        // If limited access address is valid
+        if let Ok(address) = limited_address {
+            // Spin up a thread for the limited access port
+            let clone_send = self.web_send.clone();
+            tokio::spawn(async move {
+                // Create the websocket filter
+                let limited_listen = warp::path("listen")
+                    .and(WebInterface::with_clone(limited_listener_send.clone()))
+                    .and(warp::ws())
+                    .map(|sender, ws: warp::ws::Ws| {
+                        // This will call the function if the handshake succeeds.
+                        ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
+                    });
+                
+                // Create the limited cue event filter
+                let limited_cue_event = warp::post()
+                    .and(warp::path("cueEvent"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(clone_send.clone()))
+                    .and(WebInterface::with_json::<LimitedCueEvent>())
+                    .and_then(WebInterface::handle_request);
+
+                // Serve this route on a separate port
+                warp::serve(limited_listen.or(limited_cue_event)).run(address).await;
+            });
+        }
 
         // Create a channel for sending new listener handles
         let (listener_send, mut listener_recv): (
@@ -121,24 +182,6 @@ impl WebInterface {
                 }
             }
         });
-
-        // If limited access address is valid
-        if let Ok(address) = limited_address {
-            // Spin up a thread for the limited access port
-            let clone_send = self.web_send.clone();
-            tokio::spawn(async move {
-                // Create the limited cue event filter
-                let limited_cue_event = warp::post()
-                    .and(warp::path("cueEvent"))
-                    .and(warp::path::end())
-                    .and(WebInterface::with_clone(clone_send.clone()))
-                    .and(WebInterface::with_json::<LimitedCueEvent>())
-                    .and_then(WebInterface::handle_request);
-
-                // Serve this route on a separate port
-                warp::serve(limited_cue_event).run(address).await;
-            });
-        }
 
         // If run address is valid
         if let Ok(address) = run_address {

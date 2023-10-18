@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "0.9.12"
+version = "0.9.13"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Interactive Show Control Software"
 license = "GPL-3.0-or-later"

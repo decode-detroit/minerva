@@ -42,12 +42,14 @@ mod background;
 mod connections;
 mod event;
 mod group;
+#[allow(dead_code)] // Allow dead code, reserved for future use
 mod index;
 mod interface;
 mod item;
 mod media;
 mod scene;
 mod status;
+#[allow(dead_code)] // Allow dead code, reserved for future use
 mod style;
 mod system;
 
