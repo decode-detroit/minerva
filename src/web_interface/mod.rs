@@ -55,30 +55,17 @@ struct EditWebsite;
 /// A structure to contain the web interface and handle all updates to the
 /// to the interface.
 ///
-pub struct WebInterface {
-    index_access: IndexAccess, // access point for the item index
-    style_access: StyleAccess, // access point for the style sheet
-    web_send: WebSend,         // send line to the system interface
-}
+pub struct WebInterface;
 
 // Implement key Web Interface functionality
 impl WebInterface {
-    /// A function to create a new web interface. The send channel should
-    /// connect directly to the system interface.
+    /// A method to launch the web interface.
+    /// The interface will listen for connections from the internet and send messages back.
     ///
-    pub fn new(index_access: IndexAccess, style_access: StyleAccess, web_send: WebSend) -> Self {
-        // Return the new web interface and runtime handle
-        WebInterface {
-            index_access,
-            style_access,
-            web_send,
-        }
-    }
-
-    /// A method to listen for connections from the internet
-    ///
-    pub async fn run(
-        &mut self,
+    pub async fn launch(
+        index_access: IndexAccess,
+        style_access: StyleAccess,
+        web_send: WebSend,
         mut interface_receive: mpsc::Receiver<InterfaceUpdate>,
         mut limited_receive: mpsc::Receiver<LimitedUpdate>,
         limited_addr: String,
@@ -126,7 +113,7 @@ impl WebInterface {
         // If limited access address is valid
         if let Ok(address) = limited_address {
             // Spin up a thread for the limited access port
-            let clone_send = self.web_send.clone();
+            let clone_send = web_send.clone();
             tokio::spawn(async move {
                 // Create the websocket filter
                 let limited_listen = warp::path("listen")
@@ -186,8 +173,8 @@ impl WebInterface {
         // If run address is valid
         if let Ok(address) = run_address {
             // Spin up a thread for the run port
-            let clone_send = self.web_send.clone();
-            let clone_index = self.index_access.clone();
+            let clone_send = web_send.clone();
+            let clone_index = index_access.clone();
             tokio::spawn(async move {
                 // Create the websocket filter
                 let listen = warp::path("listen")
@@ -358,177 +345,180 @@ impl WebInterface {
 
         // If the edit address is valid
         if let Ok(address) = edit_address {
-            // Create the websocket filter
-            let listen = warp::path("listen")
-                .and(warp::ws())
-                .map(|ws: warp::ws::Ws| {
-                    // This will call the function if the handshake succeeds.
-                    ws.on_upgrade(move |socket| WebInterface::fake_listener(socket))
-                });
+            // Spin up a thread for the edit port
+            tokio::spawn(async move {
+                // Create the websocket filter
+                let listen = warp::path("listen")
+                    .and(warp::ws())
+                    .map(|ws: warp::ws::Ws| {
+                        // This will call the function if the handshake succeeds.
+                        ws.on_upgrade(move |socket| WebInterface::fake_listener(socket))
+                    });
 
-            // Create the all items filter
-            let all_items = warp::get()
-                .and(warp::path("allItems"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.index_access.clone()))
-                .and_then(WebInterface::handle_all_items);
+                // Create the all items filter
+                let all_items = warp::get()
+                    .and(warp::path("allItems"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(index_access.clone()))
+                    .and_then(WebInterface::handle_all_items);
 
-            // Create the all groups filter
-            let all_groups = warp::get()
-                .and(warp::path("allGroups"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_clone(UserRequest::Detail {
-                    detail_type: DetailType::AllGroups,
-                }))
-                .and_then(WebInterface::handle_request);
+                // Create the all groups filter
+                let all_groups = warp::get()
+                    .and(warp::path("allGroups"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::Detail {
+                        detail_type: DetailType::AllGroups,
+                    }))
+                    .and_then(WebInterface::handle_request);
 
-            // Create the all scenes filter
-            let all_scenes = warp::get()
-                .and(warp::path("allScenes"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_clone(UserRequest::Detail {
-                    detail_type: DetailType::AllScenes,
-                }))
-                .and_then(WebInterface::handle_request);
+                // Create the all scenes filter
+                let all_scenes = warp::get()
+                    .and(warp::path("allScenes"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::Detail {
+                        detail_type: DetailType::AllScenes,
+                    }))
+                    .and_then(WebInterface::handle_request);
 
-            // Create the close filter
-            let close = warp::post()
-                .and(warp::path("close"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_clone(UserRequest::Close))
-                .and_then(WebInterface::handle_request);
+                // Create the close filter
+                let close = warp::post()
+                    .and(warp::path("close"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::Close))
+                    .and_then(WebInterface::handle_request);
 
-            // Create the config file filter
-            let config_file = warp::post()
-                .and(warp::path("configFile"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_json::<ConfigFile>())
-                .and_then(WebInterface::handle_request);
+                // Create the config file filter
+                let config_file = warp::post()
+                    .and(warp::path("configFile"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_json::<ConfigFile>())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the edit filter
-            let edit = warp::post()
-                .and(warp::path("edit"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_json::<Edit>())
-                .and_then(WebInterface::handle_request);
+                // Create the edit filter
+                let edit = warp::post()
+                    .and(warp::path("edit"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_json::<Edit>())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the get config parameters filter
-            let get_config_param = warp::get()
-                .and(warp::path("getConfigParam"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_clone(UserRequest::ConfigParameters))
-                .and_then(WebInterface::handle_request);
+                // Create the get config parameters filter
+                let get_config_param = warp::get()
+                    .and(warp::path("getConfigParam"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::ConfigParameters))
+                    .and_then(WebInterface::handle_request);
 
-            // Create the get config path filter
-            let get_config_path = warp::get()
-                .and(warp::path("getConfigPath"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_clone(UserRequest::ConfigPath))
-                .and_then(WebInterface::handle_request);
+                // Create the get config path filter
+                let get_config_path = warp::get()
+                    .and(warp::path("getConfigPath"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::ConfigPath))
+                    .and_then(WebInterface::handle_request);
 
-            // Create the get event filter
-            let get_event = warp::get()
-                .and(warp::path("getEvent"))
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(warp::path::param::<GetEvent>())
-                .and(warp::path::end())
-                .and_then(WebInterface::handle_request);
+                // Create the get event filter
+                let get_event = warp::get()
+                    .and(warp::path("getEvent"))
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(warp::path::param::<GetEvent>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the item information filter
-            let get_item = warp::get()
-                .and(warp::path("getItem"))
-                .and(WebInterface::with_clone(self.index_access.clone()))
-                .and(warp::path::param::<GetItem>())
-                .and(warp::path::end())
-                .and_then(WebInterface::handle_get_item);
+                // Create the item information filter
+                let get_item = warp::get()
+                    .and(warp::path("getItem"))
+                    .and(WebInterface::with_clone(index_access.clone()))
+                    .and(warp::path::param::<GetItem>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_get_item);
 
-            // Create the get group filter
-            let get_group = warp::get()
-                .and(warp::path("getGroup"))
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(warp::path::param::<GetGroup>())
-                .and(warp::path::end())
-                .and_then(WebInterface::handle_request);
+                // Create the get group filter
+                let get_group = warp::get()
+                    .and(warp::path("getGroup"))
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(warp::path::param::<GetGroup>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the get scene filter
-            let get_scene = warp::get()
-                .and(warp::path("getScene"))
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(warp::path::param::<GetScene>())
-                .and(warp::path::end())
-                .and_then(WebInterface::handle_request);
+                // Create the get scene filter
+                let get_scene = warp::get()
+                    .and(warp::path("getScene"))
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(warp::path::param::<GetScene>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the get status filter
-            let get_status = warp::get()
-                .and(warp::path("getStatus"))
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(warp::path::param::<GetStatus>())
-                .and(warp::path::end())
-                .and_then(WebInterface::handle_request);
+                // Create the get status filter
+                let get_status = warp::get()
+                    .and(warp::path("getStatus"))
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(warp::path::param::<GetStatus>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the get style filter
-            let get_styles = warp::get()
-                .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
-                .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
-                                                        // FIXME This filter is OS-specific and may fail on OSX and Windows
+                // Create the get style filter
+                let get_styles = warp::get()
+                    .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
+                    .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
+                                                            // FIXME This filter is OS-specific and may fail on OSX and Windows
 
-            // Create the get status filter
-            let get_type = warp::get()
-                .and(warp::path("getType"))
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(warp::path::param::<GetType>())
-                .and(warp::path::end())
-                .and_then(WebInterface::handle_request);
+                // Create the get status filter
+                let get_type = warp::get()
+                    .and(warp::path("getType"))
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(warp::path::param::<GetType>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the save config filter FIXME verify filenames
-            let save_config = warp::post()
-                .and(warp::path("saveConfig"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.web_send.clone()))
-                .and(WebInterface::with_json::<SaveConfig>())
-                .and_then(WebInterface::handle_request);
+                // Create the save config filter FIXME verify filenames
+                let save_config = warp::post()
+                    .and(warp::path("saveConfig"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_json::<SaveConfig>())
+                    .and_then(WebInterface::handle_request);
 
-            // Create the save styles filter FIXME verify content
-            let save_style = warp::post()
-                .and(warp::path("saveStyles"))
-                .and(warp::path::end())
-                .and(WebInterface::with_clone(self.style_access.clone()))
-                .and(WebInterface::with_json::<SaveStyles>())
-                .and_then(WebInterface::handle_save_styles);
+                // Create the save styles filter FIXME verify content
+                let save_style = warp::post()
+                    .and(warp::path("saveStyles"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(style_access.clone()))
+                    .and(WebInterface::with_json::<SaveStyles>())
+                    .and_then(WebInterface::handle_save_styles);
 
-            // Create the main page filter
-            let edit_page = warp::get().and(embed(&EditWebsite));
+                // Create the main page filter
+                let edit_page = warp::get().and(embed(&EditWebsite));
 
-            // Combine the filters
-            let edit_routes = listen
-                .or(all_items)
-                .or(all_groups)
-                .or(all_scenes)
-                .or(close)
-                .or(config_file)
-                .or(edit)
-                .or(get_config_param)
-                .or(get_config_path)
-                .or(get_event)
-                .or(get_item)
-                .or(get_group)
-                .or(get_scene)
-                .or(get_status)
-                .or(get_styles)
-                .or(get_type)
-                .or(save_config)
-                .or(save_style)
-                .or(edit_page);
+                // Combine the filters
+                let edit_routes = listen
+                    .or(all_items)
+                    .or(all_groups)
+                    .or(all_scenes)
+                    .or(close)
+                    .or(config_file)
+                    .or(edit)
+                    .or(get_config_param)
+                    .or(get_config_path)
+                    .or(get_event)
+                    .or(get_item)
+                    .or(get_group)
+                    .or(get_scene)
+                    .or(get_status)
+                    .or(get_styles)
+                    .or(get_type)
+                    .or(save_config)
+                    .or(save_style)
+                    .or(edit_page);
 
-            // Handle incoming requests on the edit port
-            warp::serve(edit_routes).run(address).await;
+                // Handle incoming requests on the edit port
+                warp::serve(edit_routes).run(address).await;
+            });
         }
     }
 

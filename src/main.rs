@@ -167,22 +167,19 @@ impl Minerva {
         )
         .await;
 
-        // Create a new web interface
-        let mut web_interface =
-            WebInterface::new(index_access.clone(), style_access.clone(), web_send);
-
-        // Run the web interface in a new thread
-        tokio::spawn(async move {
-            web_interface
-                .run(
-                    interface_recv,
-                    limited_recv,
-                    arguments.limited_addr,
-                    arguments.run_addr,
-                    arguments.edit_addr,
-                )
-                .await;
-        });
+        // Launch the web interface (creates its own threads)
+        WebInterface::launch(
+                index_access,
+                style_access,
+                web_send,
+                interface_recv,
+                limited_recv,
+                arguments.limited_addr,
+                arguments.run_addr,
+                arguments.edit_addr,
+            )
+            .await;
+        
 
         // Block on the system interface
         system_interface.run().await;
