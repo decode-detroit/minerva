@@ -134,7 +134,7 @@ impl IndexAccess {
 
     /// A method to add or update the description in the item index
     /// Returns true if the item was not previously defined and false otherwise.
-    /// 
+    ///
     /// # Note
     /// This is a misleading return value and may be changed in future versions.
     ///

@@ -30,10 +30,6 @@ pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and 
 
 /// A type to store a hashmap of status ids and status descriptions
 ///
-/// # FIXME
-/// This intermediary should be eliminated and the UI should call for this
-/// information as needed.
-///
 pub type PartialStatus = FnvHashMap<ItemId, StatusPartialDescription>; // a hash map of status ids and status descriptions
 
 /// A type to store a vector of status ids and status descriptions
@@ -223,7 +219,7 @@ impl Status {
 /// A struct which allows a limited number of possible states. If the
 /// allowed state vector is empty, any state will be allowed.
 ///
-/// # FIXME
+/// # Note
 /// Reconsider this specification. Perhaps an empty allowed state vector
 /// should indicate that the user cannot select a valid state.
 ///
@@ -236,7 +232,7 @@ pub struct StatusPartialDescription {
 /// A struct which allows a limited number of possible states. If the
 /// allowed state vector is empty, any state will be allowed.
 ///
-/// # FIXME
+/// # Note
 /// Reconsider this specification. Perhaps an empty allowed state vector
 /// should indicate that the user cannot select a valid state.
 ///

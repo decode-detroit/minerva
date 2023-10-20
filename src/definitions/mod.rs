@@ -37,8 +37,8 @@ pub const DEFAULT_EDIT_ADDRESS: &str = "127.0.0.1:64637";
 mod test;
 
 // Define submodules
-mod backup;
 mod background;
+mod backup;
 mod connections;
 mod event;
 mod group;
@@ -54,8 +54,8 @@ mod style;
 mod system;
 
 // Reexport all the definitions from the submodules
-pub use self::backup::*;
 pub use self::background::*;
+pub use self::backup::*;
 pub use self::connections::*;
 pub use self::event::*;
 pub use self::group::*;

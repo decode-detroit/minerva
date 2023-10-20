@@ -632,27 +632,27 @@ mod tests {
         // Create the test vector
         let reference = vec![
             InternalUpdate::ProcessEvent {
-                event: ItemId::new_unchecked(20),
+                event_id: ItemId::new_unchecked(20),
                 check_scene: true,
                 broadcast: true,
             },
             InternalUpdate::ProcessEvent {
-                event: ItemId::new_unchecked(40),
+                event_id: ItemId::new_unchecked(40),
                 check_scene: true,
                 broadcast: true,
             },
             InternalUpdate::ProcessEvent {
-                event: ItemId::new_unchecked(60),
+                event_id: ItemId::new_unchecked(60),
                 check_scene: true,
                 broadcast: true,
             },
             InternalUpdate::ProcessEvent {
-                event: ItemId::new_unchecked(80),
+                event_id: ItemId::new_unchecked(80),
                 check_scene: true,
                 broadcast: true,
             },
             InternalUpdate::ProcessEvent {
-                event: ItemId::new_unchecked(100),
+                event_id: ItemId::new_unchecked(100),
                 check_scene: true,
                 broadcast: true,
             },

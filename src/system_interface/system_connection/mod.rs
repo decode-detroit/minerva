@@ -331,7 +331,7 @@ impl SystemConnection {
                             if identity == game_id {
                                 // Send the event to the program
                                 internal_send.blocking_send(InternalUpdate::ProcessEvent {
-                                    event: id,
+                                    event_id: id,
                                     check_scene: true,
                                     broadcast: false,
                                 }); // don't broadcast
@@ -346,7 +346,7 @@ impl SystemConnection {
                         // Otherwise, send the event to the program
                         } else {
                             internal_send.blocking_send(InternalUpdate::ProcessEvent {
-                                event: id,
+                                event_id: id,
                                 check_scene: true,
                                 broadcast: false,
                             }); // don't broadcast

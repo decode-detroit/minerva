@@ -24,7 +24,7 @@ use std::path::PathBuf;
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BackgroundProcess {
-    pub process: PathBuf,       // the location (relative or absolute) of the process to run
+    pub process: PathBuf, // the location (relative or absolute) of the process to run
     pub arguments: Vec<String>, // any arguments to pass to the process
-    pub keepalive: bool, // a flag to indicate if the process should be restarted if it stops/fails
+    pub keepalive: bool,  // a flag to indicate if the process should be restarted if it stops/fails
 }

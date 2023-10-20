@@ -100,6 +100,8 @@ impl EventHandler {
         index_access: IndexAccess,
         style_access: StyleAccess,
         internal_send: InternalSend,
+        interface_send: InterfaceSend,
+        limited_send: LimitedSend,
         log_failure: bool,
     ) -> Result<Self> {
         // If a file was specified
@@ -126,13 +128,22 @@ impl EventHandler {
                 index_access.clone(),
                 style_access,
                 internal_send.clone(),
+                interface_send.clone(),
+                limited_send.clone(),
                 config_file,
             )
             .await?;
 
         // Otherwise, create an empty configuration
         } else {
-            config = Config::new(index_access.clone(), style_access, internal_send.clone()).await;
+            config = Config::new(
+                index_access.clone(),
+                style_access,
+                internal_send.clone(),
+                interface_send.clone(),
+                limited_send.clone(),
+            )
+            .await;
 
             // Set the path to "default.yaml" in the current directory
             resolved_path = env::current_dir().unwrap_or(PathBuf::new());
@@ -226,7 +237,7 @@ impl EventHandler {
 
         // Return the completed EventHandler with a new queue
         Ok(Self {
-            internal_send: internal_send,
+            internal_send,
             queue,
             dmx_interface,
             media_interfaces,
@@ -352,7 +363,7 @@ impl EventHandler {
 
     /// A method to return a scene with available events and optional keymap, given
     /// an item id
-    /// 
+    ///
     pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
         // Return a scene corresponding to the id, or None if none
         self.config.get_scene(item_id)

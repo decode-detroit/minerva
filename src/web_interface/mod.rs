@@ -40,8 +40,12 @@ use futures_util::StreamExt;
 use serde::de::DeserializeOwned;
 
 // Import rust embed and warp embed features
-use warp_embed::embed;
 use rust_embed::RustEmbed;
+use warp_embed::embed;
+
+// FIXME
+// Import tracing features
+use tracing::{error, info, warn};
 
 // Define the static resources
 #[derive(RustEmbed)]
@@ -84,6 +88,7 @@ impl WebInterface {
         ) = mpsc::channel(128);
 
         // Spin up a thread to pass messages to all the limited web sockets
+        let web_clone = web_send.clone();
         tokio::spawn(async move {
             // Create a list of listeners
             let mut listeners = Vec::new();
@@ -94,17 +99,52 @@ impl WebInterface {
                 tokio::select! {
                     // A new listener handle
                     Some(new_listener) = limited_listener_recv.recv() => {
-                        // Add the tx line to the listeners
-                        listeners.push(new_listener);
+                        // Create a oneshot channel to get the current scene and status
+                        let (reply_to, rx) = oneshot::channel();
+
+                        // Send the message and wait for the reply
+                        web_clone.send(reply_to, UserRequest::CurrentSceneAndStatus).await;
+
+                        // If we got a reply
+                        if let Ok(reply) = rx.await {
+                            // If the reply is a success
+                            if reply.is_success() {
+
+                                // Ensure it's the correct reply
+                                match reply.data {
+                                    WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
+                                        // Send the update to the listener
+                                        if let Ok(_) = new_listener.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await { // FIXME Doesn't send correct message
+                                            // If successful, add the tx line to the listeners
+                                            listeners.push(new_listener);
+                                        }
+                                    }
+                                    _ => ()
+                                }
+
+                            // Otherwise, just add the listener
+                            } else {
+                                listeners.push(new_listener);
+                            }
+
+                        // Otherwise, just add the listener
+                        } else {
+                            listeners.push(new_listener);
+                        }
                     }
 
                     // Updates to the limited interface
                     Some(update) = limited_receive.recv() => {
-                        // For every listener, send the update
-                        for listener in listeners.iter() {
-                            // Send a message with the new entries
-                            listener.send(update.clone().into()).await.unwrap_or(()); // FIXME Discard broken channels
+                        // For every listener, send the update or drop the channel
+                        let mut active_listeners = Vec::new();
+                        for listener in listeners.drain(..) {
+                            // Try to send a message with the new entries
+                            if let Ok(_) = listener.send(update.clone().into()).await {
+                                // If the message was successful, keep the channel
+                                active_listeners.push(listener);
+                            }
                         }
+                        listeners = active_listeners;
                     }
                 }
             }
@@ -123,7 +163,7 @@ impl WebInterface {
                         // This will call the function if the handshake succeeds.
                         ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
                     });
-                
+
                 // Create the limited cue event filter
                 let limited_cue_event = warp::post()
                     .and(warp::path("cueEvent"))
@@ -133,7 +173,9 @@ impl WebInterface {
                     .and_then(WebInterface::handle_request);
 
                 // Serve this route on a separate port
-                warp::serve(limited_listen.or(limited_cue_event)).run(address).await;
+                warp::serve(limited_listen.or(limited_cue_event))
+                    .run(address)
+                    .await;
             });
         }
 
@@ -144,6 +186,7 @@ impl WebInterface {
         ) = mpsc::channel(128);
 
         // Spin up a thread to pass messages to all the web sockets
+        let web_clone = web_send.clone();
         tokio::spawn(async move {
             // Create a list of listeners
             let mut listeners = Vec::new();
@@ -154,17 +197,52 @@ impl WebInterface {
                 tokio::select! {
                     // A new listener handle
                     Some(new_listener) = listener_recv.recv() => {
-                        // Add the tx line to the listeners
-                        listeners.push(new_listener);
+                        // Create a oneshot channel to get the current scene and status
+                        let (reply_to, rx) = oneshot::channel();
+
+                        // Send the message and wait for the reply
+                        web_clone.send(reply_to, UserRequest::CurrentSceneAndStatus).await;
+
+                        // If we got a reply
+                        if let Ok(reply) = rx.await {
+                            // If the reply is a success
+                            if reply.is_success() {
+
+                                // Ensure it's the correct reply
+                                match reply.data {
+                                    WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
+                                        // Send the update to the listener
+                                        if let Ok(_) = new_listener.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
+                                            // If successful, add the tx line to the listeners
+                                            listeners.push(new_listener);
+                                        }
+                                    }
+                                    _ => ()
+                                }
+
+                            // Otherwise, just add the listener
+                            } else {
+                                listeners.push(new_listener);
+                            }
+
+                        // Otherwise, just add the listener
+                        } else {
+                            listeners.push(new_listener);
+                        }
                     }
 
                     // Updates to the user interface
                     Some(update) = interface_receive.recv() => {
-                        // For every listener, send the update
-                        for listener in listeners.iter() {
-                            // Send a message with the new entries
-                            listener.send(update.clone().into()).await.unwrap_or(()); // FIXME Discard broken channels
+                        // For every listener, send the update or drop the channel
+                        let mut active_listeners = Vec::new();
+                        for listener in listeners.drain(..) {
+                            // Try to send a message with the new entries
+                            if let Ok(_) = listener.send(update.clone().into()).await {
+                                // If the message was successful, keep the channel
+                                active_listeners.push(listener);
+                            }
                         }
+                        listeners = active_listeners;
                     }
                 }
             }
@@ -219,14 +297,6 @@ impl WebInterface {
                     .and(warp::path::end())
                     .and(WebInterface::with_clone(clone_send.clone()))
                     .and(WebInterface::with_clone(UserRequest::AllStop))
-                    .and_then(WebInterface::handle_request);
-
-                // Create the broadcast event filter
-                let broadcast_event = warp::post()
-                    .and(warp::path("broadcastEvent"))
-                    .and(warp::path::end())
-                    .and(WebInterface::with_clone(clone_send.clone()))
-                    .and(WebInterface::with_json::<BroadcastEvent>())
                     .and_then(WebInterface::handle_request);
 
                 // Create the clear queue filter
@@ -291,14 +361,6 @@ impl WebInterface {
                     .and(warp::path::end())
                     .and_then(WebInterface::handle_request);
 
-                // Create the process event filter
-                let process_event = warp::post()
-                    .and(warp::path("processEvent"))
-                    .and(warp::path::end())
-                    .and(WebInterface::with_clone(clone_send.clone()))
-                    .and(WebInterface::with_json::<ProcessEvent>())
-                    .and_then(WebInterface::handle_request);
-
                 // Create the scene change filter
                 let scene_change = warp::post()
                     .and(warp::path("sceneChange"))
@@ -324,7 +386,6 @@ impl WebInterface {
                     .or(all_groups)
                     .or(all_scenes)
                     .or(all_stop)
-                    .or(broadcast_event)
                     .or(clear_queue)
                     .or(close)
                     .or(config_file)
@@ -333,7 +394,6 @@ impl WebInterface {
                     .or(get_item)
                     .or(get_styles)
                     .or(get_type)
-                    .or(process_event)
                     .or(scene_change)
                     .or(status_change)
                     .or(run_page);

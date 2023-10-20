@@ -40,12 +40,6 @@ pub struct AllEventChange {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BroadcastEvent {
-    id: u32,
-    data: Option<u32>,
-}
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct ConfigFile {
     filename: Option<String>,
 }
@@ -223,14 +217,6 @@ impl From<AllEventChange> for UserRequest {
         }
     }
 }
-impl From<BroadcastEvent> for UserRequest {
-    fn from(broadcast_event: BroadcastEvent) -> Self {
-        UserRequest::BroadcastEvent {
-            event_id: ItemId::new_unchecked(broadcast_event.id),
-            data: broadcast_event.data,
-        }
-    }
-}
 impl From<ConfigFile> for UserRequest {
     fn from(config_file: ConfigFile) -> Self {
         match config_file.filename {
@@ -327,15 +313,6 @@ impl From<GetType> for UserRequest {
             detail_type: DetailType::Type {
                 item_id: ItemId::new_unchecked(get_type.id),
             },
-        }
-    }
-}
-impl From<ProcessEvent> for UserRequest {
-    fn from(process_event: ProcessEvent) -> Self {
-        UserRequest::ProcessEvent {
-            event: ItemId::new_unchecked(process_event.event_id),
-            check_scene: process_event.check_scene,
-            broadcast: process_event.broadcast,
         }
     }
 }

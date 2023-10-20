@@ -386,7 +386,7 @@ impl ItemPair {
     /// A function to return a new all stop item pair. This is a reserved id for
     /// halting all active processes and returning operations to a static state.
     ///
-    pub fn _all_stop() -> ItemPair {
+    pub fn all_stop() -> ItemPair {
         ItemPair {
             id: ALL_STOP,
             description: "ALL STOP".to_string(),

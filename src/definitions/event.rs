@@ -332,7 +332,6 @@ pub enum EventAction {
     },
 }
 
-
 /// An web-safe (JSON readable) enum with various action options for each event. FIXME change to camel case
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]

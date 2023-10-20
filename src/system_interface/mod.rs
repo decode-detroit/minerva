@@ -62,7 +62,7 @@ pub struct SystemInterface {
     index_access: IndexAccess,           // the access point for the item index
     style_access: StyleAccess,           // the access point for the style sheet
     interface_send: InterfaceSend,       // a sending line to pass interface updates
-    limited_send: LimitedSend,         // a sending line to pass limited updates
+    limited_send: LimitedSend,           // a sending line to pass limited updates
     web_receive: mpsc::Receiver<WebRequest>, // the receiving line for web requests
     internal_receive: mpsc::Receiver<InternalUpdate>, // a receiving line to receive internal updates
     internal_send: InternalSend,                      // a sending line to pass internal updates
@@ -138,6 +138,11 @@ impl SystemInterface {
                     // The unpacking was a success
                     UnpackResult::Success => {
                         request.reply_to.send(WebReply::success()).unwrap_or(());
+                    }
+
+                    // The unpacking yielded a current scene and status
+                    UnpackResult::SuccessWithCurrentSceneAndStatus((scene_id, status)) => {
+                        request.reply_to.send(WebReply { is_valid: true, data: WebReplyData::CurrentSceneAndStatus((scene_id, status)) } ).unwrap_or(());
                     }
 
                     // The unpacking yielded an event
@@ -234,7 +239,11 @@ impl SystemInterface {
                 self.system_connection.broadcast(event_id, data).await;
 
                 // Pass the event as a limited update
-                self.limited_send.send(LimitedUpdate::CurrentEvent { event: self.index_access.get_pair(&event_id).await }).await;
+                self.limited_send
+                    .send(LimitedUpdate::CurrentEvent {
+                        event: event_id.clone(),
+                    })
+                    .await;
             }
 
             // Update the timeline with the new list of coming events
@@ -266,19 +275,29 @@ impl SystemInterface {
 
             // Pass an event to the event_handler
             InternalUpdate::ProcessEvent {
-                event,
+                event_id,
                 check_scene,
                 broadcast,
             } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event
-                    if handler.process_event(&event, check_scene, broadcast).await {
+                    if handler
+                        .process_event(&event_id, check_scene, broadcast)
+                        .await
+                    {
                         // Notify the user interface of the event
-                        let description = self.index_access.get_description(&event).await;
+                        let description = self.index_access.get_description(&event_id).await;
                         self.interface_send
                             .send(InterfaceUpdate::Notify {
                                 message: description.description,
+                            })
+                            .await;
+
+                        // Pass the event as a limited update
+                        self.limited_send
+                            .send(LimitedUpdate::CurrentEvent {
+                                event: event_id.clone(),
                             })
                             .await;
                     }
@@ -358,25 +377,12 @@ impl SystemInterface {
                         message: "ALL STOP. Upcoming events have been cleared.".to_string(),
                     })
                     .await;
-            }
 
-            // Pass a broadcast event to the system connection (used only by
-            // the user interface, not for internal messaging. See
-            // GeneralUpdate::BroadcastEvent)
-            UserRequest::BroadcastEvent { event_id, data } => {
-                // Broadcast the event
-                self.internal_send.send_broadcast(event_id, data).await;
-
-                // Get the event description
-                let message = self
-                    .index_access
-                    .get_description(&event_id)
-                    .await
-                    .description;
-
-                // Notify the user interface of the event
-                self.interface_send
-                    .send(InterfaceUpdate::Notify { message })
+                // Pass the event as a limited update
+                self.limited_send
+                    .send(LimitedUpdate::CurrentEvent {
+                        event: ItemId::all_stop(),
+                    })
                     .await;
             }
 
@@ -410,17 +416,15 @@ impl SystemInterface {
             UserRequest::ConfigParameters => {
                 // Collect all the configuration parameters
                 if let Some(ref handler) = self.event_handler {
-                    return UnpackResult::SuccessWithParameters(
-                        ConfigParameters {
-                            identifier: handler.get_identifier(),
-                            server_location: handler.get_server_location(),
-                            dmx_path: handler.get_dmx_path(),
-                            media_players: handler.get_media_players(),
-                            system_connections: handler.get_connections(),
-                            background_process: handler.get_background_process(),
-                            default_scene: handler.get_default_scene(),
-                        }
-                    );
+                    return UnpackResult::SuccessWithParameters(ConfigParameters {
+                        identifier: handler.get_identifier(),
+                        server_location: handler.get_server_location(),
+                        dmx_path: handler.get_dmx_path(),
+                        media_players: handler.get_media_players(),
+                        system_connections: handler.get_connections(),
+                        background_process: handler.get_background_process(),
+                        default_scene: handler.get_default_scene(),
+                    });
 
                 // Otherwise, return a failure
                 } else {
@@ -450,6 +454,26 @@ impl SystemInterface {
                 // Otherwise noity the user that a configuration failed to load
                 } else {
                     error!("Event couldn't be cued. No active configuration.");
+                    return UnpackResult::Failure("No active configuration.".into());
+                }
+            }
+
+            // Respond with the current scene and status
+            UserRequest::CurrentSceneAndStatus => {
+                // If the event handler exists
+                if let Some(ref mut handler) = self.event_handler {
+                    // Get the current scene
+                    let scene_id = handler.get_current_scene();
+
+                    // Get a copy of the status
+                    let status = handler.get_statuses();
+
+                    // Return the completed information
+                    return UnpackResult::SuccessWithCurrentSceneAndStatus((scene_id, status));
+
+                // Otherwise notify the user that a configuration failed to load
+                } else {
+                    warn!("Information unavailable. No active configuration.");
                     return UnpackResult::Failure("No active configuration.".into());
                 }
             }
@@ -581,7 +605,7 @@ impl SystemInterface {
                             // Add or modify the group
                             Modification::ModifyGroup { item_id, group } => {
                                 // Recompose the web group into a group
-                                let new_group = group.map(|group| {group.into()});
+                                let new_group = group.map(|group| group.into());
                                 handler.edit_group(item_id, new_group).await;
                             }
 
@@ -608,7 +632,7 @@ impl SystemInterface {
                                             // If it's a group, add it to the group list
                                             if handler.get_group(item_id).is_some() {
                                                 groups.insert(item_id.clone());
-                                            
+
                                             // Otherwise, save it to the item list
                                             } else {
                                                 items.insert(item_id.clone());
@@ -621,7 +645,7 @@ impl SystemInterface {
                                             groups,
                                             key_map: scene.key_map,
                                         })
-                                    },
+                                    }
 
                                     // Do nothing if empty
                                     None => None,
@@ -677,58 +701,6 @@ impl SystemInterface {
                 }
             }
 
-            // Pass an event to the event_handler
-            UserRequest::ProcessEvent {
-                event,
-                check_scene,
-                broadcast,
-            } => {
-                // If the event handler exists
-                if let Some(ref mut handler) = self.event_handler {
-                    // Try to process the event
-                    if handler.process_event(&event, check_scene, broadcast).await {
-                        // Notify the user interface of the event
-                        let description = self.index_access.get_description(&event).await;
-                        self.interface_send
-                            .send(InterfaceUpdate::Notify {
-                                message: description.description,
-                            })
-                            .await;
-                    }
-
-                // Otherwise notify the user that a configuration faild to load
-                } else {
-                    error!("Event could not be processed. No active configuration.");
-                    return UnpackResult::Failure("No active configuration.".into());
-                }
-            }
-
-            // Redraw the current window
-            UserRequest::Redraw => {
-                // Try to redraw the current window
-                if let Some(ref mut handler) = self.event_handler {
-                    // Get the items in the current scene
-                    let current_items = handler.get_current_items();
-
-                    // Get the current scene and key map
-                    let current_scene = handler.get_current_scene();
-                    let key_map = handler.get_key_map().await;
-
-                    // Send the update with the new event window
-                    self.interface_send
-                        .send(InterfaceUpdate::UpdateWindow {
-                            current_scene,
-                            current_items,
-                            key_map,
-                        })
-                        .await;
-
-                // Otherwise, return a failure
-                } else {
-                    return UnpackResult::Failure("No active configuration.".into());
-                }
-            }
-
             // Save the current configuration to the provided file
             UserRequest::SaveConfig { filepath } => {
                 // If the event handler exists
@@ -740,7 +712,7 @@ impl SystemInterface {
                 } else {
                     return UnpackResult::Failure("No active configuration.".into());
                 }
-            }            
+            }
 
             // Change the current scene based on the provided id and get a list of available events
             UserRequest::SceneChange { scene } => {
@@ -788,6 +760,8 @@ impl SystemInterface {
             self.index_access.clone(),
             self.style_access.clone(),
             self.internal_send.clone(),
+            self.interface_send.clone(),
+            self.limited_send.clone(),
             log_failure,
         )
         .await
@@ -799,7 +773,10 @@ impl SystemInterface {
         // Create a new connection to the underlying system
         if !self
             .system_connection
-            .update_system_connections(Some((event_handler.get_connections(), event_handler.get_identifier())))
+            .update_system_connections(Some((
+                event_handler.get_connections(),
+                event_handler.get_identifier(),
+            )))
             .await
         {
             error!("Unable to open system connections.");
@@ -810,14 +787,12 @@ impl SystemInterface {
         let mut partial_status = event_handler.get_statuses();
 
         // Repackage the scenes with their descriptions
-        // FIXME Should be pulled separately by the user interface
         let mut scenes = Vec::new();
         for scene_id in scene_ids {
             scenes.push(self.index_access.get_pair(&scene_id).await);
         }
 
         // Repackage the statuses with their descriptions
-        // FIXME Should be pulled separately by the user interface
         let mut full_status = FullStatus::default();
 
         // For each status id and status
@@ -858,6 +833,9 @@ impl SystemInterface {
 enum UnpackResult {
     // A variant for successful unpacking
     Success,
+
+    // A variant for successful unpacking with current scene and status
+    SuccessWithCurrentSceneAndStatus((ItemId, PartialStatus)),
 
     // A variant for successful unpacking with an event
     SuccessWithEvent(Event),

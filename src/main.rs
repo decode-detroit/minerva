@@ -169,17 +169,16 @@ impl Minerva {
 
         // Launch the web interface (creates its own threads)
         WebInterface::launch(
-                index_access,
-                style_access,
-                web_send,
-                interface_recv,
-                limited_recv,
-                arguments.limited_addr,
-                arguments.run_addr,
-                arguments.edit_addr,
-            )
-            .await;
-        
+            index_access,
+            style_access,
+            web_send,
+            interface_recv,
+            limited_recv,
+            arguments.limited_addr,
+            arguments.run_addr,
+            arguments.edit_addr,
+        )
+        .await;
 
         // Block on the system interface
         system_interface.run().await;

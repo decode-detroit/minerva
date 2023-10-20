@@ -166,7 +166,7 @@ struct YamlConfig {
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
     system_connections: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
-    default_scene: ItemId, // the starting scene for the configuration
+    default_scene: ItemId,  // the starting scene for the configuration
     group_map: FnvHashMap<ItemId, Group>, // hash map of all availble groups
     scene_map: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
     status_map: StatusMap,  // hash map of the default game status
@@ -186,7 +186,7 @@ pub struct Config {
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
     server_location: Option<String>, // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
-    default_scene: ItemId, // the starting scene for the configuration
+    default_scene: ItemId,  // the starting scene for the configuration
     current_scene: ItemId,  // identifier for the current scene
     group_map: FnvHashMap<ItemId, Group>, // hash map of all availble groups
     scene_map: FnvHashMap<ItemId, Scene>, // hash map of all availble scenes
@@ -194,7 +194,9 @@ pub struct Config {
     event_set: FnvHashMap<ItemId, Event>, // hash map of all the events
     index_access: IndexAccess, // access point to the item index
     style_access: StyleAccess, // access point to the style sheet
-    internal_send: InternalSend, // line to provide updates to the higher-level system
+    internal_send: InternalSend, // sending line for events and updates to system
+    interface_send: InterfaceSend, // sending line for updates to the user interface
+    limited_send: LimitedSend, // sending line for limited updates
 }
 
 // Implement key features for the configuration
@@ -205,6 +207,8 @@ impl Config {
         index_access: IndexAccess,
         style_access: StyleAccess,
         internal_send: InternalSend,
+        interface_send: InterfaceSend,
+        limited_send: LimitedSend,
     ) -> Config {
         // Create the new status handler
         let status_handler = StatusHandler::new(FnvHashMap::default());
@@ -232,6 +236,8 @@ impl Config {
             index_access,
             style_access,
             internal_send,
+            interface_send,
+            limited_send,
         }
     }
 
@@ -260,6 +266,8 @@ impl Config {
         index_access: IndexAccess,
         style_access: StyleAccess,
         internal_send: InternalSend,
+        interface_send: InterfaceSend,
+        limited_send: LimitedSend,
         mut config_file: File,
     ) -> Result<Config> {
         // Try to read from the configuration file
@@ -368,6 +376,8 @@ impl Config {
             index_access,
             style_access,
             internal_send,
+            interface_send,
+            limited_send,
         })
     }
 
@@ -438,7 +448,7 @@ impl Config {
     }
 
     /// A method to return the backup server location
-    /// 
+    ///
     pub fn get_server_location(&self) -> Option<String> {
         self.server_location.clone()
     }
@@ -466,22 +476,28 @@ impl Config {
                 .modify_status(&status_id, &new_state)
                 .await;
 
-            // Notify the system of the successful status change
-            warn!("Unable to pass the change to the user interface.");
-            // Send the change to the interface FIXME
-            /*self.interface_send
-            .send(InterfaceUpdate::UpdateStatus {
-                status_id: status_pair.clone(),
-                new_state: state_pair.clone(),
-            })
-            .await;*/
+            // Get the item pairs
+            let status_pair = self.index_access.get_pair(&status_id).await;
+            let state_pair = self.index_access.get_pair(&new_state).await;
+
+            // Send the change to the interface
+            self.interface_send
+                .send(InterfaceUpdate::UpdateStatus {
+                    status_id: status_pair.clone(),
+                    new_state: state_pair.clone(),
+                })
+                .await;
+
+            // Send the change to the limited interface
+            self.limited_send
+                .send(LimitedUpdate::UpdateStatus {
+                    status_id: status_id.clone(),
+                    new_state: new_state.clone(),
+                })
+                .await;
 
             // Notify the user of the change
-            info!(
-                "Changing {} to {}.",
-                self.index_access.get_pair(&status_id).await,
-                self.index_access.get_pair(&new_state).await
-            );
+            info!("Changing {} to {}.", status_pair, state_pair);
         }
     }
 
@@ -521,9 +537,9 @@ impl Config {
 
     /// A method to return a list of all items in the current scene.
     /// This method will always return the items from lowest to highest id.
-    /// 
+    ///
     /// # Note
-    /// 
+    ///
     /// For grouped items this method only returnes the group id.
     /// Group items much be queried separately.
     ///
@@ -587,7 +603,7 @@ impl Config {
     }
 
     /// A method to save new parameters to the configuration
-    /// 
+    ///
     pub async fn save_parameters(&mut self, parameters: ConfigParameters) {
         // Update the fields of the current configuration
         self.identifier = parameters.identifier;
@@ -600,7 +616,7 @@ impl Config {
 
     /// A method to select a scene map from existing configuration based on the
     /// provided scene id.
-    /// 
+    ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) -> Result<(), ()> {
         // Check to see if the scene_id is valid
         if self.scene_map.contains_key(&scene_id) {
@@ -645,22 +661,28 @@ impl Config {
             .modify_status(&status_id, &new_state)
             .await
         {
-            // Notify the system of the successful status change
-            warn!("Unable to pass the change to the user interface.");
-            // Send the change to the interface FIXME
-            /*self.interface_send
-            .send(InterfaceUpdate::UpdateStatus {
-                status_id: status_pair.clone(),
-                new_state: state_pair.clone(),
-            })
-            .await;*/
+            // Get the item pairs
+            let status_pair = self.index_access.get_pair(&status_id).await;
+            let state_pair = self.index_access.get_pair(&new_state).await;
+
+            // Send the change to the interface
+            self.interface_send
+                .send(InterfaceUpdate::UpdateStatus {
+                    status_id: status_pair.clone(),
+                    new_state: state_pair.clone(),
+                })
+                .await;
+
+            // Send the change to the limited interface
+            self.limited_send
+                .send(LimitedUpdate::UpdateStatus {
+                    status_id: status_id.clone(),
+                    new_state: new_state.clone(),
+                })
+                .await;
 
             // Notify the user of the change
-            info!(
-                "Changing {} to {}.",
-                self.index_access.get_pair(&status_id).await,
-                self.index_access.get_pair(&new_state).await
-            );
+            info!("Changing {} to {}.", status_pair, state_pair);
 
             // Indicate status change
             return Some(new_id);
@@ -690,7 +712,7 @@ impl Config {
                     self.index_access.get_description(&event_id).await
                 );
             }
-            
+
             // If the event is in the event list, update the event
             if let Some(event) = self.event_set.get_mut(&event_id) {
                 // Update the event and notify the system
@@ -892,7 +914,7 @@ impl Config {
                     self.index_access.get_description(&scene_id).await
                 );
                 self.scene_map.insert(scene_id, new_scene);
-                
+
                 // Make sure the scene is also an event
                 if !self.event_set.contains_key(&scene_id) {
                     self.event_set.insert(scene_id, Event::new());
@@ -936,7 +958,10 @@ impl Config {
             // If the item is one of the allowed states
             if status.is_allowed(&item_id) {
                 // Warn the user that the status is broken
-                warn!("Item appears in status {}. Status has a broken definition.", self.index_access.get_description(&status_id).await);
+                warn!(
+                    "Item appears in status {}. Status has a broken definition.",
+                    self.index_access.get_description(&status_id).await
+                );
             }
         }
 
@@ -962,7 +987,10 @@ impl Config {
                         }
                     }
 
-                    ModifyStatus { status_id, new_state} => {
+                    ModifyStatus {
+                        status_id,
+                        new_state,
+                    } => {
                         if status_id == &item_id || new_state == &item_id {
                             is_broken = true;
                             break;
@@ -976,7 +1004,10 @@ impl Config {
                         }
                     }
 
-                    SelectEvent { status_id, event_map } => {
+                    SelectEvent {
+                        status_id,
+                        event_map,
+                    } => {
                         // Check the status id
                         if status_id == &item_id {
                             is_broken = true;
@@ -999,7 +1030,10 @@ impl Config {
 
             // If the event is broken, warn the user
             if is_broken {
-                warn!("Item appears in event {}. Event has a broken definition.", self.index_access.get_description(&event_id).await);
+                warn!(
+                    "Item appears in event {}. Event has a broken definition.",
+                    self.index_access.get_description(&event_id).await
+                );
             }
         }
     }
@@ -1163,7 +1197,8 @@ impl Config {
     ) {
         // Verify each scene in the config
         for (id, scene) in scene_map.iter() {
-            if !Config::verify_scene(scene, scene_map, group_map, status_map, lookup, events).await {
+            if !Config::verify_scene(scene, scene_map, group_map, status_map, lookup, events).await
+            {
                 warn!("Broken scene definition: {}.", id);
             }
 
@@ -1199,7 +1234,10 @@ impl Config {
             // Find the matching event
             if let Some(event) = events.get(id) {
                 // Verify the event
-                if !Config::verify_event(event, scene, scene_map, group_map, status_map, lookup, events).await
+                if !Config::verify_event(
+                    event, scene, scene_map, group_map, status_map, lookup, events,
+                )
+                .await
                 {
                     warn!("Invalid event: {}.", id);
                     test = false;
@@ -1372,7 +1410,7 @@ impl Config {
                             }
                         }
                     }
-                },
+                }
 
                 // If there is media to adjust, assume validity
                 &AdjustMedia { .. } => (),

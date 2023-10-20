@@ -43,7 +43,7 @@ pub enum DisplaySetting {
 }
 
 /// A structure to hold the parameters of the configuration file
-/// 
+///
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConfigParameters {
@@ -89,8 +89,8 @@ pub enum InterfaceUpdate {
     /// A variant to update the state of a partiular status.
     #[serde(rename_all = "camelCase")]
     UpdateStatus {
-        status_id: ItemPair, // the group to update
-        new_state: ItemPair, // the new state of the group
+        status_id: ItemPair, // the status to update
+        new_state: ItemPair, // the new state of the status
     },
 
     /// A variant indicating that the system notifications should be updated.
@@ -144,7 +144,9 @@ impl InterfaceSend {
     }
 }
 
-/// An enum type to provide updates to the limited interface
+/// An enum type to provide updates to the limited interface.
+/// These updates contain only the minimal information needed
+/// to follow operations as they progress.
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -152,7 +154,21 @@ pub enum LimitedUpdate {
     /// A variant to send a current event id
     #[serde(rename_all = "camelCase")]
     CurrentEvent {
-        event: ItemPair, // current event id
+        event: ItemId, // current event id
+    },
+
+    /// A variant to provide the current scene and state of all statuses
+    #[serde(rename_all = "camelCase")]
+    CurrentSceneAndStatus {
+        current_scene: ItemId,
+        current_status: PartialStatus,
+    },
+
+    /// A variant to update the state of a partiular status
+    #[serde(rename_all = "camelCase")]
+    UpdateStatus {
+        status_id: ItemId, // the status to update
+        new_state: ItemId, // the new state of the status
     },
 }
 

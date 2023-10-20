@@ -29,7 +29,7 @@ use fnv::FnvHashSet;
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct Group {
     pub items: FnvHashSet<ItemId>, // hash set of the items in this scene
-    pub is_hidden: bool, // a flag to indicate whether the items in the group are visible
+    pub is_hidden: bool,           // a flag to indicate whether the items in the group are visible
 }
 
 /// A structure to define the parameters of a group, web version
@@ -38,7 +38,7 @@ pub struct Group {
 #[serde(rename_all = "camelCase")]
 pub struct WebGroup {
     pub items: FnvHashSet<ItemId>, // hash set of the items in this scene
-    pub is_hidden: bool, // a flag to indicate whether the items in the group are visible
+    pub is_hidden: bool,           // a flag to indicate whether the items in the group are visible
 }
 
 // Implement conversion to and from Group and WebGroup
@@ -60,4 +60,3 @@ impl From<Group> for WebGroup {
         }
     }
 }
-

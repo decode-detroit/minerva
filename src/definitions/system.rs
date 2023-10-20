@@ -49,7 +49,7 @@ pub enum InternalUpdate {
     /// listed in the current scene. If broadcast is set to true, the event
     /// will be broadcast to the system
     ProcessEvent {
-        event: ItemId,
+        event_id: ItemId,
         check_scene: bool,
         broadcast: bool,
     },
@@ -103,10 +103,10 @@ impl InternalSend {
     // the system will not check if the event is in the current scene. If
     // broadcast is set to true, the event will be broadcast to the system.
     //
-    pub async fn send_event(&self, event: ItemId, check_scene: bool, broadcast: bool) {
+    pub async fn send_event(&self, event_id: ItemId, check_scene: bool, broadcast: bool) {
         self.internal_send
             .send(InternalUpdate::ProcessEvent {
-                event,
+                event_id,
                 check_scene,
                 broadcast,
             })
@@ -200,9 +200,7 @@ pub enum Modification {
     /// A modification to change the configuration parameters
     /// (if None provided)
     #[serde(rename_all = "camelCase")]
-    ModifyParameters {
-        parameters: ConfigParameters,
-    },
+    ModifyParameters { parameters: ConfigParameters },
 
     /// A modification to add a status, modify an existing one, or delete it
     /// (if None provided)
@@ -262,7 +260,7 @@ pub enum DetailType {
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UserRequest {
-    /// A variant to adjust all the events in the timeline
+    /// A variant to adjust all the events in the timeline.
     /// NOTE: after the adjustment, events that would have already happened are discarded
     AllEventChange {
         adjustment: Duration, // the amount of time to add to (or subtract from) all events
@@ -273,12 +271,7 @@ pub enum UserRequest {
     /// is broadcast immediately and clears the event queue.
     AllStop,
 
-    /// A variant that broadcasts an event with the given item id. This event id
-    /// is not processed or otherwise checked for validity. If data is provided
-    /// it will be broadcast with the event.
-    BroadcastEvent { event_id: ItemId, data: Option<u32> },
-
-    /// A variant to trigger all the queued events to clear
+    /// A variant to trigger all the queued events to clear.
     ClearQueue,
 
     /// A special variant to close the program and unload all the data.
@@ -301,10 +294,13 @@ pub enum UserRequest {
     /// will trigger after the specified delay has passed.
     CueEvent { event_delay: EventDelay },
 
-    /// A variant to provide details as requested by the web interface
+    /// A variant to provide the current scene and status
+    CurrentSceneAndStatus,
+
+    /// A variant to provide details as requested by the web interface.
     Detail { detail_type: DetailType },
 
-    /// A variant to modify the underlying configuration
+    /// A variant to modify the underlying configuration.
     Edit { modifications: Vec<Modification> },
 
     /// A variant to change the remaining delay for an existing event in the
@@ -315,30 +311,16 @@ pub enum UserRequest {
         new_delay: Option<Duration>, // new delay relative to the original start time, or None to cancel the event
     },
 
-    /// A variant that processes a new event with the given item id. If the
-    /// check_scene flag is not set, the system will not check if the event is
-    /// listed in the current scene. If broadcast is set to true, the event
-    /// will be broadcast to the system
-    ProcessEvent {
-        event: ItemId,
-        check_scene: bool,
-        broadcast: bool,
-    },
-
-    /// A variant that triggers a redraw of the user interface window FIXME can likely be removed
-    Redraw,
-
     /// A variant that provides a new configuration file to save the current
     /// configuration.
     SaveConfig { filepath: PathBuf },
 
-    /// A variant to change the selected scene provided by the user interface.
+    /// A variant to change the current scene.
     SceneChange { scene: ItemId },
 
     /// A variant to change the state of the indicated status.
     StatusChange { status: ItemId, state: ItemId },
 }
-
 
 /// A struct to cover all web replies
 ///
@@ -354,29 +336,33 @@ pub struct WebReply {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WebReplyData {
+    // A variant that contains current scene and status
+    #[serde(rename_all = "camelCase")]
+    CurrentSceneAndStatus((ItemId, PartialStatus)),
+
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]
-    Event (Option<WebEvent>),
+    Event(Option<WebEvent>),
 
     // A variant that contains item detail
     #[serde(rename_all = "camelCase")]
-    Item (ItemPair),
+    Item(ItemPair),
 
     // A variant that contains an item list
     #[serde(rename_all = "camelCase")]
-    Items (Vec<ItemId>),
+    Items(Vec<ItemId>),
 
     // A variant for replies with a message
     #[serde(rename_all = "camelCase")]
-    Message (String),
+    Message(String),
 
     // A variant that contains group detail
     #[serde(rename_all = "camelCase")]
-    Group (Option<WebGroup>),
+    Group(Option<WebGroup>),
 
     // A variant that contains configuration paramters
     #[serde(rename_all = "camelCase")]
-    Parameters (ConfigParameters),
+    Parameters(ConfigParameters),
 
     // A variant that contains a file path
     #[serde(rename_all = "camelCase")]
@@ -387,11 +373,11 @@ pub enum WebReplyData {
 
     // A variant that contains scene detail
     #[serde(rename_all = "camelCase")]
-    Scene (Option<WebScene>),
+    Scene(Option<WebScene>),
 
     // A variant that contains status detail
     #[serde(rename_all = "camelCase")]
-    Status (Option<Status>),
+    Status(Option<Status>),
 }
 
 // Implement key features of the web reply
@@ -401,7 +387,7 @@ impl WebReply {
     pub fn success() -> WebReply {
         WebReply {
             is_valid: true,
-            data: WebReplyData::Message("Request completed.".to_string())
+            data: WebReplyData::Message("Request completed.".to_string()),
         }
     }
 
@@ -413,7 +399,7 @@ impl WebReply {
     {
         WebReply {
             is_valid: true,
-            data: WebReplyData::Message(reason.into())
+            data: WebReplyData::Message(reason.into()),
         }
     }
 
