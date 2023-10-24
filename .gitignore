@@ -10,3 +10,6 @@ log/*
 
 # Other software in the folder
 apollo
+
+# Codium Settings
+.vscode/*
