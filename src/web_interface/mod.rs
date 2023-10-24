@@ -43,10 +43,6 @@ use serde::de::DeserializeOwned;
 use rust_embed::RustEmbed;
 use warp_embed::embed;
 
-// FIXME
-// Import tracing features
-use tracing::{error, info, warn};
-
 // Define the static resources
 #[derive(RustEmbed)]
 #[folder = "public_run"]
@@ -114,7 +110,7 @@ impl WebInterface {
                                 match reply.data {
                                     WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
                                         // Send the update to the listener
-                                        if let Ok(_) = new_listener.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await { // FIXME Doesn't send correct message
+                                        if let Ok(_) = new_listener.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
                                             // If successful, add the tx line to the listeners
                                             listeners.push(new_listener);
                                         }

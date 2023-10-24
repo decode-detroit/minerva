@@ -338,7 +338,7 @@ pub struct WebReply {
 pub enum WebReplyData {
     // A variant that contains current scene and status
     #[serde(rename_all = "camelCase")]
-    CurrentSceneAndStatus((ItemId, PartialStatus)),
+    CurrentSceneAndStatus((ItemId, CurrentStatus)),
 
     // A variant that contains event detail
     #[serde(rename_all = "camelCase")]

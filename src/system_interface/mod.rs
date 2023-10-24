@@ -237,13 +237,6 @@ impl SystemInterface {
 
                 // Pass the event to the system connection
                 self.system_connection.broadcast(event_id, data).await;
-
-                // Pass the event as a limited update
-                self.limited_send
-                    .send(LimitedUpdate::CurrentEvent {
-                        event: event_id.clone(),
-                    })
-                    .await;
             }
 
             // Update the timeline with the new list of coming events
@@ -466,10 +459,19 @@ impl SystemInterface {
                     let scene_id = handler.get_current_scene();
 
                     // Get a copy of the status
-                    let status = handler.get_statuses();
+                    let mut status = handler.get_statuses();
+
+                    // Repackage into a current status (drop allowed states)
+                    let mut current_status = CurrentStatus::default();
+                    for (status_id, status_description) in status.drain() {
+                        current_status.insert(status_id.id(), status_description.current.id());
+                    }
 
                     // Return the completed information
-                    return UnpackResult::SuccessWithCurrentSceneAndStatus((scene_id, status));
+                    return UnpackResult::SuccessWithCurrentSceneAndStatus((
+                        scene_id,
+                        current_status,
+                    ));
 
                 // Otherwise notify the user that a configuration failed to load
                 } else {
@@ -755,7 +757,7 @@ impl SystemInterface {
     ///
     async fn load_config(&mut self, filepath: Option<PathBuf>, log_failure: bool) {
         // Create a new event handler
-        let mut event_handler = match EventHandler::new(
+        let event_handler = match EventHandler::new(
             filepath,
             self.index_access.clone(),
             self.style_access.clone(),
@@ -782,45 +784,6 @@ impl SystemInterface {
             error!("Unable to open system connections.");
         }
 
-        // Get the scenes and full status
-        let scene_ids = event_handler.get_scenes();
-        let mut partial_status = event_handler.get_statuses();
-
-        // Repackage the scenes with their descriptions
-        let mut scenes = Vec::new();
-        for scene_id in scene_ids {
-            scenes.push(self.index_access.get_pair(&scene_id).await);
-        }
-
-        // Repackage the statuses with their descriptions
-        let mut full_status = FullStatus::default();
-
-        // For each status id and status
-        for (status_id, mut status) in partial_status.drain() {
-            // Create a new status pair from the status id
-            let status_pair = self.index_access.get_pair(&status_id).await;
-
-            // Create the new current pair from the status description
-            let current = self.index_access.get_pair(&status.current).await;
-
-            // Repackage the allowed states
-            let mut allowed = Vec::new();
-            for state in status.allowed.drain(..) {
-                allowed.push(self.index_access.get_pair(&state).await);
-            }
-
-            // Add the new key/value to the full status
-            full_status.insert(status_pair, StatusDescription { current, allowed });
-        }
-
-        // Send the newly available scenes and full status to the user interface
-        self.interface_send
-            .send(InterfaceUpdate::UpdateConfig {
-                scenes,
-                full_status,
-            })
-            .await;
-
         // Trigger a redraw of the system
         self.internal_send.send_refresh().await;
 
@@ -835,7 +798,7 @@ enum UnpackResult {
     Success,
 
     // A variant for successful unpacking with current scene and status
-    SuccessWithCurrentSceneAndStatus((ItemId, PartialStatus)),
+    SuccessWithCurrentSceneAndStatus((ItemId, CurrentStatus)),
 
     // A variant for successful unpacking with an event
     SuccessWithEvent(Event),

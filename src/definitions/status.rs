@@ -32,10 +32,6 @@ pub type StatusMap = FnvHashMap<ItemId, Status>; // a hash map of status id and 
 ///
 pub type PartialStatus = FnvHashMap<ItemId, StatusPartialDescription>; // a hash map of status ids and status descriptions
 
-/// A type to store a vector of status ids and status descriptions
-///
-pub type FullStatus = FnvHashMap<ItemPair, StatusDescription>; // a hash map of status id pairs and status description pairs
-
 /// An enum to hold all status variants.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]

@@ -131,13 +131,6 @@ export class App extends React.PureComponent {
           time: new Date(),
         }
       });
-
-    // Update the available scenes and full status in the window
-    } else if (data.hasOwnProperty(`updateConfig`)) {
-      this.setState({
-        scenes: data[`updateConfig`][`scenes`],
-        fullStatus: data[`updateConfig`][`fullStatus`],
-      });
     
     // Refresh the entire button window with a new window
     } else if (data.hasOwnProperty(`updateWindow`)) {

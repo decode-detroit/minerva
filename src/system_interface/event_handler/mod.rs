@@ -388,7 +388,7 @@ impl EventHandler {
     /// A method to return a hashmap of the statuses available in this
     /// configuration.
     ///
-    pub fn get_statuses(&mut self) -> PartialStatus {
+    pub fn get_statuses(&self) -> PartialStatus {
         // Compile a hashmap of the statuses
         self.config.get_statuses()
     }

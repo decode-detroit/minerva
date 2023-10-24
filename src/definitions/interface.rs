@@ -28,6 +28,9 @@ use std::path::PathBuf;
 use tokio::sync::mpsc;
 use warp::ws::Message;
 
+// Import FNV HashMap
+use fnv::FnvHashMap;
+
 /// An enum to change one of the display settings of the user interface
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,14 +71,6 @@ pub enum InterfaceUpdate {
     /// A variant to post a current event to the status bar
     #[serde(rename_all = "camelCase")]
     Notify { message: String },
-
-    /// A variant to update the available scenes and full status in the main
-    /// program window.
-    #[serde(rename_all = "camelCase")]
-    UpdateConfig {
-        scenes: Vec<ItemPair>,
-        full_status: FullStatus,
-    },
 
     /// A variant indicating the entire button window should be refreshed with
     /// the new provided window.
@@ -144,6 +139,10 @@ impl InterfaceSend {
     }
 }
 
+/// A type to store a hashmap of status ids and current state ids
+///
+pub type CurrentStatus = FnvHashMap<u32, u32>;
+
 /// An enum type to provide updates to the limited interface.
 /// These updates contain only the minimal information needed
 /// to follow operations as they progress.
@@ -161,7 +160,7 @@ pub enum LimitedUpdate {
     #[serde(rename_all = "camelCase")]
     CurrentSceneAndStatus {
         current_scene: ItemId,
-        current_status: PartialStatus,
+        current_status: CurrentStatus,
     },
 
     /// A variant to update the state of a partiular status
