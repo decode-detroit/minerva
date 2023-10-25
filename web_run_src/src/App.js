@@ -89,41 +89,8 @@ export class App extends React.PureComponent {
     const data = JSON.parse(update.data);
 
     // Switch based on the interface update
-    // Change the display settings
-    if (data.hasOwnProperty(`changeSettings`)) {
-      // Extract the update
-      let update = data[`changeSettings`][`displaySetting`];
-
-      // If the request is to switch to fullscreen
-      if (update.hasOwnProperty(`fullScreen`)) {
-        // Switch to or leave fullscreen
-        if (update.fullScreen) {
-          document.documentElement.requestFullscreen(); // FIXME need to prompt the user
-        } else {
-          document.exitFullscreen();
-        }
-      
-      // If the request is to switch debug mode
-      } else if (update.hasOwnProperty(`debugMode`)) {
-        this.setState({
-          debugMode: update.debugMode,
-        });
-      
-      // If the request is to switch font mode
-      } else if (update.hasOwnProperty(`largeFont`)) {
-        this.setState({
-          largeFont: update.largeFont,
-        });
-
-      // If the request is to switch contrast mode
-      } else if (update.hasOwnProperty(`highContrast`)) {
-        this.setState({
-          highContrast: update.highContrast,
-        });
-      }
-    
     // Post a current event to the status bar
-    } else if (data.hasOwnProperty(`notify`)) {
+    if (data.hasOwnProperty(`notify`)) {
       this.setState({
         notice: {
           message: data[`notify`][`message`],
@@ -161,7 +128,7 @@ export class App extends React.PureComponent {
         notifications: data[`updateNotifications`][`notifications`],
       });
 
-      // FIXME print to commandline
+      // FIXME Need a better place for this than the commandline
       console.log(`Notifications`);
       console.log(data[`updateNotifications`][`notifications`]);
 
@@ -171,7 +138,7 @@ export class App extends React.PureComponent {
         timelineEvents: data[`updateTimeline`][`events`],
       });
 
-      // FIXME print to commandline
+      // FIXME Need to show the timeline somewhere
       console.log(`Timeline`);
       console.log(data[`updateTimeline`][`events`]);
     }

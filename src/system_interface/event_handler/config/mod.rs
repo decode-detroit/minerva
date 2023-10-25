@@ -153,9 +153,9 @@ impl BackgroundThread {
     }
 }
 
-/// A special configuration struct that is designed to allow simple
+/// The configuration struct that is designed to allow simple
 /// serialization and deserialization for the program configuration file.
-/// Only used internally.
+/// This structure is saved to the external configuration file.
 ///
 #[derive(Serialize, Deserialize)]
 struct YamlConfig {
@@ -172,7 +172,7 @@ struct YamlConfig {
     status_map: StatusMap,  // hash map of the default game status
     event_set: FnvHashMap<ItemPair, Option<Event>>, // hash map of all the item pairs and events
     user_styles: StyleMap, // A string representing arbitrary css for styling the user and edit interfaces
-} // Private struct to allow deserialization of the configuration
+}
 
 /// A structure to hold the whole configuration for current instantiation of the
 /// program. As part of this configuration, this structure holds the description

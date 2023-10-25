@@ -101,7 +101,7 @@ export class ConfirmButton extends React.PureComponent {
   }
 }
 
-// An item button to  cue the selected item
+// An item button to cue the selected item
 export class ItemButton extends React.PureComponent {
   // Class constructor
   constructor(props) {
@@ -123,19 +123,22 @@ export class ItemButton extends React.PureComponent {
   handleMouseDown(e) {
     stopPropogation(e);
 
-    // Trigger the selected event FIXME should be moved to event subtype
-    let cueEvent = {
-      id: this.props.id,
-      secs: 0,
-      nanos: 0,
-    };
-    fetch(`/cueEvent`, {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(cueEvent),
-    }); // FIXME ignore errors
+    // If the item is an event
+    if (this.state.type === "event") {
+      // Trigger the selected event
+      let cueEvent = {
+        id: this.props.id,
+        secs: 0,
+        nanos: 0,
+      };
+      fetch(`/cueEvent`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(cueEvent),
+      }); // FIXME ignore errors
+    }
   }
 
   // Helper function to update the item information

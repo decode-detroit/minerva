@@ -64,10 +64,6 @@ pub struct ConfigParameters {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum InterfaceUpdate {
-    /// A variant to change the display settings
-    #[serde(rename_all = "camelCase")]
-    ChangeSettings { display_setting: DisplaySetting },
-
     /// A variant to post a current event to the status bar
     #[serde(rename_all = "camelCase")]
     Notify { message: String },
