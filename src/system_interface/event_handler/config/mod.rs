@@ -194,7 +194,6 @@ pub struct Config {
     event_set: FnvHashMap<ItemId, Event>, // hash map of all the events
     index_access: IndexAccess, // access point to the item index
     style_access: StyleAccess, // access point to the style sheet
-    internal_send: InternalSend, // sending line for events and updates to system
     interface_send: InterfaceSend, // sending line for updates to the user interface
     limited_send: LimitedSend, // sending line for limited updates
 }
@@ -206,7 +205,6 @@ impl Config {
     pub async fn new(
         index_access: IndexAccess,
         style_access: StyleAccess,
-        internal_send: InternalSend,
         interface_send: InterfaceSend,
         limited_send: LimitedSend,
     ) -> Config {
@@ -235,7 +233,6 @@ impl Config {
             event_set: FnvHashMap::default(),
             index_access,
             style_access,
-            internal_send,
             interface_send,
             limited_send,
         }
@@ -265,7 +262,6 @@ impl Config {
     pub async fn from_config(
         index_access: IndexAccess,
         style_access: StyleAccess,
-        internal_send: InternalSend,
         interface_send: InterfaceSend,
         limited_send: LimitedSend,
         mut config_file: File,
@@ -375,7 +371,6 @@ impl Config {
             event_set,
             index_access,
             style_access,
-            internal_send,
             interface_send,
             limited_send,
         })
@@ -557,7 +552,7 @@ impl Config {
             // Add the list of group ids
             items.extend(&scene.groups);
 
-            // Sort them in order and then pair them with their descriptions
+            // Sort them in order
             items.sort_unstable();
         }
 
@@ -566,26 +561,21 @@ impl Config {
     }
 
     /// A method to return an key map for the current scene, with all items
-    /// as an itempair. FIXME Replace with ItemId version
+    /// as an item id.
+    /// 
+    /// # Note
+    /// If there is no current scene, this method returns None.
     ///
-    pub async fn get_key_map(&self) -> KeyMap {
-        // Create an empty key map
-        let mut map = FnvHashMap::default();
-
+    pub async fn get_key_map(&self) -> Option<KeyMap> {
         // Try to open the current scene
         if let Some(scene) = self.scene_map.get(&self.current_scene) {
-            // If the key map exists
-            if let Some(key_map) = &scene.key_map {
-                // Iterate through the key map for this scene
-                for (key, id) in key_map.iter() {
-                    // Get the item pair
-                    map.insert(key.clone(), self.index_access.get_pair(&id).await);
-                }
-            }
-        }
+            // Return a copy of the key map
+            scene.key_map.clone()
 
-        // Return the result
-        map
+        // Otherwise, return an empty map
+        } else {
+            None
+        }
     }
 
     /// A method to return an item id of the current state of the provided
@@ -623,8 +613,8 @@ impl Config {
             // Update the current scene id
             self.current_scene = scene_id;
 
-            // Trigger a redraw of the window
-            self.internal_send.send_refresh().await;
+            // Send the scene change to the user interface
+            self.interface_send.send(InterfaceUpdate::UpdateScene { current_scene: scene_id }).await;
 
             // Indicate success
             return Ok(());
@@ -1080,7 +1070,7 @@ impl Config {
                     // If not found
                     if !(is_found) {
                         // If the event is not listed in the current scene or scene groups, notify
-                        warn!("Event not in current scene: {}", id);
+                        warn!("Event not in current scene: {}.", id);
                         return None;
                     }
                 }

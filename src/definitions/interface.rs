@@ -72,14 +72,14 @@ pub enum InterfaceUpdate {
     #[serde(rename_all = "camelCase")]
     Notify { message: String },
 
-    /// A variant indicating the entire button window should be refreshed with
-    /// the new provided window.
+    /// A variant to indicate that the entire interface should be refreshed
     #[serde(rename_all = "camelCase")]
-    UpdateWindow {
-        current_scene: ItemId,
-        current_items: Vec<ItemId>,
-        key_map: KeyMap,
-    },
+    RefreshAll,
+
+    /// A variant indicating the current scene should be refreshed with
+    /// the new scene.
+    #[serde(rename_all = "camelCase")]
+    UpdateScene { current_scene: ItemId },
 
     /// A variant to update the state of a partiular status.
     #[serde(rename_all = "camelCase")]

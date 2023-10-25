@@ -259,6 +259,16 @@ impl WebInterface {
                         ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
                     });
 
+                // Create the all current items filter
+                let all_current_items = warp::get()
+                    .and(warp::path("allCurrentItems"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(clone_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::Detail {
+                        detail_type: DetailType::AllCurrentItems,
+                    }))
+                    .and_then(WebInterface::handle_request);
+
                 // Create the all event change filter
                 let all_event_change = warp::post()
                     .and(warp::path("allEventChange"))
@@ -378,6 +388,7 @@ impl WebInterface {
 
                 // Combine the filters
                 let run_routes = listen
+                    .or(all_current_items)
                     .or(all_event_change)
                     .or(all_groups)
                     .or(all_scenes)

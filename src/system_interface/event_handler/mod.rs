@@ -62,7 +62,6 @@ use anyhow::Result;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    internal_send: InternalSend, // sending line for event updates and timed events
     queue: Queue,                // current event queue
     dmx_interface: Option<DmxInterface>, // the dmx interface, if available
     media_interfaces: Vec<MediaInterface>, // list of available media interfaces
@@ -127,7 +126,6 @@ impl EventHandler {
             config = Config::from_config(
                 index_access.clone(),
                 style_access,
-                internal_send.clone(),
                 interface_send.clone(),
                 limited_send.clone(),
                 config_file,
@@ -139,7 +137,6 @@ impl EventHandler {
             config = Config::new(
                 index_access.clone(),
                 style_access,
-                internal_send.clone(),
                 interface_send.clone(),
                 limited_send.clone(),
             )
@@ -221,7 +218,7 @@ impl EventHandler {
             sleep(Duration::from_nanos(20)).await;
 
             // Trigger a redraw of the window and timeline
-            internal_send.send_refresh().await;
+            interface_send.send(InterfaceUpdate::RefreshAll).await;
 
         // If there was no existing data in the backup, trigger the scene reset event
         } else {
@@ -237,7 +234,6 @@ impl EventHandler {
 
         // Return the completed EventHandler with a new queue
         Ok(Self {
-            internal_send,
             queue,
             dmx_interface,
             media_interfaces,
@@ -348,9 +344,10 @@ impl EventHandler {
     }
 
     /// A method to return an key map for the current scene, with all items
-    /// as an itempair.
+    /// as an item id.
     ///
-    pub async fn get_key_map(&self) -> KeyMap {
+    #[allow(dead_code)]
+    pub async fn get_key_map(&self) -> Option<KeyMap> {
         // Return the key mapping for this scene
         self.config.get_key_map().await
     }
@@ -565,7 +562,8 @@ impl EventHandler {
     }
 
     /// A method to process a new event in the event handler. If the event was
-    /// processed successfully, it returns true.
+    /// processed successfully, it will return any events that should be broadcast
+    /// to the system (including their associated data, if applicable).
     ///
     /// # Errors
     ///
@@ -578,18 +576,18 @@ impl EventHandler {
         event_id: &ItemId,
         checkscene: bool,
         broadcast: bool,
-    ) -> bool {
+    ) -> Result<BroadcastData, ()> {
         // Try to retrieve the event and unpack the event
         let event = match self.config.try_event(event_id, checkscene).await {
             // Process a valid event
             Some(event) => event,
 
-            // Return false on failure
-            None => return false,
+            // Return Err on failure
+            None => return Err(()),
         };
 
         // Unpack and process each action of the event
-        let mut was_broadcast = false;
+        let mut broadcast_data = BroadcastData::new();
         for action in event {
             // Switch based on the result of unpacking the action
             match self.unpack_action(action).await {
@@ -598,45 +596,28 @@ impl EventHandler {
 
                 // Send data to the system
                 UnpackResult::Data(mut data) => {
-                    // Save that the event has been broadcast
-                    was_broadcast = true;
-
                     // If we should broadcast the event
                     if broadcast {
-                        // Broadcast the event and each piece of data
+                        // Return the event and each piece of data
                         for number in data.drain(..) {
-                            self.internal_send
-                                .send_broadcast(event_id.clone(), Some(number))
-                                .await;
+                            broadcast_data.push(Some(number));
                         }
-
-                    // Otherwise just update the system about the event
-                    } else {
-                        self.internal_send
-                            .send_broadcast(event_id.clone(), None)
-                            .await;
                     }
                 }
             }
         }
 
-        // Broadcast the event (if it hasn't been broadcast yet)
-        if !was_broadcast {
-            // If we should broadcast the event
+        // If data hasn't been saved yet for broadcast
+        if broadcast_data.is_empty() {
+            // And if we should broadcast the event
             if broadcast {
-                // Send it to the system
-                self.internal_send
-                    .send_broadcast(event_id.clone(), None)
-                    .await;
-
-            // Otherwise just update the system about the event
-            } else {
-                info!("Event: {}.", self.index_access.get_pair(&event_id).await);
+                // Save empty data to the list
+                broadcast_data.push(None);
             }
         }
 
         // Indicate success
-        true
+        Ok(broadcast_data)
     }
 
     /// An internal function to unpack the event and act on it. If the

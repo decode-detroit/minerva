@@ -31,16 +31,14 @@ use tokio::sync::{mpsc, oneshot};
 // Import Chrono features
 use chrono::NaiveDateTime;
 
+/// A type to hold data to broadcast to the system
+pub type BroadcastData = Vec<Option<u32>>;
+
 /// An enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.
 ///
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InternalUpdate {
-    /// A variant that broadcasts an event with the given item id. This event id
-    /// is not processed or otherwise checked for validity. If data is provided,
-    /// it will be broadcast with the event.
-    BroadcastEvent(ItemId, Option<u32>),
-
     /// A variant that notifies the system of a change in the coming events
     ComingEvents(Vec<ComingEvent>),
 
@@ -53,9 +51,6 @@ pub enum InternalUpdate {
         check_scene: bool,
         broadcast: bool,
     },
-
-    /// A variant to trigger a refresh of the user interface
-    RefreshInterface,
 }
 
 /// The stucture and methods to send internal updates to the system interface.
@@ -80,16 +75,6 @@ impl InternalSend {
         (InternalSend { internal_send }, receive)
     }
 
-    /// A method to broadcast an event via the system interface (with data,
-    /// if it is provided)
-    ///
-    pub async fn send_broadcast(&self, event_id: ItemId, data: Option<u32>) {
-        self.internal_send
-            .send(InternalUpdate::BroadcastEvent(event_id, data))
-            .await
-            .unwrap_or(());
-    }
-
     /// A method to send new coming events to the system
     ///
     pub async fn send_coming_events(&self, coming_events: Vec<ComingEvent>) {
@@ -110,15 +95,6 @@ impl InternalSend {
                 check_scene,
                 broadcast,
             })
-            .await
-            .unwrap_or(());
-    }
-
-    // A method to trigger a refresh of the user interface
-    //
-    pub async fn send_refresh(&self) {
-        self.internal_send
-            .send(InternalUpdate::RefreshInterface)
             .await
             .unwrap_or(());
     }
@@ -232,6 +208,9 @@ pub enum Modification {
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DetailType {
+    /// A variant for the list of all items in the current scene
+    AllCurrentItems,
+
     /// A variant for the list of all groups
     /// NOTE: Consider moving this to the index module (see AllItems)
     AllGroups,

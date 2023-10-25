@@ -230,15 +230,6 @@ impl SystemInterface {
     async fn unpack_internal_update(&mut self, update: InternalUpdate) {
         // Unpack the different variant types
         match update {
-            // Broadcast the event via the system connection and notify the system
-            InternalUpdate::BroadcastEvent(event_id, data) => {
-                // Notify the system
-                info!("Event: {}.", self.index_access.get_pair(&event_id).await);
-
-                // Pass the event to the system connection
-                self.system_connection.broadcast(event_id, data).await;
-            }
-
             // Update the timeline with the new list of coming events
             InternalUpdate::ComingEvents(mut events) => {
                 // If the event handler exists
@@ -274,52 +265,38 @@ impl SystemInterface {
             } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
-                    // Try to process the event
-                    if handler
+                    // If processing the event was successful
+                    if let Ok(broadcast_data) = handler
                         .process_event(&event_id, check_scene, broadcast)
-                        .await
-                    {
-                        // Notify the user interface of the event
-                        let description = self.index_access.get_description(&event_id).await;
-                        self.interface_send
-                            .send(InterfaceUpdate::Notify {
-                                message: description.description,
-                            })
-                            .await;
+                        .await {
+                        // Log the event
+                        info!("Event: {}.", self.index_access.get_pair(&event_id).await);
 
-                        // Pass the event as a limited update
-                        self.limited_send
-                            .send(LimitedUpdate::CurrentEvent {
-                                event: event_id.clone(),
-                            })
-                            .await;
+                        // If we have data to broadcast
+                        for data in broadcast_data {
+                            // Pass the event to the system connection
+                            self.system_connection.broadcast(event_id, data).await;
+
+                            // Notify the user interface of the event
+                            let description = self.index_access.get_description(&event_id).await;
+                            self.interface_send
+                                .send(InterfaceUpdate::Notify {
+                                    message: description.description,
+                                })
+                                .await;
+
+                            // Pass the event as a limited update
+                            self.limited_send
+                                .send(LimitedUpdate::CurrentEvent {
+                                    event: event_id.clone(),
+                                })
+                                .await;
+                        }
                     }
 
                 // Otherwise notify the user that a configuration faild to load
                 } else {
-                    error!("Event could not be processed. No active configuration.");
-                }
-            }
-
-            // Refresh the interface
-            InternalUpdate::RefreshInterface => {
-                // Try to redraw the current window
-                if let Some(ref mut handler) = self.event_handler {
-                    // Get the items in the current scene
-                    let current_items = handler.get_current_items();
-
-                    // Get the current scene and key map
-                    let current_scene = handler.get_current_scene();
-                    let key_map = handler.get_key_map().await;
-
-                    // Send the update with the new event window
-                    self.interface_send
-                        .send(InterfaceUpdate::UpdateWindow {
-                            current_scene,
-                            current_items,
-                            key_map,
-                        })
-                        .await;
+                    error!("Event {} could not be processed.", event_id);
                 }
             }
         }
@@ -356,13 +333,11 @@ impl SystemInterface {
                     handler.clear_events().await;
                 }
 
-                // Broadcast the all stop event
-                self.internal_send
-                    .send_broadcast(ItemId::all_stop(), None)
-                    .await;
-
                 // Place an note in the debug log
                 error!("An All Stop was triggered by the operator.");
+
+                // Pass the all stop event to the system connection
+                self.system_connection.broadcast(ItemId::all_stop(), None).await;
 
                 // Notify the user interface of the event
                 self.interface_send
@@ -489,6 +464,12 @@ impl SystemInterface {
 
                     // Match the type of information request
                     match detail_type {
+                        // Reply to a request for all items in the current scene
+                        DetailType::AllCurrentItems => {
+                            // Get the scene list
+                            result = UnpackResult::SuccessWithItems(handler.get_current_items());
+                        }
+
                         // Reply to a request for the groups
                         DetailType::AllGroups => {
                             // Get the scene list
@@ -785,7 +766,7 @@ impl SystemInterface {
         }
 
         // Trigger a redraw of the system
-        self.internal_send.send_refresh().await;
+        self.interface_send.send(InterfaceUpdate::RefreshAll).await;
 
         // Update the event handler
         self.event_handler = Some(event_handler);

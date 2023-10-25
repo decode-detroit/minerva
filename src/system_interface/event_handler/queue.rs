@@ -45,17 +45,17 @@ use tracing::error;
 #[derive(Clone)]
 struct ComingEvents {
     list: Arc<Mutex<Vec<ComingEvent>>>, // a threadsafe vector to hold the coming events
-    interface_send: InternalSend, // the general update line for passing current events back to the rest of the system
+    internal_send: InternalSend, // the general update line for passing current events back to the rest of the system
 }
 
 // Implement key features for the coming events
 impl ComingEvents {
     /// A function to create a new, empty ComingEvents structure.
     ///
-    fn new(interface_send: InternalSend) -> ComingEvents {
+    fn new(internal_send: InternalSend) -> ComingEvents {
         ComingEvents {
             list: Arc::new(Mutex::new(Vec::new())),
-            interface_send,
+            internal_send,
         }
     }
 
@@ -68,7 +68,7 @@ impl ComingEvents {
             Ok(list) => list.clone(),
             _ => Vec::new(), // inelegant failure handling
         };
-        self.interface_send.send_coming_events(list).await;
+        self.internal_send.send_coming_events(list).await;
     }
 
     /// A method to load an additional coming event.
@@ -276,7 +276,7 @@ impl ComingEvents {
 ///
 pub struct Queue {
     queue_load: mpsc::Sender<ComingEvent>, // the queue loading line that sends additional items to the daemon
-    interface_send: InternalSend, // the general update line for passing current events back to the rest of the system
+    internal_send: InternalSend, // the general update line for passing current events back to the rest of the system
     coming_events: ComingEvents, // the data queue to be modified by the background process and system handler process
 }
 
@@ -288,16 +288,16 @@ impl Queue {
     /// back up the reply_line. The new implementation of the queue launches a
     /// background thread to monitor updates.
     ///
-    pub fn new(interface_send: InternalSend) -> Queue {
+    pub fn new(internal_send: InternalSend) -> Queue {
         // Create a new channel pair to send updates to the background queue
         let (queue_load, queue_receive) = mpsc::channel(128);
 
         // Create the new queue data
-        let coming_events = ComingEvents::new(interface_send.clone());
+        let coming_events = ComingEvents::new(internal_send.clone());
         let coming_clone = coming_events.clone();
 
         // Launch the background process with the queue data
-        let general_clone = interface_send.clone();
+        let general_clone = internal_send.clone();
         Handle::current().spawn(async {
             // Run the queue background process indefinitely
             Queue::run_loop(general_clone, queue_receive, coming_clone).await;
@@ -306,7 +306,7 @@ impl Queue {
         // Return the Queue
         Queue {
             queue_load,
-            interface_send,
+            internal_send,
             coming_events,
         }
     }
@@ -315,7 +315,7 @@ impl Queue {
     /// should be launched in a new background thread for the queue.
     ///
     async fn run_loop(
-        interface_send: InternalSend,
+        internal_send: InternalSend,
         mut queue_receive: mpsc::Receiver<ComingEvent>,
         mut coming_events: ComingEvents,
     ) {
@@ -349,7 +349,7 @@ impl Queue {
 
                             // Send it if it matches what we expected. Otherwise, do nothing.
                             if let Some(event_now) = last_event {
-                                interface_send.send_event(event_now.id(), true, true).await;
+                                internal_send.send_event(event_now.id(), true, true).await;
                             }
                         }
 
@@ -373,7 +373,7 @@ impl Queue {
 
                                     // Send it if it matches what we expected. Otherwise, do nothing.
                                     if let Some(event_now) = last_event {
-                                        interface_send.send_event(event_now.id(), true, true).await;
+                                        internal_send.send_event(event_now.id(), true, true).await;
                                     }
                                     // Otherwise, do nothing.
                                 }
@@ -401,7 +401,7 @@ impl Queue {
             }
 
             // Immediately return any events that have no delay
-            None => self.interface_send.send_event(event.id(), true, true).await,
+            None => self.internal_send.send_event(event.id(), true, true).await,
         }
     }
 

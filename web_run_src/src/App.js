@@ -24,7 +24,6 @@ export class App extends React.PureComponent {
       fullStatus: {},
       currentScene: {},
       currentItems: [],
-      keyMap: {},
       randomCss: Math.floor(Math.random() * 1000000), // Scramble the css file name
     }
 
@@ -132,14 +131,17 @@ export class App extends React.PureComponent {
         }
       });
     
-    // Refresh the entire button window with a new window
-    } else if (data.hasOwnProperty(`updateWindow`)) {
-      this.setState({
-        currentScene: data[`updateWindow`][`currentScene`],
-        currentItems: data[`updateWindow`][`currentItems`],
-        keyMap: data[`updateWindow`][`keyMap`],
-      });
+    // Refresh the entire display
+    } else if (data.hasOwnProperty(`refreshAll`)) {
+      window.location.reload(false); // FIXME a bit of a clumsy solution
     
+    // Update the current scene
+    } else if (data.hasOwnProperty(`updateScene`)) {
+      // Save the curent scene
+      this.setState({
+        currentScene: data[`updateScene`][`currentScene`],
+      });
+
     // Update the current state of a particular status
     } else if (data.hasOwnProperty(`updateStatus`)) {
       this.setState((prevState) => {
@@ -198,7 +200,7 @@ export class App extends React.PureComponent {
         <link id="userStyles" rel="stylesheet" href={`/getStyles/${this.state.randomCss}.css`} />
         <div className="app">
           <HeaderMenu closeMinerva={this.closeMinerva}/>
-          <ViewArea currentScene={this.state.currentScene} currentItems={this.state.currentItems} />
+          <ViewArea currentScene={this.state.currentScene} />
           <FooterMenu notice={this.state.notice} />
         </div>
         {!this.state.connectionActive && <FullscreenDialog dialogType="error" dialogTitle="Minerva Is Unavailable" dialogMessage="Minerva is closed or currently inaccessible. Please restart the program."/>}

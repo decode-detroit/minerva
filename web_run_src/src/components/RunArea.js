@@ -14,6 +14,7 @@ export class ViewArea extends React.PureComponent {
     this.state = {
       cursorX: 0, // starting point of the cursor
       cursorY: 0,
+      currentItems: [],
     }
 
     // Bind the various functions
@@ -28,6 +29,31 @@ export class ViewArea extends React.PureComponent {
       focusId: -1,
     });
   }
+
+  // Function to update the current items if the current scene changed
+  async componentDidUpdate(prevProps, prevState) {
+    // Check to see if the current scene has changed
+    if (prevProps.currentScene !== this.props.currentScene) {
+      // Try to pull the new items for this scene
+      try {
+        // Fetch all current items and process the response
+        let response = await fetch(`/allCurrentItems`);
+        const json = await response.json();
+  
+        // If the response is valid
+        if (json.isValid) {
+          // Save the new items
+          this.setState({
+            currentItems: json.data.items,
+          });
+        }
+      
+      // Ignore errors
+      } catch {
+        console.log("Server inaccessible.");
+      }
+    }
+  }
   
   // Render the edit area inside the viewbox
   render() {
@@ -36,7 +62,7 @@ export class ViewArea extends React.PureComponent {
         <SceneMenu value={this.props.currentScene.id} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onMouseDown={this.handleMouseDown}>
           {this.state.sceneId !== -1 && <>
-            <RunArea currentScene={this.props.currentScene} currentItems={this.props.currentItems} />
+            <RunArea currentScene={this.props.currentScene} currentItems={this.state.currentItems} />
           </>}
         </div>
       </>

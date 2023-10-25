@@ -26,8 +26,7 @@ use fnv::{FnvHashMap, FnvHashSet};
 
 /// Define the itemid and itempair definition of a key map
 ///
-type KeyMapId = FnvHashMap<u32, ItemId>;
-pub type KeyMap = FnvHashMap<u32, ItemPair>;
+pub type KeyMap = FnvHashMap<u32, ItemId>;
 
 /// A structure to define the parameters of a scene
 ///
@@ -35,7 +34,7 @@ pub type KeyMap = FnvHashMap<u32, ItemPair>;
 pub struct Scene {
     pub items: FnvHashSet<ItemId>, // hash set of the items in this scene (excluding groups)
     pub groups: FnvHashSet<ItemId>, // hash set of the groups in this scene
-    pub key_map: Option<KeyMapId>, // an optional mapping of key codes to events
+    pub key_map: Option<KeyMap>, // an optional mapping of key codes to events
 }
 
 /// A structure to define the parameters of a scene, web version
@@ -44,7 +43,7 @@ pub struct Scene {
 #[serde(rename_all = "camelCase")]
 pub struct WebScene {
     pub items: FnvHashSet<ItemId>, // hash set of the items in this scene (including group ids)
-    pub key_map: Option<KeyMapId>, // an optional mapping of key codes to events
+    pub key_map: Option<KeyMap>, // an optional mapping of key codes to events
 }
 
 // Implement conversion from Scene to WebScene
