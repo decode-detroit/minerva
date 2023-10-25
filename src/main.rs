@@ -49,7 +49,7 @@ extern crate anyhow;
 // Import tracing features
 use tracing::Level;
 use tracing_appender;
-use tracing_subscriber::filter::filter_fn;
+use tracing_subscriber::filter::{filter_fn, LevelFilter};
 use tracing_subscriber::prelude::*;
 
 // Import clap features
@@ -81,6 +81,10 @@ struct Arguments {
     /// Limited access address for the web interface
     #[arg(long, default_value = DEFAULT_LIMITED_ADDRESS)]
     limited_addr: String,
+
+    /// Flag to set the log level
+    #[arg(short, long, default_value = DEFAULT_LOGLEVEL)]
+    log_level: String,
 }
 
 /// The Minerva structure to contain the program launching and overall
@@ -92,16 +96,31 @@ struct Minerva;
 impl Minerva {
     /// A function to setup the logging configuration
     ///
-    fn setup_logging() -> tracing_appender::non_blocking::WorkerGuard {
+    fn setup_logging(log_string: String) -> tracing_appender::non_blocking::WorkerGuard {
+        // Try to convert the string to a log level
+        let log_level = match log_string.as_str() {
+            "Trace" => LevelFilter::TRACE,
+            "Debug" => LevelFilter::DEBUG,
+            "Info" => LevelFilter::INFO,
+            "Warn" => LevelFilter::WARN,
+            "Error" => LevelFilter::ERROR,
+
+            // Otherwise, print a nice error
+            _ => {
+                println!("Unable to parse parameter for option 'logLevel'. Options are Trace, Debug, Info, Warn, and Error.");
+                LevelFilter::INFO
+            },
+        };
+        
         // Create the stdout layer
         let stdout_layer = tracing_subscriber::fmt::layer()
             .with_target(false)
-            .with_filter(DEFAULT_LOGLEVEL);
+            .with_filter(log_level);
 
         // Create a user interface layer FIXME collect warning and error messages to display to the user
         //let buffer = Mutex::new(Writer::new(Arc::new(Vec::new()))); //Arc::new()
         //let buf_writer = buffer.clone().make_writer();
-        //let user_layer = tracing_subscriber::fmt::layer().with_writer(buffer).with_ansi(false).with_target(false).with_filter(DEFAULT_LOGLEVEL);
+        //let user_layer = tracing_subscriber::fmt::layer().with_writer(buffer).with_ansi(false).with_target(false).with_filter(log_level);
 
         // Create the log file
         let file_appender = tracing_appender::rolling::daily(LOG_FOLDER, GAME_LOG);
@@ -133,7 +152,7 @@ impl Minerva {
     ///
     async fn run(arguments: Arguments) {
         // Initialize logging (guard is held until the end of run())
-        let _guard = Minerva::setup_logging();
+        let _guard = Minerva::setup_logging(arguments.log_level);
 
         // Create the item index to process item description requests
         let (mut item_index, index_access) = ItemIndex::new();

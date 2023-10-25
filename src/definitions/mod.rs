@@ -16,14 +16,12 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //! This module defines all structures and types used across modules.
-
-// Import tracing features
-use tracing_subscriber::filter::LevelFilter;
+ 
 
 // Define program constants
 pub const DEFAULT_FILE: &str = "default.yaml"; // the default configuration filename
 pub const USER_STYLE_SHEET: &str = "/tmp/userStyles.css"; // the default location for user styles
-pub const DEFAULT_LOGLEVEL: LevelFilter = LevelFilter::INFO;
+pub const DEFAULT_LOGLEVEL: &str = "Info";
 pub const LOG_FOLDER: &str = "log/"; // the default log folder
 pub const GAME_LOG: &str = "game_log"; // the default logging filename
 
