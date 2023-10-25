@@ -33,6 +33,7 @@ anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 rust-embed = "6.8"
 warp-embed = "0.4"
+tokio-serial = "5.4"
 
 [features]
 no_can_limit = []

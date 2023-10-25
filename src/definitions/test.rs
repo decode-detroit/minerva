@@ -382,6 +382,7 @@ impl StyleAccess {
 
     /// A method to get all selectors from the style sheet
     ///
+    #[allow(dead_code)]
     pub async fn get_all_selectors(&self) -> Vec<String> {
         // Create an empty selectors vector
         let mut selectors = Vec::new();

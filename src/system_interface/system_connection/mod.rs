@@ -21,6 +21,9 @@
 //! Event updates are received on the provided input line and echoed to the
 //! rest of the system. Updates from the system are passed back to the event
 //! handler system via the event_send line.
+//! 
+//! FIXME Update this module to use async reading and writing.
+//! This fix is waiting for async traits, due to be stable with Rust v1.74
 
 // Define private submodules
 mod comedy_comm;
@@ -373,16 +376,10 @@ impl SystemConnection {
                 // Send the new event
                 Ok(ConnectionUpdate::Broadcast(id, data)) => {
                     // Use the identifier or zero for the game id
-                    let game_id = match identifier.id {
-                        Some(id) => id,
-                        None => 0,
-                    };
+                    let game_id = identifier.id.unwrap_or(0);
 
                     // Translate the data to a placeholder, if necessary
-                    let data2 = match data {
-                        Some(number) => number,
-                        None => 0,
-                    };
+                    let data2 = data.unwrap_or(0);
 
                     // Try to send the new event to every connection
                     for connection in connections.iter_mut() {

@@ -268,7 +268,8 @@ impl SystemInterface {
                     // If processing the event was successful
                     if let Ok(broadcast_data) = handler
                         .process_event(&event_id, check_scene, broadcast)
-                        .await {
+                        .await
+                    {
                         // Log the event
                         info!("Event: {}.", self.index_access.get_pair(&event_id).await);
 
@@ -337,7 +338,9 @@ impl SystemInterface {
                 error!("An All Stop was triggered by the operator.");
 
                 // Pass the all stop event to the system connection
-                self.system_connection.broadcast(ItemId::all_stop(), None).await;
+                self.system_connection
+                    .broadcast(ItemId::all_stop(), None)
+                    .await;
 
                 // Notify the user interface of the event
                 self.interface_send

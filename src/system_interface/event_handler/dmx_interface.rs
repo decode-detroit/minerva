@@ -18,24 +18,19 @@
 //! A module to communicate using a DMX serial connection
 //!
 //! # Note
-//!
 //! This module is currently limited to Enttec DMX USB Pro-compatible hardware.
 
 // Import crate definitions
 use crate::definitions::*;
 
 // Import standard library features
-use std::io::Write;
 use std::path::Path;
-use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-// Import Tokio features
-use tokio::task;
-
-// Import the serial features
-use serial;
-use serial::prelude::*;
+// Import the tokio and tokio serial features
+use tokio::sync::mpsc;
+use tokio::time::sleep;
+use tokio_serial as serial;
 
 // Import FNV HashMap
 use fnv::FnvHashMap;
@@ -65,29 +60,24 @@ impl DmxInterface {
     /// A function to create a new instance of the DmxOut
     ///
     pub fn new(path: &Path) -> Result<Self> {
-        // Connect to the underlying serial port
-        let mut port = serial::open(path)?;
+        // Create and configure a builder to connect to the underlying serial port
+        let builder = serial::new(path.to_str().unwrap_or(""), 9600)
+            .data_bits(serial::DataBits::Eight)
+            .parity(serial::Parity::None)
+            .stop_bits(serial::StopBits::One)
+            .flow_control(serial::FlowControl::None)
+            .timeout(Duration::from_millis(100));
 
-        // Try to configure the serial port
-        let settings = serial::PortSettings {
-            baud_rate: serial::BaudRate::from_speed(9600),
-            char_size: serial::Bits8,
-            parity: serial::ParityNone,
-            stop_bits: serial::Stop1,
-            flow_control: serial::FlowNone,
-        };
-        port.configure(&settings)?;
-
-        // Adjust the timeout for the serial port
-        port.set_timeout(Duration::from_millis(100))?;
+        // Try to open the serial port
+        let stream = serial::SerialStream::open(&builder)?;
 
         // Create a new DMX queue
-        let (load_fade, receive_fade) = mpsc::channel();
-        let mut dmx_queue = DmxQueue::new(port, receive_fade);
+        let (load_fade, receive_fade) = mpsc::channel(128);
+        let mut dmx_queue = DmxQueue::new(stream, receive_fade);
 
         // Start the dmx queue thread
-        task::spawn_blocking(move || {
-            dmx_queue.run_loop();
+        tokio::spawn(async move {
+            dmx_queue.run_loop().await;
         });
 
         // Return the new DmxOut instance
@@ -96,15 +86,15 @@ impl DmxInterface {
 
     /// A method to play a new Dmx fade
     ///
-    pub fn play_fade(&self, fade: DmxFade) -> Result<()> {
+    pub async fn play_fade(&self, fade: DmxFade) -> Result<()> {
         // Verify the range of the selected channel
         if (fade.channel > DMX_MAX) | (fade.channel < 1) {
             return Err(anyhow!("Selected DMX channel is out of range."));
         }
 
         // Send the fade to the background thread
-        if let Err(_) = self.load_fade.send(fade.clone()) {
-            return Err(anyhow!("Background DMX fading control has crashed."));
+        if let Err(_) = self.load_fade.send(fade).await {
+            return Err(anyhow!("Background DMX thread has crashed."));
         }
 
         // If the fade was processed correctly, indicate success
@@ -113,7 +103,7 @@ impl DmxInterface {
 
     /// A method to load existing values for all the Dmx channels
     ///
-    pub fn restore_universe(&self, universe: DmxUniverse) {
+    pub async fn restore_universe(&self, universe: DmxUniverse) {
         // For each channel, send a fade with no duration
         for channel in 1..DMX_MAX {
             self.load_fade
@@ -122,6 +112,7 @@ impl DmxInterface {
                     value: universe.get(channel),
                     duration: None,
                 })
+                .await
                 .unwrap_or(()); // fail silently
         }
     }
@@ -191,13 +182,12 @@ impl DmxChange {
 /// of unnecessary threads. This version preserves the proper order of the dmx
 /// changes.
 ///
-/// TODO: Rewrite this implementation to use a tokio thread
-///
 pub struct DmxQueue {
-    port: serial::SystemPort,                // the serial port of the connection
+    stream: serial::SerialStream,            // the serial port connection
     universe: DmxUniverse,                   // the current universe of all the channels
     queue_receive: mpsc::Receiver<DmxFade>, // the queue receiving line that sends additional fade items to the daemon
     dmx_changes: FnvHashMap<u32, DmxChange>, // the dmx queue holding the coming changes, sorted by channel
+    is_write_waiting: bool, // a flag to indicate that a write is still waiting to be sent
 }
 
 // Implement the Dmx Queue methods
@@ -205,28 +195,27 @@ impl DmxQueue {
     /// A function to create a new dmx queue.
     ///
     /// This function returns a new dmx queue which will send segments of a fade
-    /// (at time resolution RESOLUTION) to the specified port. This
-    /// implementation of the queue launches a background thread to manage
-    /// updates.
+    /// (at time resolution RESOLUTION) to the specified serial port.
     ///
-    pub fn new(port: serial::SystemPort, queue_receive: mpsc::Receiver<DmxFade>) -> DmxQueue {
+    pub fn new(stream: serial::SerialStream, queue_receive: mpsc::Receiver<DmxFade>) -> DmxQueue {
         // Return the newly constructed dmx queue
         DmxQueue {
-            port,
+            stream,
             universe: DmxUniverse::new(),
             queue_receive,
             dmx_changes: FnvHashMap::default(),
+            is_write_waiting: false,
         }
     }
 
     /// An internal function to run the queue in an infinite loop. This function
     /// should be launched as a new background thread for the queue.
     ///
-    fn run_loop(&mut self) {
+    async fn run_loop(&mut self) {
         // Run the background process indefinitely
         loop {
-            // Check to see if there are changes in the queue
-            if !self.dmx_changes.is_empty() {
+            // Check to see if there are changes in the queue or a write waiting
+            if !self.dmx_changes.is_empty() || self.is_write_waiting {
                 // Update the current status for every fade
                 let mut new_changes = FnvHashMap::default();
                 for (channel, change) in self.dmx_changes.drain() {
@@ -245,36 +234,26 @@ impl DmxQueue {
                     }
                 }
 
-                // Write the changed state(s)
-                self.write_frame();
-
                 // Replace the old changes with the new changes
                 self.dmx_changes = new_changes;
 
-                // Wait a short period for a new fade message
-                match self
-                    .queue_receive
-                    .recv_timeout(Duration::from_millis(RESOLUTION))
-                {
-                    // Process a message if received
-                    Ok(new_fade) => self.process_fade(new_fade),
+                // Write the changed values
+                self.write_frame().await;
 
-                    // Ignore timeout messages
-                    Err(mpsc::RecvTimeoutError::Timeout) => (),
+                // Look for a new fade message
+                tokio::select! {
+                    // If a message was recieved, process the fade
+                    Some(new_fade) = self.queue_receive.recv() => self.process_fade(new_fade).await,
 
-                    // Quit the thread on any other error
-                    _ => break,
+                    // Only wait for the resolution
+                    _ = sleep(Duration::from_millis(RESOLUTION)) => (), // move on
                 }
 
             // Otherwise just wait for new message indefinitely
             } else {
-                // Process a message if received
-                match self.queue_receive.recv() {
-                    // Add the new fade to the queue
-                    Ok(new_fade) => self.process_fade(new_fade),
-
-                    // Quit the thread on any error
-                    _ => break,
+                // Process a message when received
+                if let Some(new_fade) = self.queue_receive.recv().await {
+                    self.process_fade(new_fade).await;
                 }
             }
         }
@@ -282,10 +261,10 @@ impl DmxQueue {
 
     /// A helper function to process new dmx fade messages
     ///
-    fn process_fade(&mut self, dmx_fade: DmxFade) {
-        // Check whether there is a fade specified
+    async fn process_fade(&mut self, dmx_fade: DmxFade) {
+        // Check whether there is a fade duration specified
         match dmx_fade.duration {
-            // If a fade was specified
+            // If a fade duration was specified
             Some(duration) => {
                 // Repack the fade as a dmx change
                 let change = DmxChange::new(
@@ -305,14 +284,14 @@ impl DmxQueue {
 
                 // Make the change immediately
                 self.universe.set(dmx_fade.channel, dmx_fade.value);
-                self.write_frame();
+                self.write_frame().await;
             }
         }
     }
 
     /// A helper function to write the existing frame to the serial port
     ///
-    fn write_frame(&mut self) {
+    async fn write_frame(&mut self) {
         // Add the message header
         let mut bytes = Vec::new();
         bytes.push(COMMAND_START);
@@ -327,19 +306,45 @@ impl DmxQueue {
         // Add the message ending
         bytes.push(COMMAND_END);
 
-        // Send the bytes to the board
-        self.port.write(bytes.as_slice()).unwrap_or(0); // silently ignore errors
+        // Check that the serial port is ready
+        tokio::select! {
+            // If a message was recieved, process the fade
+            Ok(_) = self.stream.writable() => {
+                // Try to send the universe to the DMX contoller
+                if let Ok(sent_bytes) = self.stream.try_write(bytes.as_slice()) {
+                    // If the bytes match
+                    if sent_bytes == bytes.len() {
+                        // Mark the write as complete
+                        self.is_write_waiting = false;
+
+                    // Otherwise, mark the write as incomplete
+                    } else {
+                        self.is_write_waiting = true;
+                    }
+
+                // Otherwise, mark the write as incomplete
+                } else {
+                    self.is_write_waiting = true;
+                }
+            }
+
+            // Only wait for the resolution
+            _ = sleep(Duration::from_millis(RESOLUTION)) => {
+                // Mark the write as still waiting
+                self.is_write_waiting = true;
+            }
+        }
     }
 }
 
-// Tests of the DMXOut module
+// Tests of the DMX Interface module
 #[cfg(test)]
 mod tests {
     use super::*;
 
     // Test the fading of a single dmx channel
-    #[test]
-    fn test_light() {
+    #[tokio::test]
+    async fn test_light() {
         // Import standard library features
         use std::thread;
         use std::time::Duration;
@@ -355,6 +360,7 @@ mod tests {
                 value: 255,
                 duration: Some(Duration::from_secs(3)),
             })
+            .await
             .unwrap();
         thread::sleep(Duration::from_secs(5));
 
@@ -365,6 +371,7 @@ mod tests {
                 value: 0,
                 duration: Some(Duration::from_secs(3)),
             })
+            .await
             .unwrap();
         thread::sleep(Duration::from_secs(5));
     }

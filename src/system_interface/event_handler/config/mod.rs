@@ -562,7 +562,7 @@ impl Config {
 
     /// A method to return an key map for the current scene, with all items
     /// as an item id.
-    /// 
+    ///
     /// # Note
     /// If there is no current scene, this method returns None.
     ///
@@ -614,7 +614,11 @@ impl Config {
             self.current_scene = scene_id;
 
             // Send the scene change to the user interface
-            self.interface_send.send(InterfaceUpdate::UpdateScene { current_scene: scene_id }).await;
+            self.interface_send
+                .send(InterfaceUpdate::UpdateScene {
+                    current_scene: scene_id,
+                })
+                .await;
 
             // Indicate success
             return Ok(());

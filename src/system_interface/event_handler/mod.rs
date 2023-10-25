@@ -62,13 +62,13 @@ use anyhow::Result;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    queue: Queue,                // current event queue
-    dmx_interface: Option<DmxInterface>, // the dmx interface, if available
+    queue: Queue,                          // current event queue
+    dmx_interface: Option<DmxInterface>,   // the dmx interface, if available
     media_interfaces: Vec<MediaInterface>, // list of available media interfaces
-    config: Config,              // current configuration
-    config_path: PathBuf,        // current configuration path
-    index_access: IndexAccess,   // access point to the item index
-    backup: BackupHandler,       // current backup server
+    config: Config,                        // current configuration
+    config_path: PathBuf,                  // current configuration path
+    index_access: IndexAccess,             // access point to the item index
+    backup: BackupHandler,                 // current backup server
 }
 
 // Implement the event handler functions
@@ -196,7 +196,7 @@ impl EventHandler {
 
             // Restore the existing dmx values
             if let Some(ref interface) = dmx_interface {
-                interface.restore_universe(dmx_universe);
+                interface.restore_universe(dmx_universe).await;
             }
 
             // If there is a media playlist
@@ -645,7 +645,7 @@ impl EventHandler {
             CueDmx { fade } => {
                 // Send it to the dmx interface, if it exists
                 if let Some(ref interface) = &self.dmx_interface {
-                    if let Err(err) = interface.play_fade(fade.clone()) {
+                    if let Err(err) = interface.play_fade(fade.clone()).await {
                         error!("Error with DMX playback: {}.", err);
 
                     // If successful, backup the dmx fade
