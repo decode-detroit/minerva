@@ -89,8 +89,15 @@ export class App extends React.PureComponent {
     const data = JSON.parse(update.data);
 
     // Switch based on the interface update
+    // Update the current scene and status
+    if (data.hasOwnProperty(`currentSceneAndStatus`)) {
+      // Save the curent scene // FIXME also save the status
+      this.setState({
+        currentScene: data[`currentSceneAndStatus`][`currentScene`],
+      });
+
     // Post a current event to the status bar
-    if (data.hasOwnProperty(`notify`)) {
+    } else if (data.hasOwnProperty(`notify`)) {
       this.setState({
         notice: {
           message: data[`notify`][`message`],
@@ -166,7 +173,7 @@ export class App extends React.PureComponent {
       <>
         <link id="userStyles" rel="stylesheet" href={`/getStyles/${this.state.randomCss}.css`} />
         <div className="app">
-          <HeaderMenu closeMinerva={this.closeMinerva}/>
+          <HeaderMenu closeMinerva={this.closeMinerva} currentScene={this.state.currentScene}/>
           <ViewArea currentScene={this.state.currentScene} />
           <FooterMenu notice={this.state.notice} />
         </div>

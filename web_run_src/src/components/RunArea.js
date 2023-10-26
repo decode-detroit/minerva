@@ -1,7 +1,6 @@
 import React from 'react';
-import { ItemButton } from './Buttons';
-import { SceneMenu } from './Menus';
-import { vh, vw } from './Functions';
+import { ItemBox } from './Boxes';
+import { stopPropogation } from './Functions';
 
 // A box to contain the draggable edit area
 export class ViewArea extends React.PureComponent {
@@ -19,6 +18,7 @@ export class ViewArea extends React.PureComponent {
 
     // Bind the various functions
     this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.showContextMenu = this.showContextMenu.bind(this);
   }
   
   // Function to respond to clicking the area
@@ -28,6 +28,13 @@ export class ViewArea extends React.PureComponent {
       isMenuVisible: false,
       focusId: -1,
     });
+  }
+
+  // Function to prevent showing the context menu
+  showContextMenu(e) {
+    stopPropogation(e);
+    e.preventDefault(); // block the browser menu
+    return false;
   }
 
   // Function to update the current items if the current scene changed
@@ -59,11 +66,8 @@ export class ViewArea extends React.PureComponent {
   render() {
     return (
       <>
-        <SceneMenu value={this.props.currentScene.id} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onMouseDown={this.handleMouseDown}>
-          {this.state.sceneId !== -1 && <>
-            <RunArea currentScene={this.props.currentScene} currentItems={this.state.currentItems} />
-          </>}
+          <RunArea currentScene={this.props.currentScene} currentItems={this.state.currentItems} />
         </div>
       </>
     );
@@ -187,8 +191,11 @@ export class RunArea extends React.PureComponent {
 
   // Render the draggable edit area
   render() {
-    // Create a box for each event
-    const boxes = this.props.currentItems.map((item, index) => <ItemButton key={item.id.toString()} id={item.id} row={parseInt(index / 12)} zoom={this.state.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} removeItem={this.props.removeItem} createConnector={this.props.createConnector} />);
+    // Extract the id list
+    let idList = this.props.currentItems;
+
+    // Create a box for each item
+    const boxes = idList.map((item, index) => <ItemBox key={item.id.toString()} id={item.id} row={parseInt(index / 12)} />);
     
     // Render the event boxes
     return (

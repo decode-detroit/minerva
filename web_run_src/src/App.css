@@ -1,11 +1,18 @@
+* {
+  -webkit-user-select: none;  
+  -moz-user-select: none;    
+  -ms-user-select: none;      
+  user-select: none;
+}
+
 button {
   color: #fff;
-  background-color: #0074a3;
+  background-color: #2f343e;
   font-family: Inter, sans-serif;
   font-size: 1rem;
   border: none;
   outline: none;
-  border-radius: 0;
+  border-radius: 3px;
   box-shadow: none;
   padding: 0;
   margin: 0;
@@ -71,15 +78,43 @@ button.green {
 }
 
 .menuButton {
-  background-color: #0074a3;
-  padding: 1px 20px;
+  background-color: #2f343e;
+  position: relative;
+  padding: 3px 20px;
+  border: 1px solid #464c5a;
   border-radius: 3px;
   margin: 0 20px;
   cursor: pointer;
 }
 
+.menuButton.selected {
+  background-color: #0074a3;
+}
+
 .menuButton + .menuButton {
   margin-left: 0px;
+}
+
+.headerExpansion {
+  background-color: #2f343e;
+  position: absolute;
+  top: 1.5rem;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 101;
+  border: 1px solid #464c5a;
+  border-radius: 3px;
+}
+
+.expansionMenuButton {
+  padding: 5px 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.expansionMenuButton + .expansionMenuButton {
+  border-top: 1px solid #464c5a;
 }
 
 .footer {
@@ -160,49 +195,6 @@ button.green {
   overflow: hidden;
 }
 
-.deleteConfirmMenu {
-  position: absolute;
-  z-index: 10;
-  width: 200px;
-  background-color: #2f343e;
-  border: 1px solid #868fa2;
-  border-radius: 6px;
-  box-shadow: 2px 2px 5px 3px #0a0c0e;
-  font-size: 0.9rem;
-}
-
-.deleteConfirmMenu .title {
-  background-color: #a84646;
-  text-align: center;
-  margin: 0;
-  border-radius: 6px 6px 0 0;
-  padding: 0.3rem;
-  font-size: 1rem;
-  font-weight: bold;
-}
-
-.deleteConfirmMenu .subtitle {
-  background-color: #4d5564;
-  text-align: center;
-  margin: 0;
-  border-radius: 0;
-  padding: 0.3rem 0.3rem 0 0.3rem;
-  font-size: 1rem;
-}
-
-.deleteConfirmMenu .id {
-  background-color: #4d5564;
-  text-align: center;
-  margin: 0;
-  border-radius: 0;
-  padding: 0 0.3rem 0.3rem 0.3rem;
-  font-size: 0.7rem;
-}
-
-.deleteConfirmMenu .deleteConfirm {
-  background-color: #a84646;
-}
-
 .multiButton {
   display: flex;
   justify-content: space-evenly;
@@ -218,107 +210,27 @@ button.green {
 }
 
 .sceneMenu {
-  position: absolute;
-  top: calc(2.5rem - 1px);
   display: flex;
-  z-index: 101;
-  padding: 0.3rem;
-  background-color: #2f343e;
-  border-radius: 0 0 6px 0;
-  border-right: 1px solid #464c5a;
-  border-bottom: 1px solid #464c5a;
-  box-shadow: 5px 5px 5px -2px #0a0c0e77;
-  font-size: 1rem;
 }
 
 .sceneMenu .title {
+  color: #fff;
   padding: 0.3rem;
   margin: 0;
   font-weight: normal;
 }
 
 .sceneMenu .select {
+  color: #fff;
+  background-color: #2f343e;
   appearance: none;
   position: relative;
-  color: #efefef;
-  background-color: #2f343e;
-  border: 1px solid #868fa2;
-  border-radius: 0;
-  padding: 0.3rem;
+  border: 1px solid #464c5a;
+  border-radius: 3px;
+  padding: 3px 10px;
   font-size: 1rem;
   cursor: pointer;
   line-height: 1;
-}
-
-.deleteScene {
-  font-size: 0.7rem;
-  padding: 0 0.7rem;
-  cursor: pointer;
-}
-
-.addMenu {
-  position: absolute;
-  top: 160px;
-  left: 240px;
-  z-index: 10;
-  background-color: #2f343e;
-  border: 1px solid #868fa2;
-  border-radius: 6px;
-  box-shadow: 2px 2px 5px 3px #0a0c0e;
-  font-size: 0.9rem;
-}
-
-.addMenu .title {
-  background-color: #4d5564;
-  text-align: center;
-  margin: 0;
-  border-radius: 6px 6px 0 0;
-  padding: 0.3rem;
-  font-size: 1rem;
-  font-weight: bold;
-}
-
-.addMenu.event .title {
-  background-color: #008106;
-}
-
-.addMenu.status .title {
-  background-color: #0074a3;
-}
-
-.addMenu.scene .title {
-  background-color: #b2500c;
-}
-
-.addMenu .searchBar {
-  appearance: none;
-  position: relative;
-  color: #efefef;
-  background-color: #2f343e;
-  border: none;
-  border-top: 1px solid #868fa2;
-  border-bottom: 1px solid #868fa2;
-  border-radius: 0;
-  outline: none;
-  padding: 0.3rem;
-  font-family: Inter, sans-serif;
-  font-size: 1rem;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.addMenu .addButton {
-  text-align: center;
-  width: 100%;
-  margin: 0;
-  padding: 0.3rem;
-  cursor: pointer;
-  font-size: 1.2rem;
-  font-weight: bold;
-}
-
-.addButton .description {
-  font-size: 0.7rem;
 }
 
 .verticalScroll {
@@ -379,87 +291,86 @@ button.green {
   border-radius: 6px;
   box-shadow: 2px 2px 5px 3px #0a0c0e;
   font-size: 0.9rem;
-  opacity: 0.7;
 }
 
 .editArea .box.row0 {
-  top: 100px;
+  top: 50px;
 }
 
 .editArea .box.row1 {
-  top: 200px;
+  top: 150px;
 }
 
 .editArea .box.row2 {
-  top: 300px;
+  top: 250px;
 }
 
 .editArea .box.row3 {
-  top: 400px;
+  top: 350px;
 }
 
 .editArea .box.row4 {
-  top: 500px;
+  top: 450px;
 }
 
 .editArea .box.row5 {
-  top: 600px;
+  top: 550px;
 }
 
 .editArea .box.row6 {
-  top: 700px;
+  top: 650px;
 }
 
 .editArea .box.row7 {
-  top: 800px;
+  top: 750px;
 }
 
 .editArea .box.row8 {
-  top: 900px;
+  top: 850px;
 }
 
 .editArea .box.row9 {
-  top: 1000px;
+  top: 950px;
 }
 
 .editArea .box.row10 {
-  top: 1100px;
+  top: 1050px;
 }
 
 .editArea .box.row11 {
-  top: 1200px;
+  top: 1150px;
 }
 
 .editArea .box.row12 {
-  top: 1300px;
+  top: 1250px;
 }
 
 .editArea .box.row13 {
-  top: 1400px;
+  top: 1350px;
 }
 
 .editArea .box.row14 {
-  top: 1500px;
+  top: 1450px;
 }
 
 .editArea .box.row15 {
-  top: 1600px;
+  top: 1550px;
 }
 
 .editArea .box.row16 {
-  top: 1700px;
+  top: 1650px;
 }
 
 .editArea .box.row17 {
-  top: 1800px;
+  top: 1750px;
 }
 
 .editArea .box.row18 {
-  top: 1900px;
+  top: 1850px;
 }
 
 .editArea .box.row19 {
-  top: 2000px;
+  top: 1950px;
 }
 
 .editArea .box:nth-child(12n + 1) {
@@ -510,11 +421,6 @@ button.green {
   left: 3350px;
 }
 
-.box.focus {
-  z-index: 2;
-  opacity: 1;
-}
-
 .box>.title {
   text-align: center;
   border-radius: 6px;
@@ -525,35 +431,7 @@ button.green {
   font-weight: bold;
 }
 
-.box.focus>.title {
-  border-radius: 6px 6px 0 0;
-}
-
-.box>.title>input {
-  appearance: none;
-  color: #efefef;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  outline: none;
-  padding: 0;
-  font-family: Inter, sans-serif;
-  font-size: 1rem;
-  font-weight: bold;
-  text-align: center;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.box.focus>.title>input {
-  border-bottom: 1px solid #efefef;
-}
-
-.box>.title>div {
-  font-size: 0.9rem;
-}
-
-.box>.title::after {
+.box>.title>.subtitle {
   position: absolute;
   width: 100%;
   left: 0;
@@ -562,73 +440,9 @@ button.green {
   font-weight: lighter;
 }
 
-.box>.title .deleteMenu {
-  width: 100%;
-  left: 0;
-  top: 0.3rem;
+.box>.title>.note {
   font-size: 0.8rem;
   font-weight: lighter;
-  cursor: pointer;
-}
-
-.box>.title .deleteMenu>div:hover {
-  outline: #efefef88 solid 2px;
-}
-
-.box .subtitle {
-  text-align: left;
-  margin: 0;
-  padding: 0.3rem;
-}
-
-.box>.node {
-  position: absolute;
-  top: 0.2rem;
-  left: -0.75rem;
-  width: 1.5rem;
-  height: 1.5rem;
-  border: 1px solid #868fa2;
-  border-radius: 50%;
-  box-shadow: 0px 0px 5px 0px #0a0c0e;
-  cursor: pointer;
-}
-
-.box .addButton {
-  position: relative;
-  text-align: center;
-  width: 100%;
-  margin: 0;
-  padding: 0.3rem;
-  cursor: pointer;
-  font-size: 1.2rem;
-  font-weight: bold;
-}
-
-.disableSelect {
-  -webkit-user-select: none;  
-  -moz-user-select: none;    
-  -ms-user-select: none;      
-  user-select: none;
-}
-
-.node.event {
-  background-color: #008106;
-}
-
-.node.status {
-  background-color: #0074a3;
-}
-
-.node.scene {
-  background-color: #b2500c;
-}
-
-.node.label {
-  background-color: #4d5564;
-}
-
-.node.none {
-  background-color: #4d5564;
 }
 
 .verticalList {
@@ -643,94 +457,33 @@ button.green {
   overflow-x: hidden;
 }
 
+.box.scene {
+  opacity: 0.5;
+}
+
 .box.scene>.title {
   background-color: #b2500c;
-}
-
-.box.scene>.title::after {
-  content: "Scene";
-}
-
-.box.scene .divButton {
-  width: 100%;
-  padding: 0.3rem;
-  border-radius: 0 0 6px 6px;
-  font-size: 1rem;
-  text-align: center;
-  cursor: pointer;
-}
-
-.box.scene .divButton:hover {
-  outline: #efefef88 solid 2px;
 }
 
 .box.status>.title {
   background-color: #0074a3;
 }
 
-.box.status>.title::after {
-  content: "Status";
-}
-
 .box.event>.title {
   background-color: #008106;
 }
 
-.box.event>.title::after {
-  content: "Event";
+.box.group>.title {
+  background-color: #713d80;
 }
 
-.action {
-  background-color: #4d5564;
+.box.group .groupArea {
   position: relative;
-  width: 100%;
-  border-radius: 3px;
-  padding: 0.3rem;
-  margin-left: 0.7rem;
-  margin-bottom: 0.2rem;
-  cursor: pointer;
-}
-
-.action .openStatus {
-  position: absolute;
-  top: 0;
-  right: 1rem;
-  padding: 0.36rem;
-  font-size: 0.8rem;
-}
-
-.action .deleteAction {
-  position: absolute;
-  background-color: #4d5564;
-  top: 0;
-  left: -1.1rem;
-  padding: 0.36rem;
-  border-radius: 3px 0 0 3px;
-  font-size: 0.8rem;
-}
-
-.action>.node {
-  position: absolute;
-  top: 0.4rem;
-  right: 0rem;
-  width: 1rem;
-  height: 1rem;
-  border: 1px solid #868fa2;
-  border-radius: 50%;
-  box-shadow: 0px 0px 5px 0px #0a0c0e;
-}
-
-.action .actionDetail {
-  background-color: #2f343e;
-  padding: 0.3rem;
-  border-radius: 3px;
-  margin-left: 0.7rem;
-}
-
-.action .editNote {
-  padding-bottom: 0.2rem;
-  text-align: right;
-  font-size: 0.5rem;
+  overflow: scroll;
+  background-color: #713d8022;
+  padding: 10px;
+  min-width: 250px;
+  min-height: 100px;
 }
 
 @keyframes flash {
@@ -743,87 +496,6 @@ button.green {
   40%, 90% {
     background-color: #2f343e;
   }
-}
-
-.actionDetail .isEditing {
-  animation: flash ease-in-out 1s infinite ;
-}
-
-.actionDetail .additionalInfo {
-  position: relative;
-  padding-top: .3rem;
-  border-top: 1px solid #efefef;
-}
-
-.actionDetail>.additionalInfo>.additionalInfoDetail {
-  background-color: #4d5564;
-  padding: 0.3rem;
-  border-radius: 3px;
-  margin-left: 0.7rem;
-}
-
-.additionalInfo>.node {
-  position: absolute;
-  top: 0.4rem;
-  right: 0rem;
-  width: 1rem;
-  height: 1rem;
-  border: 1px solid #868fa2;
-  border-radius: 50%;
-  box-shadow: 0px 0px 5px 0px #0a0c0e;
-}
-
-.actionDetail>.additionalInfo input {
-  appearance: none;
-  color: #efefef;
-  background: transparent;
-  width: 5rem;
-  border: none;
-  border-radius: 0;
-  outline: none;
-  padding: 0;
-  font-family: Inter, sans-serif;
-  font-weight: bold;
-  text-align: center;
-  cursor: pointer;
-  line-height: 1;
-}
-
-.addActionMenu {
-  position: absolute;
-  top: 0;
-  left: 8rem;
-  width: 160px;
-  z-index: 10;
-  background-color: #2f343e;
-  border: 1px solid #868fa2;
-  border-radius: 6px;
-  box-shadow: 2px 2px 5px 3px #0a0c0e;
-  font-size: 0.9rem;
-}
-
-.addActionMenu .title {
-  background-color: #4d5564;
-  text-align: center;
-  margin: 0;
-  border-radius: 6px 6px 0 0;
-  padding: 0.3rem;
-  font-size: 1rem;
-  font-weight: bold;
-}
-
-.addActionMenu .addActionButton {
-  text-align: center;
-  width: 100%;
-  margin: 0;
-  padding: 0.3rem;
-  cursor: pointer;
-  font-size: 1rem;
-}
-
-.addActionMenu .addActionButton:hover {
-  outline: #efefef88 solid 2px;
-  z-index: 11;
 }
 
 .state {
@@ -997,6 +669,11 @@ button.green {
 .box.label .divButton.scene {
   background-color: #b2500c;
   border-radius: 0 0 6px 0;
+}
+
+.box.label .divButton.status {
+  background-color: #0074a3;
+  border-radius: 0;
 }
 
 .box.label .divButton:hover {

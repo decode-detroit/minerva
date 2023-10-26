@@ -64,6 +64,13 @@ pub struct ConfigParameters {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum InterfaceUpdate {
+    /// A variant to provide the current scene and state of all statuses
+    #[serde(rename_all = "camelCase")]
+    CurrentSceneAndStatus {
+        current_scene: ItemId,
+        current_status: CurrentStatus,
+    },
+
     /// A variant to post a current event to the status bar
     #[serde(rename_all = "camelCase")]
     Notify { message: String },

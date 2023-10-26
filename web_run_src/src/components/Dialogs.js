@@ -1,13 +1,7 @@
 import React from 'react';
 
 // A fullscreen dialog box to communicate major information
-export class FullscreenDialog extends React.PureComponent {
-  // Class constructor
-  constructor(props) {
-    // Collect props
-    super(props);
-  }
- 
+export class FullscreenDialog extends React.PureComponent { 
   // Return the dialog
   render() {
     return (

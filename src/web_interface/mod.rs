@@ -208,7 +208,7 @@ impl WebInterface {
                                 match reply.data {
                                     WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
                                         // Send the update to the listener
-                                        if let Ok(_) = new_listener.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
+                                        if let Ok(_) = new_listener.send(InterfaceUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
                                             // If successful, add the tx line to the listeners
                                             listeners.push(new_listener);
                                         }
@@ -353,6 +353,14 @@ impl WebInterface {
                     .and(warp::path::end())
                     .and_then(WebInterface::handle_get_item);
 
+                // Create the group information filter
+                let get_group = warp::get()
+                    .and(warp::path("getGroup"))
+                    .and(WebInterface::with_clone(clone_send.clone()))
+                    .and(warp::path::param::<GetGroup>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_request);
+
                 // Create the get style filter
                 let get_styles = warp::get()
                     .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
@@ -399,6 +407,7 @@ impl WebInterface {
                     .or(cue_event)
                     .or(event_change)
                     .or(get_item)
+                    .or(get_group)
                     .or(get_styles)
                     .or(get_type)
                     .or(scene_change)
