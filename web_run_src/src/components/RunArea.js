@@ -199,7 +199,7 @@ export class RunArea extends React.PureComponent {
     
     // Render the event boxes
     return (
-      <div id={`scene-${this.props.id}`} className="editArea" style={{ left: `calc(${this.state.left}px - (250% * ${1 - this.state.zoom}))`, top: `calc(${this.state.top}px - (250% * ${1 - this.state.zoom}))`, transform: `scale(${this.state.zoom})` }} onMouseDown={this.handleMouseDown} onWheel={this.handleWheel}>
+      <div id={`scene-${this.props.currentScene.id}`} className="editArea" style={{ left: `calc(${this.state.left}px - (250% * ${1 - this.state.zoom}))`, top: `calc(${this.state.top}px - (250% * ${1 - this.state.zoom}))`, transform: `scale(${this.state.zoom})` }} onMouseDown={this.handleMouseDown} onWheel={this.handleWheel}>
         {boxes}
       </div>
     )

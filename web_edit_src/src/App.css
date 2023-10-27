@@ -1,6 +1,6 @@
 button {
   color: #fff;
-  background-color: #0074a3;
+  background-color: #2f343e;
   font-family: Inter, sans-serif;
   font-size: 1rem;
   border: none;
@@ -53,7 +53,7 @@ button.green {
 
 .header .title {
   color: #1bbdff;
-  padding: 1px 0 1px 20px;
+  padding: 1px 20px 1px 20px;
 }
 
 .header input {
@@ -86,20 +86,53 @@ button.green {
 }
 
 .menuButton {
-  background-color: #0074a3;
-  padding: 1px 20px;
+  background-color: #2f343e;
+  position: relative;
+  padding: 3px 20px;
+  border: 1px solid #464c5a;
   border-radius: 3px;
   margin: 0 20px;
   cursor: pointer;
+}
+
+.saveButton {
+  background-color: #0074a3;
+  padding: 3px 40px;
+}
+
+.menuButton.selected {
+  background-color: #0074a3;
+}
+
+.menuButton.inactive {
+  background-color: #464c5a;
+  cursor: auto;
 }
 
 .menuButton + .menuButton {
   margin-left: 0px;
 }
 
-.menuButton.inactive {
-  background-color: #464c5a;
-  cursor: auto;
+.headerExpansion {
+  background-color: #2f343e;
+  position: absolute;
+  top: 1.5rem;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 101;
+  border: 1px solid #464c5a;
+  border-radius: 3px;
+}
+
+.expansionMenuButton {
+  padding: 5px 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.expansionMenuButton + .expansionMenuButton {
+  border-top: 1px solid #464c5a;
 }
 
 .fullscreenDialog {
@@ -439,6 +472,21 @@ button.green {
   text-align: left;
   border-bottom: 1px solid #bbb;
   margin-left: 10px;
+}
+
+.configArea button {
+  background-color: #0074a3;
+  position: relative;
+  padding: 3px 20px;
+  border: 1px solid #464c5a;
+  border-radius: 3px;
+  margin: 0 20px;
+  cursor: pointer;
+}
+
+.configArea button.disabled {
+  background-color: #2f343e;
+  cursor: auto;
 }
 
 .configArea .defaultScene {

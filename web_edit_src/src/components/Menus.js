@@ -81,6 +81,7 @@ export class HeaderMenu extends React.PureComponent {
     // Collect props and set initial state
     super(props);
     this.state = {
+      isFileVisible: false,
       isMenuVisible: false,
     }
   }
@@ -91,13 +92,15 @@ export class HeaderMenu extends React.PureComponent {
       <div className="header">
         <div className="headerLeft">
           <div className="title">Minerva | EDIT MODE</div>
-          {!this.state.isMenuVisible && <ConfirmButton buttonClass="menuButton" onClick={() => {switchPort(64636);}} buttonText="Normal Mode" />}
-          {!this.state.isMenuVisible && <div class="menuButton" onClick={newConfig}>New Config</div>}
-          {!this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: true})}}>Select File</div>}
-          {this.state.isMenuVisible && <input type="text" value={this.props.filename} size={this.props.filename.length > 30 ? this.props.filename.length - 10 : 20} onInput={this.props.handleFileChange}></input>}
-          {this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: false})}}>Cancel</div>}
-          {this.state.isMenuVisible && <div class="menuButton" onClick={() => {this.setState({isMenuVisible: false}); this.props.openFile()}}>Open</div>}
-          <div class={"menuButton" + (this.props.saved ? " inactive" : "")} onClick={() => {this.setState({isMenuVisible: false}); this.props.saveFile()}}>Save</div>
+          <div class={"menuButton saveButton" + (this.props.saved ? " inactive" : "")} onClick={this.props.saveFile}>Save</div>
+          <div className={"menuButton" + (this.state.isFileVisible ? " selected" : "")} onClick={() => this.setState((prevState) => { return { isFileVisible: !prevState.isFileVisible }})}>File
+            {this.state.isFileVisible &&
+              <div class="headerExpansion">
+                <ConfirmButton buttonClass="expansionMenuButton" onClick={() => {switchPort(64636);}} buttonText="Normal Mode" />
+                <div class="expansionMenuButton" onClick={newConfig}>New Config</div>
+              </div>
+            }
+          </div>
         </div>
         <div className="headerRight">
           <ConfirmButton buttonClass="menuButton" onClick={() => {this.props.closeMinerva();}} buttonText="Quit Minerva" />

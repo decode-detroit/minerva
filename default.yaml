@@ -314,9 +314,9 @@ event_set:
       new_scene:
         id: 100
 user_styles:
-  '#scene-100 #id-203': '{ left: 94px; top: 60px; }'
+  '#scene-100 #id-101': '{ left: 58px; top: 51px; }'
   '#scene-100 #id-700 .groupArea': '{ width: 397px; height: 224px; }'
   '#scene-100 #id-1000': '{ left: 532px; top: 362px; }'
   '#scene-100 #id-700': '{ left: 379px; top: 96px; }'
   '#scene-200 #id-1000': '{ left: 591px; top: 365px; }'
-  '#scene-100 #id-101': '{ left: 58px; top: 51px; }'
+  '#scene-100 #id-203': '{ left: 94px; top: 60px; }'

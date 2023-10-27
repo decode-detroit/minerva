@@ -11,7 +11,6 @@ export class HeaderMenu extends React.PureComponent {
     super(props);
     this.state = {
       isFileVisible: false,
-      isSceneVisible: false,
     }
   }
 

@@ -164,7 +164,7 @@ export class App extends React.PureComponent {
       <>
         <link id="userStyles" rel="stylesheet" href={`/getStyles/${this.state.randomCss}.css`} />
         <div className="app">
-          <HeaderMenu closeMinerva={this.closeMinerva} saved={this.state.saved} filename={this.state.configFile} handleFileChange={this.handleFileChange} openFile={this.openFile} saveFile={this.saveFile} />
+          <HeaderMenu closeMinerva={this.closeMinerva} saved={this.state.saved} filename={this.state.configFile} openFile={this.openFile} saveFile={this.saveFile} />
           <ViewArea saveModifications={this.saveModifications} saveStyle={this.saveStyle} filename={this.state.configFile} handleFileChange={this.handleFileChange}/>
         </div>
         {!this.state.connectionActive && <FullscreenDialog dialogType="error" dialogTitle="Minerva Is Unavailable" dialogMessage="Minerva is closed or currently inaccessible. Please restart the program." dialogRetry={this.connectSocket}/>}

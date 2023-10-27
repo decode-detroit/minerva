@@ -309,7 +309,7 @@ export class ViewArea extends React.PureComponent {
       <>
         <SceneMenu value={this.state.sceneId} changeScene={this.changeScene} saveModifications={this.props.saveModifications} />
         <div className="viewArea" onContextMenu={this.showContextMenu}>
-          {this.state.sceneId === -1 && <ConfigArea filename={this.props.filename} handleFileChange={this.props.handleFileChange} saveModifications={this.props.saveModifications} /> }
+          {this.state.sceneId === -1 && <ConfigArea filename={this.props.filename} handleFileChange={this.props.handleFileChange} saveModifications={this.props.saveModifications} openFile={this.props.openFile} /> }
           {this.state.sceneId !== -1 && <>
             <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown} handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} saveDimensions={this.saveDimensions} />
             {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
@@ -334,6 +334,7 @@ export class ConfigArea extends React.PureComponent {
         defaultScene: { id: 0 },
       },
       isMenuVisible: false,
+      isFileChanged: false,
       defaultDescription: "Loading ...",
     }
 
@@ -342,6 +343,7 @@ export class ConfigArea extends React.PureComponent {
     this.updateIdentifier = this.updateIdentifier.bind(this);
     this.updateBackgroundProcess = this.updateBackgroundProcess.bind(this);
     this.updateParameters = this.updateParameters.bind(this);
+    this.handleFileChange = this.handleFileChange.bind(this);
     this.toggleDefaultMenu = this.toggleDefaultMenu.bind(this);
   }
 
@@ -425,6 +427,15 @@ export class ConfigArea extends React.PureComponent {
     });
   }
 
+  // Helper function to handle a change in the filename
+  handleFileChange(e) {
+    // Note the file change locally
+    this.setState({isFileChanged: true}); 
+
+    // Pass the file change up
+    this.props.handleFileChange(e);
+  }
+
   // Helper function to show or hide the default scene select menu
   toggleDefaultMenu() {
     // Set the new state of the menu
@@ -466,7 +477,8 @@ export class ConfigArea extends React.PureComponent {
     return (
       <div id="configArea" className="configArea">
         <div>Filename:
-          <TextInput value={this.props.filename} handleInput={this.props.handleFileChange} />
+          <TextInput value={this.props.filename} handleInput={this.handleFileChange} />
+          <button class={"" + (this.state.isFileChanged ? "" : " disabled")} onClick={() => {this.setState({isFileChanged: false}); this.props.openFile()}}>Open File</button>
         </div>
         <div>Identifier:
           <input type="number" min="0" value={this.state.parameters.identifier.id} onInput={this.updateIdentifier} />
@@ -498,12 +510,6 @@ export class ConfigArea extends React.PureComponent {
 
 // The draggable edit area
 export class EditArea extends React.PureComponent {
-  // Class constructor
-  constructor(props) {
-    // Collect props and set initial state
-    super(props);
-  }
-
   // Render the draggable edit area
   render() {
     // Create a box for each event
