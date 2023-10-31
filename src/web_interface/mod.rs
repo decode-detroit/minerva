@@ -74,6 +74,7 @@ impl WebInterface {
         limited_addr: String,
         run_addr: String,
         edit_addr: String,
+        cors_allowed_addr: Option<Vec<String>>,
         cert_path: Option<String>,
         key_path: Option<String>,
     ) {
@@ -156,6 +157,25 @@ impl WebInterface {
             // Spin up a thread for the limited access port
             let clone_send = web_send.clone();
             tokio::spawn(async move {
+                // Create the CORS filter to allow a specific origin
+                let mut cors;
+                if let Some(cors_addresses) = cors_allowed_addr {
+                    // Create the header
+                    cors = warp::cors();
+
+                    // Add any specified address
+                    for address in cors_addresses {
+                        cors = cors.allow_origin(address.as_str());
+                    }
+
+                    // Specify relevant methods
+                    cors = cors.allow_methods(vec!("GET", "POST"));
+                
+                // Otherwise, default to allow any origin
+                } else {
+                    cors = warp::cors().allow_any_origin().allow_methods(vec!("GET", "POST"));
+                }
+
                 // Create the websocket filter
                 let limited_listen = warp::path("listen")
                     .and(WebInterface::with_clone(limited_listener_send.clone()))
@@ -168,10 +188,11 @@ impl WebInterface {
                 // Create the limited cue event filter
                 let limited_cue_event = warp::post()
                     .and(warp::path("cueEvent"))
-                    .and(warp::path::end())
                     .and(WebInterface::with_clone(clone_send.clone()))
-                    .and(WebInterface::with_json::<LimitedCueEvent>())
-                    .and_then(WebInterface::handle_request);
+                    .and(warp::path::param::<LimitedCueEvent>())
+                    .and(warp::path::end())
+                    .and_then(WebInterface::handle_request)
+                    .with(cors);
 
                 // If a tls certificate was provided
                 if let Some(certificate) = cert_path {

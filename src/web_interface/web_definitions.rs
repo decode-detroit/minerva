@@ -141,6 +141,16 @@ pub struct StatusChange {
     state_id: u32,
 }
 
+impl FromStr for LimitedCueEvent {
+    // Interpret errors as ParseIntError
+    type Err = ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Parse as a u32 and return the result
+        let id = s.parse::<u32>()?;
+        Ok(LimitedCueEvent { id })
+    }
+}
 // Implement FromStr for helper data types
 impl FromStr for GetEvent {
     // Interpret errors as ParseIntError

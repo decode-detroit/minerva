@@ -82,6 +82,10 @@ struct Arguments {
     #[arg(long, default_value = DEFAULT_LIMITED_ADDRESS)]
     limited_addr: String,
 
+    /// CORS allowed addresses for the limited access address
+    #[arg(long, default_value = None)] // default is to allow any origin
+    cors_allowed_addr: Option<Vec<String>>,
+
     /// TLS certificate location for the limited access address
     #[arg(long, default_value = None)]
     cert_path: Option<String>,
@@ -204,6 +208,7 @@ impl Minerva {
             arguments.limited_addr,
             arguments.run_addr,
             arguments.edit_addr,
+            arguments.cors_allowed_addr,
             arguments.cert_path,
             arguments.key_path,
         )
