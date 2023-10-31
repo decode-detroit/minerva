@@ -32,6 +32,9 @@ use tokio::sync::{mpsc, oneshot};
 use warp::ws::{Message, WebSocket};
 use warp::{http, Filter};
 
+// Import tracing features
+use tracing::error;
+
 // Import stream-related features
 use async_stream::stream;
 use futures_util::StreamExt;
@@ -71,6 +74,8 @@ impl WebInterface {
         limited_addr: String,
         run_addr: String,
         edit_addr: String,
+        cert_path: Option<String>,
+        key_path: Option<String>,
     ) {
         // Parse any provided addresses, or use defaults
         let limited_address = limited_addr.parse::<std::net::SocketAddr>();
@@ -168,10 +173,36 @@ impl WebInterface {
                     .and(WebInterface::with_json::<LimitedCueEvent>())
                     .and_then(WebInterface::handle_request);
 
-                // Serve this route on a separate port
-                warp::serve(limited_listen.or(limited_cue_event))
-                    .run(address)
-                    .await;
+                // If a tls certificate was provided
+                if let Some(certificate) = cert_path {
+                    // And if the private key was provided, use TLS
+                    if let Some(private_key) = key_path {
+                        // Serve this route on a separate port
+                        warp::serve(limited_listen.or(limited_cue_event))
+                            .tls()
+                            .cert_path(certificate)
+                            .key_path(private_key)
+                            .run(address)
+                            .await;
+                    
+                    // Fallback to insecure implementation
+                    } else {
+                        // Throw an error first
+                        error!("Unable to serve with TLS: missing private key.");
+
+                        // Serve this route on a separate port
+                        warp::serve(limited_listen.or(limited_cue_event))
+                            .run(address)
+                            .await;
+                    }
+                
+                // Otherwise, default to no security
+                } else {
+                    // Serve this route on a separate port
+                    warp::serve(limited_listen.or(limited_cue_event))
+                        .run(address)
+                        .await;
+                }
             });
         }
 

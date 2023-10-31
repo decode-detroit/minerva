@@ -82,6 +82,14 @@ struct Arguments {
     #[arg(long, default_value = DEFAULT_LIMITED_ADDRESS)]
     limited_addr: String,
 
+    /// TLS certificate location for the limited access address
+    #[arg(long, default_value = None)]
+    cert_path: Option<String>,
+
+    /// TLS private key location for the limited access address
+    #[arg(long, default_value = None)]
+    key_path: Option<String>,
+
     /// Flag to set the log level
     #[arg(short, long, default_value = DEFAULT_LOGLEVEL)]
     log_level: String,
@@ -196,6 +204,8 @@ impl Minerva {
             arguments.limited_addr,
             arguments.run_addr,
             arguments.edit_addr,
+            arguments.cert_path,
+            arguments.key_path,
         )
         .await;
 
