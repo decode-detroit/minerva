@@ -1238,14 +1238,14 @@ impl Config {
                 }
 
             // Otherwise verify that the item id corresponds to a group
-            } else if group_map.get(id).is_none() {
+            } else if group_map.get(id).is_some() {
                 // Verify the group
                 /*if !Config::verify_group(event, scene, scene_map, status_map, lookup, events).await
                 {
                     warn!("Invalid event: {}.", id);
                     test = false;
                 }*/
-                error!("Group verification not implemented.");
+                warn!("Group verification not implemented.");
 
             // Otherwise verify that the item id corresponds to a status
             } else if status_map.get(id).is_none() {
