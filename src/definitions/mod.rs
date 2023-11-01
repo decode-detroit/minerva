@@ -16,7 +16,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 //! This module defines all structures and types used across modules.
- 
 
 // Define program constants
 pub const DEFAULT_FILE: &str = "default.yaml"; // the default configuration filename

@@ -169,11 +169,13 @@ impl WebInterface {
                     }
 
                     // Specify relevant methods
-                    cors = cors.allow_methods(vec!("GET", "POST"));
-                
+                    cors = cors.allow_methods(vec!["GET", "POST"]);
+
                 // Otherwise, default to allow any origin
                 } else {
-                    cors = warp::cors().allow_any_origin().allow_methods(vec!("GET", "POST"));
+                    cors = warp::cors()
+                        .allow_any_origin()
+                        .allow_methods(vec!["GET", "POST"]);
                 }
 
                 // Create the websocket filter
@@ -205,7 +207,7 @@ impl WebInterface {
                             .key_path(private_key)
                             .run(address)
                             .await;
-                    
+
                     // Fallback to insecure implementation
                     } else {
                         // Throw an error first
@@ -216,7 +218,7 @@ impl WebInterface {
                             .run(address)
                             .await;
                     }
-                
+
                 // Otherwise, default to no security
                 } else {
                     // Serve this route on a separate port

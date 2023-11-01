@@ -121,9 +121,9 @@ impl Minerva {
             _ => {
                 println!("Unable to parse parameter for option 'logLevel'. Options are Trace, Debug, Info, Warn, and Error.");
                 LevelFilter::INFO
-            },
+            }
         };
-        
+
         // Create the stdout layer
         let stdout_layer = tracing_subscriber::fmt::layer()
             .with_target(false)
