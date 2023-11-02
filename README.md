@@ -107,7 +107,7 @@ Take careful notes of the steps to
 * cross-compile Minerva, and
 * setup your Raspberry Pi host to run Minerva
 
-Note: These instructions are written for *compiling* the software on Ubuntu 20.04.
+Note: These instructions are written for *compiling* the software on Ubuntu 22.04.
 
 ### Cross-Compiling To Raspbian (armhf, 32bit)
 
@@ -124,12 +124,12 @@ sudo dpkg --add-architecture armhf
 ```
 And add these sources to the end of /etc/apt/sources.list.
 ```
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal main restricted
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates main restricted+
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal universe
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates universe
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal multiverse
-deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ focal-updates multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ jammy main restricted
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main restricted+
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ jammy universe
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates universe
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ jammy multiverse
+deb [arch=armhf] http://ports.ubuntu.com/ubuntu-ports/ jammy-updates multiverse
 ```
 Make sure to add `[arch=amd64]` to the other sources while you're at it.
 
