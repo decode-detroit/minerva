@@ -166,6 +166,11 @@ pub enum LimitedUpdate {
         current_status: CurrentStatus,
     },
 
+    /// A variant indicating the current scene should be refreshed with
+    /// the new scene.
+    #[serde(rename_all = "camelCase")]
+    UpdateScene { current_scene: ItemId },
+
     /// A variant to update the state of a partiular status
     #[serde(rename_all = "camelCase")]
     UpdateStatus {

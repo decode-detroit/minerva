@@ -620,6 +620,13 @@ impl Config {
                 })
                 .await;
 
+            // Send the scene change to the limited interface
+            self.limited_send
+                .send(LimitedUpdate::UpdateScene {
+                    current_scene: scene_id,
+                })
+                .await;
+
             // Indicate success
             return Ok(());
 
