@@ -659,7 +659,7 @@ impl EventHandler {
                 }
             }
 
-            // If there is a queued event to load, load it into the queue
+            // If there is a cued event to load, load it into the queue
             CueEvent { event } => {
                 // Add the event to the queue
                 self.queue.add_event(event).await;
