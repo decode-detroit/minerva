@@ -601,7 +601,7 @@ impl Config {
         self.dmx_path = parameters.dmx_path;
         self.media_players = parameters.media_players;
         self.system_connections = parameters.system_connections;
-        self.default_scene = self.default_scene;
+        self.default_scene = parameters.default_scene;
     }
 
     /// A method to select a scene map from existing configuration based on the
