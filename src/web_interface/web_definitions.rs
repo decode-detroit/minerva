@@ -30,6 +30,15 @@ use std::time::Duration;
 // Import Chrono features
 use chrono::NaiveDateTime;
 
+/// Helper struct to define JWT claims
+///
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Claims {
+    pub iss: String,
+    pub exp: u64,
+}
+
 /// Helper data types to formalize request structure
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

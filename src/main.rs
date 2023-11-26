@@ -86,11 +86,11 @@ struct Arguments {
     #[arg(long, default_value = None)] // default is to allow any origin
     cors_allowed_addr: Option<Vec<String>>,
 
-    /// TLS certificate location for the limited access address
+    /// TLS certificate location for the limited access address, RSA only for JWT tokens
     #[arg(long, default_value = None)]
     cert_path: Option<String>,
 
-    /// TLS private key location for the limited access address
+    /// TLS private key location for the limited access address, RSA only for JWT tokens
     #[arg(long, default_value = None)]
     key_path: Option<String>,
 

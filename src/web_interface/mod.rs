@@ -28,19 +28,23 @@ mod web_definitions;
 use self::web_definitions::*;
 
 // Import Tokio and warp features
+use tokio::fs::read;
 use tokio::sync::{mpsc, oneshot};
 use warp::ws::{Message, WebSocket};
 use warp::{http, Filter};
 
 // Import tracing features
-use tracing::error;
+use tracing::{error, info, warn};
 
 // Import stream-related features
 use async_stream::stream;
 use futures_util::StreamExt;
 
-// Import serde feaures
+// Import serde features
 use serde::de::DeserializeOwned;
+
+// Import JWT features
+use jsonwebtoken as jwt;
 
 // Import rust embed and warp embed features
 use rust_embed::RustEmbed;
@@ -75,8 +79,8 @@ impl WebInterface {
         run_addr: String,
         edit_addr: String,
         cors_allowed_addr: Option<Vec<String>>,
-        cert_path: Option<String>,
-        key_path: Option<String>,
+        possible_cert_path: Option<String>,
+        possible_key_path: Option<String>,
     ) {
         // Parse any provided addresses, or use defaults
         let limited_address = limited_addr.parse::<std::net::SocketAddr>();
@@ -168,6 +172,9 @@ impl WebInterface {
                         cors = cors.allow_origin(address.as_str());
                     }
 
+                    // Add the authentication options
+                    cors = cors.allow_headers(vec!["Authorization"]);
+
                     // Specify relevant methods
                     cors = cors.allow_methods(vec!["GET", "POST"]);
 
@@ -187,31 +194,101 @@ impl WebInterface {
                         ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
                     });
 
-                // Create the limited cue event filter
-                let limited_cue_event = warp::post()
-                    .and(warp::path("cueEvent"))
-                    .and(WebInterface::with_clone(clone_send.clone()))
-                    .and(warp::path::param::<LimitedCueEvent>())
-                    .and(warp::path::end())
-                    .and_then(WebInterface::handle_request)
-                    .with(cors);
+                // If a TLS certificate and private key were provided FIXME can be cleaned up when let chains are stable
+                if let (Some(cert_path), Some(private_path)) =
+                    (possible_cert_path, possible_key_path)
+                {
+                    // Try to load the certificate and private keys from the path
+                    let possible_cert = read(cert_path).await;
+                    let possible_private = read(private_path).await;
 
-                // If a tls certificate was provided
-                if let Some(certificate) = cert_path {
-                    // And if the private key was provided, use TLS
-                    if let Some(private_key) = key_path {
-                        // Serve this route on a separate port
-                        warp::serve(limited_listen.or(limited_cue_event))
+                    // If both files loaded successfully FIXME can be cleaned up when let chains are stable
+                    if let (Ok(certificate), Ok(private_key)) = (possible_cert, possible_private) {
+                        // Try to create the JWT encoding and decoding keys
+                        let possible_encoding_key = jwt::EncodingKey::from_rsa_pem(&private_key);
+                        let possible_decoding_key = jwt::DecodingKey::from_rsa_pem(&certificate);
+
+                        // If both keys were created successfully FIXME can be cleaned up when let chains are stable
+                        if let (Ok(encoding_key), Ok(decoding_key)) =
+                            (possible_encoding_key, possible_decoding_key)
+                        {
+                            // Share the admin token to the terminal
+                            info!(
+                                "Limited Cue Admin Token: {}",
+                                WebInterface::generate_admin_token(encoding_key.clone())
+                            );
+
+                            // Create the options response
+                            let cors_options = warp::options().map(warp::reply).with(cors.clone());
+
+                            // Create the authenticated generate token filter
+                            let generate_token = warp::get()
+                                .and(warp::path("generateToken"))
+                                .and(WebInterface::with_clone(encoding_key.clone()))
+                                .and(WebInterface::with_clone(decoding_key.clone()))
+                                .and(warp::header::<String>("Authorization"))
+                                .and(warp::path::param::<u64>())
+                                .and(warp::path::end())
+                                .and_then(WebInterface::generate_token)
+                                .with(cors.clone());
+
+                            // Create the authenticated limited cue event filter
+                            let limited_cue_event = warp::post()
+                                .and(warp::path("cueEvent"))
+                                .and(WebInterface::with_clone(decoding_key.clone()))
+                                .and(WebInterface::with_clone(clone_send.clone()))
+                                .and(warp::header::<String>("Authorization"))
+                                .and(warp::path::param::<LimitedCueEvent>())
+                                .and(warp::path::end())
+                                .and_then(WebInterface::authorize_and_handle_request)
+                                .with(cors);
+
+                            // Serve this route on a separate port
+                            warp::serve(
+                                cors_options
+                                    .or(generate_token)
+                                    .or(limited_listen)
+                                    .or(limited_cue_event),
+                            )
                             .tls()
-                            .cert_path(certificate)
-                            .key_path(private_key)
+                            .cert(certificate)
+                            .key(private_key)
                             .run(address)
                             .await;
+
+                        // Fallback to TLS only, no JWT
+                        } else {
+                            // Throw a warning first
+                            warn!("Unable to use JWT authentication: Key format incompatible.");
+
+                            // Create the limited cue event filter
+                            let limited_cue_event = warp::post()
+                                .and(warp::path("cueEvent"))
+                                .and(WebInterface::with_clone(clone_send.clone()))
+                                .and(warp::path::param::<LimitedCueEvent>())
+                                .and(warp::path::end())
+                                .and_then(WebInterface::handle_request)
+                                .with(cors);
+
+                            // Serve this route on a separate port
+                            warp::serve(limited_listen.or(limited_cue_event))
+                                .run(address)
+                                .await;
+                        }
 
                     // Fallback to insecure implementation
                     } else {
                         // Throw an error first
-                        error!("Unable to serve with TLS: missing private key.");
+                        error!("Unable to serve with TLS: Public or private key file not found.");
+
+                        // Create the limited cue event filter
+                        let limited_cue_event = warp::post()
+                            .and(warp::path("cueEvent"))
+                            .and(WebInterface::with_clone(clone_send.clone()))
+                            .and(warp::path::param::<LimitedCueEvent>())
+                            .and(warp::path::end())
+                            .and_then(WebInterface::handle_request)
+                            .with(cors);
 
                         // Serve this route on a separate port
                         warp::serve(limited_listen.or(limited_cue_event))
@@ -221,6 +298,15 @@ impl WebInterface {
 
                 // Otherwise, default to no security
                 } else {
+                    // Create the limited cue event filter
+                    let limited_cue_event = warp::post()
+                        .and(warp::path("cueEvent"))
+                        .and(WebInterface::with_clone(clone_send.clone()))
+                        .and(warp::path::param::<LimitedCueEvent>())
+                        .and(warp::path::end())
+                        .and_then(WebInterface::handle_request)
+                        .with(cors);
+
                     // Serve this route on a separate port
                     warp::serve(limited_listen.or(limited_cue_event))
                         .run(address)
@@ -649,6 +735,147 @@ impl WebInterface {
                 // Handle incoming requests on the edit port
                 warp::serve(edit_routes).run(address).await;
             });
+        }
+    }
+
+    /// A function to generate an administrator JWT authentication token
+    ///
+    /// # Note
+    /// On failure, this function returns a description of the error
+    /// instead of the token.
+    ///
+    fn generate_admin_token(encoding_key: jwt::EncodingKey) -> String {
+        // Compose the claims for the token
+        let claims = Claims {
+            iss: "Minerva-LimitedCue-Admin".to_string(),
+            exp: 0, // Expiration is ignored
+        };
+
+        // Try to encode the token
+        match jwt::encode(
+            &jwt::Header::new(jwt::Algorithm::RS256),
+            &claims,
+            &encoding_key,
+        ) {
+            Ok(token) => token,
+            _ => "Unable to generate admin token.".to_string(),
+        }
+    }
+
+    /// A function to generate a JWT authentication token
+    /// with an expiration time in the future (in seconds)
+    ///
+    async fn generate_token(
+        encoding_key: jwt::EncodingKey,
+        decoding_key: jwt::DecodingKey,
+        token: String,
+        expiration: u64,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        // Create the validation requirements for the admin token
+        let mut validation = jwt::Validation::new(jwt::Algorithm::RS256);
+        validation.set_issuer(&["Minerva-LimitedCue-Admin"]);
+        validation.validate_exp = false; // generator token doesn't expire
+        match jwt::decode::<Claims>(&token, &decoding_key, &validation) {
+            // Return the decoded data
+            Ok(_) => (),
+
+            // Return an authentication error
+            _ => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&WebReply::failure("User is not authorized.")),
+                    http::StatusCode::FORBIDDEN,
+                ));
+            }
+        };
+
+        // Create the timestamp for the expiration of the new token
+        let exp = jwt::get_current_timestamp() + expiration;
+
+        // Compose the claims for the token
+        let claims = Claims {
+            iss: "Minerva-LimitedCue".to_string(),
+            exp,
+        };
+
+        // Encode the token
+        let token = match jwt::encode(
+            &jwt::Header::new(jwt::Algorithm::RS256),
+            &claims,
+            &encoding_key,
+        ) {
+            Ok(token) => token,
+            Err(_) => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&WebReply::failure("Unable to generate new token.")),
+                    http::StatusCode::INTERNAL_SERVER_ERROR,
+                ))
+            }
+        };
+
+        // Return the successful token
+        Ok(warp::reply::with_status(
+            warp::reply::json(&WebReply {
+                is_valid: true,
+                data: WebReplyData::Message(token),
+            }),
+            http::StatusCode::OK,
+        ))
+    }
+
+    /// A function to check authentication and then handle incoming requests
+    ///
+    async fn authorize_and_handle_request<R>(
+        key: jwt::DecodingKey,
+        web_send: WebSend,
+        token: String,
+        request: R,
+    ) -> Result<impl warp::Reply, warp::Rejection>
+    where
+        R: Into<UserRequest>,
+    {
+        // Create the validation requirements for the token
+        let mut validation = jwt::Validation::new(jwt::Algorithm::RS256);
+        validation.set_issuer(&["Minerva-LimitedCue"]);
+        match jwt::decode::<Claims>(&token, &key, &validation) {
+            // Return the decoded data
+            Ok(_) => (),
+
+            // Return an authentication error
+            _ => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&WebReply::failure("User is not authorized.")),
+                    http::StatusCode::FORBIDDEN,
+                ));
+            }
+        };
+
+        // Send the message and wait for the reply
+        let (reply_to, rx) = oneshot::channel();
+        web_send.send(reply_to, request.into()).await;
+
+        // Wait for the reply
+        if let Ok(reply) = rx.await {
+            // If the reply is a success
+            if reply.is_success() {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::OK,
+                ));
+
+            // Otherwise, note the error
+            } else {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::BAD_REQUEST,
+                ));
+            }
+
+        // Otherwise, note the error
+        } else {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&WebReply::failure("Unable to process request.")),
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+            ));
         }
     }
 
