@@ -73,8 +73,8 @@ impl WebInterface {
         index_access: IndexAccess,
         style_access: StyleAccess,
         web_send: WebSend,
-        mut interface_receive: mpsc::Receiver<InterfaceUpdate>,
-        mut limited_receive: mpsc::Receiver<LimitedUpdate>,
+        interface_receive: mpsc::Receiver<InterfaceUpdate>,
+        limited_receive: mpsc::Receiver<LimitedUpdate>,
         limited_addr: String,
         run_addr: String,
         edit_addr: String,
@@ -88,72 +88,12 @@ impl WebInterface {
         let edit_address = edit_addr.parse::<std::net::SocketAddr>();
 
         // Create a channel for sending new limited listener handles
-        let (limited_listener_send, mut limited_listener_recv): (
-            mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>,
-            mpsc::Receiver<mpsc::Sender<Result<Message, warp::Error>>>,
-        ) = mpsc::channel(128);
+        let (limited_listener_send, limited_listener_recv) = mpsc::channel(128);
 
         // Spin up a thread to pass messages to all the limited web sockets
         let web_clone = web_send.clone();
         tokio::spawn(async move {
-            // Create a list of listeners
-            let mut listeners = Vec::new();
-
-            // Loop until failure of one of the channels
-            loop {
-                // Check for updates on any line
-                tokio::select! {
-                    // A new listener handle
-                    Some(new_listener) = limited_listener_recv.recv() => {
-                        // Create a oneshot channel to get the current scene and status
-                        let (reply_to, rx) = oneshot::channel();
-
-                        // Send the message and wait for the reply
-                        web_clone.send(reply_to, UserRequest::CurrentSceneAndStatus).await;
-
-                        // If we got a reply
-                        if let Ok(reply) = rx.await {
-                            // If the reply is a success
-                            if reply.is_success() {
-
-                                // Ensure it's the correct reply
-                                match reply.data {
-                                    WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
-                                        // Send the update to the listener
-                                        if let Ok(_) = new_listener.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
-                                            // If successful, add the tx line to the listeners
-                                            listeners.push(new_listener);
-                                        }
-                                    }
-                                    _ => ()
-                                }
-
-                            // Otherwise, just add the listener
-                            } else {
-                                listeners.push(new_listener);
-                            }
-
-                        // Otherwise, just add the listener
-                        } else {
-                            listeners.push(new_listener);
-                        }
-                    }
-
-                    // Updates to the limited interface
-                    Some(update) = limited_receive.recv() => {
-                        // For every listener, send the update or drop the channel
-                        let mut active_listeners = Vec::new();
-                        for listener in listeners.drain(..) {
-                            // Try to send a message with the new entries
-                            if let Ok(_) = listener.send(update.clone().into()).await {
-                                // If the message was successful, keep the channel
-                                active_listeners.push(listener);
-                            }
-                        }
-                        listeners = active_listeners;
-                    }
-                }
-            }
+            WebInterface::forward_updates(web_clone, limited_listener_recv, limited_receive).await;
         });
 
         // If limited access address is valid
@@ -173,7 +113,7 @@ impl WebInterface {
                     }
 
                     // Add the authentication options
-                    cors = cors.allow_headers(vec!["Authorization"]);
+                    cors = cors.allow_headers(vec!["authorization"]);
 
                     // Specify relevant methods
                     cors = cors.allow_methods(vec!["GET", "POST"]);
@@ -185,16 +125,8 @@ impl WebInterface {
                         .allow_methods(vec!["GET", "POST"]);
                 }
 
-                // Create the websocket filter
-                let limited_listen = warp::path("listen")
-                    .and(WebInterface::with_clone(limited_listener_send.clone()))
-                    .and(warp::ws())
-                    .map(|sender, ws: warp::ws::Ws| {
-                        // This will call the function if the handshake succeeds.
-                        ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
-                    });
-
                 // If a TLS certificate and private key were provided FIXME can be cleaned up when let chains are stable
+                let mut is_using_tls = false;
                 if let (Some(cert_path), Some(private_path)) =
                     (possible_cert_path, possible_key_path)
                 {
@@ -204,6 +136,8 @@ impl WebInterface {
 
                     // If both files loaded successfully FIXME can be cleaned up when let chains are stable
                     if let (Ok(certificate), Ok(private_key)) = (possible_cert, possible_private) {
+                        is_using_tls = true; // save successful TLS loading
+
                         // Try to create the JWT encoding and decoding keys
                         let possible_encoding_key = jwt::EncodingKey::from_rsa_pem(&private_key);
                         let possible_decoding_key = jwt::DecodingKey::from_rsa_pem(&certificate);
@@ -211,7 +145,7 @@ impl WebInterface {
                         // If both keys were created successfully FIXME can be cleaned up when let chains are stable
                         if let (Ok(encoding_key), Ok(decoding_key)) =
                             (possible_encoding_key, possible_decoding_key)
-                        {
+                        {   
                             // Share the admin token to the terminal
                             info!(
                                 "Limited Cue Admin Token: {}",
@@ -226,22 +160,33 @@ impl WebInterface {
                                 .and(warp::path("generateToken"))
                                 .and(WebInterface::with_clone(encoding_key.clone()))
                                 .and(WebInterface::with_clone(decoding_key.clone()))
-                                .and(warp::header::<String>("Authorization"))
+                                .and(warp::header::<String>("authorization"))
                                 .and(warp::path::param::<u64>())
                                 .and(warp::path::end())
                                 .and_then(WebInterface::generate_token)
                                 .with(cors.clone());
+
+                            // Create the websocket filter
+                            let limited_listen = warp::path("listen")
+                                .and(WebInterface::with_clone(decoding_key.clone()))
+                                .and(WebInterface::with_clone(limited_listener_send.clone()))
+                                .and(warp::path::param::<String>())
+                                .and(warp::ws())
+                                .map(|key, sender, token, ws: warp::ws::Ws| {
+                                    // This will call the function if the handshake succeeds.
+                                    ws.on_upgrade(move |socket| WebInterface::authorize_and_add_listener(key, sender, token, socket))
+                                });
 
                             // Create the authenticated limited cue event filter
                             let limited_cue_event = warp::post()
                                 .and(warp::path("cueEvent"))
                                 .and(WebInterface::with_clone(decoding_key.clone()))
                                 .and(WebInterface::with_clone(clone_send.clone()))
-                                .and(warp::header::<String>("Authorization"))
+                                .and(warp::header::<String>("authorization"))
                                 .and(warp::path::param::<LimitedCueEvent>())
                                 .and(warp::path::end())
                                 .and_then(WebInterface::authorize_and_handle_request)
-                                .with(cors);
+                                .with(cors.clone());
 
                             // Serve this route on a separate port
                             warp::serve(
@@ -261,6 +206,15 @@ impl WebInterface {
                             // Throw a warning first
                             warn!("Unable to use JWT authentication: Key format incompatible.");
 
+                            // Create the websocket filter
+                            let limited_listen = warp::path("listen")
+                                .and(WebInterface::with_clone(limited_listener_send.clone()))
+                                .and(warp::ws())
+                                .map(|sender, ws: warp::ws::Ws| {
+                                    // This will call the function if the handshake succeeds.
+                                    ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
+                                });
+
                             // Create the limited cue event filter
                             let limited_cue_event = warp::post()
                                 .and(warp::path("cueEvent"))
@@ -268,10 +222,13 @@ impl WebInterface {
                                 .and(warp::path::param::<LimitedCueEvent>())
                                 .and(warp::path::end())
                                 .and_then(WebInterface::handle_request)
-                                .with(cors);
+                                .with(cors.clone());
 
                             // Serve this route on a separate port
                             warp::serve(limited_listen.or(limited_cue_event))
+                                .tls()
+                                .cert(certificate)
+                                .key(private_key)
                                 .run(address)
                                 .await;
                         }
@@ -280,24 +237,20 @@ impl WebInterface {
                     } else {
                         // Throw an error first
                         error!("Unable to serve with TLS: Public or private key file not found.");
-
-                        // Create the limited cue event filter
-                        let limited_cue_event = warp::post()
-                            .and(warp::path("cueEvent"))
-                            .and(WebInterface::with_clone(clone_send.clone()))
-                            .and(warp::path::param::<LimitedCueEvent>())
-                            .and(warp::path::end())
-                            .and_then(WebInterface::handle_request)
-                            .with(cors);
-
-                        // Serve this route on a separate port
-                        warp::serve(limited_listen.or(limited_cue_event))
-                            .run(address)
-                            .await;
                     }
+                }
 
-                // Otherwise, default to no security
-                } else {
+                // Default to no security
+                if !is_using_tls {
+                    // Create the websocket filter
+                    let limited_listen = warp::path("listen")
+                        .and(WebInterface::with_clone(limited_listener_send.clone()))
+                        .and(warp::ws())
+                        .map(|sender, ws: warp::ws::Ws| {
+                            // This will call the function if the handshake succeeds.
+                            ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
+                        });
+
                     // Create the limited cue event filter
                     let limited_cue_event = warp::post()
                         .and(warp::path("cueEvent"))
@@ -316,72 +269,12 @@ impl WebInterface {
         }
 
         // Create a channel for sending new listener handles
-        let (listener_send, mut listener_recv): (
-            mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>,
-            mpsc::Receiver<mpsc::Sender<Result<Message, warp::Error>>>,
-        ) = mpsc::channel(128);
+        let (listener_send, listener_recv) = mpsc::channel(128);
 
         // Spin up a thread to pass messages to all the web sockets
         let web_clone = web_send.clone();
         tokio::spawn(async move {
-            // Create a list of listeners
-            let mut listeners = Vec::new();
-
-            // Loop until failure of one of the channels
-            loop {
-                // Check for updates on any line
-                tokio::select! {
-                    // A new listener handle
-                    Some(new_listener) = listener_recv.recv() => {
-                        // Create a oneshot channel to get the current scene and status
-                        let (reply_to, rx) = oneshot::channel();
-
-                        // Send the message and wait for the reply
-                        web_clone.send(reply_to, UserRequest::CurrentSceneAndStatus).await;
-
-                        // If we got a reply
-                        if let Ok(reply) = rx.await {
-                            // If the reply is a success
-                            if reply.is_success() {
-
-                                // Ensure it's the correct reply
-                                match reply.data {
-                                    WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
-                                        // Send the update to the listener
-                                        if let Ok(_) = new_listener.send(InterfaceUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
-                                            // If successful, add the tx line to the listeners
-                                            listeners.push(new_listener);
-                                        }
-                                    }
-                                    _ => ()
-                                }
-
-                            // Otherwise, just add the listener
-                            } else {
-                                listeners.push(new_listener);
-                            }
-
-                        // Otherwise, just add the listener
-                        } else {
-                            listeners.push(new_listener);
-                        }
-                    }
-
-                    // Updates to the user interface
-                    Some(update) = interface_receive.recv() => {
-                        // For every listener, send the update or drop the channel
-                        let mut active_listeners = Vec::new();
-                        for listener in listeners.drain(..) {
-                            // Try to send a message with the new entries
-                            if let Ok(_) = listener.send(update.clone().into()).await {
-                                // If the message was successful, keep the channel
-                                active_listeners.push(listener);
-                            }
-                        }
-                        listeners = active_listeners;
-                    }
-                }
-            }
+            WebInterface::forward_updates(web_clone, listener_recv, interface_receive).await;
         });
 
         // If run address is valid
@@ -738,6 +631,75 @@ impl WebInterface {
         }
     }
 
+    /// A function to pass interface update messages to a websocket
+    /// 
+    async fn forward_updates<T>(web_send: WebSend, mut listener_recv: mpsc::Receiver<ListenerWithExpiration>, mut interface_receive: mpsc::Receiver<T>) 
+    where T: Clone +  Into<Result<Message, warp::Error>>
+    {
+        // Create a list of listeners
+        let mut listeners = Vec::new();
+
+        // Loop until failure of one of the channels
+        loop {
+            // Check for updates on any line
+            tokio::select! {
+                // A new websocket handle
+                Some(new_listener) = listener_recv.recv() => {
+                    // Create a oneshot channel to get the current scene and status
+                    let (reply_to, rx) = oneshot::channel();
+
+                    // Send the message and wait for the reply
+                    web_send.send(reply_to, UserRequest::CurrentSceneAndStatus).await;
+
+                    // If we got a reply
+                    if let Ok(reply) = rx.await {
+                        // If the reply is a success
+                        if reply.is_success() {
+                            // Ensure it's the correct reply
+                            match reply.data {
+                                WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
+                                    // Send the update to the listener (cheat: technically should be InterfaceUpdate some of the time, but they're equivalent)
+                                    if let Ok(_) = new_listener.socket.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
+                                        // If successful, add the tx line to the listeners
+                                        listeners.push(new_listener);
+                                    }
+                                }
+                                _ => ()
+                            }
+
+                        // Otherwise, just add the listener
+                        } else {
+                            listeners.push(new_listener);
+                        }
+
+                    // Otherwise, just add the listener
+                    } else {
+                        listeners.push(new_listener);
+                    }
+                }
+
+                // Updates to the interface
+                Some(update) = interface_receive.recv() => {
+                    // For every listener, send the update or drop the channel
+                    let mut active_listeners = Vec::new();
+                    for listener in listeners.drain(..) {
+                        // Check if the listener has expired
+                        if listener.expiration != 0 && listener.expiration < jwt::get_current_timestamp() {
+                            continue; // continue and drop the listener
+                        }
+
+                        // Try to send a message with the new entries
+                        if let Ok(_) = listener.socket.send(update.clone().into()).await {
+                            // If the message was successful, keep the channel
+                            active_listeners.push(listener);
+                        }
+                    }
+                    listeners = active_listeners;
+                }
+            }
+        }
+    }
+
     /// A function to generate an administrator JWT authentication token
     ///
     /// # Note
@@ -879,6 +841,85 @@ impl WebInterface {
         }
     }
 
+    /// A function to check authentication and then add a new websocket
+    ///
+    async fn authorize_and_add_listener(
+        key: jwt::DecodingKey,
+        sender: mpsc::Sender<ListenerWithExpiration>,
+        token: String,
+        socket: WebSocket,
+    ) {
+        // Create the validation requirements for the token
+        let mut validation = jwt::Validation::new(jwt::Algorithm::RS256);
+        validation.set_issuer(&["Minerva-LimitedCue"]);
+        let token_data = match jwt::decode::<Claims>(&token, &key, &validation) {
+            // Return the decoded data
+            Ok(data) => data,
+
+            // Return without connecting the socket
+            _ => return,
+        };
+        
+        // Split the socket into a sender and receiver
+        let (ws_tx, mut ws_rx) = socket.split();
+
+        // Use an unbounded channel to handle buffering and flushing of messages
+        let (tx, mut rx) = mpsc::channel(128);
+        let stream = stream! {
+            while let Some(item) = rx.recv().await {
+                yield item;
+            }
+        };
+
+        // Forward messages until the line is dropped
+        tokio::spawn(
+            // Forward received messages
+            stream.forward(ws_tx),
+        );
+
+        // Send a listener with no expiration
+        if let Err(_) = sender.send(ListenerWithExpiration { socket: tx, expiration: token_data.claims.exp }).await {
+            // Drop the connection on failure
+            return;
+        }
+
+        // Wait for the line to be dropped (ignore incoming messages)
+        while ws_rx.next().await.is_some() {}
+    }
+
+    /// A function to add a new websocket listener
+    ///
+    async fn add_listener(
+        sender: mpsc::Sender<ListenerWithExpiration>,
+        socket: WebSocket,
+    ) {
+        // Split the socket into a sender and receiver
+        let (ws_tx, mut ws_rx) = socket.split();
+
+        // Use an unbounded channel to handle buffering and flushing of messages
+        let (tx, mut rx) = mpsc::channel(128);
+        let stream = stream! {
+            while let Some(item) = rx.recv().await {
+                yield item;
+            }
+        };
+
+        // Forward messages until the line is dropped
+        tokio::spawn(
+            // Forward received messages
+            stream.forward(ws_tx),
+        );
+
+        // Send a listener with no expiration
+        if let Err(_) = sender.send(ListenerWithExpiration { socket: tx, expiration: 0 }).await {
+            // Drop the connection on failure
+            return;
+        }
+
+        // Wait for the line to be dropped (ignore incoming messages)
+        while ws_rx.next().await.is_some() {}
+    }
+
     /// A function to handle incoming requests
     ///
     async fn handle_request<R>(
@@ -970,39 +1011,6 @@ impl WebInterface {
             warp::reply::json(&WebReply::success()),
             http::StatusCode::CREATED,
         ));
-    }
-
-    /// A function to add a new websocket listener
-    ///
-    async fn add_listener(
-        sender: mpsc::Sender<mpsc::Sender<Result<Message, warp::Error>>>,
-        socket: WebSocket,
-    ) {
-        // Split the socket into a sender and receiver
-        let (ws_tx, mut ws_rx) = socket.split();
-
-        // Use an unbounded channel to handle buffering and flushing of messages
-        let (tx, mut rx) = mpsc::channel(128);
-        let stream = stream! {
-            while let Some(item) = rx.recv().await {
-                yield item;
-            }
-        };
-
-        // Forward messages until the line is dropped
-        tokio::spawn(
-            // Forward received messages
-            stream.forward(ws_tx),
-        );
-
-        // Send the tx line to the listener list
-        if let Err(_) = sender.send(tx).await {
-            // Drop the connection on failure
-            return;
-        }
-
-        // Wait for the line to be dropped (ignore incoming messages)
-        while ws_rx.next().await.is_some() {}
     }
 
     /// A function to add a fake listener

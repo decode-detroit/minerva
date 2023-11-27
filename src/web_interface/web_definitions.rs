@@ -30,6 +30,10 @@ use std::time::Duration;
 // Import Chrono features
 use chrono::NaiveDateTime;
 
+// Import Tokio and warp features
+use tokio::sync::mpsc;
+use warp::ws::Message;
+
 /// Helper struct to define JWT claims
 ///
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +43,15 @@ pub struct Claims {
     pub exp: u64,
 }
 
+/// Helper struct to share a websocket with its expiration time (JWT standard expiration)
+/// 
+pub struct ListenerWithExpiration {
+    pub socket: mpsc::Sender<Result<Message, warp::Error>>, // the sender for the websocket
+    pub expiration: u64, // the expiration time of the websocket, in UNIX Epoch seconds. 0 for no expiration
+}
+
 /// Helper data types to formalize request structure
+/// 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AllEventChange {
