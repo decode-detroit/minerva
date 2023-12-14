@@ -21,15 +21,32 @@ If you would like to contribute to Minerva, or if you are on Windows or Mac, you
 
 ### Prerequisites
 
-You'll need Rust to compile and run Minerva.
+You'll need Rust and Node.js to compile and run Minerva.
 
 * Installation of Rust: https://www.rust-lang.org/
+* Installation of Node.js: https://nodejs.org/en
 
 Follow the directions on both websites to download and install these tools before you proceed.
 
+Once you have Node installed, used the node package manager to install react-scripts (which is used to generate the web interface):
+```
+npm install -g react-scripts
+```
+
 ### Compiling
 
-Once you have installed the two prerequities above, clone or download this repository. Then compile and run the program using Cargo (included with Rust):
+Once you have installed the two prerequities above, clone or download this repository. Compile the web interfaces with by entering those two source directories and building the interface with Node:
+```
+cd /web_run_src/
+npm install
+npm run build
+cd ../web_edit_src/
+npm install
+npm run build
+cd ../
+```
+
+Then compile and run the program using Cargo (included with Rust):
 ```
 cargo run
 ```

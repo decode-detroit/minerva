@@ -52,11 +52,11 @@ use warp_embed::embed;
 
 // Define the static resources
 #[derive(RustEmbed)]
-#[folder = "public_run"]
+#[folder = "./web_run_src/build/"]
 struct RunWebsite;
 
 #[derive(RustEmbed)]
-#[folder = "public_edit"]
+#[folder = "./web_edit_src/build/"]
 struct EditWebsite;
 
 /// A structure to contain the web interface and handle all updates to the
