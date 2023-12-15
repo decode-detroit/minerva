@@ -847,7 +847,7 @@ button.green {
 
 .box.group .groupArea {
   position: relative;
-  overflow: scroll;
+  overflow: hidden;
   background-color: #713d8022;
   padding: 10px;
   min-width: 250px;
