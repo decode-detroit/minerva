@@ -308,7 +308,7 @@ impl DmxQueue {
 
         // Check that the serial port is ready
         tokio::select! {
-            // If a message was recieved, process the fade
+            // If the serial stream is available
             Ok(_) = self.stream.writable() => {
                 // Try to send the universe to the DMX contoller
                 if let Ok(sent_bytes) = self.stream.try_write(bytes.as_slice()) {

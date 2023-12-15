@@ -282,6 +282,7 @@ impl WebInterface {
             // Spin up a thread for the run port
             let clone_send = web_send.clone();
             let clone_index = index_access.clone();
+            let clone_style = style_access.clone();
             tokio::spawn(async move {
                 // Create the websocket filter
                 let listen = warp::path("listen")
@@ -397,8 +398,8 @@ impl WebInterface {
                 // Create the get style filter
                 let get_styles = warp::get()
                     .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
-                    .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
-                                                            // FIXME This filter is OS-specific and may fail on OSX and Windows
+                    .and(WebInterface::with_clone(clone_style.clone()))
+                    .and_then(WebInterface::handle_get_styles);
 
                 // Create the get status filter
                 let get_type = warp::get()
@@ -574,8 +575,8 @@ impl WebInterface {
                 // Create the get style filter
                 let get_styles = warp::get()
                     .and(warp::path("getStyles")) // Allow javascript filename scrambling to defeat the cache
-                    .and(warp::fs::file(USER_STYLE_SHEET)); // Reference the temporary file created by the system interface
-                                                            // FIXME This filter is OS-specific and may fail on OSX and Windows
+                    .and(WebInterface::with_clone(style_access.clone()))
+                    .and_then(WebInterface::handle_get_styles);
 
                 // Create the get status filter
                 let get_type = warp::get()
@@ -998,12 +999,30 @@ impl WebInterface {
         ));
     }
 
+    /// A function to handle getting the current stylesheet
+    async fn handle_get_styles(
+        style_access: StyleAccess,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        // Get all the styles from the stylesheet
+        let mut rules = style_access.get_all_rules().await;
+
+        // Compose the rules into a string
+        let rules_string = rules.drain().map(|(mut selector, rule)| {
+            selector += ": ";
+            selector += &rule;
+            return selector;
+        }).collect::<Vec<String>>().join("\n");
+
+        // Indicate success
+        return Ok(warp::http::Response::builder().header("content-type", "text/css").body(rules_string));
+    }
+
     /// A function to handle saving an updated stylesheet
     async fn handle_save_styles(
         style_access: StyleAccess,
         styles: SaveStyles,
     ) -> Result<impl warp::Reply, warp::Rejection> {
-        // Send each new style to the style sheet
+        // Send all the new styles to the style sheet
         style_access.add_styles(styles.new_styles).await;
 
         // Indicate success

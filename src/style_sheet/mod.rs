@@ -27,8 +27,6 @@
 use crate::definitions::*;
 
 // Import Tokio features
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
 
 /// A structure to store the style sheet and provide asyncronous responses
@@ -70,16 +68,12 @@ impl StyleSheet {
     /// A method to run the style sheet and process a single reqeust
     ///
     async fn run_once(&mut self) {
-        // Reset the save flag
-        let mut is_changed = false;
-
         // Listen for updates
         match self.style_receive.recv().await {
             // If there is a full style update
             Some(StyleUpdate::NewStyles { new_styles }) => {
                 // Replace the current map
                 self.style_map = new_styles;
-                is_changed = true;
             }
 
             // If there is a partial style update
@@ -88,7 +82,6 @@ impl StyleSheet {
                 for (selector, rule) in new_styles.drain() {
                     self.style_map.insert(selector, rule);
                 }
-                is_changed = true;
             }
 
             // If there is an individual style update
@@ -101,7 +94,6 @@ impl StyleSheet {
                 reply_line
                     .send(self.modify_rule(selector, new_rule))
                     .unwrap_or(());
-                is_changed = true;
             }
 
             // If if is an existence request
@@ -146,17 +138,6 @@ impl StyleSheet {
 
             // Ignore failure
             None => (),
-        }
-
-        // If the database was saved, save the update to the temporary file
-        if is_changed {
-            // Attempt to open the user style sheet
-            if let Ok(mut file) = File::create(USER_STYLE_SHEET).await {
-                // Try to write the styles to the file
-                file.write_all(style_to_string(self.style_map.clone()).as_bytes())
-                    .await
-                    .unwrap_or(());
-            }; // fail silently
         }
     }
 

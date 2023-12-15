@@ -24,6 +24,7 @@
 // Define private submodules
 mod backup_handler;
 mod config;
+#[cfg(not(target_os = "windows"))] // DMX Interface temporarily disabled on Windows due to a bug in the tokio-serial library
 mod dmx_interface;
 mod media_interface;
 mod queue;
@@ -34,6 +35,7 @@ use crate::definitions::*;
 // Import other definitions
 use self::backup_handler::BackupHandler;
 use self::config::Config;
+#[cfg(not(target_os = "windows"))]
 use self::dmx_interface::DmxInterface;
 use self::media_interface::MediaInterface;
 use self::queue::Queue;
@@ -63,6 +65,7 @@ use anyhow::Result;
 ///
 pub struct EventHandler {
     queue: Queue,                          // current event queue
+    #[cfg(not(target_os = "windows"))]
     dmx_interface: Option<DmxInterface>,   // the dmx interface, if available
     media_interfaces: Vec<MediaInterface>, // list of available media interfaces
     config: Config,                        // current configuration
@@ -148,7 +151,9 @@ impl EventHandler {
         }
 
         // Attempt to create the dmx interface, if specified
+        #[cfg(not(target_os = "windows"))]
         let mut dmx_interface = None;
+        #[cfg(not(target_os = "windows"))]
         if let Some(path) = config.get_dmx_path() {
             // Try to connect to the interface
             if let Ok(interface) = DmxInterface::new(path.as_path()) {
@@ -195,6 +200,7 @@ impl EventHandler {
             config.load_backup_status(status_pairs).await;
 
             // Restore the existing dmx values
+            #[cfg(not(target_os = "windows"))]
             if let Some(ref interface) = dmx_interface {
                 interface.restore_universe(dmx_universe).await;
             }
@@ -235,6 +241,7 @@ impl EventHandler {
         // Return the completed EventHandler with a new queue
         Ok(Self {
             queue,
+            #[cfg(not(target_os = "windows"))]
             dmx_interface,
             media_interfaces,
             config,
@@ -644,6 +651,7 @@ impl EventHandler {
             // If there is a fade to cue, send it to the dmx connection
             CueDmx { fade } => {
                 // Send it to the dmx interface, if it exists
+                #[cfg(not(target_os = "windows"))]
                 if let Some(ref interface) = &self.dmx_interface {
                     if let Err(err) = interface.play_fade(fade.clone()).await {
                         error!("Error with DMX playback: {}.", err);
@@ -655,8 +663,12 @@ impl EventHandler {
 
                 // Warn that there is no active Dmx interface
                 } else {
-                    error!("Failed to play DMX fade: No DMX interface available.")
+                    error!("Failed to play DMX fade: No DMX interface available.");
                 }
+
+                // On windows, just post the error
+                #[cfg(target_os = "windows")]
+                error!("Failed to play DMX fade: DMX system disabled on Windows.");
             }
 
             // If there is a cued event to load, load it into the queue
