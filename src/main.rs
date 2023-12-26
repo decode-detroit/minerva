@@ -56,7 +56,7 @@ use tracing_subscriber::prelude::*;
 use clap::Parser;
 
 // Import sysinfo modules
-use sysinfo::{Process, ProcessRefreshKind, RefreshKind, System, SystemExt};
+use sysinfo::{Process, ProcessRefreshKind, RefreshKind, System};
 
 /// Struct to hold the optional arguments for Minerva
 #[derive(Parser, Debug)]
