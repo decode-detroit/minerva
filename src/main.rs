@@ -233,6 +233,10 @@ async fn main() {
         let sys_info = System::new_with_specifics(refresh_kind);
 
         // Check to ensure Minerva is not already running
+        println!("{}", sys_info
+        .processes_by_exact_name("minerva")
+        .collect::<Vec<&Process>>()
+        .len());
         if sys_info
             .processes_by_exact_name("minerva")
             .collect::<Vec<&Process>>()

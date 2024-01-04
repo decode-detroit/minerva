@@ -265,34 +265,24 @@ impl SystemInterface {
             } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
-                    // If processing the event was successful
-                    if let Ok(broadcast_data) = handler
-                        .process_event(&event_id, check_scene, broadcast)
-                        .await
-                    {
-                        // Log the event
-                        info!("Event: {}.", self.index_access.get_pair(&event_id).await);
+                    // Try to process the event, and collect any events to broadcast
+                    for (event_id, data) in handler.process_event(&event_id, check_scene, broadcast).await {
+                        self.system_connection.broadcast(event_id, data).await;
 
-                        // If we have data to broadcast
-                        for data in broadcast_data {
-                            // Pass the event to the system connection
-                            self.system_connection.broadcast(event_id, data).await;
-
-                            // Notify the user interface of the event
-                            let description = self.index_access.get_description(&event_id).await;
-                            self.interface_send
-                                .send(InterfaceUpdate::Notify {
-                                    message: description.description,
-                                })
-                                .await;
-
-                            // Pass the event as a limited update
-                            self.limited_send
-                                .send(LimitedUpdate::CurrentEvent {
-                                    event: event_id.clone(),
-                                })
-                                .await;
-                        }
+                        // Notify the user interface of the event
+                        let description = self.index_access.get_description(&event_id).await;
+                        self.interface_send
+                            .send(InterfaceUpdate::Notify {
+                                message: description.description,
+                            })
+                            .await;
+                    
+                        // Pass the event as a limited update
+                        self.limited_send
+                            .send(LimitedUpdate::CurrentEvent {
+                                event: event_id.clone(),
+                            })
+                            .await;
                     }
 
                 // Otherwise notify the user that a configuration faild to load

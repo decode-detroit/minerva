@@ -31,8 +31,9 @@ use tokio::sync::{mpsc, oneshot};
 // Import Chrono features
 use chrono::NaiveDateTime;
 
-/// A type to hold data to broadcast to the system
-pub type BroadcastData = Vec<Option<u32>>;
+/// A helper type to gather events to broadcast
+///
+pub type BroadcastEvents = Vec<(ItemId, Option<u32>)>;
 
 /// An enum to provide and receive updates from the various internal
 /// components of the system interface and external updates from the interface.

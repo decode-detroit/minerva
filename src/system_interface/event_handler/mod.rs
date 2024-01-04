@@ -53,6 +53,9 @@ use chrono::NaiveDateTime;
 use tokio::fs::File;
 use tokio::time::sleep;
 
+// Import Async recursion
+use async_recursion::async_recursion;
+
 // Import tracing features
 use tracing::{error, info};
 
@@ -189,7 +192,7 @@ impl EventHandler {
         if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) =
             backup.reload_backup(config.get_status_ids())
         {
-            // Change the current scene silently (i.e. do not trigger the reset event)
+            // Change the current scene silently (i.e. do not trigger the scene's default event)
             info!(
                 "Changing current scene: {}.",
                 index_access.get_pair(&current_scene).await
@@ -411,11 +414,8 @@ impl EventHandler {
     ///
     pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // Try to modify the underlying status
-        if let Some(new_id) = self.config.modify_status(status_id, new_state).await {
-            // Backup the status change
-            self.backup.backup_status(status_id, &new_id).await;
-
-            // Run the change event for the new state (no backup necessary)
+        if let Ok(new_id) = self.modify_status_nobroadcast(status_id, new_state).await {
+            // Cue the new state event
             self.queue.add_event(EventDelay::new(None, new_id)).await;
         }
     }
@@ -455,22 +455,13 @@ impl EventHandler {
     /// # Errors
     ///
     /// This method will raise an error if the provided id was not found as an
-    /// available scene. This usually indicates that the provided id was
-    /// incorrect or that the configuration file is incorrect.
+    /// available scene and return Err(()). This usually indicates that the provided
+    /// id was incorrect or that the configuration file is incorrect.
     ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) {
-        // Send an update to the rest of the system (will preceed error if there is one)
-        info!(
-            "Changing current scene: {}.",
-            self.index_access.get_pair(&scene_id).await
-        );
-
-        // Try to change the underlying scene
-        if self.config.choose_scene(scene_id).await.is_ok() {
-            // Backup the current scene change
-            self.backup.backup_current_scene(&scene_id).await;
-
-            // Run the reset event for the new scene (no backup necessary)
+        // Try to change to the specified scene
+        if self.choose_scene_nobroadcast(scene_id).await.is_ok() {
+            // Cue the new scene's default event
             self.queue.add_event(EventDelay::new(None, scene_id)).await;
         }
     }
@@ -572,70 +563,151 @@ impl EventHandler {
     /// processed successfully, it will return any events that should be broadcast
     /// to the system (including their associated data, if applicable).
     ///
+    /// # Note
+    /// 
+    /// This method previously processed all actions before allowing any
+    /// cued or selected events to be processed. Now the method recurses into
+    /// each action (and processes any cued or selected events for that action)
+    /// and then moves onto the next action in this event.
+    /// 
+    /// To restore the old behavior, compile with the no_action_recursion
+    /// feature.
+    /// 
     /// # Errors
     ///
-    /// This method will raise an error if the event was not found. If the
-    /// module encounters an inconsistency when trying to process an event,
+    /// This method will notify the user with an error if the event was not found.
+    /// If the method encounters an inconsistency when trying to process an event,
     /// it will raise a warning and otherwise continue processing events.
     ///
+    #[async_recursion]
     pub async fn process_event(
         &mut self,
         event_id: &ItemId,
         checkscene: bool,
         broadcast: bool,
-    ) -> Result<BroadcastData, ()> {
+    ) -> BroadcastEvents {
         // Try to retrieve the event and unpack the event
-        let event = match self.config.try_event(event_id, checkscene).await {
-            // Process a valid event
-            Some(event) => event,
+        if let Some(event) = self.config.try_event(event_id, checkscene).await {
+            // Log the event
+            info!("Event: {}.", self.index_access.get_pair(&event_id).await);
 
-            // Return Err on failure
-            None => return Err(()),
-        };
+            // Collect the events to broadcast
+            let mut broadcast_events = BroadcastEvents::new(); // collect events to broadcast from each action
+            
+            // Add this event, if specified
+            if broadcast {
+                broadcast_events.push((event_id.clone(), None));
+            }
 
-        // Unpack and process each action of the event
-        let mut broadcast_data = BroadcastData::new();
-        for action in event {
-            // Switch based on the result of unpacking the action
-            match self.unpack_action(action).await {
-                // No additional action required
-                UnpackResult::None => (),
+            // Unpack and process each action of the event
+            for action in event {
+                // Switch based on the result of unpacking the action
+                match self.unpack_action(action).await {
+                    // If events were returned from recursion
+                    #[cfg(not(feature = "no_action_recursion"))]
+                    UnpackResult::Events(ref mut new_events) => {
+                        // Add them to our broadcast event list
+                        broadcast_events.append(new_events);
+                    }
 
-                // Send data to the system
-                UnpackResult::Data(mut data) => {
-                    // If we should broadcast the event
-                    if broadcast {
-                        // Return the event and each piece of data
-                        for number in data.drain(..) {
-                            broadcast_data.push(Some(number));
+                    // If data was returned
+                    UnpackResult::Data(mut data) => {
+                        // If we should broadcast this event
+                        if broadcast {
+                            // Add this event and each piece of data
+                            for number in data.drain(..) {
+                                broadcast_events.push((event_id.clone(), Some(number)));
+                            }
                         }
                     }
+
+                    // If there's no events or data, do nothing
+                    UnpackResult::None => (),
                 }
             }
-        }
 
-        // If data hasn't been saved yet for broadcast
-        if broadcast_data.is_empty() {
-            // And if we should broadcast the event
-            if broadcast {
-                // Save empty data to the list
-                broadcast_data.push(None);
-            }
+            // Return the broadcast events
+            broadcast_events
+        
+        // Otherwise, return an empty broadcast events
+        } else {
+            BroadcastEvents::new()
         }
-
-        // Indicate success
-        Ok(broadcast_data)
     }
 
-    /// An internal function to unpack the event and act on it. If the
+    /// A helper method to change the selected scene within the current configuration.
+    /// This method does not cue an event for the scene change.
+    ///
+    /// # Errors
+    ///
+    /// This method will raise an error if the provided id was not found as an
+    /// available scene and return Err(()). This usually indicates that the provided
+    /// id was incorrect or that the configuration file is incorrect.
+    ///
+    async fn choose_scene_nobroadcast(&mut self, scene_id: ItemId) -> Result<(), ()> {
+        // Send an update to the rest of the system (will preceed error if there is one)
+        info!(
+            "Changing current scene: {}.",
+            self.index_access.get_pair(&scene_id).await
+        );
+
+        // Try to change the underlying scene
+        if self.config.choose_scene(scene_id).await.is_ok() {
+            // Backup the current scene change
+            self.backup.backup_current_scene(&scene_id).await;
+
+            // Indicate a successful change
+            Ok(())
+
+        // Indicate failure to change scenes
+        } else {
+            Err(())
+        }
+    }
+
+    /// A helper method to change the selected status within the current configuration.
+    /// This method does not cue an event for the state change.
+    ///
+    async fn modify_status_nobroadcast(&mut self, status_id: &ItemId, new_state: &ItemId) -> Result<ItemId, ()> {
+        // Try to modify the underlying status
+        if let Some(new_id) = self.config.modify_status(status_id, new_state).await {
+            // Backup the status change
+            self.backup.backup_status(status_id, &new_id).await;
+
+            // Indicate success and return the new state
+            Ok(new_id)
+
+        // Indicate failure to modify status
+        } else {
+            Err(())
+        }
+    }
+
+    /// An internal method to unpack the event and act on it. If the
     /// event results in data to broadcast, the data will be returned.
+    ///
+    /// # Note
+    /// 
+    /// This method previously cued any new events. Now the method recurses
+    /// and processes the event directly within this method (if the delay would be 0).
+    /// 
+    /// To restore the old behavior, compile with the no_action_recursion
+    /// feature.
     ///
     async fn unpack_action(&mut self, event_action: EventAction) -> UnpackResult {
         // Unpack the event
         match event_action {
             // If there is a new scene, execute the change
             NewScene { new_scene } => {
-                // Try to change the scene current scene
+                // Try to change the current scene
+                #[cfg(not(feature = "no_action_recursion"))]
+                if self.choose_scene_nobroadcast(new_scene).await.is_ok() {
+                    // Return the new scene's default event
+                    return UnpackResult::Events(vec!((new_scene, None)));
+                }
+
+                // Try to change the current scene and broadcast scene id if successful
+                #[cfg(feature = "no_action_recursion")]
                 self.choose_scene(new_scene).await;
             }
 
@@ -645,6 +717,14 @@ impl EventHandler {
                 new_state,
             } => {
                 // Try to change the state of the status and trigger the event
+                #[cfg(not(feature = "no_action_recursion"))]
+                if let Ok(new_id) = self.modify_status_nobroadcast(&status_id, &new_state).await {
+                    // Return the new scene's default event
+                    return UnpackResult::Events(vec!((new_id, None)));
+                }
+
+                // Try to change the state of the status and broadcast the state if successful
+                #[cfg(feature = "no_action_recursion")]
                 self.modify_status(&status_id, &new_state).await;
             }
 
@@ -671,9 +751,21 @@ impl EventHandler {
                 error!("Failed to play DMX fade: DMX system disabled on Windows.");
             }
 
-            // If there is a cued event to load, load it into the queue
+            // If there is a cued event, process it or load it into the queue
             CueEvent { event } => {
+                // If the event has no delay
+                #[cfg(not(feature = "no_action_recursion"))]
+                if event.delay().is_none() {
+                    // Process the event immediately and return any new events
+                    return UnpackResult::Events(self.process_event(&event.id(), true, true).await); // check the scene and broadcast
+                
+                // Otherwise, add it to the queue
+                } else {
+                    self.queue.add_event(event).await;
+                }
+
                 // Add the event to the queue
+                #[cfg(feature = "no_action_recursion")]
                 self.queue.add_event(event).await;
             }
 
@@ -855,7 +947,12 @@ impl EventHandler {
                 if let Some(state) = self.config.get_state(&status_id).await {
                     // Try to find the corresponding event in the event_map
                     if let Some(event_id) = event_map.get(&state) {
-                        // Trigger the event if it was found
+                        // Process the event immediately and return any new events
+                        #[cfg(not(feature = "no_action_recursion"))]
+                        return UnpackResult::Events(self.process_event(&event_id.clone(), true, true).await); // check the scene and broadcast
+
+                        // Add the event to the queue
+                        #[cfg(feature = "no_action_recursion")]
                         self.queue
                             .add_event(EventDelay::new(None, event_id.clone()))
                             .await;
@@ -876,8 +973,13 @@ impl EventHandler {
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum UnpackResult {
     /// A variant indicating there is no additional information needed for this
-    /// event (the most common result).
+    /// event.
     None,
+
+    /// A variant indicating that additional events (with or without data)
+    /// were discovered on recursion
+    #[cfg(not(feature = "no_action_recursion"))]
+    Events(BroadcastEvents),
 
     /// A variant indicating that some data that should be broadcast to the system.
     Data(Vec<u32>),
