@@ -55,8 +55,8 @@ use tracing_subscriber::prelude::*;
 // Import clap features
 use clap::Parser;
 
-// Import sysinfo modules
-use sysinfo::{Process, ProcessRefreshKind, RefreshKind, System};
+// Import single instance features
+use single_instance::SingleInstance;
 
 /// Struct to hold the optional arguments for Minerva
 #[derive(Parser, Debug)]
@@ -226,28 +226,22 @@ async fn main() {
     // Get the commandline arguments
     let arguments = Arguments::parse();
 
-    // If not allowing multiple instances
-    if !arguments.allow_multiple {
-        // Get system information
-        let refresh_kind = RefreshKind::new().with_processes(ProcessRefreshKind::everything());
-        let sys_info = System::new_with_specifics(refresh_kind);
-
-        // Check to ensure Minerva is not already running
-        println!("{}", sys_info
-        .processes_by_exact_name("minerva")
-        .collect::<Vec<&Process>>()
-        .len());
-        if sys_info
-            .processes_by_exact_name("minerva")
-            .collect::<Vec<&Process>>()
-            .len()
-            > 1
-        {
+    // Create a single instance marker
+    if let Ok(instance) = SingleInstance::new("minerva") {
+        // If not allowing multiple instances and this isn't the only instance
+        if !arguments.allow_multiple && !instance.is_single() {
             println!("Minerva is already running. Exiting ...");
             return;
         }
-    }
 
-    // Create the program and run until directed otherwise
-    Minerva::run(arguments).await;
+        // Create the program and run until directed otherwise
+        Minerva::run(arguments).await;
+
+    // If unable to create the marker, warn the user
+    } else {
+        println!("Unable to verify if this is the only instance of Minerva.");
+
+        // Create the program and run until directed otherwise
+        Minerva::run(arguments).await;
+    }
 }

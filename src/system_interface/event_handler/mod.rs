@@ -414,7 +414,7 @@ impl EventHandler {
     ///
     pub async fn modify_status(&mut self, status_id: &ItemId, new_state: &ItemId) {
         // Try to modify the underlying status
-        if let Ok(new_id) = self.modify_status_nobroadcast(status_id, new_state).await {
+        if let Ok(new_id) = self.modify_status_no_broadcast(status_id, new_state).await {
             // Cue the new state event
             self.queue.add_event(EventDelay::new(None, new_id)).await;
         }
@@ -460,7 +460,7 @@ impl EventHandler {
     ///
     pub async fn choose_scene(&mut self, scene_id: ItemId) {
         // Try to change to the specified scene
-        if self.choose_scene_nobroadcast(scene_id).await.is_ok() {
+        if self.choose_scene_no_broadcast(scene_id).await.is_ok() {
             // Cue the new scene's default event
             self.queue.add_event(EventDelay::new(None, scene_id)).await;
         }
@@ -644,7 +644,7 @@ impl EventHandler {
     /// available scene and return Err(()). This usually indicates that the provided
     /// id was incorrect or that the configuration file is incorrect.
     ///
-    async fn choose_scene_nobroadcast(&mut self, scene_id: ItemId) -> Result<(), ()> {
+    async fn choose_scene_no_broadcast(&mut self, scene_id: ItemId) -> Result<(), ()> {
         // Send an update to the rest of the system (will preceed error if there is one)
         info!(
             "Changing current scene: {}.",
@@ -668,7 +668,7 @@ impl EventHandler {
     /// A helper method to change the selected status within the current configuration.
     /// This method does not cue an event for the state change.
     ///
-    async fn modify_status_nobroadcast(&mut self, status_id: &ItemId, new_state: &ItemId) -> Result<ItemId, ()> {
+    async fn modify_status_no_broadcast(&mut self, status_id: &ItemId, new_state: &ItemId) -> Result<ItemId, ()> {
         // Try to modify the underlying status
         if let Some(new_id) = self.config.modify_status(status_id, new_state).await {
             // Backup the status change
@@ -701,9 +701,9 @@ impl EventHandler {
             NewScene { new_scene } => {
                 // Try to change the current scene
                 #[cfg(not(feature = "no_action_recursion"))]
-                if self.choose_scene_nobroadcast(new_scene).await.is_ok() {
-                    // Return the new scene's default event
-                    return UnpackResult::Events(vec!((new_scene, None)));
+                if self.choose_scene_no_broadcast(new_scene).await.is_ok() {
+                    // Process the new scene's default event and return any new events
+                    return UnpackResult::Events(self.process_event(&new_scene, true, true).await); // check the scene and broadcast
                 }
 
                 // Try to change the current scene and broadcast scene id if successful
@@ -718,9 +718,9 @@ impl EventHandler {
             } => {
                 // Try to change the state of the status and trigger the event
                 #[cfg(not(feature = "no_action_recursion"))]
-                if let Ok(new_id) = self.modify_status_nobroadcast(&status_id, &new_state).await {
-                    // Return the new scene's default event
-                    return UnpackResult::Events(vec!((new_id, None)));
+                if let Ok(new_id) = self.modify_status_no_broadcast(&status_id, &new_state).await {
+                    // Process the new state's event and return any new events
+                    return UnpackResult::Events(self.process_event(&new_id, true, true).await); // check the scene and broadcast
                 }
 
                 // Try to change the state of the status and broadcast the state if successful

@@ -29,7 +29,7 @@ tracing-subscriber = "0.3"
 tracing-appender = "0.2"
 reqwest = { version = "0.11", default-features=false, features = ["blocking", "json"] }
 thread_local = "1.1"
-sysinfo = "0.30"
+single-instance = "0.3"
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 rust-embed = "8.1"
