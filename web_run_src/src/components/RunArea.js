@@ -17,12 +17,12 @@ export class ViewArea extends React.PureComponent {
     }
 
     // Bind the various functions
-    this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.handlePointerDown = this.handlePointerDown.bind(this);
     this.showContextMenu = this.showContextMenu.bind(this);
   }
   
   // Function to respond to clicking the area
-  handleMouseDown() {
+  handlePointerDown() {
     // Hide the menu
     this.setState({
       isMenuVisible: false,
@@ -66,7 +66,7 @@ export class ViewArea extends React.PureComponent {
   render() {
     return (
       <>
-        <div className="viewArea" onMouseDown={this.handleMouseDown}>
+        <div className="viewArea" onPointerDown={this.handlePointerDown}>
           <RunArea currentScene={this.props.currentScene} currentItems={this.state.currentItems} />
         </div>
       </>
@@ -91,21 +91,21 @@ export class RunArea extends React.PureComponent {
     }
 
     // Bind the various functions
-    this.handleMouseDown = this.handleMouseDown.bind(this);
-    this.handleMouseMove = this.handleMouseMove.bind(this);
-    this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.handlePointerDown = this.handlePointerDown.bind(this);
+    this.handlePointerMove = this.handlePointerMove.bind(this);
+    this.handlePointerClose = this.handlePointerClose.bind(this);
     this.handleWheel = this.handleWheel.bind(this);
   }
 
   // Function to respond to clicking the area
-  handleMouseDown(e) {
+  handlePointerDown(e) {
     // Prevent any other event handlers
     e = e || window.event;
     e.preventDefault();
    
-    // Connect the mouse event handlers to the document
-    document.onmousemove = this.handleMouseMove;
-    document.onmouseup = this.handleMouseClose;
+    // Connect the pointer event handlers to the document
+    document.onpointermove = this.handlePointerMove;
+    document.onpointerup = this.handlePointerClose;
 
     // Save the cursor position, deselect any focus
     this.setState({
@@ -115,7 +115,7 @@ export class RunArea extends React.PureComponent {
   }
 
   // Function to respond to dragging the area
-  handleMouseMove(e) {
+  handlePointerMove(e) {
     // Prevent the default event handler
     e = e || window.event;
     e.preventDefault();
@@ -144,11 +144,11 @@ export class RunArea extends React.PureComponent {
     });
   }
   
-  // Function to respond to releasing the mouse
-  handleMouseClose() {
-    // Stop moving when mouse button is released
-    document.onmousemove = null;
-    document.onmouseup = null;
+  // Function to respond to releasing the pointer
+  handlePointerClose() {
+    // Stop moving when pointer button is released
+    document.onpointermove = null;
+    document.onpointerup = null;
   }
 
   // Function to respond to wheel events
@@ -199,7 +199,7 @@ export class RunArea extends React.PureComponent {
     
     // Render the event boxes
     return (
-      <div id={`scene-${this.props.currentScene.id}`} className="editArea" style={{ left: `calc(${this.state.left}px - (250% * ${1 - this.state.zoom}))`, top: `calc(${this.state.top}px - (250% * ${1 - this.state.zoom}))`, transform: `scale(${this.state.zoom})` }} onMouseDown={this.handleMouseDown} onWheel={this.handleWheel}>
+      <div id={`scene-${this.props.currentScene.id}`} className="editArea" style={{ left: `calc(${this.state.left}px - (250% * ${1 - this.state.zoom}))`, top: `calc(${this.state.top}px - (250% * ${1 - this.state.zoom}))`, transform: `scale(${this.state.zoom})` }} onPointerDown={this.handlePointerDown} onWheel={this.handleWheel}>
         {boxes}
       </div>
     )

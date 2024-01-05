@@ -299,7 +299,7 @@ export class ModifyStatus extends React.PureComponent {
             <div className="editNote" onClick={this.toggleStatusMenu}>Click To Change</div>
             <div className="additionalInfo">New State:
               <div className={`additionalInfoDetail ${this.state.isStateMenuVisible && "isEditing"}`} onClick={this.toggleStateMenu}>{this.state.stateDescription}</div>
-              <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.modifyStatus.new_state.id)}}/>
+              <SendNode type="event" onPointerDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.modifyStatus.new_state.id)}}/>
             </div>
           </div>
         }/>
@@ -1092,7 +1092,7 @@ export class ActionFragment extends React.PureComponent {
         <div className="openStatus">
           {this.state.open ? 'v' : '<'}
         </div>
-        {this.props.nodeType && <SendNode type={this.props.nodeType} onMouseDown={(e) => {stopPropogation(e); this.props.focusOn()}}/>}
+        {this.props.nodeType && <SendNode type={this.props.nodeType} onPointerDown={(e) => {stopPropogation(e); this.props.focusOn()}}/>}
         {this.state.open && this.props.content}
       </div>
     );

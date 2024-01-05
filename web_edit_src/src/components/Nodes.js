@@ -5,7 +5,7 @@ export class ReceiveNode extends React.PureComponent {
   // Render the completed node
   render() {
     return (
-      <div className={`node ${this.props.type}`} onMouseDown={this.props.onMouseDown}></div>
+      <div className={`node ${this.props.type}`} onPointerDown={this.props.onPointerDown}></div>
     );
   }
 }
@@ -15,7 +15,7 @@ export class SendNode extends React.PureComponent {
   // Render the completed node
   render() {
     return (
-      <div className={`node ${this.props.type}`} onMouseDown={this.props.onMouseDown}></div>
+      <div className={`node ${this.props.type}`} onPointerDown={this.props.onPointerDown}></div>
     );
   }
 }

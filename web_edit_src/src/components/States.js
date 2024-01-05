@@ -59,7 +59,7 @@ export class State extends React.PureComponent {
         <div className="state">
           <div className="deleteState" onClick={(e) => {stopPropogation(e); this.props.removeState()}}>X</div>
           {this.state.description}
-          <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.state.id)}}/>
+          <SendNode type="event" onPointerDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.state.id)}}/>
         </div>
       </>
     );
@@ -121,7 +121,7 @@ export class UnmodifiableState extends React.PureComponent {
       <>
         <div className="unmodifiableState">
           {this.state.description}
-          <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.state.id)}}/>
+          <SendNode type="event" onPointerDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.state.id)}}/>
         </div>
       </>
     );
@@ -206,7 +206,7 @@ export class SelectedEvent extends React.PureComponent {
         <div className={`selectedEvent ${this.state.isMenuVisible && "isEditing"}`} onClick={this.toggleMenu}>
           <div className="deleteEvent" onClick={(e) => {stopPropogation(e); this.props.changeEvent(0)}}>X</div>
           {this.state.description}
-          <SendNode type="event" onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.event.id)}}/>
+          <SendNode type="event" onPointerDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.event.id)}}/>
         </div>
       </>
     );

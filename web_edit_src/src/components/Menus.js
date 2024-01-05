@@ -238,11 +238,11 @@ export class SceneMenu extends React.PureComponent {
         <select className="select" value={this.props.value} onChange={this.handleChange}>
           {options}
         </select>
-        {this.props.value !== -1 && <div className="deleteScene" onMouseDown={() => {this.setState({ isDeleteVisible: true })}}>
+        {this.props.value !== -1 && <div className="deleteScene" onPointerDown={() => {this.setState({ isDeleteVisible: true })}}>
           Delete<br/>Scene
           {this.state.isDeleteVisible && <DeleteMenu id={this.state.deleteId} afterDelete={() => setTimeout(() => { this.loadScenes(); this.props.changeScene(-1); }, 100)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
         </div>}
-        <div className="newScene" onMouseDown={this.newScene}>
+        <div className="newScene" onPointerDown={this.newScene}>
           New<br/>Scene
         </div>
       </div>
@@ -351,7 +351,7 @@ export class AddMenu extends React.PureComponent {
     
     // Return the box
     return (
-      <div className={`addMenu`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
+      <div className={`addMenu`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onPointerDown={stopPropogation}>
         <div className="title">Add Item<span className="closeButton" onClick={this.props.closeMenu}>X</span></div>
         <input className="searchBar" ref={this.search} type="text" placeholder={this.state.ready ? "Type to search ..." : "  Loading ...  "} disabled={!this.state.ready} value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">
@@ -504,7 +504,7 @@ export class SelectMenu extends React.PureComponent {
     
     // Return the box
     return (
-      <div className={`addMenu ${this.props.type}`} onClick={stopPropogation} onMouseDown={stopPropogation}>
+      <div className={`addMenu ${this.props.type}`} onClick={stopPropogation} onPointerDown={stopPropogation}>
         <div className="title">{`Select ${this.props.type.charAt(0).toUpperCase() + this.props.type.slice(1)}`}<span className="closeButton" onClick={this.props.closeMenu}>X</span></div>
         <input className="searchBar" ref={this.search} type="text" placeholder={this.state.ready ? "Type to search ..." : "  Loading ...  "} disabled={!this.state.ready} value={this.state.value} onInput={this.handleChange}></input>
         <div className="verticalScroll">
@@ -535,7 +535,7 @@ export class AddActionMenu extends React.PureComponent {
 
     // Return the box
     return (
-      <div className={`addActionMenu`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onMouseDown={stopPropogation}>
+      <div className={`addActionMenu`} style={{ left: `${this.props.left}px`, top: `${this.props.top - 40}px` }} onClick={stopPropogation} onPointerDown={stopPropogation}>
         <div className="title">Add Action</div>
         <div className="verticalList">
           {actionList}

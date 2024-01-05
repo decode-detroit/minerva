@@ -24,9 +24,9 @@ export class ViewArea extends React.PureComponent {
     }
 
     // Bind the various functions
-    this.handleMouseDown = this.handleMouseDown.bind(this);
-    this.handleMouseMove = this.handleMouseMove.bind(this);
-    this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.handlePointerDown = this.handlePointerDown.bind(this);
+    this.handlePointerMove = this.handlePointerMove.bind(this);
+    this.handlePointerClose = this.handlePointerClose.bind(this);
     this.handleWheel = this.handleWheel.bind(this);
     this.showContextMenu = this.showContextMenu.bind(this);
     this.changeScene = this.changeScene.bind(this);
@@ -40,12 +40,12 @@ export class ViewArea extends React.PureComponent {
   }
   
   // Function to respond to clicking the area
-  handleMouseDown(e) {
+  handlePointerDown(e) {
     stopPropogation(e);
    
-    // Connect the mouse event handlers to the document
-    document.onmousemove = this.handleMouseMove;
-    document.onmouseup = this.handleMouseClose;
+    // Connect the pointer event handlers to the document
+    document.onpointermove = this.handlePointerMove;
+    document.onpointerup = this.handlePointerClose;
 
     // Save the cursor position, deselect any focus, and hide the menu
     this.setState({
@@ -57,7 +57,7 @@ export class ViewArea extends React.PureComponent {
   }
 
   // Function to respond to dragging the area
-  handleMouseMove(e) {
+  handlePointerMove(e) {
     stopPropogation(e);
 
     // Update the state
@@ -84,11 +84,11 @@ export class ViewArea extends React.PureComponent {
     });
   }
   
-  // Function to respond to releasing the mouse
-  handleMouseClose() {
-    // Stop moving when mouse button is released
-    document.onmousemove = null;
-    document.onmouseup = null;
+  // Function to respond to releasing the pointer
+  handlePointerClose() {
+    // Stop moving when pointer button is released
+    document.onpointermove = null;
+    document.onpointerup = null;
   }
 
   // Function to respond to wheel events
@@ -98,7 +98,7 @@ export class ViewArea extends React.PureComponent {
     // FIXME Disabled
     /*stopPropogation(e);
 
-    // Extract the event, delta, and mouse location
+    // Extract the event, delta, and pointer location
     let delta = e.deltaY / 5000; // convert the speed of the zoom
     let locX = e.clientX; // FIXME triangulate correct location
     let locY = e.clientY;
@@ -311,7 +311,7 @@ export class ViewArea extends React.PureComponent {
         <div className="viewArea" onContextMenu={this.showContextMenu}>
           {this.state.sceneId === -1 && <ConfigArea filename={this.props.filename} handleFileChange={this.props.handleFileChange} saveModifications={this.props.saveModifications} openFile={this.props.openFile} /> }
           {this.state.sceneId !== -1 && <>
-            <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handleMouseDown={this.handleMouseDown} handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} saveDimensions={this.saveDimensions} />
+            <EditArea id={this.state.sceneId} idList={idList} focusId={this.state.focusId} top={this.state.top} left={this.state.left} zoom={this.state.zoom} handlePointerDown={this.handlePointerDown} handleWheel={this.handleWheel} connections={this.state.connections} grabFocus={this.grabFocus} createConnector={this.createConnector} changeScene={this.changeScene} removeItem={this.removeItemFromScene} saveModifications={this.props.saveModifications} saveLocation={this.saveLocation} saveDimensions={this.saveDimensions} />
             {this.state.isMenuVisible && <AddMenu left={this.state.cursorX} top={this.state.cursorY} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addItemToScene} saveModifications={this.props.saveModifications}/>}
           </>}
         </div>
@@ -517,7 +517,7 @@ export class EditArea extends React.PureComponent {
     
     // Render the event boxes
     return (
-      <div id={`scene-${this.props.id}`} className="editArea" style={{ left: `${this.props.left}px`, top: `${this.props.top}px`, transform: `scale(${this.props.zoom})` }} onMouseDown={this.props.handleMouseDown} onWheel={this.props.handleWheel}>
+      <div id={`scene-${this.props.id}`} className="editArea" style={{ left: `${this.props.left}px`, top: `${this.props.top}px`, transform: `scale(${this.props.zoom})` }} onPointerDown={this.props.handlePointerDown} onWheel={this.props.handleWheel}>
         {boxes}
         <LineArea connections={this.props.connections}/>
       </div>

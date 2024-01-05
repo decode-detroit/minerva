@@ -18,11 +18,11 @@ export class ItemBox extends React.PureComponent {
 
     // Bind the various functions
     this.updateItem = this.updateItem.bind(this);
-    this.handleMouseDown = this.handleMouseDown.bind(this);
+    this.handlePointerDown = this.handlePointerDown.bind(this);
   }
   
   // Function to respond to clicking the area
-  handleMouseDown(e) {
+  handlePointerDown(e) {
     stopPropogation(e);
 
     // If the item is an event
@@ -133,7 +133,7 @@ export class ItemBox extends React.PureComponent {
       <>
         {this.state.type !== "" &&
           <div id={`id-${this.props.id}`} className={`box ${this.state.type} row${this.props.row}`}>
-            <div className="title" onMouseDown={this.handleMouseDown}>
+            <div className="title" onPointerDown={this.handlePointerDown}>
               <div>{this.state.description}</div>
               <div className="subtitle">{this.props.id}</div>
               {this.state.type ==="group" && <div className="note">Click to {this.state.showGroup ? `hide` : `show`}</div>}

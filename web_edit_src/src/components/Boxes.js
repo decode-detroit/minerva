@@ -29,19 +29,19 @@ export class ItemBox extends React.PureComponent {
 
     // Bind the various functions
     this.updateItem = this.updateItem.bind(this);
-    this.handleMouseDown = this.handleMouseDown.bind(this);
-    this.handleMouseMove = this.handleMouseMove.bind(this);
-    this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.handlePointerDown = this.handlePointerDown.bind(this);
+    this.handlePointerMove = this.handlePointerMove.bind(this);
+    this.handlePointerClose = this.handlePointerClose.bind(this);
     this.handleChange = this.handleChange.bind(this);
   }
   
   // Function to respond to clicking the area
-  handleMouseDown(e) {
+  handlePointerDown(e) {
     stopPropogation(e);
    
-    // Connect the mouse event handlers to the document
-    document.onmousemove = this.handleMouseMove;
-    document.onmouseup = this.handleMouseClose;
+    // Connect the pointer event handlers to the document
+    document.onpointermove = this.handlePointerMove;
+    document.onpointerup = this.handlePointerClose;
 
     // Get the current location
     let left = e.target.parentNode.offsetLeft;
@@ -57,7 +57,7 @@ export class ItemBox extends React.PureComponent {
   }
 
   // Function to respond to dragging the area
-  handleMouseMove(e) {
+  handlePointerMove(e) {
     stopPropogation(e);
 
     // Update the state
@@ -84,11 +84,11 @@ export class ItemBox extends React.PureComponent {
     });
   }
   
-  // Function to respond to releasing the mouse
-  handleMouseClose() {
-    // Stop moving when mouse button is released
-    document.onmousemove = null;
-    document.onmouseup = null;
+  // Function to respond to releasing the pointer
+  handlePointerClose() {
+    // Stop moving when pointer button is released
+    document.onpointermove = null;
+    document.onpointerup = null;
 
     // Save the updated location
     this.props.saveLocation(this.props.id, this.state.left, this.state.top);
@@ -175,17 +175,17 @@ export class ItemBox extends React.PureComponent {
     return (
       <>
         {this.state.type !== "" &&
-          <div id={`id-${this.props.id}`} className={`box ${this.state.type} row${this.props.row} ${isFocus ? 'focus' : ''}`} style={{ left: left, top: top }} onMouseDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
+          <div id={`id-${this.props.id}`} className={`box ${this.state.type} row${this.props.row} ${isFocus ? 'focus' : ''}`} style={{ left: left, top: top }} onPointerDown={(e) => {stopPropogation(e); this.props.grabFocus(this.props.id)}}>
             <div className="title">
               <input type="text" value={this.state.description} size={this.state.description.length > 30 ? this.state.description.length - 10 : 20} onInput={this.handleChange}></input>
               <div className="itemId disableSelect">({this.props.id})</div>
               {isFocus && <div className="removeMenu disableSelect">
-                <div onMouseDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>{this.props.removeText}</div>
-                <div onMouseDown={(e) => {stopPropogation(e); this.setState({ isDeleteVisible: true })}}>Delete</div>
+                <div onPointerDown={(e) => {stopPropogation(e); this.props.removeItem(this.props.id)}}>{this.props.removeText}</div>
+                <div onPointerDown={(e) => {stopPropogation(e); this.setState({ isDeleteVisible: true })}}>Delete</div>
               </div>}
               {this.state.isDeleteVisible && <DeleteMenu id={this.props.id} afterDelete={() => this.props.removeItem(this.props.id)} closeMenu={() => {this.setState({ isDeleteVisible: false })}} saveModifications={this.props.saveModifications} />}
             </div>
-            <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onMouseDown={this.handleMouseDown}/>
+            <ReceiveNode id={`receive-node-${this.props.id}`} type={this.state.type} onPointerDown={this.handlePointerDown}/>
             {isFocus && this.state.type === "scene" && <SceneFragment id={this.props.id} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications}/>}
             {this.state.type === "group" && <GroupFragment id={this.props.id} focusId={this.props.focusId} zoom={this.props.zoom} grabFocus={this.props.grabFocus} changeScene={this.props.changeScene} saveModifications={this.props.saveModifications} saveLocation={this.props.saveLocation} saveDimensions={this.props.saveDimensions} createConnector={this.props.createConnector}/>}
             {isFocus && this.state.type === "status" && <StatusFragment id={this.props.id} grabFocus={this.props.grabFocus} createConnector={this.props.createConnector} saveModifications={this.props.saveModifications}/>}
@@ -250,9 +250,9 @@ export class GroupFragment extends React.PureComponent {
     }
 
     // Bind the various functions
-    this.handleMouseDown = this.handleMouseDown.bind(this);
-    this.handleMouseMove = this.handleMouseMove.bind(this);
-    this.handleMouseClose = this.handleMouseClose.bind(this);
+    this.handlePointerDown = this.handlePointerDown.bind(this);
+    this.handlePointerMove = this.handlePointerMove.bind(this);
+    this.handlePointerClose = this.handlePointerClose.bind(this);
     this.showContextMenu = this.showContextMenu.bind(this);
     this.addItemToGroup = this.addItemToGroup.bind(this);
     this.removeItemFromGroup = this.removeItemFromGroup.bind(this);
@@ -261,12 +261,12 @@ export class GroupFragment extends React.PureComponent {
   }
   
   // Function to respond to clicking the area
-  handleMouseDown(e) {
+  handlePointerDown(e) {
     stopPropogation(e);
    
-    // Connect the mouse event handlers to the document
-    document.onmousemove = this.handleMouseMove;
-    document.onmouseup = this.handleMouseClose;
+    // Connect the pointer event handlers to the document
+    document.onpointermove = this.handlePointerMove;
+    document.onpointerup = this.handlePointerClose;
 
     // Get the current size
     let width = e.target.parentNode.querySelector('div[class="groupArea"]').offsetWidth;
@@ -282,7 +282,7 @@ export class GroupFragment extends React.PureComponent {
   }
 
   // Function to respond to dragging the area
-  handleMouseMove(e) {
+  handlePointerMove(e) {
     stopPropogation(e);
 
     // Update the state
@@ -309,11 +309,11 @@ export class GroupFragment extends React.PureComponent {
     });
   }
   
-  // Function to respond to releasing the mouse
-  handleMouseClose() {
-    // Stop moving when mouse button is released
-    document.onmousemove = null;
-    document.onmouseup = null;
+  // Function to respond to releasing the pointer
+  handlePointerClose() {
+    // Stop moving when pointer button is released
+    document.onpointermove = null;
+    document.onpointerup = null;
 
     // Save the updated dimensions
     this.props.saveDimensions(this.props.id, this.state.width, this.state.height);
@@ -490,8 +490,8 @@ export class GroupFragment extends React.PureComponent {
         {!this.state.isHidden && <div className="groupArea" style={{ width: width, height: height }} onContextMenu={this.showContextMenu}>
           {boxes}
         </div>}
-        <div className="showCorner disableSelect" onMouseDown={(e) => {stopPropogation(e); this.toggleShow()}}>{this.state.isHidden ? "+Show+" : "-Hide-"}</div>
-        {!this.state.isHidden && <div className="resizeCorner disableSelect" onMouseDown={this.handleMouseDown}>//</div>}
+        <div className="showCorner disableSelect" onPointerDown={(e) => {stopPropogation(e); this.toggleShow()}}>{this.state.isHidden ? "+Show+" : "-Hide-"}</div>
+        {!this.state.isHidden && <div className="resizeCorner disableSelect" onPointerDown={this.handlePointerDown}>//</div>}
         {this.state.isMenuVisible && <AddMenu left={this.state.addLocX} top={this.state.addLocY} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addItemToGroup} saveModifications={this.props.saveModifications}/>}
       </>
     );
