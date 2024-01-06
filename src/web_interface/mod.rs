@@ -1008,7 +1008,7 @@ impl WebInterface {
 
         // Compose the rules into a string
         let rules_string = rules.drain().map(|(mut selector, rule)| {
-            selector += ": ";
+            selector += " ";
             selector += &rule;
             return selector;
         }).collect::<Vec<String>>().join("\n");
