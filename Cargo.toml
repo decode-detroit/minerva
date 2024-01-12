@@ -33,7 +33,7 @@ single-instance = "0.3"
 anyhow = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 rust-embed = "8.1"
-warp-embed = { git = "https://github.com/informationsea/warp-embed.git" }
+warp-embed = "0.5"
 tokio-serial = "5.4"
 jsonwebtoken = "9"
 

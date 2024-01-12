@@ -966,13 +966,13 @@ impl WebInterface {
         index_access: IndexAccess,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         // Get the item pairs from the index
-        let items = index_access.get_all().await;
+        let items = index_access.get_all_pairs().await;
 
         // Return the item pair (even if it is the default)
         return Ok(warp::reply::with_status(
             warp::reply::json(&WebReply {
                 is_valid: true,
-                data: WebReplyData::Items(items),
+                data: WebReplyData::ItemPairs(items),
             }),
             http::StatusCode::OK,
         ));

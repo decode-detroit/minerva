@@ -1,3 +1,18 @@
+/* FIXME Test and then enable
+html {
+  box-sizing: border-box;
+}
+*, *:before, *:after {
+  box-sizing: inherit;
+}*/
+
+* {
+  -webkit-user-select: none;  
+  -moz-user-select: none;    
+  -ms-user-select: none;      
+  user-select: none;
+}
+
 button {
   color: #fff;
   background-color: #2f343e;

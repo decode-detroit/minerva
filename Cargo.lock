@@ -2180,7 +2180,8 @@ dependencies = [
 [[package]]
 name = "warp-embed"
 version = "0.5.0"
-source = "git+https://github.com/informationsea/warp-embed.git#b79d2dd22528b287111f3b9ac8da27ea80b7e127"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4e9cd7e4f12e518e15822a3cc69b2d09e9a6682ba27d30c21d88c99d8c7d246"
 dependencies = [
  "mime_guess",
  "rust-embed",

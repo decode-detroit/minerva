@@ -332,6 +332,10 @@ pub enum WebReplyData {
     #[serde(rename_all = "camelCase")]
     Items(Vec<ItemId>),
 
+    // A variant that contains an item pair list
+    #[serde(rename_all = "camelCase")]
+    ItemPairs(Vec<ItemPair>),
+
     // A variant for replies with a message
     #[serde(rename_all = "camelCase")]
     Message(String),

@@ -190,7 +190,7 @@ export class SceneMenu extends React.PureComponent {
     // If the response is valid
     if (json.isValid) {
       // Get the detail of each item
-      let list = json.data.items;
+      let list = json.data.itemPairs;
 
       // Find the next unused ID
       let id = 1000;
@@ -281,9 +281,15 @@ export class AddMenu extends React.PureComponent {
 
       // If the response is valid
       if (json.isValid) {
+        // Save the temporary list, without types
+        this.setState({
+          unfiltered: json.data.itemPairs,
+          ready: true,
+        });
+
         // Get the detail of each item
         let list = [];
-        await asyncForEach(json.data.items, async (item) => {
+        await asyncForEach(json.data.itemPairs, async (item) => {
           // Check to see the item type
           let response = await fetch(`getType/${item.id}`);
           let type = "none";
@@ -293,19 +299,13 @@ export class AddMenu extends React.PureComponent {
           if (json.isValid) {
             type = json.data.message;
           }
-          
-          // Fetch the description of the item
-          response = await fetch(`getItem/${item.id}`);
-          const json2 = await response.json();
 
-          // If description is valid, save the id, type, and description
-          if (json2.isValid) {
-            list.push({
-              id: item.id,
-              type: type,
-              description: json2.data.item.description,
-            });
-          }
+          // Save the id, type, and description
+          list.push({
+            id: item.id,
+            type: type,
+            description: item.description,
+          });
         });
 
         // Save the result to the state
@@ -323,7 +323,7 @@ export class AddMenu extends React.PureComponent {
       }
     
     // Ignore errors
-    } catch {
+    } catch (e) {
       console.log(`Server inaccessible.`);
     }
   }
@@ -404,56 +404,72 @@ export class SelectMenu extends React.PureComponent {
   // On load, get the list of potential items
   async componentDidMount() {
     try {
-      // Check if a list was provided
-      let items = [];
+      // Check if items were provided
+      let list = [];
       if (this.props.hasOwnProperty(`items`)) {
-        items = this.props.items;
+        await asyncForEach(this.props.items, async (item) => {
+          // Check to see the item type
+          let response = await fetch(`getType/${item.id}`);
+          let type = "none";
+  
+          // If type is valid, save it
+          const json = await response.json();
+          if (json.isValid) {
+            type = json.data.message;
+          }
+          
+          // If the add menu type isn't none and this type doesn't match
+          if (this.props.type !== "none" && this.props.type !== type) {
+            return; // return early
+          }
+          
+          // Fetch the description of the item
+          response = await fetch(`getItem/${item.id}`);
+          const json2 = await response.json();
+  
+          // If description is valid, save the id, type, and description
+          if (json2.isValid) {
+            list.push({
+              id: item.id,
+              type: type,
+              description: json2.data.item.description,
+            });
+          }
+        });
         
       // Otherwise, fetch all items and process the response
       } else {
         let response = await fetch(`allItems`);
         const json = await response.json();
         
-        // Try to read these items
+        // If the response is valid
         if (json.isValid) {
-          items = json.data.items;
-        } else {
-          console.log(`Server inaccessible.`);
-          return;
-        }
-      }
+          // Get the detail of each item
+          await asyncForEach(json.data.itemPairs, async (item) => {
+            // Check to see the item type
+            let response = await fetch(`getType/${item.id}`);
+            let type = "none";
 
-      // Get the detail of each item
-      let list = [];
-      await asyncForEach(items, async (item) => {
-        // Check to see the item type
-        let response = await fetch(`getType/${item.id}`);
-        let type = "none";
-
-        // If type is valid, save it
-        const json = await response.json();
-        if (json.isValid) {
-          type = json.data.message;
-        }
-        
-        // If the add menu type isn't none and this type doesn't match
-        if (this.props.type !== "none" && this.props.type !== type) {
-          return; // return early
-        }
-        
-        // Fetch the description of the item
-        response = await fetch(`getItem/${item.id}`);
-        const json2 = await response.json();
-
-        // If description is valid, save the id, type, and description
-        if (json2.isValid) {
-          list.push({
-            id: item.id,
-            type: type,
-            description: json2.data.item.description,
+            // If type is valid, save it
+            const json = await response.json();
+            if (json.isValid) {
+              type = json.data.message;
+            }
+            
+            // If the add menu type isn't none and this type doesn't match
+            if (this.props.type !== "none" && this.props.type !== type) {
+              return; // return early
+            }
+            
+            // Save the id, type, and description
+            list.push({
+              id: item.id,
+              type: type,
+              description: item.description,
+            });
           });
         }
-      });
+      }
 
       // If a list was provided, show it immediately
       let filtered = [];
