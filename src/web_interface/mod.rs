@@ -713,7 +713,7 @@ impl WebInterface {
 
         // Try to encode the token
         match jwt::encode(
-            &jwt::Header::new(jwt::Algorithm::HS256),
+            &jwt::Header::default(),
             &claims,
             &encoding_key,
         ) {
@@ -732,7 +732,7 @@ impl WebInterface {
         expiration: u64,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         // Create the validation requirements for the admin token
-        let mut validation = jwt::Validation::new(jwt::Algorithm::RS256);
+        let mut validation = jwt::Validation::default();
         validation.set_issuer(&["Minerva-LimitedCue-Admin"]);
         validation.validate_exp = false; // generator token doesn't expire
         match jwt::decode::<Claims>(&token, &decoding_key, &validation) {
@@ -759,7 +759,7 @@ impl WebInterface {
 
         // Encode the token
         let token = match jwt::encode(
-            &jwt::Header::new(jwt::Algorithm::RS256),
+            &jwt::Header::default(),
             &claims,
             &encoding_key,
         ) {
@@ -794,7 +794,7 @@ impl WebInterface {
         R: Into<UserRequest>,
     {
         // Create the validation requirements for the token
-        let mut validation = jwt::Validation::new(jwt::Algorithm::RS256);
+        let mut validation = jwt::Validation::default();
         validation.set_issuer(&["Minerva-LimitedCue"]);
         match jwt::decode::<Claims>(&token, &key, &validation) {
             // Return the decoded data
@@ -848,7 +848,7 @@ impl WebInterface {
         socket: WebSocket,
     ) {
         // Create the validation requirements for the token
-        let mut validation = jwt::Validation::new(jwt::Algorithm::RS256);
+        let mut validation = jwt::Validation::default();
         validation.set_issuer(&["Minerva-LimitedCue"]);
         let token_data = match jwt::decode::<Claims>(&token, &key, &validation) {
             // Return the decoded data

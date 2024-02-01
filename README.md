@@ -161,8 +161,6 @@ env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgcon
 
 ### Cross-Compiling To Raspbian (aarch64/arm64,64bit)
 
-Note: These settings are largely analogous for arm64, but the 64-bit version hasn't been tested.
-
 To cross-compile, install the correct rust target and install the linker.
 ```
 rustup target add aarch64-unknown-linux-gnu
