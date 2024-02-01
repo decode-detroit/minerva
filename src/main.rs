@@ -86,13 +86,17 @@ struct Arguments {
     #[arg(long, default_value = None)] // default is to allow any origin
     cors_allowed_addr: Option<Vec<String>>,
 
-    /// TLS certificate location for the limited access address, RSA only for JWT tokens
+    /// TLS certificate location for the limited access address
     #[arg(long, default_value = None)]
     cert_path: Option<String>,
 
-    /// TLS private key location for the limited access address, RSA only for JWT tokens
+    /// TLS private key location for the limited access address
     #[arg(long, default_value = None)]
     key_path: Option<String>,
+
+    /// JWT secret for the limited access address
+    #[arg(long, default_value = None)]
+    jwt_secret: Option<String>,
 
     /// Flag to set the log level
     #[arg(short, long, default_value = DEFAULT_LOGLEVEL)]
@@ -211,6 +215,7 @@ impl Minerva {
             arguments.cors_allowed_addr,
             arguments.cert_path,
             arguments.key_path,
+            arguments.jwt_secret,
         )
         .await;
 

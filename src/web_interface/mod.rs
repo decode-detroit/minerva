@@ -34,7 +34,7 @@ use warp::ws::{Message, WebSocket};
 use warp::{http, Filter};
 
 // Import tracing features
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 // Import stream-related features
 use async_stream::stream;
@@ -81,6 +81,7 @@ impl WebInterface {
         cors_allowed_addr: Option<Vec<String>>,
         possible_cert_path: Option<String>,
         possible_key_path: Option<String>,
+        possible_jwt_secret: Option<String>,
     ) {
         // Parse any provided addresses, or use defaults
         let limited_address = limited_addr.parse::<std::net::SocketAddr>();
@@ -125,7 +126,7 @@ impl WebInterface {
                         .allow_methods(vec!["GET", "POST"]);
                 }
 
-                // If a TLS certificate and private key were provided FIXME can be cleaned up when let chains are stable
+                // If a TLS certificate and private key were provided
                 let mut is_using_tls = false;
                 if let (Some(cert_path), Some(private_path)) =
                     (possible_cert_path, possible_key_path)
@@ -134,18 +135,17 @@ impl WebInterface {
                     let possible_cert = read(cert_path).await;
                     let possible_private = read(private_path).await;
 
-                    // If both files loaded successfully FIXME can be cleaned up when let chains are stable
+                    // If both files loaded successfully
                     if let (Ok(certificate), Ok(private_key)) = (possible_cert, possible_private) {
                         is_using_tls = true; // save successful TLS loading
 
-                        // Try to create the JWT encoding and decoding keys
-                        let possible_encoding_key = jwt::EncodingKey::from_rsa_pem(&private_key);
-                        let possible_decoding_key = jwt::DecodingKey::from_rsa_pem(&certificate);
+                        // If a JWT secret was provided
+                        if let Some(secret) = possible_jwt_secret {
 
-                        // If both keys were created successfully FIXME can be cleaned up when let chains are stable
-                        if let (Ok(encoding_key), Ok(decoding_key)) =
-                            (possible_encoding_key, possible_decoding_key)
-                        {   
+                            // Create the JWT encoding and decoding keys
+                            let encoding_key = jwt::EncodingKey::from_secret(secret.as_bytes());
+                            let decoding_key = jwt::DecodingKey::from_secret(secret.as_bytes());
+
                             // Share the admin token to the terminal
                             info!(
                                 "Limited Cue Admin Token: {}",
@@ -200,12 +200,9 @@ impl WebInterface {
                             .key(private_key)
                             .run(address)
                             .await;
-
-                        // Fallback to TLS only, no JWT
+                        
+                        // Use TLS only, no JWT
                         } else {
-                            // Throw a warning first
-                            warn!("Unable to use JWT authentication: Key format incompatible.");
-
                             // Create the websocket filter
                             let limited_listen = warp::path("listen")
                                 .and(WebInterface::with_clone(limited_listener_send.clone()))
@@ -716,7 +713,7 @@ impl WebInterface {
 
         // Try to encode the token
         match jwt::encode(
-            &jwt::Header::new(jwt::Algorithm::RS256),
+            &jwt::Header::new(jwt::Algorithm::HS256),
             &claims,
             &encoding_key,
         ) {
