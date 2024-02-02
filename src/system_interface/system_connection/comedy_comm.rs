@@ -35,6 +35,9 @@ use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+// Import FNV HashSet
+use fnv::FnvHashSet;
+
 // Import the serial module
 use serial;
 use serial::prelude::*;
@@ -66,26 +69,28 @@ const MAX_SEND_BUFFER: usize = 100; // the largest number of events allowed to p
 /// may become completely incompatible in the furture.
 ///
 pub struct ComedyComm {
-    path: PathBuf,                          // the desired path of the serial port
-    baud: usize,                            // the baud rate of the serial port
-    polling_rate: u64,                      // the polling rate of the port
-    port: Option<serial::SystemPort>,       // the serial port of the connection, if available
-    buffer: Vec<u8>,                        // the current input buffer
-    outgoing: Vec<(ItemId, u32, u32)>,      // the outgoing event buffer
-    last_ack: Option<Instant>, // Some(instant) if we are still waiting on ack from instant
-    filter_events: Vec<(ItemId, u32, u32)>, // events to filter out
-    last_retry: Option<Instant>, // Some(instant) if we have lost connection to the port
+    path: PathBuf,                              // the desired path of the serial port
+    baud: usize,                                // the baud rate of the serial port
+    allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
+    polling_rate: u64,                          // the polling rate of the port
+    port: Option<serial::SystemPort>,           // the serial port of the connection, if available
+    buffer: Vec<u8>,                            // the current input buffer
+    outgoing: Vec<(ItemId, u32, u32)>,          // the outgoing event buffer
+    last_ack: Option<Instant>,                  // Some(instant) if we are still waiting on ack from instant
+    filter_events: Vec<(ItemId, u32, u32)>,     // events to filter out
+    last_retry: Option<Instant>,                // Some(instant) if we have lost connection to the port
 }
 
 // Implement key functionality for the ComedyComm structure
 impl ComedyComm {
     /// A function to create a new instance of the ComedyComm
     ///
-    pub fn new(path: &PathBuf, baud: usize, polling_rate: u64) -> Result<ComedyComm> {
+    pub fn new(path: &PathBuf, baud: usize, allowed_events: Option<FnvHashSet<ItemId>>, polling_rate: u64) -> Result<ComedyComm> {
         // Create the new instance
         let mut comedy_comm = ComedyComm {
             path: path.clone(),
             baud,
+            allowed_events,
             polling_rate,
             port: None,
             buffer: Vec::new(),
@@ -468,6 +473,13 @@ impl EventConnection for ComedyComm {
     /// A method to send a new event to the serial connection
     ///
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+        // If there's a filter, apply it (and return early, if not found)
+        if let Some(ref events) = &self.allowed_events {
+            if !events.contains(&id) {
+                return Ok(());
+            }
+        }
+
         // Check the USB connection
         self.check_connection()?;
 
@@ -566,7 +578,7 @@ mod tests {
         use std::time::Duration;
 
         // Create a new CmdMessenger instance
-        if let Ok(mut cc) = ComedyComm::new(&PathBuf::from("/dev/ttyACM0"), 115200, 100) {
+        if let Ok(mut cc) = ComedyComm::new(&PathBuf::from("/dev/ttyACM0"), 115200, None, 100) {
             // Wait for the Arduino to boot
             thread::sleep(Duration::from_secs(3));
 

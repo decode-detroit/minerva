@@ -18,9 +18,15 @@
 //! This module implements structures shared from the system connection
 //! modules.
 
+// Import crate definitions
+use crate::definitions::*;
+
 // Import standard library features
 use std::fmt;
 use std::path::PathBuf;
+
+// Import FNV HashSet
+use fnv::FnvHashSet;
 
 /// Define the instance identifier. Instances with the same identifier will trigger
 /// events with one another; instances with different identifiers will not.
@@ -51,6 +57,7 @@ pub enum ConnectionType {
     ComedySerial {
         path: PathBuf, // the location of the serial port
         baud: usize,   // the baud rate of the serial port
+        allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
     },
 
     /// A variant to create a ZeroMQ connection. The connection type allows
