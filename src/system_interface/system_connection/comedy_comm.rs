@@ -71,6 +71,7 @@ const MAX_SEND_BUFFER: usize = 100; // the largest number of events allowed to p
 pub struct ComedyComm {
     path: PathBuf,                              // the desired path of the serial port
     baud: usize,                                // the baud rate of the serial port
+    use_checksum: bool,                         // a flag indicating the system should use and verify 32bit checksums
     allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
     polling_rate: u64,                          // the polling rate of the port
     port: Option<serial::SystemPort>,           // the serial port of the connection, if available
@@ -85,11 +86,12 @@ pub struct ComedyComm {
 impl ComedyComm {
     /// A function to create a new instance of the ComedyComm
     ///
-    pub fn new(path: &PathBuf, baud: usize, allowed_events: Option<FnvHashSet<ItemId>>, polling_rate: u64) -> Result<ComedyComm> {
+    pub fn new(path: &PathBuf, baud: usize, use_checksum: bool, allowed_events: Option<FnvHashSet<ItemId>>, polling_rate: u64) -> Result<ComedyComm> {
         // Create the new instance
         let mut comedy_comm = ComedyComm {
             path: path.clone(),
             baud,
+            use_checksum,
             allowed_events,
             polling_rate,
             port: None,
@@ -213,6 +215,7 @@ impl ComedyComm {
     ///
     fn write_event_now(
         port: &mut serial::SystemPort,
+        use_checksum: bool,
         id: ItemId,
         data1: u32,
         data2: u32,
@@ -245,6 +248,17 @@ impl ComedyComm {
 
         // Escape the new argument and then add it
         bytes.write(ComedyComm::escape(tmp).as_slice())?;
+
+        // If directed
+        if use_checksum {
+            // Calculate the checksum and add it
+            bytes.push(FIELD_SEPARATOR);
+            let mut tmp = Vec::new();
+            tmp.write_u32::<LittleEndian>(id.id() ^ data1 ^ data2)?;
+
+            // Escape the new argument and then add it
+            bytes.write(ComedyComm::escape(tmp).as_slice())?;
+        }
 
         // Append the command separator
         bytes.push(COMMAND_SEPARATOR);
@@ -287,6 +301,7 @@ impl EventConnection for ComedyComm {
                         let (id, data1, data2) = self.outgoing[0];
                         if ComedyComm::write_event_now(
                             port,
+                            self.use_checksum,
                             id.clone(),
                             data1.clone(),
                             data2.clone(),
@@ -313,6 +328,7 @@ impl EventConnection for ComedyComm {
                             let (id, data1, data2) = self.outgoing[0];
                             if ComedyComm::write_event_now(
                                 port,
+                                self.use_checksum,
                                 id.clone(),
                                 data1.clone(),
                                 data2.clone(),
@@ -423,6 +439,30 @@ impl EventConnection for ComedyComm {
                             }
                         };
 
+                        // If verifying the checksum
+                        if self.use_checksum {
+                            // Try to read the checksum from the comedy comm
+                            let checksum = match cursor.read_u32::<LittleEndian>() {
+                                Ok(checksum) => checksum,
+                                _ => {
+                                    // Return an error and exit
+                                    results.push(ReadResult::ReadError(anyhow!(
+                                        "Invalid checksum field for Comedy Comm."
+                                    )));
+                                    break; // end prematurely
+                                }
+                            };
+
+                            // Verify the value
+                            if checksum != (id ^ data1 ^ data2) {
+                                // Return an error and exit
+                                results.push(ReadResult::ReadError(anyhow!(
+                                    "Invalid checksum for Comedy Comm."
+                                )));
+                                break; // end prematurely
+                            }
+                        }
+
                         // Append the resulting event to the results vector
                         results.push(ReadResult::Normal(ItemId::new_unchecked(id), data1, data2));
 
@@ -514,7 +554,7 @@ impl EventConnection for ComedyComm {
         // If the port is available, try to get a mutable reference
         if let Some(ref mut port) = self.port {
             // Try to write the event to the port
-            if ComedyComm::write_event_now(port, id, data1, data2).is_err() {
+            if ComedyComm::write_event_now(port, self.use_checksum, id, data1, data2).is_err() {
                 is_unavailable = true;
             }
 
@@ -578,7 +618,7 @@ mod tests {
         use std::time::Duration;
 
         // Create a new CmdMessenger instance
-        if let Ok(mut cc) = ComedyComm::new(&PathBuf::from("/dev/ttyACM0"), 115200, None, 100) {
+        if let Ok(mut cc) = ComedyComm::new(&PathBuf::from("/dev/ttyACM0"), 115200, true, None, 100) {
             // Wait for the Arduino to boot
             thread::sleep(Duration::from_secs(3));
 

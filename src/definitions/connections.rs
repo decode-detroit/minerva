@@ -57,6 +57,7 @@ pub enum ConnectionType {
     ComedySerial {
         path: PathBuf, // the location of the serial port
         baud: usize,   // the baud rate of the serial port
+        use_checksum: bool, // a flag indicating the system should use and verify 32bit checksums
         allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
     },
 

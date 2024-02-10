@@ -21,7 +21,11 @@ media_players:
   apollo_params:
     spawn: true
     address: null
-system_connections: []
+system_connections:
+- !ComedySerial
+    path: /dev/ttyACM0
+    baud: 115200
+    use_checksum: true
 background_process: null
 default_scene:
   id: 100

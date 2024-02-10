@@ -72,9 +72,9 @@ impl ConnectionType {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the comedy serial port
-            &ConnectionType::ComedySerial { ref path, ref baud, ref allowed_events } => {
+            &ConnectionType::ComedySerial { ref path, ref baud, ref use_checksum, ref allowed_events } => {
                 // Create the new comedy connection
-                let connection = ComedyComm::new(path, baud.clone(), allowed_events.clone(), POLLING_RATE)?;
+                let connection = ComedyComm::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), POLLING_RATE)?;
                 Ok(LiveConnection::ComedySerial { connection })
             }
 
