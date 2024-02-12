@@ -49,17 +49,8 @@ use anyhow::{Error, Result};
 // Import program constants
 use super::POLLING_RATE; // the polling rate for the system
 
-// Define communication constants
-enum ReadResult {
-    // A variant for a successful event read
-    Normal(ItemId, u32, u32),
-
-    // A variant for errors when writing data
-    WriteError(Error),
-
-    // A variant for errors when reading data
-    ReadError(Error),
-}
+// Define the a helper type for returning events
+type ReadResult = (ItemId, u32, u32);
 
 // Implement key connection type features
 impl ConnectionType {
@@ -167,6 +158,16 @@ impl EventConnection for LiveConnection {
             &mut LiveConnection::ZmqSecondary { ref mut connection } => {
                 connection.echo_event(id, data1, data2).await
             }
+        }
+    }
+
+    /// The process pending method
+    async fn process_pending(&mut self) -> bool {
+        // Process any pending writes
+        match self {
+            &mut LiveConnection::Mercury { ref mut connection } => connection.process_pending().await,
+            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.process_pending().await,
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.process_pending().await,
         }
     }
 }
@@ -302,61 +303,47 @@ impl SystemConnection {
     ) {
         // Run the loop until there is an error or instructed to quit
         loop {
-            // Read from all the events, and try writing again if failed
-            let mut results = Vec::new();
-            for connection in connections.iter_mut() {
-                results.append(&mut connection.read_events().await);
-            }
-
-            // Read all the results from the list
-            for result in results.drain(..) {
-                // Sort by the type of result
-                match result {
-                    // For a normal result
-                    ReadResult::Normal(id, game_id, data2) => {
-                        // Echo the event to every connection
-                        for connection in connections.iter_mut() {
-                            connection
-                                .echo_event(id.clone(), game_id.clone(), data2.clone()).await
-                                .unwrap_or(());
-                        }
-
-                        // If an identifier was specified
-                        if let Some(identity) = identifier.id {
-                            // Verify the game id is correct
-                            if identity == game_id {
-                                // Send the event to the program
-                                internal_send.send_event(id, true, false).await; // don't broadcast
-                                    // FIXME Handle incoming data
-
-                            // Otherwise send a notification of an incorrect game number
-                            } else {
-                                // Format the warning string
-                                warn!("Game Id does not match. Event ignored ({}).", id);
-                            }
-
-                        // Otherwise, send the event to the program
-                        } else {
-                            internal_send.send_event(id, true, false).await; // don't broadcast
-                        }
-                    }
-
-                    // For a write error, notify the system
-                    ReadResult::WriteError(error) => {
-                        // Report the error
-                        error!("Communication write error: {}", error);
-                    }
-
-                    // For a read error, notify the system
-                    ReadResult::ReadError(error) => {
-                        // Report the error
-                        error!("Communication read error: {}", error);
-                    }
-                }
-            }
+            // If pending
+            FIXME
 
             // Look for other updates or wait for the timeout
             tokio::select! {
+                // Read any new events from the connections
+                // Read from all the events, and try writing again if failed
+                let mut results = Vec::new();
+                for connection in connections.iter_mut() {
+                    results.append(&mut connection.read_events().await);
+                }
+
+                // Read all the results from the list
+                for (id, game_id, data2) in results.drain(..) {
+                    // Echo the event to every connection
+                    for connection in connections.iter_mut() {
+                        connection
+                            .echo_event(id.clone(), game_id.clone(), data2.clone()).await
+                            .unwrap_or(());
+                    }
+
+                    // If an identifier was specified
+                    if let Some(identity) = identifier.id {
+                        // Verify the game id is correct
+                        if identity == game_id {
+                            // Send the event to the program
+                            internal_send.send_event(id, true, false).await; // don't broadcast
+                                // FIXME Handle incoming data
+
+                        // Otherwise send a notification of an incorrect game number
+                        } else {
+                            // Format the warning string
+                            warn!("Game Id does not match. Event ignored ({}).", id);
+                        }
+
+                    // Otherwise, send the event to the program
+                    } else {
+                        internal_send.send_event(id, true, false).await; // don't broadcast
+                    }
+                }
+
                 // Process any new events from the system
                 update = conn_recv.recv() => {
                     match update {
@@ -415,12 +402,20 @@ impl SystemConnection {
 }*/
 
 trait EventConnection {
-    /// The read event method
+    /// A method to read any new events from the connection. This implementation
+    /// should await until new information is available
     async fn read_events(&mut self) -> Vec<ReadResult>;
 
-    /// The write event method (does not check duplicates)
+    /// A method to write events to the connection. This implementation should
+    /// not check duplicate messages received on this connection.
     async fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
 
-    /// The echo event method (checks for duplicates from recently read events)
+    /// A method to echo events to this connection. This method should ensure that
+    /// recently-read events are removed from the queue before sending. This method
+    /// can assume that read events will be echoed exactly once.
     async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
+
+    /// A method to check for pending writes and process them if they exist.
+    /// This method returns true if there are still pending writes.
+    async fn process_pending(&mut self) -> bool;
 }

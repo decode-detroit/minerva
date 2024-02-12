@@ -42,6 +42,9 @@ use fnv::FnvHashSet;
 use tokio::time::sleep;
 use tokio_serial as serial;
 
+// Import tracing features
+use tracing::error;
+
 // Import anyhow features
 use anyhow::Result;
 
@@ -310,7 +313,7 @@ impl EventConnection for Mercury {
     /// A method to receive a new event from the serial connection
     ///
     async fn read_events(&mut self) -> Vec<ReadResult> {
-        // Check the USB connection
+        // Check the serial connection
         if let Err(error) = self.check_connection() {
             return vec![ReadResult::ReadError(error)];
         };
@@ -318,62 +321,9 @@ impl EventConnection for Mercury {
         // Create a list of results to return
         let mut results = Vec::new();
 
-        // Flag to indicate the port is inaccessible
-        let mut is_unavailable = false;
-
-        // If there are pending outgoing messages
-        if self.outgoing.len() > 0 {
-            // Check for a pending ack
-            match self.last_ack {
-                // If there isn't a pending ack
-                None => {
-                    // Copy and send the next event
-                    let (id, data1, data2) = self.outgoing[0];
-                    if self.write_event_now(
-                        id.clone(),
-                        data1.clone(),
-                        data2.clone(),
-                    ).await
-                    .is_err()
-                    {
-                        is_unavailable = true;
-                    }
-
-                    // Reset the start time waiting for the ack
-                    self.last_ack = Some(Instant::now());
-                }
-
-                // If there is a pending ack
-                Some(instant) => {
-                    // And if time has expired
-                    if (instant + Duration::from_millis(ACK_DELAY)) < Instant::now() {
-                        // Notify the system of a communication error
-                        results.push(ReadResult::WriteError(anyhow!(
-                            "No Acknowledgement from Mercury port. Retrying ..."
-                        )));
-
-                        // Copy and resend the current event
-                        let (id, data1, data2) = self.outgoing[0];
-                        if self.write_event_now(
-                            id.clone(),
-                            data1.clone(),
-                            data2.clone(),
-                        ).await
-                        .is_err()
-                        {
-                            is_unavailable = true;
-                        }
-
-                        // Reset the start time waiting for the ack
-                        self.last_ack = Some(Instant::now());
-                    }
-                }
-            }
-        }
-
         // Load any new characters into the buffer
         if let Some(ref mut stream) = self.stream {
-            stream.read_to_end(&mut self.buffer).unwrap_or(0);
+            stream.read_to_end(&mut self.buffer) // FIXME unwrap_or(0);
         }
 
         // Create temporary variables to track the message and status
@@ -521,18 +471,6 @@ impl EventConnection for Mercury {
             }
         }
 
-        // If the port is unavailable, drop the connection
-        if is_unavailable {
-            if let Some(bad_port) = self.stream.take() {
-                drop(bad_port); // Ensure the port is promptly dropped
-
-                // Note the error
-                results.push(ReadResult::ReadError(anyhow!(
-                    "Lost connection to Mercury port."
-                )));
-            }
-        }
-
         // Return the resulting events
         results
     }
@@ -600,6 +538,83 @@ impl EventConnection for Mercury {
             // Write the event to the system
             return self.write_event(id, data1, data2).await;
         }
+    }
+
+    /// A method to process any pending writes to the serial connection
+    /// 
+    async fn process_pending(&mut self) -> bool {
+        // If there are no pending outgoing messages
+        if self.outgoing.len() == 0 {
+            return false;
+        
+        // Otherwise, try to process the messages
+        } else {
+            // Check the serial connection
+            if let Err(error) = self.check_connection() {
+                return true; // Indicate messages are still pending
+            };
+
+            // Flag to indicate the port is inaccessible
+            let mut is_unavailable = false;
+
+            // Check for a pending ack
+            match self.last_ack {
+                // If there isn't a pending ack
+                None => {
+                    // Copy and send the next event
+                    let (id, data1, data2) = self.outgoing[0];
+                    if self.write_event_now(
+                        id.clone(),
+                        data1.clone(),
+                        data2.clone(),
+                    ).await
+                    .is_err()
+                    {
+                        is_unavailable = true;
+                    }
+
+                    // Reset the start time waiting for the ack
+                    self.last_ack = Some(Instant::now());
+                }
+
+                // If there is a pending ack
+                Some(instant) => {
+                    // And if time has expired
+                    if (instant + Duration::from_millis(ACK_DELAY)) < Instant::now() {
+                        // Notify the system of a communication error
+                        error!("Communication write error: No Acknowledgement from Mercury port. Retrying ...");
+
+                        // Copy and resend the current event
+                        let (id, data1, data2) = self.outgoing[0];
+                        if self.write_event_now(
+                            id.clone(),
+                            data1.clone(),
+                            data2.clone(),
+                        ).await
+                        .is_err()
+                        {
+                            is_unavailable = true;
+                        }
+
+                        // Reset the start time waiting for the ack
+                        self.last_ack = Some(Instant::now());
+                    }
+                }
+            }
+
+            // If the port is unavailable, drop the connection
+            if is_unavailable {
+                if let Some(bad_port) = self.stream.take() {
+                    drop(bad_port); // Ensure the port is promptly dropped
+
+                    // Notify the system of a communication error
+                    error!("Communication write error: Lost connection to Mercury port.");
+                }
+            }
+        }
+
+        // Indicate more events may be pending
+        true
     }
 }
 

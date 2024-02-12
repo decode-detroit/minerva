@@ -131,6 +131,12 @@ impl EventConnection for ZmqBind {
     async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         self.write_event(id, data1, data2).await
     }
+
+    /// A method to process any pending sends. Since the ZMQ connection does
+    /// not have this concept, this method does nothing
+    async fn process_pending(&mut self) -> bool {
+        false
+    }
 }
 
 /// A structure to hold and manipulate the connection over zmq
@@ -300,6 +306,12 @@ impl EventConnection for ZmqConnect {
     #[cfg(not(feature = "zmq-comm"))]
     async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         self.write_event(id, data1, data2).await
+    }
+
+    /// A method to process any pending sends. Since the ZMQ connection does
+    /// not have this concept, this method does nothing
+    async fn process_pending(&mut self) -> bool {
+        false
     }
 }
 
