@@ -44,13 +44,13 @@ use tokio::time::sleep;
 use tracing::{error, warn};
 
 // Import anyhow features
-use anyhow::{Error, Result};
+use anyhow::Result;
 
 // Import program constants
 use super::POLLING_RATE; // the polling rate for the system
 
 // Define the a helper type for returning events
-type ReadResult = (ItemId, u32, u32);
+type ReadEvent = (ItemId, u32, u32);
 
 // Implement key connection type features
 impl ConnectionType {
@@ -120,7 +120,7 @@ enum LiveConnection {
 // Implement event connection for LiveConnection
 impl EventConnection for LiveConnection {
     /// The read event method
-    async fn read_events(&mut self) -> Vec<ReadResult> {
+    async fn read_events(&mut self) -> Result<Vec<ReadEvent>> {
         // Read from the interior connection
         match self {
             &mut LiveConnection::Mercury { ref mut connection } => connection.read_events().await,
@@ -179,6 +179,10 @@ enum ConnectionUpdate {
     ///
     Broadcast(ItemId, Option<u32>),
 
+    /// A variant to indicate an event should be echoed
+    ///
+    Echo(ItemId, u32, u32),
+
     /// A variant to indicate that the connection process should stop
     Stop,
 }
@@ -186,8 +190,8 @@ enum ConnectionUpdate {
 /// A structure to handle all the input and output with the rest of the system.
 ///
 pub struct SystemConnection {
-    internal_send: InternalSend, // sending structure for new events from the system
-    connection_send: Option<mpsc::Sender<ConnectionUpdate>>, // receiving structure for new events from the program
+    internal_send: InternalSend, // structure to send events from the connections
+    connection_senders: Vec<mpsc::Sender<ConnectionUpdate>>, // structure to forward events from the main program
     is_broken: bool, // flag to indicate if one or more connections failed to establish
 }
 
@@ -213,7 +217,7 @@ impl SystemConnection {
         // Create an empty system connection
         let mut system_connection = SystemConnection {
             internal_send,
-            connection_send: None,
+            connection_senders: Vec::new(),
             is_broken: false,
         };
 
@@ -233,23 +237,33 @@ impl SystemConnection {
         &mut self,
         connections: Option<(ConnectionSet, Identifier)>,
     ) -> bool {
-        // Close the existing connection, if it exists
-        if let Some(ref conn_send) = self.connection_send {
+        // Close the existing connections, if they exists
+        for conn_send in self.connection_senders.iter() {
             conn_send.send(ConnectionUpdate::Stop).await.unwrap_or(());
         }
 
-        // Reset the connection
-        self.connection_send = None;
+        // Reset the connections
+        self.connection_senders = Vec::new();
         self.is_broken = false;
 
         // Check to see if there is a provided connection set
-        if let Some((conn_set, identifier)) = connections {
+        if let Some((connection_set, identifier)) = connections {
             // Initialize the system connections
-            let mut live_connections = Vec::new();
-            for connection in conn_set {
+            for possible_connection in connection_set {
                 // Attempt to initialize each connection
-                match connection.initialize().await {
-                    Ok(conn) => live_connections.push(conn),
+                match possible_connection.initialize().await {
+                    // If successful, spin up a thread for that connection
+                    Ok(connection) => {
+                        // Create the connecting mpscs
+                        let (conn_send, conn_recv) = mpsc::channel(128);
+                        let internal_send = self.internal_send.clone();
+
+                        // Spwan the thread
+                        tokio::spawn(SystemConnection::run_loop(connection, internal_send, conn_recv, identifier));
+
+                        // Add the sender
+                        self.connection_senders.push(conn_send);
+                    }
 
                     // If it fails, warn the user
                     Err(e) => {
@@ -259,14 +273,6 @@ impl SystemConnection {
                 };
             }
 
-            // Spin a new thread with the connection(s)
-            let (conn_send, conn_recv) = mpsc::channel(128);
-            let internal_send = self.internal_send.clone();
-            tokio::spawn(SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier));
-
-            // Update the system connection
-            self.connection_send = Some(conn_send);
-
             // Indicate whether the connections were successfully established
             return !self.is_broken;
         }
@@ -275,14 +281,30 @@ impl SystemConnection {
         true
     }
 
-    /// A method to send messages between the underlying system and the program.
+    /// A method to send events to the system connections
     ///
     pub async fn broadcast(&mut self, new_event: ItemId, data: Option<u32>) {
-        // Extract the connection, if it exists
-        if let Some(ref mut conn) = self.connection_send {
+        // Iterate through the connnections, if they exist
+        for ref sender in self.connection_senders.iter() {
             // Send the new event
-            let result = conn.send(ConnectionUpdate::Broadcast(new_event, data)).await;
-            if let Err(error) = result {
+            if let Err(error) = sender.send(ConnectionUpdate::Broadcast(new_event, data)).await {
+                error!("Unable to connect: {}.", error);
+            }
+
+            // Warn if one or more connections were not established
+            if self.is_broken {
+                error!("Unable to reach one or more system connections.");
+            }
+        }
+    }
+
+    /// A method to echo events to the system connections
+    ///
+    pub async fn echo(&mut self, new_event: ItemId, data1: u32, data2: u32) {
+        // Iterate through the connnections, if they exist
+        for ref sender in self.connection_senders.iter() {
+            // Send the echoed event
+            if let Err(error) = sender.send(ConnectionUpdate::Echo(new_event, data1, data2)).await {
                 error!("Unable to connect: {}.", error);
             }
 
@@ -296,67 +318,53 @@ impl SystemConnection {
     /// An internal function to run a loop of the system connection
     ///
     async fn run_loop(
-        mut connections: Vec<LiveConnection>,
+        mut connection: LiveConnection,
         internal_send: InternalSend,
         mut conn_recv: mpsc::Receiver<ConnectionUpdate>,
         identifier: Identifier,
     ) {
         // Run the loop until there is an error or instructed to quit
         loop {
-            // If pending
-            FIXME
+            // If there are still pending events on the connection
+            if connection.process_pending().await {
+                // Only wait <polling rate> for any updates
+                tokio::select! {
+                    // If there are new events received
+                    Ok(mut events) = connection.read_events() => {
+                        // Read all the results from the list
+                        for (id, game_id, data2) in events.drain(..) {
+                            // If an identifier was specified
+                            if let Some(identity) = identifier.id {
+                                // Verify the game id is correct
+                                if identity == game_id {
+                                    // Send the event to the program
+                                    internal_send.send_event(id, true, false).await; // don't broadcast
+                                        // FIXME Handle incoming data
 
-            // Look for other updates or wait for the timeout
-            tokio::select! {
-                // Read any new events from the connections
-                // Read from all the events, and try writing again if failed
-                let mut results = Vec::new();
-                for connection in connections.iter_mut() {
-                    results.append(&mut connection.read_events().await);
-                }
+                                // Otherwise send a notification of an incorrect game number
+                                } else {
+                                    // Format the warning string
+                                    warn!("Game Id does not match. Event ignored ({}).", id);
+                                }
 
-                // Read all the results from the list
-                for (id, game_id, data2) in results.drain(..) {
-                    // Echo the event to every connection
-                    for connection in connections.iter_mut() {
-                        connection
-                            .echo_event(id.clone(), game_id.clone(), data2.clone()).await
-                            .unwrap_or(());
-                    }
-
-                    // If an identifier was specified
-                    if let Some(identity) = identifier.id {
-                        // Verify the game id is correct
-                        if identity == game_id {
-                            // Send the event to the program
-                            internal_send.send_event(id, true, false).await; // don't broadcast
-                                // FIXME Handle incoming data
-
-                        // Otherwise send a notification of an incorrect game number
-                        } else {
-                            // Format the warning string
-                            warn!("Game Id does not match. Event ignored ({}).", id);
+                            // Otherwise, send the event to the program
+                            } else {
+                                internal_send.send_event(id, true, false).await; // don't broadcast
+                            }
                         }
-
-                    // Otherwise, send the event to the program
-                    } else {
-                        internal_send.send_event(id, true, false).await; // don't broadcast
                     }
-                }
 
-                // Process any new events from the system
-                update = conn_recv.recv() => {
-                    match update {
-                        // Send the new event
-                        Some(ConnectionUpdate::Broadcast(id, data)) => {
-                            // Use the identifier or zero for the game id
-                            let game_id = identifier.id.unwrap_or(0);
+                    // Process any new events from the system
+                    update = conn_recv.recv() => {
+                        match update {
+                            // Send the new event
+                            Some(ConnectionUpdate::Broadcast(id, data)) => {
+                                // Use the identifier or zero for the game id
+                                let game_id = identifier.id.unwrap_or(0);
 
-                            // Translate the data to a placeholder, if necessary
-                            let data2 = data.unwrap_or(0);
+                                // Translate the data to a placeholder, if necessary
+                                let data2 = data.unwrap_or(0);
 
-                            // Try to send the new event to every connection
-                            for connection in connections.iter_mut() {
                                 // Catch any write errors
                                 if let Err(error1) = connection.write_event(id, game_id, data2).await {
                                     // Report the error
@@ -370,16 +378,109 @@ impl SystemConnection {
                                     }
                                 }
                             }
-                        }
 
-                        // Quit when instructed or when there is an error
-                        Some(ConnectionUpdate::Stop) => break,
-                        None => break,
+                            // Send the echoed event
+                            Some(ConnectionUpdate::Echo(id, data1, data2)) => {
+                                // Catch any echo errors
+                                if let Err(error1) = connection.echo_event(id, data1, data2).await {
+                                    // Report the error
+                                    error!("Communication error: {}", error1);
+
+                                    // Wait a little bit and try again
+                                    sleep(Duration::from_millis(POLLING_RATE)).await;
+                                    if let Err(error2) = connection.echo_event(id, data1, data2).await {
+                                        // Report the error
+                                        error!("Persistent communication error: {}", error2);
+                                    }
+                                }
+                            }
+
+                            // Quit when instructed or when there is an error
+                            Some(ConnectionUpdate::Stop) => break,
+                            None => break,
+                        }
+                    }
+
+                    // Wait the appropriate polling rate between process pending updates
+                    _ = sleep(Duration::from_millis(POLLING_RATE)) => (), // loop again
+                }
+            
+            // Otherwise, if there are no pending events
+            } else {
+                // Wait indefinitely
+                tokio::select! {
+                    // If there are new events received
+                    Ok(mut events) = connection.read_events() => {
+                        // Read all the results from the list
+                        for (id, game_id, data2) in events.drain(..) {
+                            // If an identifier was specified
+                            if let Some(identity) = identifier.id {
+                                // Verify the game id is correct
+                                if identity == game_id {
+                                    // Send the event to the program
+                                    internal_send.send_event(id, true, false).await; // don't broadcast
+                                        // FIXME Handle incoming data
+
+                                // Otherwise send a notification of an incorrect game number
+                                } else {
+                                    // Format the warning string
+                                    warn!("Game Id does not match. Event ignored ({}).", id);
+                                }
+
+                            // Otherwise, send the event to the program
+                            } else {
+                                internal_send.send_event(id, true, false).await; // don't broadcast
+                            }
+                        }
+                    }
+
+                    // Process any new events from the system
+                    update = conn_recv.recv() => {
+                        match update {
+                            // Send the new event
+                            Some(ConnectionUpdate::Broadcast(id, data)) => {
+                                // Use the identifier or zero for the game id
+                                let game_id = identifier.id.unwrap_or(0);
+
+                                // Translate the data to a placeholder, if necessary
+                                let data2 = data.unwrap_or(0);
+
+                                // Catch any write errors
+                                if let Err(error1) = connection.write_event(id, game_id, data2).await {
+                                    // Report the error
+                                    error!("Communication error: {}", error1);
+
+                                    // Wait a little bit and try again
+                                    sleep(Duration::from_millis(POLLING_RATE)).await;
+                                    if let Err(error2) = connection.write_event(id, game_id, data2).await {
+                                        // Report the error
+                                        error!("Persistent communication error: {}", error2);
+                                    }
+                                }
+                            }
+
+                            // Send the echoed event
+                            Some(ConnectionUpdate::Echo(id, data1, data2)) => {
+                                // Catch any echo errors
+                                if let Err(error1) = connection.echo_event(id, data1, data2).await {
+                                    // Report the error
+                                    error!("Communication error: {}", error1);
+
+                                    // Wait a little bit and try again
+                                    sleep(Duration::from_millis(POLLING_RATE)).await;
+                                    if let Err(error2) = connection.echo_event(id, data1, data2).await {
+                                        // Report the error
+                                        error!("Persistent communication error: {}", error2);
+                                    }
+                                }
+                            }
+
+                            // Quit when instructed or when there is an error
+                            Some(ConnectionUpdate::Stop) => break,
+                            None => break,
+                        }
                     }
                 }
-
-                // Wait the appropriate polling rate between read updates
-                _ = sleep(Duration::from_millis(POLLING_RATE)) => (), // loop again
             }
         }
     }
@@ -390,21 +491,11 @@ impl SystemConnection {
 /// This is a convience trait to standardize reading from and writing to the
 /// event connection across all event connection types.
 ///
-/*trait EventConnection {
-    /// The read event method
-    fn read_events(&mut self) -> Vec<ReadResult>;
-
-    /// The write event method (does not check duplicates)
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
-
-    /// The echo event method (checks for duplicates from recently read events)
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
-}*/
-
 trait EventConnection {
     /// A method to read any new events from the connection. This implementation
-    /// should await until new information is available
-    async fn read_events(&mut self) -> Vec<ReadResult>;
+    /// should await until new information is available and return an error
+    /// if the connection is not readable.
+    async fn read_events(&mut self) -> Result<Vec<ReadEvent>>;
 
     /// A method to write events to the connection. This implementation should
     /// not check duplicate messages received on this connection.

@@ -28,7 +28,7 @@
 use crate::definitions::*;
 
 // Import other definitions
-use super::{EventConnection, ReadResult};
+use super::{EventConnection, ReadEvent};
 
 // Import standard library modules and traits
 use std::io::{Cursor, Read, Write};
@@ -312,21 +312,36 @@ impl Mercury {
 impl EventConnection for Mercury {
     /// A method to receive a new event from the serial connection
     ///
-    async fn read_events(&mut self) -> Vec<ReadResult> {
+    async fn read_events(&mut self) -> Result<Vec<ReadEvent>> {
         // Check the serial connection
         if let Err(error) = self.check_connection() {
-            return vec![ReadResult::ReadError(error)];
+            error!("Communication read error: {}", error);
+            return Err(anyhow!("Communication read error: {}", error));
         };
 
-        // Create a list of results to return
-        let mut results = Vec::new();
-
-        // Load any new characters into the buffer
+        // If there is a stream (should always be at this point)
         if let Some(ref mut stream) = self.stream {
-            stream.read_to_end(&mut self.buffer) // FIXME unwrap_or(0);
+            // Wait for the stream to becomme readable
+            match stream.readable().await {
+                Ok(_) =>  {
+                    // Try to read bytes from the Mercury port
+                    if let Err(error) = stream.try_read(&mut self.buffer) {
+                        // If there was an error
+                        error!("Communication read error: {}", error);
+                        return Err(anyhow!("Communication read error: {}", error));
+                    }
+                }
+                
+                // Return the read error
+                Err(error) => {
+                    error!("Communication read error: {}", error);
+                    return Err(anyhow!("Communication read error: {}", error));
+                }
+            }
         }
 
-        // Create temporary variables to track the message and status
+        // Create a list of events to return and temporary variables to track the message and status
+        let mut events = Vec::new();
         let mut message = Vec::new();
         let mut escaped = false; // indicates whether or not the currect character is escaped
         let mut new_message = true; // indicates if this character should start a new message
@@ -390,9 +405,7 @@ impl EventConnection for Mercury {
                         Ok(id) => id,
                         _ => {
                             // Return an error and exit
-                            results.push(ReadResult::ReadError(anyhow!(
-                                "Invalid Event Id for Mercury port."
-                            )));
+                            error!("Communication read error: Invalid Event Id for Mercury port.");
                             break; // end prematurely
                         }
                     };
@@ -400,9 +413,7 @@ impl EventConnection for Mercury {
                         Ok(data1) => data1,
                         _ => {
                             // Return an error and exit
-                            results.push(ReadResult::ReadError(anyhow!(
-                                "Invalid second field for Mercury port."
-                            )));
+                            error!("Communication read error: Invalid second field for Mercury port.");
                             break; // end prematurely
                         }
                     };
@@ -410,9 +421,7 @@ impl EventConnection for Mercury {
                         Ok(data2) => data2,
                         _ => {
                             // Return an error and exit
-                            results.push(ReadResult::ReadError(anyhow!(
-                                "Invalid third field for Mercury port."
-                            )));
+                            error!("Communication read error: Invalid third field for Mercury port.");
                             break; // end prematurely
                         }
                     };
@@ -424,9 +433,7 @@ impl EventConnection for Mercury {
                             Ok(checksum) => checksum,
                             _ => {
                                 // Return an error and exit
-                                results.push(ReadResult::ReadError(anyhow!(
-                                    "Invalid checksum field for Mercury port."
-                                )));
+                                error!("Communication read error: Invalid checksum field for Mercury port.");
                                 break; // end prematurely
                             }
                         };
@@ -434,19 +441,21 @@ impl EventConnection for Mercury {
                         // Verify the value
                         if checksum != (id ^ data1 ^ data2) {
                             // Return an error and exit
-                            results.push(ReadResult::ReadError(anyhow!(
-                                "Invalid checksum for Mercury port."
-                            )));
+                            error!("Communication read error: Invalid checksum for Mercury port.");
                             break; // end prematurely
                         }
                     }
 
                     // Append the resulting event to the results vector
-                    results.push(ReadResult::Normal(ItemId::new_unchecked(id), data1, data2));
+                    events.push((ItemId::new_unchecked(id), data1, data2));
 
                     // Send the acknowledgement
                     let bytes = vec![ACK_CHARACTER, COMMAND_SEPARATOR];
-                    // FIXME Mercury::write_bytes(stream, bytes, self.polling_rate).await.unwrap_or(());
+                    if let Some(ref mut stream) = self.stream {
+                        if let Err(error) = Mercury::write_bytes(stream, bytes, self.polling_rate).await {
+                            error!("Communication read error: {}", error);
+                        }
+                    }
 
                 // Catch the escape character
                 } else if *character == ESCAPE_CHARACTER {
@@ -463,16 +472,12 @@ impl EventConnection for Mercury {
         self.buffer.drain(0..message_until);
 
         // Add the incoming events to the filter
-        for result in results.iter() {
-            // Check to make sure it's a valid event
-            if let ReadResult::Normal(id, data1, data2) = result {
-                self.filter_events
-                    .push((id.clone(), data1.clone(), data2.clone()));
-            }
+        for event in events.iter() {
+            self.filter_events.push(event.clone());
         }
 
         // Return the resulting events
-        results
+        Ok(events)
     }
 
     /// A method to send a new event to the serial connection
@@ -551,6 +556,7 @@ impl EventConnection for Mercury {
         } else {
             // Check the serial connection
             if let Err(error) = self.check_connection() {
+                error!("Communication write error: {}", error);
                 return true; // Indicate messages are still pending
             };
 
@@ -645,14 +651,12 @@ mod tests {
             thread::sleep(Duration::from_millis(500));
 
             // Read a response
-            for result in cc.read_events().await {
-                if let ReadResult::Normal(id, data1, data2) = result {
+            if let Ok(events) = cc.read_events().await {
+                for (id, data1, data2) in events {
                     // Verify that it is correct
                     assert_eq!(id, id_ref);
                     assert_eq!(data1, data1_ref);
                     assert_eq!(data2, data2_ref);
-                } else {
-                    panic!("Read error in the Commedy Comm.")
                 }
             }
 
