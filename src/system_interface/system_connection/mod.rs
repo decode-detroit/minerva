@@ -22,8 +22,8 @@
 //! rest of the system. Updates from the system are passed back to the event
 //! handler system via the event_send line.
 //!
-//! FIXME Update this module to use async reading and writing.
-//! This fix is waiting for async traits, due to be stable with Rust v1.74
+//! Async reading and writing was found to use more CPU time (likely due to
+//! poor optimization. This project is put on ice for now.
 
 // Define private submodules
 mod mercury;
