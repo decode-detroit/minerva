@@ -26,15 +26,15 @@
 //! This fix is waiting for async traits, due to be stable with Rust v1.74
 
 // Define private submodules
-mod comedy_comm;
-mod zmq_comm;
+mod mercury;
+mod zmq;
 
 // Import crate definitions
 use crate::definitions::*;
 
 // Import other definitions
-use self::comedy_comm::ComedyComm;
-use self::zmq_comm::{ZmqBind, ZmqConnect};
+use self::mercury::Mercury;
+use self::zmq::{ZmqBind, ZmqConnect};
 
 // Import standard library features
 use std::sync::mpsc;
@@ -71,11 +71,11 @@ impl ConnectionType {
     async fn initialize(&self) -> Result<LiveConnection> {
         // Switch between the different connection types
         match self {
-            // Connect to a live version of the comedy serial port
-            &ConnectionType::ComedySerial { ref path, ref baud, ref use_checksum, ref allowed_events } => {
-                // Create the new comedy connection
-                let connection = ComedyComm::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), POLLING_RATE)?;
-                Ok(LiveConnection::ComedySerial { connection })
+            // Connect to a live version of the Mercury port
+            &ConnectionType::Mercury { ref path, ref baud, ref use_checksum, ref allowed_events } => {
+                // Create the new Mercury connection
+                let connection = Mercury::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), POLLING_RATE)?;
+                Ok(LiveConnection::Mercury { connection })
             }
 
             // Connect to a live version of the zmq port
@@ -106,10 +106,10 @@ impl ConnectionType {
 /// connection to the underlying system.
 ///
 enum LiveConnection {
-    /// A variant to connect with a ComedyComm serial port. This implementation
-    /// assumes the serial connection uses the ComedyComm protocol.
-    ComedySerial {
-        connection: ComedyComm, // the comedy connection
+    /// A variant to connect with a Mercury serial port. This implementation
+    /// assumes the serial connection uses the Mercury protocol.
+    Mercury {
+        connection: Mercury, // the Mercury serial connection
     },
 
     /// A variant to create a ZeroMQ connection. This connection type allows
@@ -133,7 +133,7 @@ impl EventConnection for LiveConnection {
     fn read_events(&mut self) -> Vec<ReadResult> {
         // Read from the interior connection
         match self {
-            &mut LiveConnection::ComedySerial { ref mut connection } => connection.read_events(),
+            &mut LiveConnection::Mercury { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_events(),
             &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_events(),
         }
@@ -143,7 +143,7 @@ impl EventConnection for LiveConnection {
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Write to the interior connection
         match self {
-            &mut LiveConnection::ComedySerial { ref mut connection } => {
+            &mut LiveConnection::Mercury { ref mut connection } => {
                 connection.write_event(id, data1, data2)
             }
             &mut LiveConnection::ZmqPrimary { ref mut connection } => {
@@ -159,7 +159,7 @@ impl EventConnection for LiveConnection {
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Echo events to the interior connection
         match self {
-            &mut LiveConnection::ComedySerial { ref mut connection } => {
+            &mut LiveConnection::Mercury { ref mut connection } => {
                 connection.echo_event(id, data1, data2)
             }
             &mut LiveConnection::ZmqPrimary { ref mut connection } => {

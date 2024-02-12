@@ -1,6 +1,5 @@
 // Copyright (c) 2019 Decode Detroit
 // Author: Patton Doyle
-// Based on examples from gtk-rs (MIT License)
 // Licence: GNU GPLv3
 //
 // This program is free software: you can redistribute it and/or modify

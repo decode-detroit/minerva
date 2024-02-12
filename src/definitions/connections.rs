@@ -52,9 +52,9 @@ impl fmt::Display for Identifier {
 ///
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ConnectionType {
-    /// A variant to connect with a ComedyComm serial port. This implementation
-    /// assumes the serial connection uses the ComedyComm protocol.
-    ComedySerial {
+    /// A variant to connect with a Mercury serial port. This implementation
+    /// assumes the serial connection uses the Mercury event protocol.
+    Mercury {
         path: PathBuf, // the location of the serial port
         baud: usize,   // the baud rate of the serial port
         use_checksum: bool, // a flag indicating the system should use and verify 32bit checksums
