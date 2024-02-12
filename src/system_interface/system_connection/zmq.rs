@@ -86,7 +86,7 @@ impl EventConnection for ZmqBind {
     /// A method to receive new events from the zmq connection, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    fn read_events(&mut self) -> Vec<ReadResult> {
+    async fn read_events(&mut self) -> Vec<ReadResult> {
         // Read any events from the zmq connection
         let mut results = Vec::new();
         while let Some(result) = read_from_zmq(&self.zmq_recv) {
@@ -100,7 +100,7 @@ impl EventConnection for ZmqBind {
     /// A method to receive new events from the zmq connection, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    fn read_events(&mut self) -> Vec<ReadResult> {
+    async fn read_events(&mut self) -> Vec<ReadResult> {
         Vec::new() // return an empty vector
     }
 
@@ -118,7 +118,7 @@ impl EventConnection for ZmqBind {
     /// A method to send a new event to the zmq connection, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
+    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
         return Err(anyhow!(
             "Program compiled without ZMQ support. See documentation."
         ));
@@ -128,8 +128,8 @@ impl EventConnection for ZmqBind {
     /// not check for duplicate messages (as it isn't necessary for this
     /// connection)
     ///
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
-        self.write_event(id, data1, data2)
+    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+        self.write_event(id, data1, data2).await
     }
 }
 
@@ -238,7 +238,7 @@ impl EventConnection for ZmqConnect {
     /// A method to receive new events from the ZMQ connection, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    fn read_events(&mut self) -> Vec<ReadResult> {
+    async fn read_events(&mut self) -> Vec<ReadResult> {
         Vec::new() // return an empty vector
     }
 
@@ -260,7 +260,7 @@ impl EventConnection for ZmqConnect {
 
     /// A method to send a new event to the ZMQ connection, inactive version
     #[cfg(not(feature = "zmq-comm"))]
-    fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
+    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
         return Err(anyhow!(
             "Program compiled without ZMQ support. See documentation."
         ));
@@ -298,8 +298,8 @@ impl EventConnection for ZmqConnect {
     /// A method to echo events back to the ZMQ connection, inactive version.
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
-        self.write_event(id, data1, data2)
+    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+        self.write_event(id, data1, data2).await
     }
 }
 

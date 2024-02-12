@@ -99,15 +99,6 @@ impl InternalSend {
             .await
             .unwrap_or(());
     }
-
-    /// A method to send an update in an sync context
-    ///
-    /// # Note
-    /// This method will panic if used inside an async context.
-    ///
-    pub fn blocking_send(&self, update: InternalUpdate) {
-        self.internal_send.blocking_send(update).unwrap_or(());
-    }
 }
 
 /// The stucture and methods to send WebRequests to the system interface
