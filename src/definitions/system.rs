@@ -52,6 +52,13 @@ pub enum InternalUpdate {
         check_scene: bool,
         broadcast: bool,
     },
+
+    /// A variant to echo events back to the system connections
+    EchoEvent {
+        event_id: ItemId,
+        data1: u32,
+        data2: u32,
+    },
 }
 
 /// The stucture and methods to send internal updates to the system interface.
@@ -95,6 +102,19 @@ impl InternalSend {
                 event_id,
                 check_scene,
                 broadcast,
+            })
+            .await
+            .unwrap_or(());
+    }
+
+    // A method to echo an event to the system connections.
+    //
+    pub async fn send_echo(&self, event_id: ItemId, data1: u32, data2: u32) {
+        self.internal_send
+            .send(InternalUpdate::EchoEvent {
+                event_id,
+                data1,
+                data2,
             })
             .await
             .unwrap_or(());

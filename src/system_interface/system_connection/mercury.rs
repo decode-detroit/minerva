@@ -28,10 +28,10 @@
 use crate::definitions::*;
 
 // Import other definitions
-use super::{EventConnection, ReadEvent};
+use super::{EventConnection, EventWithData};
 
 // Import standard library modules and traits
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Write};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -312,7 +312,7 @@ impl Mercury {
 impl EventConnection for Mercury {
     /// A method to receive a new event from the serial connection
     ///
-    async fn read_events(&mut self) -> Result<Vec<ReadEvent>> {
+    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
         // Check the serial connection
         if let Err(error) = self.check_connection() {
             error!("Communication read error: {}", error);

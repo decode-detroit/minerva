@@ -50,7 +50,7 @@ use anyhow::Result;
 use super::POLLING_RATE; // the polling rate for the system
 
 // Define the a helper type for returning events
-type ReadEvent = (ItemId, u32, u32);
+type EventWithData = (ItemId, u32, u32);
 
 // Implement key connection type features
 impl ConnectionType {
@@ -120,7 +120,7 @@ enum LiveConnection {
 // Implement event connection for LiveConnection
 impl EventConnection for LiveConnection {
     /// The read event method
-    async fn read_events(&mut self) -> Result<Vec<ReadEvent>> {
+    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
         // Read from the interior connection
         match self {
             &mut LiveConnection::Mercury { ref mut connection } => connection.read_events().await,
@@ -333,13 +333,15 @@ impl SystemConnection {
                     Ok(mut events) = connection.read_events() => {
                         // Read all the results from the list
                         for (id, game_id, data2) in events.drain(..) {
+                            // Echo the event to all the connections
+                            internal_send.send_echo(id, game_id, data2).await;
+
                             // If an identifier was specified
                             if let Some(identity) = identifier.id {
                                 // Verify the game id is correct
                                 if identity == game_id {
-                                    // Send the event to the program
+                                    // Send the event to the program FIXME Handle incoming data
                                     internal_send.send_event(id, true, false).await; // don't broadcast
-                                        // FIXME Handle incoming data
 
                                 // Otherwise send a notification of an incorrect game number
                                 } else {
@@ -413,13 +415,15 @@ impl SystemConnection {
                     Ok(mut events) = connection.read_events() => {
                         // Read all the results from the list
                         for (id, game_id, data2) in events.drain(..) {
+                            // Echo the event to all the connections
+                            internal_send.send_echo(id, game_id, data2).await;
+
                             // If an identifier was specified
                             if let Some(identity) = identifier.id {
                                 // Verify the game id is correct
                                 if identity == game_id {
-                                    // Send the event to the program
+                                    // Send the event to the program FIXME Handle incoming data
                                     internal_send.send_event(id, true, false).await; // don't broadcast
-                                        // FIXME Handle incoming data
 
                                 // Otherwise send a notification of an incorrect game number
                                 } else {
@@ -495,7 +499,7 @@ trait EventConnection {
     /// A method to read any new events from the connection. This implementation
     /// should await until new information is available and return an error
     /// if the connection is not readable.
-    async fn read_events(&mut self) -> Result<Vec<ReadEvent>>;
+    async fn read_events(&mut self) -> Result<Vec<EventWithData>>;
 
     /// A method to write events to the connection. This implementation should
     /// not check duplicate messages received on this connection.

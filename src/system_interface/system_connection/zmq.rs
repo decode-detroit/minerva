@@ -21,7 +21,7 @@
 use crate::definitions::*;
 
 // Import other definitions
-use super::{EventConnection, ReadResult};
+use super::{EventConnection, EventWithData};
 
 // Import standard library features
 use std::path::Path;
@@ -82,11 +82,11 @@ impl ZmqBind {
 }
 
 // Implement the event connection trait for ZmqBind
+#[cfg(feature = "zmq-comm")]
 impl EventConnection for ZmqBind {
-    /// A method to receive new events from the zmq connection, active version
+    /// A method to receive new events from the zmq connection.
     ///
-    #[cfg(feature = "zmq-comm")]
-    async fn read_events(&mut self) -> Vec<ReadResult> {
+    async fn read_events(&mut self) -> Result<Vec<ReadResult>> {
         // Read any events from the zmq connection
         let mut results = Vec::new();
         while let Some(result) = read_from_zmq(&self.zmq_recv) {
@@ -97,31 +97,14 @@ impl EventConnection for ZmqBind {
         results
     }
 
-    /// A method to receive new events from the zmq connection, inactive version
+    /// A method to send a new event to the zmq connection.
     ///
-    #[cfg(not(feature = "zmq-comm"))]
-    async fn read_events(&mut self) -> Vec<ReadResult> {
-        Vec::new() // return an empty vector
-    }
-
-    /// A method to send a new event to the zmq connection, active version
-    ///
-    #[cfg(feature = "zmq-comm")]
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+    async fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Send a multipart ZMQ message, formatted as strings
         self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
         self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
         self.zmq_send.send(&data2.to_string(), 0)?;
         Ok(())
-    }
-
-    /// A method to send a new event to the zmq connection, inactive version
-    ///
-    #[cfg(not(feature = "zmq-comm"))]
-    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
-        return Err(anyhow!(
-            "Program compiled without ZMQ support. See documentation."
-        ));
     }
 
     /// A method to echo events back to the zmq connection. This method does
@@ -134,6 +117,37 @@ impl EventConnection for ZmqBind {
 
     /// A method to process any pending sends. Since the ZMQ connection does
     /// not have this concept, this method does nothing
+    async fn process_pending(&mut self) -> bool {
+        false
+    }
+}
+
+// Implement the inactive event connection trait for ZmqBind
+#[cfg(not(feature = "zmq-comm"))]
+impl EventConnection for ZmqBind {
+    /// A method to receive new events from the zmq connection, inactive version.
+    ///
+    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
+        return Err(anyhow!(
+            "Program compiled without ZMQ support. See documentation."
+        ));
+    }
+
+    /// A method to send a new event to the zmq connection, inactive version.
+    ///
+    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
+        return Err(anyhow!(
+            "Program compiled without ZMQ support. See documentation."
+        ));
+    }
+
+    /// A method to echo events back to the zmq connection, inactive version.
+    ///
+    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+        self.write_event(id, data1, data2).await
+    }
+
+    /// A method to process any pending sends, inactive version
     async fn process_pending(&mut self) -> bool {
         false
     }
@@ -195,45 +209,38 @@ impl ZmqConnect {
 }
 
 // Implement the event connection trait for ZmqConnect
+#[cfg(feature = "zmq-comm")]
 impl EventConnection for ZmqConnect {
-    /// A method to receive new events from the ZMQ connection, active version
+    /// A method to receive new events from the ZMQ connection.
     ///
-    #[cfg(feature = "zmq-comm")]
-    fn read_events(&mut self) -> Vec<ReadResult> {
-        // Read any results from the zmq connection
-        let mut results = Vec::new();
-        while let Some(result) = read_from_zmq(&self.zmq_recv) {
-            // Match based on the result
-            if let ReadResult::Normal(id, data1, data2) = result {
-                // Filter each event before adding it to the list
-                let mut count = 0;
-                for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_out.iter() {
-                    // If the event matches an event in the filter
-                    if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
-                        break; // exit with the found event count
-                    }
-
-                    // Increment the count
-                    count = count + 1;
+    fn read_events(&mut self) -> Result<Vec<EventWithData>> {
+        // Read any events from the zmq connection
+        let mut events = Vec::new();
+        while let Some((id, data1, data2)) = read_from_zmq(&self.zmq_recv) {
+            // Filter each event before adding it to the list
+            let mut count = 0;
+            for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_out.iter() {
+                // If the event matches an event in the filter
+                if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
+                    break; // exit with the found event count
                 }
 
-                // Filter the event and remove it from the filter
-                if count < self.filter_out.len() {
-                    // Remove that event from the filter
-                    self.filter_out.remove(count);
+                // Increment the count
+                count = count + 1;
+            }
 
-                // Otherwise, add the event to the list
-                } else {
-                    // Add the new event to the list
-                    results.push(ReadResult::Normal(id.clone(), data1.clone(), data2.clone()));
+            // Filter the event and remove it from the filter
+            if count < self.filter_out.len() {
+                // Remove that event from the filter
+                self.filter_out.remove(count);
 
-                    // Add the new event to the filter
-                    self.filter_in.push((id, data1, data2));
-                }
-
-            // Otherwise, pass the error upstream
+            // Otherwise, add the event to the list
             } else {
-                results.push(result);
+                // Add the new event to the list
+                results.push((id.clone(), data1.clone(), data2.clone()));
+
+                // Add the new event to the filter
+                self.filter_in.push((id, data1, data2));
             }
         }
 
@@ -241,16 +248,8 @@ impl EventConnection for ZmqConnect {
         results
     }
 
-    /// A method to receive new events from the ZMQ connection, inactive version
+    /// A method to send a new event to the ZMQ connection.
     ///
-    #[cfg(not(feature = "zmq-comm"))]
-    async fn read_events(&mut self) -> Vec<ReadResult> {
-        Vec::new() // return an empty vector
-    }
-
-    /// A method to send a new event to the ZMQ connection, active version
-    ///
-    #[cfg(feature = "zmq-comm")]
     fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Send a multipart ZMQ message, formatted as strings
         self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
@@ -264,18 +263,9 @@ impl EventConnection for ZmqConnect {
         Ok(())
     }
 
-    /// A method to send a new event to the ZMQ connection, inactive version
-    #[cfg(not(feature = "zmq-comm"))]
-    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
-        return Err(anyhow!(
-            "Program compiled without ZMQ support. See documentation."
-        ));
-    }
-
     /// A method to echo events back to the ZMQ connection, active version.
     /// This method filters out events that were received on the ZMQ connection.
     ///
-    #[cfg(feature = "zmq-comm")]
     fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Filter each event before adding it to the list
         let mut count = 0;
@@ -301,15 +291,41 @@ impl EventConnection for ZmqConnect {
         }
     }
 
+    /// A method to process any pending sends. Since the ZMQ connection does
+    /// not have this concept, this method does nothing.
+    /// 
+    async fn process_pending(&mut self) -> bool {
+        false
+    }
+}
+
+// Implement the event connection trait for ZmqConnect
+#[cfg(not(feature = "zmq-comm"))]
+impl EventConnection for ZmqConnect {
+    /// A method to receive new events from the ZMQ connection, inactive version.
+    ///
+    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
+        return Err(anyhow!(
+            "Program compiled without ZMQ support. See documentation."
+        ));
+    }
+
+    /// A method to send a new event to the ZMQ connection, inactive version.
+    /// 
+    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
+        return Err(anyhow!(
+            "Program compiled without ZMQ support. See documentation."
+        ));
+    }
+
     /// A method to echo events back to the ZMQ connection, inactive version.
     ///
-    #[cfg(not(feature = "zmq-comm"))]
     async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         self.write_event(id, data1, data2).await
     }
 
-    /// A method to process any pending sends. Since the ZMQ connection does
-    /// not have this concept, this method does nothing
+    /// A method to process any pending sends, inactive version.
+    /// 
     async fn process_pending(&mut self) -> bool {
         false
     }
@@ -317,7 +333,7 @@ impl EventConnection for ZmqConnect {
 
 // A helper function to read a single event from the zmq connection
 #[cfg(feature = "zmq-comm")]
-fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
+fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<EventWithData> {
     // Read the first component of the message
     let id;
     let data1;
@@ -326,7 +342,10 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
         // Try to convert the message
         id = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
-            _ => return Some(ReadResult::ReadError(anyhow!("Invalid Event Id for ZMQ."))),
+            _ => {
+                error!("Invalid Event Id for ZMQ.");
+                return None;
+            }
         };
 
     // If nothing was received, return nothing
@@ -340,17 +359,15 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
         data1 = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
             _ => {
-                return Some(ReadResult::ReadError(anyhow!(
-                    "Invalid second field for ZMQ."
-                )))
+                error!("Invalid second field for ZMQ.");
+                return None;
             }
         };
 
     // Notify the system of a read error
     } else {
-        return Some(ReadResult::ReadError(anyhow!(
-            "Missing second field for ZMQ."
-        )));
+        error!("Missing second field for ZMQ.");
+        return None;
     }
 
     // Read the third component of the message
@@ -359,19 +376,17 @@ fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<ReadResult> {
         data2 = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
             _ => {
-                return Some(ReadResult::ReadError(anyhow!(
-                    "Invalid third field for ZMQ."
-                )))
+                error!("Invalid third field for ZMQ.");
+                return None;
             }
         };
 
     // Notify the system of a read error
     } else {
-        return Some(ReadResult::ReadError(anyhow!(
-            "Missing third field for ZMQ."
-        )));
+        error!("Missing third field for ZMQ.");
+        return None;
     }
 
     // Return the received id
-    return Some(ReadResult::Normal(ItemId::new_unchecked(id), data1, data2));
+    return Some((ItemId::new_unchecked(id), data1, data2));
 }

@@ -290,6 +290,16 @@ impl SystemInterface {
                     error!("Event {} could not be processed.", event_id);
                 }
             }
+
+            // Echo an event to the system connections
+            InternalUpdate::EchoEvent {
+                event_id,
+                data1,
+                data2,
+            } => {
+                // Echo events to the system connections
+                self.system_connection.echo(event_id, data1, data2).await;
+            }
         }
     }
 
