@@ -74,7 +74,7 @@ impl ConnectionType {
                 ref recv_path,
             } => {
                 // Create the new zmq connection
-                let connection = ZmqBind::new(send_path, recv_path)?;
+                let connection = ZmqBind::new(send_path, recv_path).await?;
                 Ok(LiveConnection::ZmqPrimary { connection })
             }
 

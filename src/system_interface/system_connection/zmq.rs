@@ -26,12 +26,16 @@ use super::{EventConnection, EventWithData};
 // Import standard library features
 use std::path::Path;
 
+// Import tracing features
+#[cfg(feature = "zmq-comm")]
+use tracing::error;
+
 // Import anyhow features
 use anyhow::Result;
 
 // Import the ZMQ C-bindings
 #[cfg(feature = "zmq-comm")]
-use zmq::{Context, Socket};
+use zeromq::{Socket, PubSocket, SubSocket};
 
 // Import program constants
 #[cfg(feature = "zmq-comm")]
@@ -51,20 +55,18 @@ impl ZmqBind {
     /// A function to create a new instance of the ZmqBind, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    pub fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqBind> {
+    pub async fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqBind> {
         // Create the new ZMQ sending socket
-        let context = Context::new();
-        let zmq_send = context.socket(zmq::PUB)?;
+        let zmq_send = PubSocket::new();
 
         // Bind to a new ZMQ send path
         zmq_send.bind(send_path.to_str().unwrap_or(""))?;
 
         // Create the new ZMQ receiving socket
-        let zmq_recv = context.socket(zmq::SUB)?;
+        let zmq_recv = SubSocket::new();
 
-        // Set the socket timeout and subscribe to all messages
-        zmq_recv.set_rcvtimeo(POLLING_RATE as i32)?;
-        zmq_recv.set_subscribe(&[])?;
+        // Set the socket to subscribe to all messages
+        zmq_recv.subscribe("").await?;
 
         // Bind to a new ZMQ receive path
         zmq_recv.bind(recv_path.to_str().unwrap_or(""))?;
@@ -76,7 +78,7 @@ impl ZmqBind {
     /// A function to create a new instance of the ZmqBind, inactive version
     ///
     #[cfg(not(feature = "zmq-comm"))]
-    pub fn new(_send_path: &Path, _recv_path: &Path) -> Result<ZmqBind> {
+    pub async fn new(_send_path: &Path, _recv_path: &Path) -> Result<ZmqBind> {
         Ok(ZmqBind {})
     }
 }
@@ -86,15 +88,15 @@ impl ZmqBind {
 impl EventConnection for ZmqBind {
     /// A method to receive new events from the zmq connection.
     ///
-    async fn read_events(&mut self) -> Result<Vec<ReadResult>> {
+    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
         // Read any events from the zmq connection
-        let mut results = Vec::new();
-        while let Some(result) = read_from_zmq(&self.zmq_recv) {
-            results.push(result);
+        let mut events = Vec::new();
+        while let Some(event) = read_from_zmq(&self.zmq_recv) {
+            events.push(event);
         }
 
         // Return the list of results
-        results
+        Ok(events)
     }
 
     /// A method to send a new event to the zmq connection.
