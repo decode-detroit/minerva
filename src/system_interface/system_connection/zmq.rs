@@ -25,6 +25,8 @@ use super::{EventConnection, EventWithData};
 
 // Import standard library features
 use std::path::Path;
+#[cfg(feature = "zmq-comm")]
+use std::io::{Cursor, Write};
 
 // Import tracing features
 #[cfg(feature = "zmq-comm")]
@@ -37,6 +39,10 @@ use anyhow::Result;
 #[cfg(feature = "zmq-comm")]
 use zeromq::{Socket, PubSocket, SubSocket};
 
+// Import the byteorder module for converting between types
+#[cfg(feature = "zmq-comm")]
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+
 // Import program constants
 #[cfg(feature = "zmq-comm")]
 use super::POLLING_RATE; // the polling rate for the system
@@ -45,9 +51,9 @@ use super::POLLING_RATE; // the polling rate for the system
 ///
 pub struct ZmqBind {
     #[cfg(feature = "zmq-comm")]
-    zmq_send: Socket, // the ZMQ send connection
+    zmq_send: PubSocket, // the ZMQ send connection
     #[cfg(feature = "zmq-comm")]
-    zmq_recv: Socket, // the ZMQ receive connection
+    zmq_recv: SubSocket, // the ZMQ receive connection
 }
 
 // Implement key functionality for ZMQ Bind
@@ -90,23 +96,14 @@ impl EventConnection for ZmqBind {
     ///
     async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
         // Read any events from the zmq connection
-        let mut events = Vec::new();
-        while let Some(event) = read_from_zmq(&self.zmq_recv) {
-            events.push(event);
-        }
-
-        // Return the list of results
-        Ok(events)
+        return Ok(read_from_zmq(&self.zmq_recv).await);
     }
 
     /// A method to send a new event to the zmq connection.
     ///
     async fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
-        // Send a multipart ZMQ message, formatted as strings
-        self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send(&data2.to_string(), 0)?;
-        Ok(())
+        // Send the zmq message
+        write_to_zmq(&self.zmq_send, id, data1, data2).await
     }
 
     /// A method to echo events back to the zmq connection. This method does
@@ -161,9 +158,9 @@ impl EventConnection for ZmqBind {
 ///
 pub struct ZmqConnect {
     #[cfg(feature = "zmq-comm")]
-    zmq_send: Socket, // the ZMQ send connection
+    zmq_send: PubSocket, // the ZMQ send connection
     #[cfg(feature = "zmq-comm")]
-    zmq_recv: Socket, // the ZMQ receive connection
+    zmq_recv: SubSocket, // the ZMQ receive connection
     #[cfg(feature = "zmq-comm")]
     filter_in: Vec<(ItemId, u32, u32)>, // events to filter, incoming
     #[cfg(feature = "zmq-comm")]
@@ -175,20 +172,18 @@ impl ZmqConnect {
     /// A function to create a new instance of the ZmqConnect, active version
     ///
     #[cfg(feature = "zmq-comm")]
-    pub fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqConnect> {
+    pub async fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqConnect> {
         // Create the new ZMQ sending socket
-        let context = Context::new();
-        let zmq_send = context.socket(zmq::PUB)?;
+        let zmq_send = PubSocket::new();
 
         // Connect to the existing ZMQ send path
         zmq_send.connect(send_path.to_str().unwrap_or(""))?;
 
         // Create the new ZMQ receiving socket
-        let zmq_recv = context.socket(zmq::SUB)?;
+        let zmq_recv = SubSocket::new();
 
-        // Set the socket timeout and subscribe to all messages
-        zmq_recv.set_rcvtimeo(POLLING_RATE as i32)?;
-        zmq_recv.set_subscribe(&[])?;
+        // Set the socket to subscribe to all messages
+        zmq_recv.subscribe("").await?;
 
         // Connect to the existing ZMQ receive path
         zmq_recv.connect(recv_path.to_str().unwrap_or(""))?;
@@ -215,10 +210,10 @@ impl ZmqConnect {
 impl EventConnection for ZmqConnect {
     /// A method to receive new events from the ZMQ connection.
     ///
-    fn read_events(&mut self) -> Result<Vec<EventWithData>> {
+    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
         // Read any events from the zmq connection
         let mut events = Vec::new();
-        while let Some((id, data1, data2)) = read_from_zmq(&self.zmq_recv) {
+        while let Some((id, data1, data2)) = read_from_zmq(&self.zmq_recv).await {
             // Filter each event before adding it to the list
             let mut count = 0;
             for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_out.iter() {
@@ -239,7 +234,7 @@ impl EventConnection for ZmqConnect {
             // Otherwise, add the event to the list
             } else {
                 // Add the new event to the list
-                results.push((id.clone(), data1.clone(), data2.clone()));
+                events.push((id.clone(), data1.clone(), data2.clone()));
 
                 // Add the new event to the filter
                 self.filter_in.push((id, data1, data2));
@@ -247,16 +242,14 @@ impl EventConnection for ZmqConnect {
         }
 
         // Return the list of results
-        results
+        events
     }
 
     /// A method to send a new event to the ZMQ connection.
     ///
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
-        // Send a multipart ZMQ message, formatted as strings
-        self.zmq_send.send(&id.id().to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;
-        self.zmq_send.send(&data2.to_string(), 0)?;
+    async fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+        // Send the zmq message
+        write_to_zmq(&self.zmq_send, id, data1, data2).await?;
 
         // Add the event to the filter
         self.filter_out.push((id, data1, data2));
@@ -268,7 +261,7 @@ impl EventConnection for ZmqConnect {
     /// A method to echo events back to the ZMQ connection, active version.
     /// This method filters out events that were received on the ZMQ connection.
     ///
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Filter each event before adding it to the list
         let mut count = 0;
         for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_in.iter() {
@@ -289,7 +282,7 @@ impl EventConnection for ZmqConnect {
 
         // Otherwise, send the event
         } else {
-            return self.write_event(id, data1, data2);
+            return self.write_event(id, data1, data2).await;
         }
     }
 
@@ -335,60 +328,57 @@ impl EventConnection for ZmqConnect {
 
 // A helper function to read a single event from the zmq connection
 #[cfg(feature = "zmq-comm")]
-fn read_from_zmq(zmq_recv: &zmq::Socket) -> Option<EventWithData> {
-    // Read the first component of the message
-    let id;
-    let data1;
-    let data2;
-    if let Ok(message) = zmq_recv.recv_msg(0) {
-        // Try to convert the message
-        id = match message.as_str().unwrap_or("").parse::<u32>() {
-            Ok(new_data) => new_data,
+async fn read_from_zmq(zmq_recv: &zeromq::SubSocket) -> Vec<EventWithData> {
+    // Wait for a message message from the receiver
+    if let Ok(message) = zmq_recv.recv().await {
+        // Try to read the three arguments from the message
+        let mut cursor = Cursor::new(message.into_vec());
+        let id = match cursor.read_u32::<LittleEndian>() {
+            Ok(id) => id,
             _ => {
-                error!("Invalid Event Id for ZMQ.");
-                return None;
+                // Return an error and exit
+                error!("Communication read error: Invalid Event Id for ZMQ.");
+                break; // end prematurely
             }
         };
+        let data1 = match cursor.read_u32::<LittleEndian>() {
+            Ok(data1) => data1,
+            _ => {
+                // Return an error and exit
+                error!("Communication read error: Invalid second field for ZMQ.");
+                break; // end prematurely
+            }
+        };
+        let data2 = match cursor.read_u32::<LittleEndian>() {
+            Ok(data2) => data2,
+            _ => {
+                // Return an error and exit
+                error!("Communication read error: Invalid third field for ZMQ.");
+                break; // end prematurely
+            }
+        };
+
+        // Return the received event
+        return vec!((ItemId::new_unchecked(id), data1, data2));
 
     // If nothing was received, return nothing
     } else {
-        return None;
+        return Vec::new();
     }
-
-    // Read the second component of the message
-    if let Ok(message) = zmq_recv.recv_msg(0) {
-        // Try to convert the message
-        data1 = match message.as_str().unwrap_or("").parse::<u32>() {
-            Ok(new_data) => new_data,
-            _ => {
-                error!("Invalid second field for ZMQ.");
-                return None;
-            }
-        };
-
-    // Notify the system of a read error
-    } else {
-        error!("Missing second field for ZMQ.");
-        return None;
-    }
-
-    // Read the third component of the message
-    if let Ok(message) = zmq_recv.recv_msg(0) {
-        // Try to convert the message
-        data2 = match message.as_str().unwrap_or("").parse::<u32>() {
-            Ok(new_data) => new_data,
-            _ => {
-                error!("Invalid third field for ZMQ.");
-                return None;
-            }
-        };
-
-    // Notify the system of a read error
-    } else {
-        error!("Missing third field for ZMQ.");
-        return None;
-    }
-
-    // Return the received id
-    return Some((ItemId::new_unchecked(id), data1, data2));
 }
+
+// A helper function to write a single event from the zmq connection
+#[cfg(feature = "zmq-comm")]
+async fn write_to_zmq(zmq_send: &zeromq::PubSocket, event_id: ItemId, data1: u32, data2: u32) -> Result<()> {    
+    // Create a byte array to fill with the data
+    let mut bytes = Vec::new();
+
+    // Add all three elements
+    bytes.write_u32::<LittleEndian>(event_id.id())?;
+    bytes.write_u32::<LittleEndian>(data1)?;
+    bytes.write_u32::<LittleEndian>(data2)?;
+
+    // Write the mssage to the zmq socket
+    zmq_send.send(bytes).await;
+}
+
