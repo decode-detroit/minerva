@@ -22,7 +22,7 @@ media_players:
     spawn: true
     address: null
 system_connections:
-- !MercurySerial
+- !Mercury
     path: /dev/ttyACM0
     baud: 115200
     use_checksum: true
