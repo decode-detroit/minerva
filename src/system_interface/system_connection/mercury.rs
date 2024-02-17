@@ -312,11 +312,11 @@ impl Mercury {
 impl EventConnection for Mercury {
     /// A method to receive a new event from the serial connection
     ///
-    async fn read_event(&mut self) -> Result<EventWithData> {
+    async fn read_event(&mut self) -> Option<EventWithData> {
         // Check the serial connection
         if let Err(error) = self.check_connection() {
             error!("Communication read error: {}", error);
-            return Err(anyhow!("Communication read error: {}", error));
+            return None;
         };
 
         // If there is a stream (should always be at this point)
@@ -328,14 +328,14 @@ impl EventConnection for Mercury {
                     if let Err(error) = stream.try_read(&mut self.buffer) {
                         // If there was an error
                         error!("Communication read error: {}", error);
-                        return Err(anyhow!("Communication read error: {}", error));
+                        return None;
                     }
                 }
                 
                 // Return the read error
                 Err(error) => {
                     error!("Communication read error: {}", error);
-                    return Err(anyhow!("Communication read error: {}", error));
+                    return None;
                 }
             }
         }
@@ -478,8 +478,8 @@ impl EventConnection for Mercury {
             self.filter_events.push(event.clone());
         }
 
-        // Return the resulting event, or error
-        possible_event.ok_or(anyhow!("No valid events found."))
+        // Return the resulting event, or none
+        possible_event
     }
 
     /// A method to send a new event to the serial connection
@@ -653,12 +653,12 @@ mod tests {
             thread::sleep(Duration::from_millis(500));
 
             // Read a response
-            if let Ok((id, data1, data2)) = cc.read_event().await {
-                // Verify that it is correct
-                assert_eq!(id, id_ref);
-                assert_eq!(data1, data1_ref);
-                assert_eq!(data2, data2_ref);
-            }
+            let (id, data1, data2) = cc.read_event().await.unwrap();
+            
+            // Verify that it is correct
+            assert_eq!(id, id_ref);
+            assert_eq!(data1, data1_ref);
+            assert_eq!(data2, data2_ref);
 
         // Indicate failure
         } else {

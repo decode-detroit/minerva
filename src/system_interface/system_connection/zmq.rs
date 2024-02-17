@@ -25,6 +25,12 @@ use super::{EventConnection, EventWithData};
 
 // Import standard library features
 use std::path::Path;
+#[cfg(not(feature = "zmq-comm"))]
+use std::time::Duration;
+
+// Import tokio features
+#[cfg(not(feature = "zmq-comm"))]
+use tokio::time::sleep;
 
 // Import tracing features
 #[cfg(feature = "zmq-comm")]
@@ -84,9 +90,9 @@ impl ZmqBind {
 impl EventConnection for ZmqBind {
     /// A method to receive new events from the zmq connection.
     ///
-    async fn read_event(&mut self) -> Result<EventWithData> {
+    async fn read_event(&mut self) -> Option<EventWithData> {
         // Read any events from the zmq connection
-        read_from_zmq(&mut self.zmq_recv).await.ok_or(anyhow!("No valid events found."))
+        read_from_zmq(&mut self.zmq_recv).await
     }
 
     /// A method to send a new event to the zmq connection.
@@ -116,10 +122,9 @@ impl EventConnection for ZmqBind {
 impl EventConnection for ZmqBind {
     /// A method to receive new events from the zmq connection, inactive version.
     ///
-    async fn read_event(&mut self) -> Result<EventWithData> {
-        return Err(anyhow!(
-            "Program compiled without ZMQ support. See documentation."
-        ));
+    async fn read_event(&mut self) -> Option<EventWithData> {
+        sleep(Duration::from_millis(10000)).await; // Wait 10 minutes between reads
+        None
     }
 
     /// A method to send a new event to the zmq connection, inactive version.
@@ -200,7 +205,7 @@ impl ZmqConnect {
 impl EventConnection for ZmqConnect {
     /// A method to receive new events from the ZMQ connection.
     ///
-    async fn read_event(&mut self) -> Result<EventWithData> {
+    async fn read_event(&mut self) -> Option<EventWithData> {
         // Read any events from the zmq connection
         if let Some((id, data1, data2)) = read_from_zmq(&mut self.zmq_recv).await {
             // Filter the event before returning it
@@ -226,12 +231,12 @@ impl EventConnection for ZmqConnect {
                 self.filter_in.push((id, data1, data2));
 
                 // Return the event
-                return Ok((id, data1, data2));
+                return Some((id, data1, data2));
             }
         }
 
         // Indicate no events found
-        Err(anyhow!("No valid events found."))
+        None
     }
 
     /// A method to send a new event to the ZMQ connection.
@@ -288,10 +293,9 @@ impl EventConnection for ZmqConnect {
 impl EventConnection for ZmqConnect {
     /// A method to receive new events from the ZMQ connection, inactive version.
     ///
-    async fn read_event(&mut self) -> Result<EventWithData> {
-        return Err(anyhow!(
-            "Program compiled without ZMQ support. See documentation."
-        ));
+    async fn read_event(&mut self) -> Option<EventWithData> {
+        sleep(Duration::from_millis(10000)).await; // Wait 10 minutes between reads
+        None
     }
 
     /// A method to send a new event to the ZMQ connection, inactive version.
