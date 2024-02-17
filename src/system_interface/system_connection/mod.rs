@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021 Decode Detroit
+// Copyright (c) 2019-2024 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -84,7 +84,7 @@ impl ConnectionType {
                 ref recv_path,
             } => {
                 // Create a new zmq to main connection
-                let connection = ZmqConnect::new(send_path, recv_path)?;
+                let connection = ZmqConnect::new(send_path, recv_path).await?;
                 Ok(LiveConnection::ZmqSecondary { connection })
             }
         }
@@ -120,12 +120,12 @@ enum LiveConnection {
 // Implement event connection for LiveConnection
 impl EventConnection for LiveConnection {
     /// The read event method
-    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
+    async fn read_event(&mut self) -> Result<EventWithData> {
         // Read from the interior connection
         match self {
-            &mut LiveConnection::Mercury { ref mut connection } => connection.read_events().await,
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_events().await,
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_events().await,
+            &mut LiveConnection::Mercury { ref mut connection } => connection.read_event().await,
+            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_event().await,
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_event().await,
         }
     }
 
@@ -330,29 +330,26 @@ impl SystemConnection {
                 // Only wait <polling rate> for any updates
                 tokio::select! {
                     // If there are new events received
-                    Ok(mut events) = connection.read_events() => {
-                        // Read all the results from the list
-                        for (id, game_id, data2) in events.drain(..) {
-                            // Echo the event to all the connections
-                            internal_send.send_echo(id, game_id, data2).await;
+                    Ok((id, game_id, data2)) = connection.read_event() => {
+                        // Echo the event to all the connections
+                        internal_send.send_echo(id, game_id, data2).await;
 
-                            // If an identifier was specified
-                            if let Some(identity) = identifier.id {
-                                // Verify the game id is correct
-                                if identity == game_id {
-                                    // Send the event to the program FIXME Handle incoming data
-                                    internal_send.send_event(id, true, false).await; // don't broadcast
-
-                                // Otherwise send a notification of an incorrect game number
-                                } else {
-                                    // Format the warning string
-                                    warn!("Game Id does not match. Event ignored ({}).", id);
-                                }
-
-                            // Otherwise, send the event to the program
-                            } else {
+                        // If an identifier was specified
+                        if let Some(identity) = identifier.id {
+                            // Verify the game id is correct
+                            if identity == game_id {
+                                // Send the event to the program FIXME Handle incoming data
                                 internal_send.send_event(id, true, false).await; // don't broadcast
+
+                            // Otherwise send a notification of an incorrect game number
+                            } else {
+                                // Format the warning string
+                                warn!("Game Id does not match. Event ignored ({}).", id);
                             }
+
+                        // Otherwise, send the event to the program
+                        } else {
+                            internal_send.send_event(id, true, false).await; // don't broadcast
                         }
                     }
 
@@ -411,30 +408,27 @@ impl SystemConnection {
             } else {
                 // Wait indefinitely
                 tokio::select! {
-                    // If there are new events received
-                    Ok(mut events) = connection.read_events() => {
-                        // Read all the results from the list
-                        for (id, game_id, data2) in events.drain(..) {
-                            // Echo the event to all the connections
-                            internal_send.send_echo(id, game_id, data2).await;
+                    // If there is a new event received
+                    Ok((id, game_id, data2)) = connection.read_event() => {
+                        // Echo the event to all the connections
+                        internal_send.send_echo(id, game_id, data2).await;
 
-                            // If an identifier was specified
-                            if let Some(identity) = identifier.id {
-                                // Verify the game id is correct
-                                if identity == game_id {
-                                    // Send the event to the program FIXME Handle incoming data
-                                    internal_send.send_event(id, true, false).await; // don't broadcast
-
-                                // Otherwise send a notification of an incorrect game number
-                                } else {
-                                    // Format the warning string
-                                    warn!("Game Id does not match. Event ignored ({}).", id);
-                                }
-
-                            // Otherwise, send the event to the program
-                            } else {
+                        // If an identifier was specified
+                        if let Some(identity) = identifier.id {
+                            // Verify the game id is correct
+                            if identity == game_id {
+                                // Send the event to the program FIXME Handle incoming data
                                 internal_send.send_event(id, true, false).await; // don't broadcast
+
+                            // Otherwise send a notification of an incorrect game number
+                            } else {
+                                // Format the warning string
+                                warn!("Game Id does not match. Event ignored ({}).", id);
                             }
+
+                        // Otherwise, send the event to the program
+                        } else {
+                            internal_send.send_event(id, true, false).await; // don't broadcast
                         }
                     }
 
@@ -499,7 +493,7 @@ trait EventConnection {
     /// A method to read any new events from the connection. This implementation
     /// should await until new information is available and return an error
     /// if the connection is not readable.
-    async fn read_events(&mut self) -> Result<Vec<EventWithData>>;
+    async fn read_event(&mut self) -> Result<EventWithData>;
 
     /// A method to write events to the connection. This implementation should
     /// not check duplicate messages received on this connection.

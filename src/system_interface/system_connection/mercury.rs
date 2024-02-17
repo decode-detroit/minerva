@@ -312,7 +312,7 @@ impl Mercury {
 impl EventConnection for Mercury {
     /// A method to receive a new event from the serial connection
     ///
-    async fn read_events(&mut self) -> Result<Vec<EventWithData>> {
+    async fn read_event(&mut self) -> Result<EventWithData> {
         // Check the serial connection
         if let Err(error) = self.check_connection() {
             error!("Communication read error: {}", error);
@@ -340,8 +340,8 @@ impl EventConnection for Mercury {
             }
         }
 
-        // Create a list of events to return and temporary variables to track the message and status
-        let mut events = Vec::new();
+        // Create a placeholder and temporary variables to track the message and status
+        let mut possible_event = None;
         let mut message = Vec::new();
         let mut escaped = false; // indicates whether or not the currect character is escaped
         let mut new_message = true; // indicates if this character should start a new message
@@ -395,9 +395,8 @@ impl EventConnection for Mercury {
             } else {
                 // Catch the command separator
                 if *character == COMMAND_SEPARATOR {
-                    // Note the end of the valid message and start a new message
+                    // Note the end of the valid message
                     message_until = count + 1; // remove the last character as well
-                    new_message = true;
 
                     // Try to read the three arguments from the message
                     let mut cursor = Cursor::new(message.clone());
@@ -446,8 +445,8 @@ impl EventConnection for Mercury {
                         }
                     }
 
-                    // Append the resulting event to the results vector
-                    events.push((ItemId::new_unchecked(id), data1, data2));
+                    // Save the event to the result
+                    possible_event = Some((ItemId::new_unchecked(id), data1, data2));
 
                     // Send the acknowledgement
                     let bytes = vec![ACK_CHARACTER, COMMAND_SEPARATOR];
@@ -456,6 +455,9 @@ impl EventConnection for Mercury {
                             error!("Communication read error: {}", error);
                         }
                     }
+
+                    // Exit the loop with the new event
+                    break;
 
                 // Catch the escape character
                 } else if *character == ESCAPE_CHARACTER {
@@ -471,13 +473,13 @@ impl EventConnection for Mercury {
         // Remove all valid messages from the buffer
         self.buffer.drain(0..message_until);
 
-        // Add the incoming events to the filter
-        for event in events.iter() {
+        // Add the incoming event to the filter
+        if let Some(ref event) = possible_event {
             self.filter_events.push(event.clone());
         }
 
-        // Return the resulting events
-        Ok(events)
+        // Return the resulting event, or error
+        possible_event.ok_or(anyhow!("No valid events found."))
     }
 
     /// A method to send a new event to the serial connection
@@ -651,13 +653,11 @@ mod tests {
             thread::sleep(Duration::from_millis(500));
 
             // Read a response
-            if let Ok(events) = cc.read_events().await {
-                for (id, data1, data2) in events {
-                    // Verify that it is correct
-                    assert_eq!(id, id_ref);
-                    assert_eq!(data1, data1_ref);
-                    assert_eq!(data2, data2_ref);
-                }
+            if let Ok((id, data1, data2)) = cc.read_event().await {
+                // Verify that it is correct
+                assert_eq!(id, id_ref);
+                assert_eq!(data1, data1_ref);
+                assert_eq!(data2, data2_ref);
             }
 
         // Indicate failure
