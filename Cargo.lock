@@ -867,6 +867,7 @@ dependencies = [
  "async-recursion",
  "async-stream",
  "byteorder",
+ "bytes",
  "chrono",
  "clap",
  "fnv",

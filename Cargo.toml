@@ -19,7 +19,7 @@ redis = "0.24"
 serial = "0.4"
 byteorder = "1.4"
 zeromq = { version = "0.3.5", features = ["tcp-transport"], optional = true }
-tokio = { version = "1.33", features = ["macros", "process", "rt-multi-thread", "time"] }
+tokio = { version = "1.33", features = ["macros", "process", "rt-multi-thread", "time", "io-util"] }
 warp = { version = "0.3", features = ["tls"] }
 async-stream = "0.3"
 async-recursion = "1.0"
@@ -35,6 +35,7 @@ clap = { version = "4.4", features = ["derive"] }
 rust-embed = "8.1"
 warp-embed = "0.5"
 tokio-serial = "5.4"
+bytes = "1.5"
 jsonwebtoken = "9"
 
 [features]

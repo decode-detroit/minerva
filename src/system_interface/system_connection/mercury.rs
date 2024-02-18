@@ -40,7 +40,11 @@ use fnv::FnvHashSet;
 
 // Import the tokio and tokio serial features
 use tokio::time::sleep;
+use tokio::io::AsyncReadExt;
 use tokio_serial as serial;
+
+// Import bytes features
+use bytes::BytesMut;
 
 // Import tracing features
 use tracing::error;
@@ -324,23 +328,18 @@ impl EventConnection for Mercury {
 
         // If there is a stream (should always be at this point)
         if let Some(ref mut stream) = self.stream {
-            // Wait for the stream to becomme readable
-            match stream.readable().await {
-                Ok(_) =>  {
-                    // Try to read bytes from the Mercury port
-                    if let Err(error) = stream.try_read(&mut self.buffer) {
-                        // If there was an error
-                        error!("Communication read error: {}", error);
-                        return None;
-                    }
-                }
-                
-                // Return the read error
-                Err(error) => {
-                    error!("Communication read error: {}", error);
-                    return None;
-                }
+            // Create a buffer for the read
+            let mut buffer = BytesMut::new();
+
+            // Read bytes into the buffer when they become available
+            if let Err(error) = stream.read_buf(&mut buffer).await {
+                // If there was an error
+                error!("Communication read error: {}", error);
+                return None;
             }
+
+            // Add the new bytes to the current buffer
+            self.buffer.append(&mut buffer.to_vec());
         }
 
         // Create a placeholder and temporary variables to track the message and status
@@ -369,14 +368,14 @@ impl EventConnection for Mercury {
                     self.retry_count = 0;
 
                     // Remove this character from the buffer
-                    message_until = count + 1; // remove the last character as well
+                    message_until = count + 1;
 
                     // Remove the first event from the buffer
                     if self.outgoing.len() > 0 {
                         self.outgoing.remove(0);
                     }
 
-                    // If the character is incorrect, throw it away
+                    // If the character is lingering command separator or incorrect, throw it away
                 }
 
             // If the last message was an escape character, unescape this one
@@ -400,11 +399,11 @@ impl EventConnection for Mercury {
                 // Catch the command separator
                 if *character == COMMAND_SEPARATOR {
                     // Note the end of the valid message
-                    message_until = count + 1; // remove the last character as well
+                    message_until = count + 1; // remove this character from the buffer
 
                     // Try to read the three arguments from the message
                     let mut cursor = Cursor::new(message.clone());
-                    let id = match cursor.read_u32::<LittleEndian>() {
+                    let id = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
                         Ok(id) => id,
                         _ => {
                             // Return an error and exit
@@ -412,7 +411,7 @@ impl EventConnection for Mercury {
                             break; // end prematurely
                         }
                     };
-                    let data1 = match cursor.read_u32::<LittleEndian>() {
+                    let data1 = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
                         Ok(data1) => data1,
                         _ => {
                             // Return an error and exit
@@ -420,7 +419,7 @@ impl EventConnection for Mercury {
                             break; // end prematurely
                         }
                     };
-                    let data2 = match cursor.read_u32::<LittleEndian>() {
+                    let data2 = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
                         Ok(data2) => data2,
                         _ => {
                             // Return an error and exit
@@ -432,7 +431,7 @@ impl EventConnection for Mercury {
                     // If verifying the checksum
                     if self.use_checksum {
                         // Try to read the checksum from Mercury
-                        let checksum = match cursor.read_u32::<LittleEndian>() {
+                        let checksum = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
                             Ok(checksum) => checksum,
                             _ => {
                                 // Return an error and exit
