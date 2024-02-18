@@ -46,8 +46,8 @@ use tracing::{error, warn};
 // Import anyhow features
 use anyhow::Result;
 
-// Import program constants
-use super::POLLING_RATE; // the polling rate for the system
+// Define modeule constants
+const RETRY_DELAY: u64 = 100; // the write retry delay for the connections in ms
 
 // Define the a helper type for returning events
 type EventWithData = (ItemId, u32, u32);
@@ -64,7 +64,7 @@ impl ConnectionType {
             // Connect to a live version of the Mercury port
             &ConnectionType::Mercury { ref path, ref baud, ref use_checksum, ref allowed_events } => {
                 // Create the new Mercury connection
-                let connection = Mercury::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), POLLING_RATE)?;
+                let connection = Mercury::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), RETRY_DELAY)?;
                 Ok(LiveConnection::Mercury { connection })
             }
 
@@ -337,7 +337,7 @@ impl SystemConnection {
         loop {
             // If there are still pending events on the connection
             if connection.process_pending().await {
-                // Only wait <polling rate> for any updates
+                // Only wait <retry delay> for any updates
                 tokio::select! {
                     // If there are new events received
                     possible_event = connection.read_event() => {
@@ -383,7 +383,7 @@ impl SystemConnection {
                                     error!("Communication error: {}", error1);
 
                                     // Wait a little bit and try again
-                                    sleep(Duration::from_millis(POLLING_RATE)).await;
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
                                     if let Err(error2) = connection.write_event(id, game_id, data2).await {
                                         // Report the error
                                         error!("Persistent communication error: {}", error2);
@@ -399,7 +399,7 @@ impl SystemConnection {
                                     error!("Communication error: {}", error1);
 
                                     // Wait a little bit and try again
-                                    sleep(Duration::from_millis(POLLING_RATE)).await;
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
                                     if let Err(error2) = connection.echo_event(id, data1, data2).await {
                                         // Report the error
                                         error!("Persistent communication error: {}", error2);
@@ -414,7 +414,7 @@ impl SystemConnection {
                     }
 
                     // Wait the appropriate polling rate between process pending updates
-                    _ = sleep(Duration::from_millis(POLLING_RATE)) => (), // loop again
+                    _ = sleep(Duration::from_millis(RETRY_DELAY)) => (), // loop again
                 }
             
             // Otherwise, if there are no pending events
@@ -465,7 +465,7 @@ impl SystemConnection {
                                     error!("Communication error: {}", error1);
 
                                     // Wait a little bit and try again
-                                    sleep(Duration::from_millis(POLLING_RATE)).await;
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
                                     if let Err(error2) = connection.write_event(id, game_id, data2).await {
                                         // Report the error
                                         error!("Persistent communication error: {}", error2);
@@ -481,7 +481,7 @@ impl SystemConnection {
                                     error!("Communication error: {}", error1);
 
                                     // Wait a little bit and try again
-                                    sleep(Duration::from_millis(POLLING_RATE)).await;
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
                                     if let Err(error2) = connection.echo_event(id, data1, data2).await {
                                         // Report the error
                                         error!("Persistent communication error: {}", error2);

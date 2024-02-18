@@ -59,8 +59,9 @@ const NULL_CHARACTER: u8 = 0x00 as u8; // the null character
 const COMMAND_CHARACTER: u8 = '0' as u8; // the default command character
 const ACK_CHARACTER: u8 = '1' as u8; // the default ack character
 const ACK_DELAY: u64 = 200; // the longest delay to wait for an acknowledgement, in ms
-const RETRY_DELAY: u64 = 5000; // the delay to wait between retrying to establish a connection
+const RECONNECT_DELAY: u64 = 5000; // the delay to wait between retrying to establish a connection
 const MAX_SEND_BUFFER: usize = 100; // the largest number of events allowed to pile up in the buffer
+const MAX_RETRY_COUNT: usize = 5; // the maximum number of times to retry sending an event
 
 /// A structure to hold and manipulate the connection over serial
 ///
@@ -73,36 +74,38 @@ const MAX_SEND_BUFFER: usize = 100; // the largest number of events allowed to p
 ///
 pub struct Mercury {
     path: PathBuf,                              // the desired path of the serial port
-    baud: u32,                                // the baud rate of the serial port
+    baud: u32,                                  // the baud rate of the serial port
     use_checksum: bool,                         // a flag indicating the system should use and verify 32bit checksums
     allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
-    polling_rate: u64,                          // the polling rate of the port
+    write_timeout: u64,                         // the write timeout of the port
     stream: Option<serial::SerialStream>,       // the serial port of the connection, if available
     buffer: Vec<u8>,                            // the current input buffer
     outgoing: Vec<(ItemId, u32, u32)>,          // the outgoing event buffer
     last_ack: Option<Instant>,                  // Some instant if we are still waiting on ack from instant
     filter_events: Vec<(ItemId, u32, u32)>,     // events to filter out that we received from this connection
     last_retry: Option<Instant>,                // Some instant if we have lost connection to the port
+    retry_count: usize,                         // a count of how many times we have retried a message
 }
 
 // Implement key functionality for the Mercury structure
 impl Mercury {
     /// A function to create a new instance of the Mercury
     ///
-    pub fn new(path: &PathBuf, baud: u32, use_checksum: bool, allowed_events: Option<FnvHashSet<ItemId>>, polling_rate: u64) -> Result<Self> {
+    pub fn new(path: &PathBuf, baud: u32, use_checksum: bool, allowed_events: Option<FnvHashSet<ItemId>>, write_timeout: u64) -> Result<Self> {
         // Create the new instance
         let mut mercury = Mercury {
             path: path.clone(),
             baud,
             use_checksum,
             allowed_events,
-            polling_rate,
+            write_timeout,
             stream: None,
             buffer: Vec::new(),
             outgoing: Vec::new(),
             last_ack: None,
             filter_events: Vec::new(),
             last_retry: None,
+            retry_count: 0,
         };
 
         // Try to connect to the requested serial port, and return any errors
@@ -125,8 +128,7 @@ impl Mercury {
             .data_bits(serial::DataBits::Eight)
             .parity(serial::Parity::None)
             .stop_bits(serial::StopBits::One)
-            .flow_control(serial::FlowControl::None)
-            .timeout(Duration::from_millis(self.polling_rate));
+            .flow_control(serial::FlowControl::None);
 
         // Try to open the serial port
         let stream = serial::SerialStream::open(&builder)?;
@@ -134,8 +136,9 @@ impl Mercury {
         // Save the new port
         self.stream.replace(stream);
 
-        // Reset last retry to none
+        // Reset last retry to none and retry count to 0
         self.last_retry = None;
+        self.retry_count = 0;
 
         // Indicate success
         Ok(())
@@ -163,7 +166,7 @@ impl Mercury {
                 // Otherwise, check how long it's been
                 Some(instant) => {
                     // If we haven't retried in a while
-                    if (instant + Duration::from_millis(RETRY_DELAY)) < Instant::now() {
+                    if (instant + Duration::from_millis(RECONNECT_DELAY)) < Instant::now() {
                         // Save this retry
                         self.last_retry = Some(Instant::now());
 
@@ -262,7 +265,7 @@ impl Mercury {
 
         // Try to write to the serial port
         if let Some(ref mut stream) = self.stream {
-            Mercury::write_bytes(stream, bytes, self.polling_rate).await?;
+            Mercury::write_bytes(stream, bytes, self.write_timeout).await?;
 
         // If the stream doesn't exist (it always should)
         } else {
@@ -275,9 +278,9 @@ impl Mercury {
 
     // A helper function to write asyncronously to a serial port stream
     // Returns false if the port was unavailable immediately or after the
-    // polling rate has expired.
-    async fn write_bytes(stream: &mut serial::SerialStream, bytes: Vec<u8>, polling_rate: u64) -> Result<()> {
-        // Wait for the up to the polling rate for the stream to be ready
+    // write timeout has expired.
+    async fn write_bytes(stream: &mut serial::SerialStream, bytes: Vec<u8>, write_timeout: u64) -> Result<()> {
+        // Wait for the up to the write timeout for the stream to be ready
         tokio::select! {
             // If the serial stream is available
             Ok(_) = stream.writable() => {
@@ -295,8 +298,8 @@ impl Mercury {
                 }
             }
 
-            // Only wait for the polling rate
-            _ = sleep(Duration::from_millis(polling_rate)) => {
+            // Only wait for the write timeout
+            _ = sleep(Duration::from_millis(write_timeout)) => {
                 // Mark the write as still waiting
                 return Err(anyhow!("Timeout while writing to Mercury port."));
             }
@@ -361,8 +364,9 @@ impl EventConnection for Mercury {
                 // Verify the ack character
                 // (command separator will be skipped, as we do not reset new_message)
                 } else if *character == ACK_CHARACTER {
-                    // Reset the last ack to none
+                    // Reset the last ack to none anf retry count to 0
                     self.last_ack = None;
+                    self.retry_count = 0;
 
                     // Remove this character from the buffer
                     message_until = count + 1; // remove the last character as well
@@ -451,7 +455,7 @@ impl EventConnection for Mercury {
                     // Send the acknowledgement
                     let bytes = vec![ACK_CHARACTER, COMMAND_SEPARATOR];
                     if let Some(ref mut stream) = self.stream {
-                        if let Err(error) = Mercury::write_bytes(stream, bytes, self.polling_rate).await {
+                        if let Err(error) = Mercury::write_bytes(stream, bytes, self.write_timeout).await {
                             error!("Communication read error: {}", error);
                         }
                     }
@@ -592,20 +596,30 @@ impl EventConnection for Mercury {
                         // Notify the system of a communication error
                         error!("Communication write error: No Acknowledgement from Mercury port. Retrying ...");
 
-                        // Copy and resend the current event
-                        let (id, data1, data2) = self.outgoing[0];
-                        if self.write_event_now(
-                            id.clone(),
-                            data1.clone(),
-                            data2.clone(),
-                        ).await
-                        .is_err()
-                        {
-                            is_unavailable = true;
-                        }
+                        // Increment the retry count
+                        self.retry_count += 1;
 
-                        // Reset the start time waiting for the ack
-                        self.last_ack = Some(Instant::now());
+                        // If the retry count is exceeded
+                        if self.retry_count > MAX_RETRY_COUNT {
+                            is_unavailable = true;
+                        
+                        // Otherwise, try again
+                        } else {
+                            // Copy and resend the current event
+                            let (id, data1, data2) = self.outgoing[0];
+                            if self.write_event_now(
+                                id.clone(),
+                                data1.clone(),
+                                data2.clone(),
+                            ).await
+                            .is_err()
+                            {
+                                is_unavailable = true;
+                            }
+
+                            // Reset the start time waiting for the ack
+                            self.last_ack = Some(Instant::now());
+                        }
                     }
                 }
             }

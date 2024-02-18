@@ -5,6 +5,10 @@ server_location: redis://127.0.0.1:6379
 dmx_path: null
 media_players: []
 system_connections:
+- !Mercury
+    baud: 115200
+    path: /dev/ttyACM0
+    use_checksum: true
 - !ZmqPrimary
     send_path: "tcp://127.0.0.1:1111"
     recv_path: "tcp://127.0.0.1:2222"
