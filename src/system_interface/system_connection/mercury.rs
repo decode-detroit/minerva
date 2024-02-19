@@ -178,6 +178,10 @@ impl Mercury {
                         if self.connect().is_err() {
                             return Err(anyhow!("Mercury port is unavailable."));
                         }
+                    
+                    // Otherwise, just indicate the port isn't available
+                    } else {
+                        return Err(anyhow!("Mercury port is unavailable."));
                     }
                 }
             }
@@ -323,6 +327,9 @@ impl EventConnection for Mercury {
         // Check the serial connection
         if let Err(error) = self.check_connection() {
             error!("Communication read error: {}", error);
+            
+            // Wait at least the write timeout before returning
+            sleep(Duration::from_millis(self.write_timeout)).await;
             return None;
         };
 
@@ -335,6 +342,9 @@ impl EventConnection for Mercury {
             if let Err(error) = stream.read_buf(&mut buffer).await {
                 // If there was an error
                 error!("Communication read error: {}", error);
+
+                // Wait at least the write timeout before returning
+                sleep(Duration::from_millis(self.write_timeout)).await;
                 return None;
             }
 
