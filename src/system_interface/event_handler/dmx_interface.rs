@@ -65,8 +65,7 @@ impl DmxInterface {
             .data_bits(serial::DataBits::Eight)
             .parity(serial::Parity::None)
             .stop_bits(serial::StopBits::One)
-            .flow_control(serial::FlowControl::None)
-            .timeout(Duration::from_millis(100));
+            .flow_control(serial::FlowControl::None);
 
         // Try to open the serial port
         let stream = serial::SerialStream::open(&builder)?;

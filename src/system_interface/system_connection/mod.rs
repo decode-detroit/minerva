@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021 Decode Detroit
+// Copyright (c) 2019-2024 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -21,9 +21,6 @@
 //! Event updates are received on the provided input line and echoed to the
 //! rest of the system. Updates from the system are passed back to the event
 //! handler system via the event_send line.
-//!
-//! Async reading and writing was found to use more CPU time (likely due to
-//! poor optimization. This project is put on ice for now.
 
 // Define private submodules
 mod mercury;
@@ -37,30 +34,23 @@ use self::mercury::Mercury;
 use self::zmq::{ZmqBind, ZmqConnect};
 
 // Import standard library features
-use std::sync::mpsc;
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+// Import the tokio and tokio serial features
+use tokio::sync::mpsc;
+use tokio::time::sleep;
 
 // Import tracing features
 use tracing::{error, warn};
 
 // Import anyhow features
-use anyhow::{Error, Result};
+use anyhow::Result;
 
-// Import program constants
-use super::POLLING_RATE; // the polling rate for the system
+// Define modeule constants
+const RETRY_DELAY: u64 = 100; // the write retry delay for the connections in ms
 
-// Define communication constants
-enum ReadResult {
-    // A variant for a successful event read
-    Normal(ItemId, u32, u32),
-
-    // A variant for errors when writing data
-    WriteError(Error),
-
-    // A variant for errors when reading data
-    ReadError(Error),
-}
+// Define the a helper type for returning events
+type EventWithData = (ItemId, u32, u32);
 
 // Implement key connection type features
 impl ConnectionType {
@@ -74,7 +64,7 @@ impl ConnectionType {
             // Connect to a live version of the Mercury port
             &ConnectionType::Mercury { ref path, ref baud, ref use_checksum, ref allowed_events } => {
                 // Create the new Mercury connection
-                let connection = Mercury::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), POLLING_RATE)?;
+                let connection = Mercury::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), RETRY_DELAY)?;
                 Ok(LiveConnection::Mercury { connection })
             }
 
@@ -84,7 +74,7 @@ impl ConnectionType {
                 ref recv_path,
             } => {
                 // Create the new zmq connection
-                let connection = ZmqBind::new(send_path, recv_path)?;
+                let connection = ZmqBind::new(send_path, recv_path).await?;
                 Ok(LiveConnection::ZmqPrimary { connection })
             }
 
@@ -94,7 +84,7 @@ impl ConnectionType {
                 ref recv_path,
             } => {
                 // Create a new zmq to main connection
-                let connection = ZmqConnect::new(send_path, recv_path)?;
+                let connection = ZmqConnect::new(send_path, recv_path).await?;
                 Ok(LiveConnection::ZmqSecondary { connection })
             }
         }
@@ -130,44 +120,54 @@ enum LiveConnection {
 // Implement event connection for LiveConnection
 impl EventConnection for LiveConnection {
     /// The read event method
-    fn read_events(&mut self) -> Vec<ReadResult> {
+    async fn read_event(&mut self) -> Option<EventWithData> {
         // Read from the interior connection
         match self {
-            &mut LiveConnection::Mercury { ref mut connection } => connection.read_events(),
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_events(),
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_events(),
+            &mut LiveConnection::Mercury { ref mut connection } => connection.read_event().await,
+            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_event().await,
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_event().await,
         }
     }
 
     /// The write event method (does not check duplicates)
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+    async fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Write to the interior connection
         match self {
             &mut LiveConnection::Mercury { ref mut connection } => {
-                connection.write_event(id, data1, data2)
+                connection.write_event(id, data1, data2).await
             }
             &mut LiveConnection::ZmqPrimary { ref mut connection } => {
-                connection.write_event(id, data1, data2)
+                connection.write_event(id, data1, data2).await
             }
             &mut LiveConnection::ZmqSecondary { ref mut connection } => {
-                connection.write_event(id, data1, data2)
+                connection.write_event(id, data1, data2).await
             }
         }
     }
 
     /// The echo event method (checks for duplicates from recently read events)
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
+    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Echo events to the interior connection
         match self {
             &mut LiveConnection::Mercury { ref mut connection } => {
-                connection.echo_event(id, data1, data2)
+                connection.echo_event(id, data1, data2).await
             }
             &mut LiveConnection::ZmqPrimary { ref mut connection } => {
-                connection.echo_event(id, data1, data2)
+                connection.echo_event(id, data1, data2).await
             }
             &mut LiveConnection::ZmqSecondary { ref mut connection } => {
-                connection.echo_event(id, data1, data2)
+                connection.echo_event(id, data1, data2).await
             }
+        }
+    }
+
+    /// The process pending method
+    async fn process_pending(&mut self) -> bool {
+        // Process any pending writes
+        match self {
+            &mut LiveConnection::Mercury { ref mut connection } => connection.process_pending().await,
+            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.process_pending().await,
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.process_pending().await,
         }
     }
 }
@@ -179,6 +179,10 @@ enum ConnectionUpdate {
     ///
     Broadcast(ItemId, Option<u32>),
 
+    /// A variant to indicate an event should be echoed
+    ///
+    Echo(ItemId, u32, u32),
+
     /// A variant to indicate that the connection process should stop
     Stop,
 }
@@ -186,8 +190,8 @@ enum ConnectionUpdate {
 /// A structure to handle all the input and output with the rest of the system.
 ///
 pub struct SystemConnection {
-    internal_send: InternalSend, // sending structure for new events from the system
-    connection_send: Option<mpsc::Sender<ConnectionUpdate>>, // receiving structure for new events from the program
+    internal_send: InternalSend, // structure to send events from the connections
+    connection_senders: Vec<mpsc::Sender<ConnectionUpdate>>, // structure to forward events from the main program
     is_broken: bool, // flag to indicate if one or more connections failed to establish
 }
 
@@ -213,7 +217,7 @@ impl SystemConnection {
         // Create an empty system connection
         let mut system_connection = SystemConnection {
             internal_send,
-            connection_send: None,
+            connection_senders: Vec::new(),
             is_broken: false,
         };
 
@@ -233,42 +237,51 @@ impl SystemConnection {
         &mut self,
         connections: Option<(ConnectionSet, Identifier)>,
     ) -> bool {
-        // Close the existing connection, if it exists
-        if let Some(ref conn_send) = self.connection_send {
-            conn_send.send(ConnectionUpdate::Stop).unwrap_or(());
+        // Close the existing connections, if they exists
+        for conn_send in self.connection_senders.iter() {
+            conn_send.send(ConnectionUpdate::Stop).await.unwrap_or(());
         }
 
-        // Reset the connection
-        self.connection_send = None;
+        // Reset the connections
+        self.connection_senders = Vec::new();
         self.is_broken = false;
 
         // Check to see if there is a provided connection set
-        if let Some((conn_set, identifier)) = connections {
+        if let Some((connection_set, identifier)) = connections {
             // Initialize the system connections
-            let mut live_connections = Vec::new();
-            for connection in conn_set {
+            for possible_connection in connection_set {
                 // Attempt to initialize each connection
-                match connection.initialize().await {
-                    Ok(conn) => live_connections.push(conn),
+                tokio::select! {
+                    result = possible_connection.initialize() => {
+                        // Examine the connection attempt
+                        match result {
+                            // If successful, spin up a thread for that connection
+                            Ok(connection) => {
+                                // Create the connecting mpscs
+                                let (conn_send, conn_recv) = mpsc::channel(128);
+                                let internal_send = self.internal_send.clone();
+        
+                                // Spwan the thread
+                                tokio::spawn(SystemConnection::run_loop(connection, internal_send, conn_recv, identifier));
+        
+                                // Add the sender
+                                self.connection_senders.push(conn_send);
+                            }
+        
+                            // If it fails, warn the user
+                            Err(e) => {
+                                error!("System connection error: {}.", e);
+                                self.is_broken = true;
+                            }
+                        }
+                    }
 
-                    // If it fails, warn the user
-                    Err(e) => {
-                        error!("System connection error: {}.", e);
+                    _ = sleep(Duration::from_millis(5000)) => { // wait up to 5 seconds for each connection
+                        error!("System connection error: Connection attempt timed out.");
                         self.is_broken = true;
                     }
-                };
+                }
             }
-
-            // Spin a new thread with the connection(s)
-            let (conn_send, conn_recv) = mpsc::channel();
-            let internal_send = self.internal_send.clone();
-            thread::spawn(move || {
-                // Loop indefinitely
-                SystemConnection::run_loop(live_connections, internal_send, conn_recv, identifier);
-            });
-
-            // Update the system connection
-            self.connection_send = Some(conn_send);
 
             // Indicate whether the connections were successfully established
             return !self.is_broken;
@@ -278,137 +291,210 @@ impl SystemConnection {
         true
     }
 
-    /// A method to send messages between the underlying system and the program.
+    /// A method to send events to the system connections
     ///
     pub async fn broadcast(&mut self, new_event: ItemId, data: Option<u32>) {
-        // Extract the connection, if it exists
-        if let Some(ref mut conn) = self.connection_send {
+        // Warn if one or more connections were not established
+        if self.is_broken {
+            error!("Unable to reach one or more system connections.");
+        }
+
+        // Iterate through the connnections, if they exist
+        for ref sender in self.connection_senders.iter() {
             // Send the new event
-            let result = conn.send(ConnectionUpdate::Broadcast(new_event, data));
-            if let Err(error) = result {
+            if let Err(error) = sender.send(ConnectionUpdate::Broadcast(new_event, data)).await {
                 error!("Unable to connect: {}.", error);
             }
+        }
+    }
 
-            // Warn if one or more connections were not established
-            if self.is_broken {
-                error!("Unable to reach one or more system connections.");
+    /// A method to echo events to the system connections
+    ///
+    pub async fn echo(&mut self, new_event: ItemId, data1: u32, data2: u32) {
+        // Warn if one or more connections were not established
+        if self.is_broken {
+            error!("Unable to reach one or more system connections.");
+        }
+
+        // Iterate through the connnections, if they exist
+        for ref sender in self.connection_senders.iter() {
+            // Send the echoed event
+            if let Err(error) = sender.send(ConnectionUpdate::Echo(new_event, data1, data2)).await {
+                error!("Unable to connect: {}.", error);
             }
         }
     }
 
     /// An internal function to run a loop of the system connection
     ///
-    fn run_loop(
-        mut connections: Vec<LiveConnection>,
+    async fn run_loop(
+        mut connection: LiveConnection,
         internal_send: InternalSend,
-        conn_recv: mpsc::Receiver<ConnectionUpdate>,
+        mut conn_recv: mpsc::Receiver<ConnectionUpdate>,
         identifier: Identifier,
     ) {
         // Run the loop until there is an error or instructed to quit
         loop {
-            // Save the start time of the loop
-            let loop_start = Instant::now();
+            // If there are still pending events on the connection
+            if connection.process_pending().await {
+                // Only wait <retry delay> for any updates
+                tokio::select! {
+                    // If there are new events received
+                    possible_event = connection.read_event() => {
+                        // See if we got an event
+                        if let Some((id, game_id, data2)) = possible_event {
+                            // Echo the event to all the connections
+                            internal_send.send_echo(id, game_id, data2).await;
 
-            // Read all results from the system connections
-            let mut results = Vec::new();
-            for connection in connections.iter_mut() {
-                results.append(&mut connection.read_events());
-            }
+                            // If an identifier was specified
+                            if let Some(identity) = identifier.id {
+                                // Verify the game id is correct
+                                if identity == game_id {
+                                    // Send the event to the program FIXME Handle incoming data
+                                    internal_send.send_event(id, true, false).await; // don't broadcast
 
-            // Read all the results from the list
-            for result in results.drain(..) {
-                // Sort by the type of result
-                match result {
-                    // For a normal result
-                    ReadResult::Normal(id, game_id, data2) => {
-                        // Echo the event to every connection
-                        for connection in connections.iter_mut() {
-                            connection
-                                .echo_event(id.clone(), game_id.clone(), data2.clone())
-                                .unwrap_or(());
-                        }
+                                // Otherwise send a notification of an incorrect game number
+                                } else {
+                                    // Format the warning string
+                                    warn!("Game Id does not match. Event ignored ({}).", id);
+                                }
 
-                        // If an identifier was specified
-                        if let Some(identity) = identifier.id {
-                            // Verify the game id is correct
-                            if identity == game_id {
-                                // Send the event to the program
-                                internal_send.blocking_send(InternalUpdate::ProcessEvent {
-                                    event_id: id,
-                                    check_scene: true,
-                                    broadcast: false,
-                                }); // don't broadcast
-                                    // FIXME Handle incoming data
-
-                            // Otherwise send a notification of an incorrect game number
+                            // Otherwise, send the event to the program
                             } else {
-                                // Format the warning string
-                                warn!("Game Id does not match. Event ignored ({}).", id);
-                            }
-
-                        // Otherwise, send the event to the program
-                        } else {
-                            internal_send.blocking_send(InternalUpdate::ProcessEvent {
-                                event_id: id,
-                                check_scene: true,
-                                broadcast: false,
-                            }); // don't broadcast
-                        }
-                    }
-
-                    // For a write error, notify the system
-                    ReadResult::WriteError(error) => {
-                        // Report the error
-                        error!("Communication write error: {}", error);
-                    }
-
-                    // For a read error, notify the system
-                    ReadResult::ReadError(error) => {
-                        // Report the error
-                        error!("Communication read error: {}", error);
-                    }
-                }
-            }
-
-            // Send any new events to the system
-            let update = conn_recv.try_recv();
-            match update {
-                // Send the new event
-                Ok(ConnectionUpdate::Broadcast(id, data)) => {
-                    // Use the identifier or zero for the game id
-                    let game_id = identifier.id.unwrap_or(0);
-
-                    // Translate the data to a placeholder, if necessary
-                    let data2 = data.unwrap_or(0);
-
-                    // Try to send the new event to every connection
-                    for connection in connections.iter_mut() {
-                        // Catch any write errors
-                        if let Err(error1) = connection.write_event(id, game_id, data2) {
-                            // Report the error
-                            error!("Communication error: {}", error1);
-
-                            // Wait a little bit and try again
-                            thread::sleep(Duration::from_millis(POLLING_RATE));
-                            if let Err(error2) = connection.write_event(id, game_id, data2) {
-                                // Report the error
-                                error!("Persistent communication error: {}", error2);
+                                internal_send.send_event(id, true, false).await; // don't broadcast
                             }
                         }
                     }
+
+                    // Process any new events from the system
+                    update = conn_recv.recv() => {
+                        match update {
+                            // Send the new event
+                            Some(ConnectionUpdate::Broadcast(id, data)) => {
+                                // Use the identifier or zero for the game id
+                                let game_id = identifier.id.unwrap_or(0);
+
+                                // Translate the data to a placeholder, if necessary
+                                let data2 = data.unwrap_or(0);
+
+                                // Catch any write errors
+                                if let Err(error1) = connection.write_event(id, game_id, data2).await {
+                                    // Report the error
+                                    error!("Communication error: {}", error1);
+
+                                    // Wait a little bit and try again
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
+                                    if let Err(error2) = connection.write_event(id, game_id, data2).await {
+                                        // Report the error
+                                        error!("Persistent communication error: {}", error2);
+                                    }
+                                }
+                            }
+
+                            // Send the echoed event
+                            Some(ConnectionUpdate::Echo(id, data1, data2)) => {
+                                // Catch any echo errors
+                                if let Err(error1) = connection.echo_event(id, data1, data2).await {
+                                    // Report the error
+                                    error!("Communication error: {}", error1);
+
+                                    // Wait a little bit and try again
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
+                                    if let Err(error2) = connection.echo_event(id, data1, data2).await {
+                                        // Report the error
+                                        error!("Persistent communication error: {}", error2);
+                                    }
+                                }
+                            }
+
+                            // Quit when instructed or when there is an error
+                            Some(ConnectionUpdate::Stop) => break,
+                            None => break,
+                        }
+                    }
+
+                    // Wait the appropriate polling rate between process pending updates
+                    _ = sleep(Duration::from_millis(RETRY_DELAY)) => (), // loop again
                 }
+            
+            // Otherwise, if there are no pending events
+            } else {
+                // Wait indefinitely
+                tokio::select! {
+                    // If there is a new event received
+                    possible_event = connection.read_event() => {
+                        // See if we got an event
+                        if let Some((id, game_id, data2)) = possible_event {
+                            // Echo the event to all the connections
+                            internal_send.send_echo(id, game_id, data2).await;
 
-                // Quit when instructed or when there is an error
-                Ok(ConnectionUpdate::Stop) => break,
-                Err(mpsc::TryRecvError::Disconnected) => break,
+                            // If an identifier was specified
+                            if let Some(identity) = identifier.id {
+                                // Verify the game id is correct
+                                if identity == game_id {
+                                    // Send the event to the program FIXME Handle incoming data
+                                    internal_send.send_event(id, true, false).await; // don't broadcast
 
-                // Otherwise continue
-                _ => (),
-            }
+                                // Otherwise send a notification of an incorrect game number
+                                } else {
+                                    // Format the warning string
+                                    warn!("Game Id does not match. Event ignored ({}).", id);
+                                }
 
-            // Make sure that some time elapses in each loop
-            if Duration::from_millis(POLLING_RATE) > loop_start.elapsed() {
-                thread::sleep(Duration::from_millis(POLLING_RATE));
+                            // Otherwise, send the event to the program
+                            } else {
+                                internal_send.send_event(id, true, false).await; // don't broadcast
+                            }
+                        }
+                    }
+
+                    // Process any new events from the system
+                    update = conn_recv.recv() => {
+                        match update {
+                            // Send the new event
+                            Some(ConnectionUpdate::Broadcast(id, data)) => {
+                                // Use the identifier or zero for the game id
+                                let game_id = identifier.id.unwrap_or(0);
+
+                                // Translate the data to a placeholder, if necessary
+                                let data2 = data.unwrap_or(0);
+
+                                // Catch any write errors
+                                if let Err(error1) = connection.write_event(id, game_id, data2).await {
+                                    // Report the error
+                                    error!("Communication error: {}", error1);
+
+                                    // Wait a little bit and try again
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
+                                    if let Err(error2) = connection.write_event(id, game_id, data2).await {
+                                        // Report the error
+                                        error!("Persistent communication error: {}", error2);
+                                    }
+                                }
+                            }
+
+                            // Send the echoed event
+                            Some(ConnectionUpdate::Echo(id, data1, data2)) => {
+                                // Catch any echo errors
+                                if let Err(error1) = connection.echo_event(id, data1, data2).await {
+                                    // Report the error
+                                    error!("Communication error: {}", error1);
+
+                                    // Wait a little bit and try again
+                                    sleep(Duration::from_millis(RETRY_DELAY)).await;
+                                    if let Err(error2) = connection.echo_event(id, data1, data2).await {
+                                        // Report the error
+                                        error!("Persistent communication error: {}", error2);
+                                    }
+                                }
+                            }
+
+                            // Quit when instructed or when there is an error
+                            Some(ConnectionUpdate::Stop) => break,
+                            None => break,
+                        }
+                    }
+                }
             }
         }
     }
@@ -420,12 +506,21 @@ impl SystemConnection {
 /// event connection across all event connection types.
 ///
 trait EventConnection {
-    /// The read event method
-    fn read_events(&mut self) -> Vec<ReadResult>;
+    /// A method to read any new events from the connection. This implementation
+    /// should await until new information is available and return an event with
+    /// data if one was found.
+    async fn read_event(&mut self) -> Option<EventWithData>;
 
-    /// The write event method (does not check duplicates)
-    fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
+    /// A method to write events to the connection. This implementation should
+    /// not check duplicate messages received on this connection.
+    async fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
 
-    /// The echo event method (checks for duplicates from recently read events)
-    fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
+    /// A method to echo events to this connection. This method should ensure that
+    /// recently-read events are removed from the queue before sending. This method
+    /// can assume that read events will be echoed exactly once.
+    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()>;
+
+    /// A method to check for pending writes and process them if they exist.
+    /// This method returns true if there are still pending writes.
+    async fn process_pending(&mut self) -> bool;
 }

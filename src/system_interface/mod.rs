@@ -45,9 +45,6 @@ use tokio::sync::mpsc;
 // Import tracing features
 use tracing::{error, info, warn};
 
-// Define module constants
-const POLLING_RATE: u64 = 1; // the polling rate for the system in ms
-
 /// A structure to contain the system interface and handle all updates to the
 /// to the interface.
 ///
@@ -289,6 +286,16 @@ impl SystemInterface {
                 } else {
                     error!("Event {} could not be processed.", event_id);
                 }
+            }
+
+            // Echo an event to the system connections
+            InternalUpdate::EchoEvent {
+                event_id,
+                data1,
+                data2,
+            } => {
+                // Echo events to the system connections
+                self.system_connection.echo(event_id, data1, data2).await;
             }
         }
     }

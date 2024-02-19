@@ -56,7 +56,7 @@ pub enum ConnectionType {
     /// assumes the serial connection uses the Mercury event protocol.
     Mercury {
         path: PathBuf, // the location of the serial port
-        baud: usize,   // the baud rate of the serial port
+        baud: u32,   // the baud rate of the serial port
         use_checksum: bool, // a flag indicating the system should use and verify 32bit checksums
         allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
     },
