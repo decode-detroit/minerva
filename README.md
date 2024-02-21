@@ -9,10 +9,6 @@ Quickly configure and control an interactive show, no programming experience nec
 
 * **Reliable**: Minerva is written in pure Rust, a threadsafe language. The software has been extensively tested (in real-world installations) and includes an optional live-backup feature to resume instantly if power is lost.
 
-## ASYNC CONNECTIONS BRANCH
-
-This branch experimented with using asyncronous serial connections for the system connections module. Likely due to poor optimization, this branch was found to use 3x the CPU time when idle, so the experiment was put on ice. For now, the classic thread-based version will be sufficient.
-
 ## Getting Started
 
 If you're on a 64-bit GNU/Linux system or 32-bit Raspberry Pi, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below. There is also a binary for 64-bit Windows, but at the moment is comes with some limitations (no Media, or DMX).
