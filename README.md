@@ -11,9 +11,9 @@ Quickly configure and control an interactive show, no programming experience nec
 
 ## Getting Started
 
-If you're on a 64-bit GNU/Linux system or 32-bit Raspberry Pi, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below. There is also a binary for 64-bit Windows, but at the moment is comes with some limitations (no Media, or DMX).
+If you're on a 64-bit GNU/Linux system or 64-bit Raspberry Pi, you can use the the [binary releases here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below. There is also a binary for 64-bit Windows, but at the moment is comes with some limitations (no Media playback or DMX).
 
-If you're on a Mac, binaries are still a work in progress.
+If you're on a Mac, help us produce working binaries! We don't have an Apple device to compile them.
 
 ## Compile From Source (Cross-Platform)
 
