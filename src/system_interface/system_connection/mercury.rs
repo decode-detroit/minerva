@@ -583,8 +583,28 @@ impl EventConnection for Mercury {
                                         continue;
                                     }
 
-                                    // Remove the first event from the buffer
+                                    // Remove the first event from the buffer, reset the timer, and reset the count
                                     self.outgoing.remove(0);
+                                    self.last_ack = None;
+                                    self.retry_count = 0;
+
+                                    // Resume the search
+                                    message_progress = MessageProgress::Waiting;
+                                
+                                // If there are no outgoing events, ignore the errant message
+                                } else {
+                                    message_progress = MessageProgress::Waiting;
+                                    continue;
+                                }
+                            
+                            // Otherwise, just remove the first event from the buffer
+                            } else {
+                                // Verify the checksum against the last event
+                                if self.outgoing.len() > 0 {
+                                    // Remove the first event from the buffer, reset the timer, and reset the count
+                                    self.outgoing.remove(0);
+                                    self.last_ack = None;
+                                    self.retry_count = 0;
 
                                     // Resume the search
                                     message_progress = MessageProgress::Waiting;
@@ -746,8 +766,7 @@ impl EventConnection for Mercury {
                                 id.clone(),
                                 data1.clone(),
                                 data2.clone(),
-                            ).await
-                            .is_err()
+                            ).await.is_err()
                             {
                                 is_unavailable = true;
                             }
