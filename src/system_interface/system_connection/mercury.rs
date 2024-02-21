@@ -28,7 +28,7 @@
 use crate::definitions::*;
 
 // Import other definitions
-use super::{EventConnection, EventWithData};
+use super::{EventConnection, EventWithData, Checksum};
 
 // Import standard library modules and traits
 use std::io::{Cursor, Write};
@@ -60,7 +60,7 @@ const FIELD_SEPARATOR: u8 = 0x2C as u8; // the divider between the three fields
 const COMMAND_SEPARATOR: u8 = 0x3B as u8; // the divider between commands
 const ESCAPE_CHARACTER: u8 = 0x2F as u8; // the character to escape other characters
 const NULL_CHARACTER: u8 = 0x00 as u8; // the null character
-const COMMAND_CHARACTER: u8 = '0' as u8; // the default command character
+const EVENT_CHARACTER: u8 = '0' as u8; // the default event character
 const ACK_CHARACTER: u8 = '1' as u8; // the default ack character
 const ACK_DELAY: u64 = 200; // the longest delay to wait for an acknowledgement, in ms
 const RECONNECT_DELAY: u64 = 5000; // the delay to wait between retrying to establish a connection
@@ -71,10 +71,10 @@ const MAX_RETRY_COUNT: usize = 5; // the maximum number of times to retry sendin
 ///
 /// # Note
 ///
-/// This module uses a protocol that is a limited version of the CmdMessenger
+/// This module uses a protocol that is loosely based on the CmdMessenger
 /// protocol. While this means that there is some compatibility with the
-/// CmdMessenger library, this protocol is not guaranteed to be compatible and
-/// may become completely incompatible in the furture.
+/// CmdMessenger library, this protocol is not designed to be compatible.
+/// We recommend using the MercuryComm library instead.
 ///
 pub struct Mercury {
     path: PathBuf,                              // the desired path of the serial port
@@ -84,9 +84,9 @@ pub struct Mercury {
     write_timeout: u64,                         // the write timeout of the port
     stream: Option<serial::SerialStream>,       // the serial port of the connection, if available
     buffer: Vec<u8>,                            // the current input buffer
-    outgoing: Vec<(ItemId, u32, u32)>,          // the outgoing event buffer
+    outgoing: Vec<EventWithData>,               // the outgoing event buffer
     last_ack: Option<Instant>,                  // Some instant if we are still waiting on ack from instant
-    filter_events: Vec<(ItemId, u32, u32)>,     // events to filter out that we received from this connection
+    filter_events: Vec<EventWithData>,          // events to filter out that we received from this connection
     last_retry: Option<Instant>,                // Some instant if we have lost connection to the port
     retry_count: usize,                         // a count of how many times we have retried a message
 }
@@ -218,7 +218,8 @@ impl Mercury {
         fixed
     }
 
-    /// A helper function to write to the serial port (skip any ack checking)
+    /// A helper function to write an event to the serial port.
+    /// This function skips any ack checking.
     ///
     /// Note: Ack timer must be manually reset by caller
     ///
@@ -228,9 +229,9 @@ impl Mercury {
         data1: u32,
         data2: u32,
     ) -> Result<()> {
-        // Format the command as a byte
+        // Format the message as a byte vector
         let mut bytes = Vec::new();
-        bytes.push(COMMAND_CHARACTER);
+        bytes.push(EVENT_CHARACTER);
 
         // Add the three arguments to the message
         // Add the separator and convert each argument to a character vector
@@ -262,7 +263,45 @@ impl Mercury {
             // Calculate the checksum and add it
             bytes.push(FIELD_SEPARATOR);
             let mut tmp = Vec::new();
-            tmp.write_u32::<LittleEndian>(id.id() ^ data1 ^ data2)?;
+            tmp.write_u32::<LittleEndian>((id, data1, data2).checksum())?;
+
+            // Escape the new argument and then add it
+            bytes.write(Mercury::escape(tmp).as_slice())?;
+        }
+
+        // Append the command separator
+        bytes.push(COMMAND_SEPARATOR);
+
+        // Try to write to the serial port
+        if let Some(ref mut stream) = self.stream {
+            Mercury::write_bytes(stream, bytes, self.write_timeout).await?;
+
+        // If the stream doesn't exist (it always should)
+        } else {
+            return Err(anyhow!("Unable to write to Mercury port."));
+        }
+
+        // Indicate that the event was sent
+        Ok(())
+    }
+
+    /// A helper function to write an acknowledgement to the serial port.
+    /// The checksum is included, if specified
+    ///
+    async fn write_ack(
+        &mut self,
+        possible_checksum: Option<u32>,
+    ) -> Result<()> {
+        // Format the message as a byte vector
+        let mut bytes = Vec::new();
+        bytes.push(ACK_CHARACTER);
+
+        // Add the checksum to the message, if specified
+        if let Some(checksum) = possible_checksum {
+            // Add the separator and convert the argument to a character vector
+            bytes.push(FIELD_SEPARATOR);
+            let mut tmp = Vec::new();
+            tmp.write_u32::<LittleEndian>(checksum)?;
 
             // Escape the new argument and then add it
             bytes.write(Mercury::escape(tmp).as_slice())?;
@@ -319,6 +358,13 @@ impl Mercury {
 
 }
 
+// A helper enum to track the message type
+enum MessageProgress {
+    Waiting,
+    ReadEvent,
+    ReadAck,
+}
+
 // Implement the event connection trait for Mercury
 impl EventConnection for Mercury {
     /// A method to receive a new event from the serial connection
@@ -356,129 +402,209 @@ impl EventConnection for Mercury {
         let mut possible_event = None;
         let mut message = Vec::new();
         let mut escaped = false; // indicates whether or not the currect character is escaped
-        let mut new_message = true; // indicates if this character should start a new message
+        let mut message_progress = MessageProgress::Waiting; // indicates the status of the message reading
         let mut message_until = 0; // indicates the last character of a valid message
 
         // Read through each of the characters and count them
         for (count, character) in self.buffer.iter().enumerate() {
-            // Try to read the command type for a new message
-            if new_message {
-                // Verify the command character
-                if *character == COMMAND_CHARACTER {
-                    // Reset the message variables
-                    message = Vec::new();
-                    escaped = false;
-                    new_message = false;
+            // Sort based on the message reading progress
+            match message_progress {
+                // Waiting for the start of a new message
+                MessageProgress::Waiting => {
+                    // Verify the command character
+                    if *character == EVENT_CHARACTER {
+                        // Reset the message variables
+                        message = Vec::new();
+                        escaped = false;
+                        message_progress = MessageProgress::ReadEvent;
 
-                // Verify the ack character
-                // (command separator will be skipped, as we do not reset new_message)
-                } else if *character == ACK_CHARACTER {
-                    // Reset the last ack to none anf retry count to 0
-                    self.last_ack = None;
-                    self.retry_count = 0;
-
-                    // Remove this character from the buffer
-                    message_until = count + 1;
-
-                    // Remove the first event from the buffer
-                    if self.outgoing.len() > 0 {
-                        self.outgoing.remove(0);
-                    }
+                    // Verify the ack character
+                    // (command separator will be skipped, as we do not reset new_message)
+                    } else if *character == ACK_CHARACTER {
+                        // Reset the message variables
+                        message = Vec::new();
+                        escaped = false;
+                        message_progress = MessageProgress::ReadAck;
 
                     // If the character is lingering command separator or incorrect, throw it away
+                    }
                 }
 
-            // If the last message was an escape character, unescape this one
-            } else if escaped {
-                // If the escape was not valid
-                if *character != FIELD_SEPARATOR
-                    && *character != COMMAND_SEPARATOR
-                    && *character != ESCAPE_CHARACTER
-                    && *character != NULL_CHARACTER
-                {
-                    // Add both characters
-                    message.push(ESCAPE_CHARACTER);
-                }
-
-                // Append the new character to the arguments
-                message.push(character.clone());
-                escaped = false;
-
-            // Interpret the other, non-escaped, non-message-beginning characters
-            } else {
-                // Catch the command separator
-                if *character == COMMAND_SEPARATOR {
-                    // Note the end of the valid message
-                    message_until = count + 1; // remove this character from the buffer
-
-                    // Try to read the three arguments from the message
-                    let mut cursor = Cursor::new(message.clone());
-                    let id = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
-                        Ok(id) => id,
-                        _ => {
-                            // Return an error and exit
-                            error!("Communication read error: Invalid Event Id for Mercury port.");
-                            break; // end prematurely
+                // Processing an event
+                MessageProgress::ReadEvent => {
+                    // If the last message was an escape character, unescape this one
+                    if escaped {
+                        // If the escape was not valid
+                        if *character != FIELD_SEPARATOR
+                            && *character != COMMAND_SEPARATOR
+                            && *character != ESCAPE_CHARACTER
+                            && *character != NULL_CHARACTER
+                        {
+                            // Add both characters
+                            message.push(ESCAPE_CHARACTER);
                         }
-                    };
-                    let data1 = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
-                        Ok(data1) => data1,
-                        _ => {
-                            // Return an error and exit
-                            error!("Communication read error: Invalid second field for Mercury port.");
-                            break; // end prematurely
-                        }
-                    };
-                    let data2 = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
-                        Ok(data2) => data2,
-                        _ => {
-                            // Return an error and exit
-                            error!("Communication read error: Invalid third field for Mercury port.");
-                            break; // end prematurely
-                        }
-                    };
 
-                    // If verifying the checksum
-                    if self.use_checksum {
-                        // Try to read the checksum from Mercury
-                        let checksum = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
-                            Ok(checksum) => checksum,
-                            _ => {
-                                // Return an error and exit
-                                error!("Communication read error: Invalid checksum field for Mercury port.");
-                                break; // end prematurely
+                        // Append the new character to the message
+                        message.push(character.clone());
+                        escaped = false;
+
+                    // Interpret the other, non-escaped, non-message-beginning characters
+                    } else {
+                        // Catch the command separator
+                        if *character == COMMAND_SEPARATOR {
+                            // Note the end of the valid message
+                            message_until = count + 1; // remove this character from the buffer
+
+                            // Try to read the three arguments from the message
+                            let mut cursor = Cursor::new(message.clone());
+                            let id = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
+                                Ok(id) => id,
+                                _ => {
+                                    // Return an error and proceed
+                                    error!("Communication read error: Invalid Event Id for Mercury port.");
+                                    message_progress = MessageProgress::Waiting; // Resume looking for messages
+                                    continue;
+                                }
+                            };
+                            let data1 = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
+                                Ok(data1) => data1,
+                                _ => {
+                                    // Return an error and proceed
+                                    error!("Communication read error: Invalid second field for Mercury port.");
+                                    message_progress = MessageProgress::Waiting; // Resume looking for messages
+                                    continue;
+                                }
+                            };
+                            let data2 = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
+                                Ok(data2) => data2,
+                                _ => {
+                                    // Return an error and proceed
+                                    error!("Communication read error: Invalid third field for Mercury port.");
+                                    message_progress = MessageProgress::Waiting; // Resume looking for messages
+                                    continue;
+                                }
+                            };
+
+                            // If verifying the checksum
+                            if self.use_checksum {
+                                // Try to read the checksum from Mercury
+                                let checksum = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
+                                    Ok(checksum) => checksum,
+                                    _ => {
+                                        // Return an error and proceed
+                                        error!("Communication read error: Invalid checksum field for Mercury port.");
+                                        message_progress = MessageProgress::Waiting; // Resume looking for messages
+                                        continue;
+                                    }
+                                };
+
+                                // Verify the value
+                                if checksum != (id, data1, data2).checksum() {
+                                    // Return an error and proceed
+                                    error!("Communication read error: Invalid checksum for Mercury port.");
+                                    message_progress = MessageProgress::Waiting; // Resume looking for messages
+                                    continue;
+                                }
+
+                                // Try to send the acknowledgement
+                                if let Err(error) = self.write_ack(Some(checksum)).await {
+                                    error!("Communication read error: {}", error);
+                                }
+                            
+                            // Otherwise, just try to send the acknowledgement
+                            } else {
+                                if let Err(error) = self.write_ack(None).await {
+                                    error!("Communication read error: {}", error);
+                                }
                             }
-                        };
 
-                        // Verify the value
-                        if checksum != (id ^ data1 ^ data2) {
-                            // Return an error and exit
-                            error!("Communication read error: Invalid checksum for Mercury port.");
-                            break; // end prematurely
+                            // Save the event to the result
+                            possible_event = Some((ItemId::new_unchecked(id), data1, data2));
+
+                            // Exit the loop with the new event
+                            break;
+
+                        // Catch the escape character
+                        } else if *character == ESCAPE_CHARACTER {
+                            escaped = true;
+
+                        // Ignore the field separator
+                        } else if *character != FIELD_SEPARATOR {
+                            message.push(character.clone());
                         }
                     }
+                }
 
-                    // Save the event to the result
-                    possible_event = Some((ItemId::new_unchecked(id), data1, data2));
+                // Processing an ack
+                MessageProgress::ReadAck => {
+                    // If the last message was an escape character, unescape this one
+                    if escaped {
+                        // If the escape was not valid
+                        if *character != FIELD_SEPARATOR
+                            && *character != COMMAND_SEPARATOR
+                            && *character != ESCAPE_CHARACTER
+                            && *character != NULL_CHARACTER
+                        {
+                            // Add both characters
+                            message.push(ESCAPE_CHARACTER);
+                        }
 
-                    // Send the acknowledgement
-                    let bytes = vec![ACK_CHARACTER, COMMAND_SEPARATOR];
-                    if let Some(ref mut stream) = self.stream {
-                        if let Err(error) = Mercury::write_bytes(stream, bytes, self.write_timeout).await {
-                            error!("Communication read error: {}", error);
+                        // Append the new character to the arguments
+                        message.push(character.clone());
+                        escaped = false;
+
+                    // Interpret the other, non-escaped, non-message-beginning characters
+                    } else {
+                        // Catch the command separator
+                        if *character == COMMAND_SEPARATOR {
+                            // Note the end of the valid message
+                            message_until = count + 1; // remove this character from the buffer
+
+                            // If looking for checksums
+                            if self.use_checksum {
+                                // Try to read the one argument from the message
+                                let mut cursor = Cursor::new(message.clone());
+                                let checksum = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
+                                    Ok(id) => id,
+                                    _ => {
+                                        // Return an error and proceed
+                                        error!("Communication read error: Invalid ack checksum for Mercury port.");
+                                        message_progress = MessageProgress::Waiting; // Resume looking for messages
+                                        continue;
+                                    }
+                                };
+
+                                // Verify the checksum against the last event
+                                if self.outgoing.len() > 0 {
+                                    if checksum != self.outgoing[0].checksum() {
+                                        // Return an error and proceed
+                                        error!("Communication read error: Invalid ack checksum for Mercury port.");
+                                        message_progress = MessageProgress::Waiting; // Resume looking for messages
+                                        continue;
+                                    }
+
+                                    // Remove the first event from the buffer
+                                    self.outgoing.remove(0);
+
+                                    // Resume the search
+                                    message_progress = MessageProgress::Waiting;
+                                
+                                // If there are no outgoing events, ignore the errant message
+                                } else {
+                                    message_progress = MessageProgress::Waiting;
+                                    continue;
+                                }
+                            }
+
+                        // Catch the escape character
+                        } else if *character == ESCAPE_CHARACTER {
+                            escaped = true;
+
+                        // Ignore the field separator
+                        } else if *character != FIELD_SEPARATOR {
+                            message.push(character.clone());
                         }
                     }
-
-                    // Exit the loop with the new event
-                    break;
-
-                // Catch the escape character
-                } else if *character == ESCAPE_CHARACTER {
-                    escaped = true;
-
-                // Ignore the field separator
-                } else if *character != FIELD_SEPARATOR {
-                    message.push(character.clone());
                 }
             }
         }

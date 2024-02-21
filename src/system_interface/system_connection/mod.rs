@@ -52,6 +52,25 @@ const RETRY_DELAY: u64 = 100; // the write retry delay for the connections in ms
 // Define the a helper type for returning events
 type EventWithData = (ItemId, u32, u32);
 
+// A helper trait to consistently define checksums for an event with data
+trait Checksum {
+    fn checksum(&self) -> u32;
+}
+
+// Implement simple checksum functionality for the basic type
+impl Checksum for (u32, u32, u32) {
+    fn checksum(&self) -> u32 {
+        self.0 ^ self.1 ^ self.2
+    }
+}
+
+// Implement simple checksum functionality for the helper type
+impl Checksum for EventWithData {
+    fn checksum(&self) -> u32 {
+        (self.0.id(), self.1, self.2).checksum()
+    }
+}
+
 // Implement key connection type features
 impl ConnectionType {
     /// An internal method to create a Live Connection from this Connection
