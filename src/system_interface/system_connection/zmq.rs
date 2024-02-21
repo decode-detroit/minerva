@@ -25,30 +25,20 @@ use super::{EventConnection, EventWithData};
 
 // Import standard library features
 use std::path::Path;
-#[cfg(not(feature = "zmq-comm"))]
-use std::time::Duration;
-
-// Import tokio features
-#[cfg(not(feature = "zmq-comm"))]
-use tokio::time::sleep;
 
 // Import tracing features
-#[cfg(feature = "zmq-comm")]
 use tracing::error;
 
 // Import anyhow features
 use anyhow::Result;
 
 // Import the ZMQ C-bindings
-#[cfg(feature = "zmq-comm")]
-use zeromq::{Socket, PubSocket, SubSocket, SocketSend, SocketRecv, ZmqMessage};
+use zeromq::{PubSocket, Socket, SocketRecv, SocketSend, SubSocket, ZmqMessage};
 
 /// A structure to hold and manipulate the connection over zmq
 ///
 pub struct ZmqBind {
-    #[cfg(feature = "zmq-comm")]
     zmq_send: PubSocket, // the ZMQ send connection
-    #[cfg(feature = "zmq-comm")]
     zmq_recv: SubSocket, // the ZMQ receive connection
 }
 
@@ -56,7 +46,6 @@ pub struct ZmqBind {
 impl ZmqBind {
     /// A function to create a new instance of the ZmqBind, active version
     ///
-    #[cfg(feature = "zmq-comm")]
     pub async fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqBind> {
         // Create the new ZMQ sending socket
         let mut zmq_send = PubSocket::new();
@@ -76,17 +65,9 @@ impl ZmqBind {
         // Return the new connection
         Ok(ZmqBind { zmq_send, zmq_recv })
     }
-
-    /// A function to create a new instance of the ZmqBind, inactive version
-    ///
-    #[cfg(not(feature = "zmq-comm"))]
-    pub async fn new(_send_path: &Path, _recv_path: &Path) -> Result<ZmqBind> {
-        Ok(ZmqBind {})
-    }
 }
 
 // Implement the event connection trait for ZmqBind
-#[cfg(feature = "zmq-comm")]
 impl EventConnection for ZmqBind {
     /// A method to receive new events from the zmq connection.
     ///
@@ -117,48 +98,14 @@ impl EventConnection for ZmqBind {
     }
 }
 
-// Implement the inactive event connection trait for ZmqBind
-#[cfg(not(feature = "zmq-comm"))]
-impl EventConnection for ZmqBind {
-    /// A method to receive new events from the zmq connection, inactive version.
-    ///
-    async fn read_event(&mut self) -> Option<EventWithData> {
-        sleep(Duration::from_millis(10000)).await; // Wait 10 minutes between reads
-        None
-    }
-
-    /// A method to send a new event to the zmq connection, inactive version.
-    ///
-    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
-        return Err(anyhow!(
-            "Program compiled without ZMQ support. See documentation."
-        ));
-    }
-
-    /// A method to echo events back to the zmq connection, inactive version.
-    ///
-    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
-        self.write_event(id, data1, data2).await
-    }
-
-    /// A method to process any pending sends, inactive version
-    async fn process_pending(&mut self) -> bool {
-        false
-    }
-}
-
 /// A structure to hold and manipulate the connection over zmq
 /// This variant filters out events that have been echoed back to the
 /// connection.
 ///
 pub struct ZmqConnect {
-    #[cfg(feature = "zmq-comm")]
-    zmq_send: PubSocket, // the ZMQ send connection
-    #[cfg(feature = "zmq-comm")]
-    zmq_recv: SubSocket, // the ZMQ receive connection
-    #[cfg(feature = "zmq-comm")]
-    filter_in: Vec<(ItemId, u32, u32)>, // events to filter, incoming
-    #[cfg(feature = "zmq-comm")]
+    zmq_send: PubSocket,                 // the ZMQ send connection
+    zmq_recv: SubSocket,                 // the ZMQ receive connection
+    filter_in: Vec<(ItemId, u32, u32)>,  // events to filter, incoming
     filter_out: Vec<(ItemId, u32, u32)>, // events to filter, outgoing
 }
 
@@ -166,7 +113,6 @@ pub struct ZmqConnect {
 impl ZmqConnect {
     /// A function to create a new instance of the ZmqConnect, active version
     ///
-    #[cfg(feature = "zmq-comm")]
     pub async fn new(send_path: &Path, recv_path: &Path) -> Result<ZmqConnect> {
         // Create the new ZMQ sending socket
         let mut zmq_send = PubSocket::new();
@@ -191,17 +137,9 @@ impl ZmqConnect {
             filter_out: Vec::new(),
         })
     }
-
-    /// A function to create a new instance of the ZmqConnect, inactive version
-    ///
-    #[cfg(not(feature = "zmq-comm"))]
-    pub async fn new(_send_path: &Path, _recv_path: &Path) -> Result<ZmqConnect> {
-        Ok(ZmqConnect {})
-    }
 }
 
 // Implement the event connection trait for ZmqConnect
-#[cfg(feature = "zmq-comm")]
 impl EventConnection for ZmqConnect {
     /// A method to receive new events from the ZMQ connection.
     ///
@@ -282,45 +220,13 @@ impl EventConnection for ZmqConnect {
 
     /// A method to process any pending sends. Since the ZMQ connection does
     /// not have this concept, this method does nothing.
-    /// 
-    async fn process_pending(&mut self) -> bool {
-        false
-    }
-}
-
-// Implement the event connection trait for ZmqConnect
-#[cfg(not(feature = "zmq-comm"))]
-impl EventConnection for ZmqConnect {
-    /// A method to receive new events from the ZMQ connection, inactive version.
     ///
-    async fn read_event(&mut self) -> Option<EventWithData> {
-        sleep(Duration::from_millis(10000)).await; // Wait 10 minutes between reads
-        None
-    }
-
-    /// A method to send a new event to the ZMQ connection, inactive version.
-    /// 
-    async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
-        return Err(anyhow!(
-            "Program compiled without ZMQ support. See documentation."
-        ));
-    }
-
-    /// A method to echo events back to the ZMQ connection, inactive version.
-    ///
-    async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
-        self.write_event(id, data1, data2).await
-    }
-
-    /// A method to process any pending sends, inactive version.
-    /// 
     async fn process_pending(&mut self) -> bool {
         false
     }
 }
 
 // A helper function to read a single event from the zmq connection
-#[cfg(feature = "zmq-comm")]
 async fn read_from_zmq(zmq_recv: &mut zeromq::SubSocket) -> Option<EventWithData> {
     // Wait for a message message from the receiver
     if let Ok(message) = zmq_recv.recv().await {
@@ -360,7 +266,6 @@ async fn read_from_zmq(zmq_recv: &mut zeromq::SubSocket) -> Option<EventWithData
 }
 
 // A helper function to extract a portion of a message and return a u32
-#[cfg(feature = "zmq-comm")]
 fn extract_u32(message: &ZmqMessage, index: usize) -> Option<u32> {
     // Extract a component of the message
     if let Some(component) = message.get(index) {
@@ -370,7 +275,7 @@ fn extract_u32(message: &ZmqMessage, index: usize) -> Option<u32> {
             return match string.parse::<u32>() {
                 Ok(u32) => Some(u32),
                 _ => None,
-            }
+            };
         }
     }
 
@@ -379,8 +284,12 @@ fn extract_u32(message: &ZmqMessage, index: usize) -> Option<u32> {
 }
 
 // A helper function to write a single event from the zmq connection
-#[cfg(feature = "zmq-comm")]
-async fn write_to_zmq(zmq_send: &mut zeromq::PubSocket, event_id: ItemId, data1: u32, data2: u32) -> Result<()> {
+async fn write_to_zmq(
+    zmq_send: &mut zeromq::PubSocket,
+    event_id: ItemId,
+    data1: u32,
+    data2: u32,
+) -> Result<()> {
     // Add all three elements to the message
     let mut message = ZmqMessage::from(event_id.to_string());
     message.push_back(data1.to_string().into());
@@ -389,4 +298,3 @@ async fn write_to_zmq(zmq_send: &mut zeromq::PubSocket, event_id: ItemId, data1:
     // Write the mssage to the zmq socket
     Ok(zmq_send.send(message).await?)
 }
-

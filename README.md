@@ -15,7 +15,7 @@ This branch experimented with using asyncronous serial connections for the syste
 
 ## Getting Started
 
-If you're on a 64-bit GNU/Linux system or 32-bit Raspberry Pi, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below. There is also a binary for 64-bit Windows, but at the moment is comes with some limitations (no ZMQ, Media, or DMX).
+If you're on a 64-bit GNU/Linux system or 32-bit Raspberry Pi, you can use the the [binary release here](https://github.com/decode-detroit/minerva/releases) and skip down to [Installing Extras](#Installing-Extras) below. There is also a binary for 64-bit Windows, but at the moment is comes with some limitations (no Media, or DMX).
 
 If you're on a Mac, binaries are still a work in progress.
 
@@ -71,9 +71,8 @@ The completed binary will be located in the automatically generated "target/rele
 
 ## Installing Extras
 
-Extras! Everyone loves extras. To take advantage of all Minerva's features, you'll need ZMQ bindings, the Gstreamer library, and a Redis server.
+Extras! Everyone loves extras. To take advantage of all Minerva's features, you'll need the Gstreamer library and a Redis server.
 
-* **ZMQ bindings** provide an easy and reliable way to network your devices.
 * Sister program **Apollo** controls media playback directly from Minerva.
 * **Redis** provides real-time crash recovery.
 
@@ -81,17 +80,7 @@ You'll need to install these tools on whichever computers you would like to **ru
 
 ### ZMQ for Communication
 
-Enable reliable messaging to other devices by compiling with the "zmq-comm" feature.
-```
-cargo build --features "zmq-comm"
-```
-
-You can install ZMQ bindings on a Debian-like system with
-```
-sudo apt install libzmq3-dev
-```
-
-Currently, rust-zmq requires ZeroMQ 4.1. If your operating system does not provide packages of a new-enough libzmq, you will have to install it from source. See https://github.com/zeromq/libzmq/releases.
+ZMQ protocols are now included by default! No additional packages are required.
 
 ### Apollo for Audio/Video
 
@@ -198,7 +187,7 @@ env PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfi
 
 #### Prepare Your Raspberry Pi
 
-In addition to any packages above (e.g. ZMQ), you need to cross compile [Apollo](https://github.com/decode-detroit/apollo) and enable the corresponding changes to the Raspberry Pi listed there for video playback.
+In addition to any packages above, you need to cross compile [Apollo](https://github.com/decode-detroit/apollo) and enable the corresponding changes to the Raspberry Pi listed there for video playback.
 
 Hardware decoding works well for videos up to 1080p at 30 fps. There is a short delay when switching between playing videos, but there is no delay when playing a new video after the first has stopped.
 

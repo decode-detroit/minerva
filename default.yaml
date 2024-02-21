@@ -22,10 +22,6 @@ media_players:
     spawn: true
     address: null
 system_connections:
-- !Mercury
-    path: /dev/ttyACM0
-    baud: 115200
-    use_checksum: true
 - !ZmqPrimary
     send_path: "tcp://127.0.0.1:1111"
     recv_path: "tcp://127.0.0.1:2222"

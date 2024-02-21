@@ -28,7 +28,7 @@
 use crate::definitions::*;
 
 // Import other definitions
-use super::{EventConnection, EventWithData, Checksum};
+use super::{Checksum, EventConnection, EventWithData};
 
 // Import standard library modules and traits
 use std::io::{Cursor, Write};
@@ -39,8 +39,8 @@ use std::time::{Duration, Instant};
 use fnv::FnvHashSet;
 
 // Import the tokio and tokio serial features
-use tokio::time::sleep;
 use tokio::io::AsyncReadExt;
+use tokio::time::sleep;
 use tokio_serial as serial;
 
 // Import bytes features
@@ -79,23 +79,29 @@ const MAX_RETRY_COUNT: usize = 5; // the maximum number of times to retry sendin
 pub struct Mercury {
     path: PathBuf,                              // the desired path of the serial port
     baud: u32,                                  // the baud rate of the serial port
-    use_checksum: bool,                         // a flag indicating the system should use and verify 32bit checksums
+    use_checksum: bool, // a flag indicating the system should use and verify 32bit checksums
     allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
     write_timeout: u64,                         // the write timeout of the port
     stream: Option<serial::SerialStream>,       // the serial port of the connection, if available
     buffer: Vec<u8>,                            // the current input buffer
     outgoing: Vec<EventWithData>,               // the outgoing event buffer
-    last_ack: Option<Instant>,                  // Some instant if we are still waiting on ack from instant
-    filter_events: Vec<EventWithData>,          // events to filter out that we received from this connection
-    last_retry: Option<Instant>,                // Some instant if we have lost connection to the port
-    retry_count: usize,                         // a count of how many times we have retried a message
+    last_ack: Option<Instant>, // Some instant if we are still waiting on ack from instant
+    filter_events: Vec<EventWithData>, // events to filter out that we received from this connection
+    last_retry: Option<Instant>, // Some instant if we have lost connection to the port
+    retry_count: usize,        // a count of how many times we have retried a message
 }
 
 // Implement key functionality for the Mercury structure
 impl Mercury {
     /// A function to create a new instance of the Mercury
     ///
-    pub fn new(path: &PathBuf, baud: u32, use_checksum: bool, allowed_events: Option<FnvHashSet<ItemId>>, write_timeout: u64) -> Result<Self> {
+    pub fn new(
+        path: &PathBuf,
+        baud: u32,
+        use_checksum: bool,
+        allowed_events: Option<FnvHashSet<ItemId>>,
+        write_timeout: u64,
+    ) -> Result<Self> {
         // Create the new instance
         let mut mercury = Mercury {
             path: path.clone(),
@@ -178,7 +184,7 @@ impl Mercury {
                         if self.connect().is_err() {
                             return Err(anyhow!("Mercury port is unavailable."));
                         }
-                    
+
                     // Otherwise, just indicate the port isn't available
                     } else {
                         return Err(anyhow!("Mercury port is unavailable."));
@@ -223,12 +229,7 @@ impl Mercury {
     ///
     /// Note: Ack timer must be manually reset by caller
     ///
-    async fn write_event_now(
-        &mut self,
-        id: ItemId,
-        data1: u32,
-        data2: u32,
-    ) -> Result<()> {
+    async fn write_event_now(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Format the message as a byte vector
         let mut bytes = Vec::new();
         bytes.push(EVENT_CHARACTER);
@@ -288,10 +289,7 @@ impl Mercury {
     /// A helper function to write an acknowledgement to the serial port.
     /// The checksum is included, if specified
     ///
-    async fn write_ack(
-        &mut self,
-        possible_checksum: Option<u32>,
-    ) -> Result<()> {
+    async fn write_ack(&mut self, possible_checksum: Option<u32>) -> Result<()> {
         // Format the message as a byte vector
         let mut bytes = Vec::new();
         bytes.push(ACK_CHARACTER);
@@ -323,10 +321,14 @@ impl Mercury {
         Ok(())
     }
 
-    // A helper function to write asyncronously to a serial port stream
-    // Returns false if the port was unavailable immediately or after the
-    // write timeout has expired.
-    async fn write_bytes(stream: &mut serial::SerialStream, bytes: Vec<u8>, write_timeout: u64) -> Result<()> {
+    /// A helper function to write asyncronously to a serial port stream
+    /// Returns false if the port was unavailable immediately or after the
+    /// write timeout has expired.
+    async fn write_bytes(
+        stream: &mut serial::SerialStream,
+        bytes: Vec<u8>,
+        write_timeout: u64,
+    ) -> Result<()> {
         // Wait for the up to the write timeout for the stream to be ready
         tokio::select! {
             // If the serial stream is available
@@ -355,7 +357,6 @@ impl Mercury {
         // Indicate success
         Ok(())
     }
-
 }
 
 // A helper enum to track the message type
@@ -373,7 +374,7 @@ impl EventConnection for Mercury {
         // Check the serial connection
         if let Err(error) = self.check_connection() {
             error!("Communication read error: {}", error);
-            
+
             // Wait at least the write timeout before returning
             sleep(Duration::from_millis(self.write_timeout)).await;
             return None;
@@ -426,7 +427,7 @@ impl EventConnection for Mercury {
                         escaped = false;
                         message_progress = MessageProgress::ReadAck;
 
-                    // If the character is lingering command separator or incorrect, throw it away
+                        // If the character is lingering command separator or incorrect, throw it away
                     }
                 }
 
@@ -488,7 +489,9 @@ impl EventConnection for Mercury {
                             // If verifying the checksum
                             if self.use_checksum {
                                 // Try to read the checksum from Mercury
-                                let checksum = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
+                                let checksum = match ReadBytesExt::read_u32::<LittleEndian>(
+                                    &mut cursor,
+                                ) {
                                     Ok(checksum) => checksum,
                                     _ => {
                                         // Return an error and proceed
@@ -510,7 +513,7 @@ impl EventConnection for Mercury {
                                 if let Err(error) = self.write_ack(Some(checksum)).await {
                                     error!("Communication read error: {}", error);
                                 }
-                            
+
                             // Otherwise, just try to send the acknowledgement
                             } else {
                                 if let Err(error) = self.write_ack(None).await {
@@ -564,7 +567,9 @@ impl EventConnection for Mercury {
                             if self.use_checksum {
                                 // Try to read the one argument from the message
                                 let mut cursor = Cursor::new(message.clone());
-                                let checksum = match ReadBytesExt::read_u32::<LittleEndian>(&mut cursor) {
+                                let checksum = match ReadBytesExt::read_u32::<LittleEndian>(
+                                    &mut cursor,
+                                ) {
                                     Ok(id) => id,
                                     _ => {
                                         // Return an error and proceed
@@ -590,13 +595,13 @@ impl EventConnection for Mercury {
 
                                     // Resume the search
                                     message_progress = MessageProgress::Waiting;
-                                
+
                                 // If there are no outgoing events, ignore the errant message
                                 } else {
                                     message_progress = MessageProgress::Waiting;
                                     continue;
                                 }
-                            
+
                             // Otherwise, just remove the first event from the buffer
                             } else {
                                 // Verify the checksum against the last event
@@ -608,7 +613,7 @@ impl EventConnection for Mercury {
 
                                     // Resume the search
                                     message_progress = MessageProgress::Waiting;
-                                
+
                                 // If there are no outgoing events, ignore the errant message
                                 } else {
                                     message_progress = MessageProgress::Waiting;
@@ -655,7 +660,8 @@ impl EventConnection for Mercury {
         }
 
         // Add this event to the outgoing buffer
-        self.outgoing.push((id.clone(), data1.clone(), data2.clone()));
+        self.outgoing
+            .push((id.clone(), data1.clone(), data2.clone()));
 
         // If the port is not ready to receive bytes
         if self.outgoing.len() > 1 {
@@ -707,12 +713,12 @@ impl EventConnection for Mercury {
     }
 
     /// A method to process any pending writes to the serial connection
-    /// 
+    ///
     async fn process_pending(&mut self) -> bool {
         // If there are no pending outgoing messages
         if self.outgoing.len() == 0 {
             return false;
-        
+
         // Otherwise, try to process the messages
         } else {
             // Check the serial connection
@@ -730,12 +736,10 @@ impl EventConnection for Mercury {
                 None => {
                     // Copy and send the next event
                     let (id, data1, data2) = self.outgoing[0];
-                    if self.write_event_now(
-                        id.clone(),
-                        data1.clone(),
-                        data2.clone(),
-                    ).await
-                    .is_err()
+                    if self
+                        .write_event_now(id.clone(), data1.clone(), data2.clone())
+                        .await
+                        .is_err()
                     {
                         is_unavailable = true;
                     }
@@ -757,16 +761,15 @@ impl EventConnection for Mercury {
                         // If the retry count is exceeded
                         if self.retry_count > MAX_RETRY_COUNT {
                             is_unavailable = true;
-                        
+
                         // Otherwise, try again
                         } else {
                             // Copy and resend the current event
                             let (id, data1, data2) = self.outgoing[0];
-                            if self.write_event_now(
-                                id.clone(),
-                                data1.clone(),
-                                data2.clone(),
-                            ).await.is_err()
+                            if self
+                                .write_event_now(id.clone(), data1.clone(), data2.clone())
+                                .await
+                                .is_err()
                             {
                                 is_unavailable = true;
                             }
@@ -815,14 +818,16 @@ mod tests {
             let id_ref = ItemId::new_unchecked(205);
             let data1_ref: u32 = 29387;
             let data2_ref: u32 = 0;
-            cc.write_event(id_ref, data1_ref, data2_ref).await.unwrap_or(());
+            cc.write_event(id_ref, data1_ref, data2_ref)
+                .await
+                .unwrap_or(());
 
             // Wait for a response
             thread::sleep(Duration::from_millis(500));
 
             // Read a response
             let (id, data1, data2) = cc.read_event().await.unwrap();
-            
+
             // Verify that it is correct
             assert_eq!(id, id_ref);
             assert_eq!(data1, data1_ref);

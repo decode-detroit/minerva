@@ -141,7 +141,6 @@ impl WebInterface {
 
                         // If a JWT secret was provided
                         if let Some(secret) = possible_jwt_secret {
-
                             // Create the JWT encoding and decoding keys
                             let encoding_key = jwt::EncodingKey::from_secret(secret.as_bytes());
                             let decoding_key = jwt::DecodingKey::from_secret(secret.as_bytes());
@@ -174,7 +173,11 @@ impl WebInterface {
                                 .and(warp::ws())
                                 .map(|key, sender, token, ws: warp::ws::Ws| {
                                     // This will call the function if the handshake succeeds.
-                                    ws.on_upgrade(move |socket| WebInterface::authorize_and_add_listener(key, sender, token, socket))
+                                    ws.on_upgrade(move |socket| {
+                                        WebInterface::authorize_and_add_listener(
+                                            key, sender, token, socket,
+                                        )
+                                    })
                                 });
 
                             // Create the authenticated limited cue event filter
@@ -200,7 +203,7 @@ impl WebInterface {
                             .key(private_key)
                             .run(address)
                             .await;
-                        
+
                         // Use TLS only, no JWT
                         } else {
                             // Create the websocket filter
@@ -209,7 +212,9 @@ impl WebInterface {
                                 .and(warp::ws())
                                 .map(|sender, ws: warp::ws::Ws| {
                                     // This will call the function if the handshake succeeds.
-                                    ws.on_upgrade(move |socket| WebInterface::add_listener(sender, socket))
+                                    ws.on_upgrade(move |socket| {
+                                        WebInterface::add_listener(sender, socket)
+                                    })
                                 });
 
                             // Create the limited cue event filter
@@ -630,9 +635,13 @@ impl WebInterface {
     }
 
     /// A function to pass interface update messages to a websocket
-    /// 
-    async fn forward_updates<T>(web_send: WebSend, mut listener_recv: mpsc::Receiver<ListenerWithExpiration>, mut interface_receive: mpsc::Receiver<T>) 
-    where T: Clone +  Into<Result<Message, warp::Error>>
+    ///
+    async fn forward_updates<T>(
+        web_send: WebSend,
+        mut listener_recv: mpsc::Receiver<ListenerWithExpiration>,
+        mut interface_receive: mpsc::Receiver<T>,
+    ) where
+        T: Clone + Into<Result<Message, warp::Error>>,
     {
         // Create a list of listeners
         let mut listeners = Vec::new();
@@ -712,11 +721,7 @@ impl WebInterface {
         };
 
         // Try to encode the token
-        match jwt::encode(
-            &jwt::Header::default(),
-            &claims,
-            &encoding_key,
-        ) {
+        match jwt::encode(&jwt::Header::default(), &claims, &encoding_key) {
             Ok(token) => token,
             _ => "Unable to generate admin token.".to_string(),
         }
@@ -758,11 +763,7 @@ impl WebInterface {
         };
 
         // Encode the token
-        let token = match jwt::encode(
-            &jwt::Header::default(),
-            &claims,
-            &encoding_key,
-        ) {
+        let token = match jwt::encode(&jwt::Header::default(), &claims, &encoding_key) {
             Ok(token) => token,
             Err(_) => {
                 return Ok(warp::reply::with_status(
@@ -857,7 +858,7 @@ impl WebInterface {
             // Return without connecting the socket
             _ => return,
         };
-        
+
         // Split the socket into a sender and receiver
         let (ws_tx, mut ws_rx) = socket.split();
 
@@ -876,7 +877,13 @@ impl WebInterface {
         );
 
         // Send a listener with no expiration
-        if let Err(_) = sender.send(ListenerWithExpiration { socket: tx, expiration: token_data.claims.exp }).await {
+        if let Err(_) = sender
+            .send(ListenerWithExpiration {
+                socket: tx,
+                expiration: token_data.claims.exp,
+            })
+            .await
+        {
             // Drop the connection on failure
             return;
         }
@@ -887,10 +894,7 @@ impl WebInterface {
 
     /// A function to add a new websocket listener
     ///
-    async fn add_listener(
-        sender: mpsc::Sender<ListenerWithExpiration>,
-        socket: WebSocket,
-    ) {
+    async fn add_listener(sender: mpsc::Sender<ListenerWithExpiration>, socket: WebSocket) {
         // Split the socket into a sender and receiver
         let (ws_tx, mut ws_rx) = socket.split();
 
@@ -909,7 +913,13 @@ impl WebInterface {
         );
 
         // Send a listener with no expiration
-        if let Err(_) = sender.send(ListenerWithExpiration { socket: tx, expiration: 0 }).await {
+        if let Err(_) = sender
+            .send(ListenerWithExpiration {
+                socket: tx,
+                expiration: 0,
+            })
+            .await
+        {
             // Drop the connection on failure
             return;
         }
@@ -1004,14 +1014,20 @@ impl WebInterface {
         let mut rules = style_access.get_all_rules().await;
 
         // Compose the rules into a string
-        let rules_string = rules.drain().map(|(mut selector, rule)| {
-            selector += " ";
-            selector += &rule;
-            return selector;
-        }).collect::<Vec<String>>().join("\n");
+        let rules_string = rules
+            .drain()
+            .map(|(mut selector, rule)| {
+                selector += " ";
+                selector += &rule;
+                return selector;
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
 
         // Indicate success
-        return Ok(warp::http::Response::builder().header("content-type", "text/css").body(rules_string));
+        return Ok(warp::http::Response::builder()
+            .header("content-type", "text/css")
+            .body(rules_string));
     }
 
     /// A function to handle saving an updated stylesheet

@@ -263,7 +263,10 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event, and collect any events to broadcast
-                    for (event_id, data) in handler.process_event(&event_id, check_scene, broadcast).await {
+                    for (event_id, data) in handler
+                        .process_event(&event_id, check_scene, broadcast)
+                        .await
+                    {
                         self.system_connection.broadcast(event_id, data).await;
 
                         // Notify the user interface of the event
@@ -273,7 +276,7 @@ impl SystemInterface {
                                 message: description.description,
                             })
                             .await;
-                    
+
                         // Pass the event as a limited update
                         self.limited_send
                             .send(LimitedUpdate::CurrentEvent {

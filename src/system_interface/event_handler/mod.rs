@@ -24,7 +24,8 @@
 // Define private submodules
 mod backup_handler;
 mod config;
-#[cfg(not(target_os = "windows"))] // DMX Interface temporarily disabled on Windows due to a bug in the tokio-serial library
+#[cfg(not(target_os = "windows"))]
+// DMX Interface temporarily disabled on Windows due to a bug in the tokio-serial library
 mod dmx_interface;
 mod media_interface;
 mod queue;
@@ -67,14 +68,14 @@ use anyhow::Result;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    queue: Queue,                          // current event queue
+    queue: Queue, // current event queue
     #[cfg(not(target_os = "windows"))]
-    dmx_interface: Option<DmxInterface>,   // the dmx interface, if available
+    dmx_interface: Option<DmxInterface>, // the dmx interface, if available
     media_interfaces: Vec<MediaInterface>, // list of available media interfaces
-    config: Config,                        // current configuration
-    config_path: PathBuf,                  // current configuration path
-    index_access: IndexAccess,             // access point to the item index
-    backup: BackupHandler,                 // current backup server
+    config: Config, // current configuration
+    config_path: PathBuf, // current configuration path
+    index_access: IndexAccess, // access point to the item index
+    backup: BackupHandler, // current backup server
 }
 
 // Implement the event handler functions
@@ -564,15 +565,15 @@ impl EventHandler {
     /// to the system (including their associated data, if applicable).
     ///
     /// # Note
-    /// 
+    ///
     /// This method previously processed all actions before allowing any
     /// cued or selected events to be processed. Now the method recurses into
     /// each action (and processes any cued or selected events for that action)
     /// and then moves onto the next action in this event.
-    /// 
+    ///
     /// To restore the old behavior, compile with the no_action_recursion
     /// feature.
-    /// 
+    ///
     /// # Errors
     ///
     /// This method will notify the user with an error if the event was not found.
@@ -593,7 +594,7 @@ impl EventHandler {
 
             // Collect the events to broadcast
             let mut broadcast_events = BroadcastEvents::new(); // collect events to broadcast from each action
-            
+
             // Add this event, if specified
             if broadcast {
                 broadcast_events.push((event_id.clone(), None));
@@ -628,7 +629,7 @@ impl EventHandler {
 
             // Return the broadcast events
             broadcast_events
-        
+
         // Otherwise, return an empty broadcast events
         } else {
             BroadcastEvents::new()
@@ -668,7 +669,11 @@ impl EventHandler {
     /// A helper method to change the selected status within the current configuration.
     /// This method does not cue an event for the state change.
     ///
-    async fn modify_status_no_broadcast(&mut self, status_id: &ItemId, new_state: &ItemId) -> Result<ItemId, ()> {
+    async fn modify_status_no_broadcast(
+        &mut self,
+        status_id: &ItemId,
+        new_state: &ItemId,
+    ) -> Result<ItemId, ()> {
         // Try to modify the underlying status
         if let Some(new_id) = self.config.modify_status(status_id, new_state).await {
             // Backup the status change
@@ -687,10 +692,10 @@ impl EventHandler {
     /// event results in data to broadcast, the data will be returned.
     ///
     /// # Note
-    /// 
+    ///
     /// This method previously cued any new events. Now the method recurses
     /// and processes the event directly within this method (if the delay would be 0).
-    /// 
+    ///
     /// To restore the old behavior, compile with the no_action_recursion
     /// feature.
     ///
@@ -703,7 +708,8 @@ impl EventHandler {
                 #[cfg(not(feature = "no_action_recursion"))]
                 if self.choose_scene_no_broadcast(new_scene).await.is_ok() {
                     // Process the new scene's default event and return any new events
-                    return UnpackResult::Events(self.process_event(&new_scene, true, true).await); // check the scene and broadcast
+                    return UnpackResult::Events(self.process_event(&new_scene, true, true).await);
+                    // check the scene and broadcast
                 }
 
                 // Try to change the current scene and broadcast scene id if successful
@@ -718,9 +724,13 @@ impl EventHandler {
             } => {
                 // Try to change the state of the status and trigger the event
                 #[cfg(not(feature = "no_action_recursion"))]
-                if let Ok(new_id) = self.modify_status_no_broadcast(&status_id, &new_state).await {
+                if let Ok(new_id) = self
+                    .modify_status_no_broadcast(&status_id, &new_state)
+                    .await
+                {
                     // Process the new state's event and return any new events
-                    return UnpackResult::Events(self.process_event(&new_id, true, true).await); // check the scene and broadcast
+                    return UnpackResult::Events(self.process_event(&new_id, true, true).await);
+                    // check the scene and broadcast
                 }
 
                 // Try to change the state of the status and broadcast the state if successful
@@ -757,8 +767,9 @@ impl EventHandler {
                 #[cfg(not(feature = "no_action_recursion"))]
                 if event.delay().is_none() {
                     // Process the event immediately and return any new events
-                    return UnpackResult::Events(self.process_event(&event.id(), true, true).await); // check the scene and broadcast
-                
+                    return UnpackResult::Events(self.process_event(&event.id(), true, true).await);
+                // check the scene and broadcast
+
                 // Otherwise, add it to the queue
                 } else {
                     self.queue.add_event(event).await;
@@ -949,7 +960,9 @@ impl EventHandler {
                     if let Some(event_id) = event_map.get(&state) {
                         // Process the event immediately and return any new events
                         #[cfg(not(feature = "no_action_recursion"))]
-                        return UnpackResult::Events(self.process_event(&event_id.clone(), true, true).await); // check the scene and broadcast
+                        return UnpackResult::Events(
+                            self.process_event(&event_id.clone(), true, true).await,
+                        ); // check the scene and broadcast
 
                         // Add the event to the queue
                         #[cfg(feature = "no_action_recursion")]

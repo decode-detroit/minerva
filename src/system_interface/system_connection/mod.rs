@@ -81,9 +81,20 @@ impl ConnectionType {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the Mercury port
-            &ConnectionType::Mercury { ref path, ref baud, ref use_checksum, ref allowed_events } => {
+            &ConnectionType::Mercury {
+                ref path,
+                ref baud,
+                ref use_checksum,
+                ref allowed_events,
+            } => {
                 // Create the new Mercury connection
-                let connection = Mercury::new(path, baud.clone(), use_checksum.clone(), allowed_events.clone(), RETRY_DELAY)?;
+                let connection = Mercury::new(
+                    path,
+                    baud.clone(),
+                    use_checksum.clone(),
+                    allowed_events.clone(),
+                    RETRY_DELAY,
+                )?;
                 Ok(LiveConnection::Mercury { connection })
             }
 
@@ -144,7 +155,9 @@ impl EventConnection for LiveConnection {
         match self {
             &mut LiveConnection::Mercury { ref mut connection } => connection.read_event().await,
             &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_event().await,
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.read_event().await,
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
+                connection.read_event().await
+            }
         }
     }
 
@@ -184,9 +197,15 @@ impl EventConnection for LiveConnection {
     async fn process_pending(&mut self) -> bool {
         // Process any pending writes
         match self {
-            &mut LiveConnection::Mercury { ref mut connection } => connection.process_pending().await,
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.process_pending().await,
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => connection.process_pending().await,
+            &mut LiveConnection::Mercury { ref mut connection } => {
+                connection.process_pending().await
+            }
+            &mut LiveConnection::ZmqPrimary { ref mut connection } => {
+                connection.process_pending().await
+            }
+            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
+                connection.process_pending().await
+            }
         }
     }
 }
@@ -279,14 +298,14 @@ impl SystemConnection {
                                 // Create the connecting mpscs
                                 let (conn_send, conn_recv) = mpsc::channel(128);
                                 let internal_send = self.internal_send.clone();
-        
+
                                 // Spwan the thread
                                 tokio::spawn(SystemConnection::run_loop(connection, internal_send, conn_recv, identifier));
-        
+
                                 // Add the sender
                                 self.connection_senders.push(conn_send);
                             }
-        
+
                             // If it fails, warn the user
                             Err(e) => {
                                 error!("System connection error: {}.", e);
@@ -321,7 +340,10 @@ impl SystemConnection {
         // Iterate through the connnections, if they exist
         for ref sender in self.connection_senders.iter() {
             // Send the new event
-            if let Err(error) = sender.send(ConnectionUpdate::Broadcast(new_event, data)).await {
+            if let Err(error) = sender
+                .send(ConnectionUpdate::Broadcast(new_event, data))
+                .await
+            {
                 error!("Unable to connect: {}.", error);
             }
         }
@@ -338,7 +360,10 @@ impl SystemConnection {
         // Iterate through the connnections, if they exist
         for ref sender in self.connection_senders.iter() {
             // Send the echoed event
-            if let Err(error) = sender.send(ConnectionUpdate::Echo(new_event, data1, data2)).await {
+            if let Err(error) = sender
+                .send(ConnectionUpdate::Echo(new_event, data1, data2))
+                .await
+            {
                 error!("Unable to connect: {}.", error);
             }
         }
@@ -435,7 +460,7 @@ impl SystemConnection {
                     // Wait the appropriate polling rate between process pending updates
                     _ = sleep(Duration::from_millis(RETRY_DELAY)) => (), // loop again
                 }
-            
+
             // Otherwise, if there are no pending events
             } else {
                 // Wait indefinitely
