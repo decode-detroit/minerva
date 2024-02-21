@@ -1,4 +1,8 @@
 # Minerva
+## Sync Connections Branch
+
+This branch is held as a stable archive branch until asyncronous connections are fully tested. This branch is stable and can be used in production environments, although at this time there are no planned improvements for this branch.
+
 #### Interactive Show Control
 
 Quickly configure and control an interactive show, no programming experience necessary.
