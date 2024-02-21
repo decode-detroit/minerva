@@ -74,10 +74,6 @@ Extras! Everyone loves extras. To take advantage of all Minerva's features, you'
 
 You'll need to install these tools on whichever computers you would like to **run** Minerva.
 
-### ZMQ for Communication
-
-ZMQ protocols are now included by default! No additional packages are required.
-
 ### Apollo for Audio/Video
 
 Audio and video playback support is built in to Minerva by default.
@@ -92,6 +88,20 @@ The default configuration should work just fine for most purposes. For super hig
 ```
 save 60 1
 ```
+
+### ZMQ for Communication
+
+ZMQ protocols for communication between Minerva instances are now included by default! No additional packages are required.
+
+### Mercury for Microcontrollers
+
+The Mercury protocol is included for communicating with microcontrollers over USB. The library is complete, debugged, and documented, but not publically published. Email us if you're interested!
+
+On Debian-like systems, you may need to add your user to the dialout group to communicate over USB:
+```
+sudo adduser $USER dialout
+```
+You'll need to log out and log back in for this to take effect.
 
 ### DMX For Lighting/Effects Control
 
