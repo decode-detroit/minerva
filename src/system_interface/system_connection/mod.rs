@@ -23,14 +23,20 @@
 //! handler system via the event_send line.
 
 // Define private submodules
+#[cfg(not(target_os = "windows"))]
 mod mercury;
+#[cfg(target_os = "windows")]
+mod mercury_windows;
 mod zmq;
 
 // Import crate definitions
 use crate::definitions::*;
 
 // Import other definitions
+#[cfg(not(target_os = "windows"))]
 use self::mercury::Mercury;
+#[cfg(target_os = "windows")]
+use self::mercury_windows::Mercury;
 use self::zmq::{ZmqBind, ZmqConnect};
 
 // Import standard library features

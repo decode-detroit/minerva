@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Decode Detroit
+// Copyright (c) 2019-2024 Decode Detroit
 // Author: Patton Doyle
 // Licence: GNU GPLv3
 //
@@ -103,7 +103,7 @@ impl Mercury {
         write_timeout: u64,
     ) -> Result<Self> {
         // Create the new instance
-        let mut mercury = Mercury {
+        let mut mercury = Self {
             path: path.clone(),
             baud,
             use_checksum,
