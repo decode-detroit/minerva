@@ -22,7 +22,6 @@
 //! This module is a dummy module for Windows installations due to a bug
 //! in Tokio Serial.
 
-
 // Import crate definitions
 use crate::definitions::*;
 
@@ -70,7 +69,9 @@ impl EventConnection for Mercury {
     ///
     async fn write_event(&mut self, _id: ItemId, _data1: u32, _data2: u32) -> Result<()> {
         // Return an error
-        Err(anyhow!("Mercury connections are not yet supported on Windows."))
+        Err(anyhow!(
+            "Mercury connections are not yet supported on Windows."
+        ))
     }
 
     /// A method to echo an event to the serial connection
