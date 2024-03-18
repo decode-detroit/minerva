@@ -61,6 +61,9 @@ impl EventConnection for Mercury {
     /// A method to receive a new event from the serial connection
     ///
     async fn read_event(&mut self) -> Option<EventWithData> {
+        // Wait 10 minutes
+        sleep(Duration::from_millis(600000));
+
         // Return no events
         None
     }
