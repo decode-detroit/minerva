@@ -66,7 +66,7 @@ impl EventConnection for Mercury {
     ///
     async fn read_event(&mut self) -> Option<EventWithData> {
         // Wait 10 minutes
-        sleep(Duration::from_millis(600000));
+        sleep(Duration::from_millis(600000)).await;
 
         // Return no events
         None
