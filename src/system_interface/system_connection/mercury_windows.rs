@@ -30,7 +30,7 @@ use super::{EventConnection, EventWithData};
 
 // Import standard library modules and traits
 use std::path::PathBuf;
-use std::time::duration;
+use std::time::Duration;
 
 // Import tokio features
 use tokio::time::sleep;
