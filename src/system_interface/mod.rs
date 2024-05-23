@@ -263,12 +263,13 @@ impl SystemInterface {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event, and collect any events to broadcast
-                    let is_first = true;
+                    let mut is_first = true;
                     for (event_id, data) in handler.process_event(&event_id, check_scene).await {
                         // If this is not the first event (i.e. this event) or we should send the first event to the connections, send it
                         if !is_first || send_to_connections {
                             self.system_connection.broadcast(event_id, data).await;
                         }
+                        is_first = false;
 
                         // Notify the user interface of the event
                         let description = self.index_access.get_description(&event_id).await;
