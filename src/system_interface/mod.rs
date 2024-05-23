@@ -258,16 +258,17 @@ impl SystemInterface {
             InternalUpdate::ProcessEvent {
                 event_id,
                 check_scene,
-                broadcast,
+                send_to_connections,
             } => {
                 // If the event handler exists
                 if let Some(ref mut handler) = self.event_handler {
                     // Try to process the event, and collect any events to broadcast
-                    for (event_id, data) in handler
-                        .process_event(&event_id, check_scene, broadcast)
-                        .await
-                    {
-                        self.system_connection.broadcast(event_id, data).await;
+                    let is_first = true;
+                    for (event_id, data) in handler.process_event(&event_id, check_scene).await {
+                        // If this is not the first event (i.e. this event) or we should send the first event to the connections, send it
+                        if !is_first || send_to_connections {
+                            self.system_connection.broadcast(event_id, data).await;
+                        }
 
                         // Notify the user interface of the event
                         let description = self.index_access.get_description(&event_id).await;

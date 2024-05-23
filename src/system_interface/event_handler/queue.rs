@@ -634,27 +634,27 @@ mod tests {
             InternalUpdate::ProcessEvent {
                 event_id: ItemId::new_unchecked(20),
                 check_scene: true,
-                broadcast: true,
+                send_to_connections: true,
             },
             InternalUpdate::ProcessEvent {
                 event_id: ItemId::new_unchecked(40),
                 check_scene: true,
-                broadcast: true,
+                send_to_connections: true,
             },
             InternalUpdate::ProcessEvent {
                 event_id: ItemId::new_unchecked(60),
                 check_scene: true,
-                broadcast: true,
+                send_to_connections: true,
             },
             InternalUpdate::ProcessEvent {
                 event_id: ItemId::new_unchecked(80),
                 check_scene: true,
-                broadcast: true,
+                send_to_connections: true,
             },
             InternalUpdate::ProcessEvent {
                 event_id: ItemId::new_unchecked(100),
                 check_scene: true,
-                broadcast: true,
+                send_to_connections: true,
             },
         ];
 

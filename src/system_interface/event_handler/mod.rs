@@ -581,12 +581,7 @@ impl EventHandler {
     /// it will raise a warning and otherwise continue processing events.
     ///
     #[async_recursion]
-    pub async fn process_event(
-        &mut self,
-        event_id: &ItemId,
-        checkscene: bool,
-        broadcast: bool,
-    ) -> BroadcastEvents {
+    pub async fn process_event(&mut self, event_id: &ItemId, checkscene: bool) -> BroadcastEvents {
         // Try to retrieve the event and unpack the event
         if let Some(event) = self.config.try_event(event_id, checkscene).await {
             // Log the event
@@ -595,10 +590,8 @@ impl EventHandler {
             // Collect the events to broadcast
             let mut broadcast_events = BroadcastEvents::new(); // collect events to broadcast from each action
 
-            // Add this event, if specified
-            if broadcast {
-                broadcast_events.push((event_id.clone(), None));
-            }
+            // Add this event
+            broadcast_events.push((event_id.clone(), None));
 
             // Unpack and process each action of the event
             for action in event {
@@ -613,12 +606,9 @@ impl EventHandler {
 
                     // If data was returned
                     UnpackResult::Data(mut data) => {
-                        // If we should broadcast this event
-                        if broadcast {
-                            // Add this event and each piece of data
-                            for number in data.drain(..) {
-                                broadcast_events.push((event_id.clone(), Some(number)));
-                            }
+                        // Add this event and each piece of data
+                        for number in data.drain(..) {
+                            broadcast_events.push((event_id.clone(), Some(number)));
                         }
                     }
 
@@ -708,8 +698,7 @@ impl EventHandler {
                 #[cfg(not(feature = "no_action_recursion"))]
                 if self.choose_scene_no_broadcast(new_scene).await.is_ok() {
                     // Process the new scene's default event and return any new events
-                    return UnpackResult::Events(self.process_event(&new_scene, true, true).await);
-                    // check the scene and broadcast
+                    return UnpackResult::Events(self.process_event(&new_scene, true).await);
                 }
 
                 // Try to change the current scene and broadcast scene id if successful
@@ -729,8 +718,7 @@ impl EventHandler {
                     .await
                 {
                     // Process the new state's event and return any new events
-                    return UnpackResult::Events(self.process_event(&new_id, true, true).await);
-                    // check the scene and broadcast
+                    return UnpackResult::Events(self.process_event(&new_id, true).await);
                 }
 
                 // Try to change the state of the status and broadcast the state if successful
@@ -767,8 +755,7 @@ impl EventHandler {
                 #[cfg(not(feature = "no_action_recursion"))]
                 if event.delay().is_none() {
                     // Process the event immediately and return any new events
-                    return UnpackResult::Events(self.process_event(&event.id(), true, true).await);
-                // check the scene and broadcast
+                    return UnpackResult::Events(self.process_event(&event.id(), true).await);
 
                 // Otherwise, add it to the queue
                 } else {
@@ -961,8 +948,8 @@ impl EventHandler {
                         // Process the event immediately and return any new events
                         #[cfg(not(feature = "no_action_recursion"))]
                         return UnpackResult::Events(
-                            self.process_event(&event_id.clone(), true, true).await,
-                        ); // check the scene and broadcast
+                            self.process_event(&event_id.clone(), true).await,
+                        );
 
                         // Add the event to the queue
                         #[cfg(feature = "no_action_recursion")]

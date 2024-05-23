@@ -45,12 +45,13 @@ pub enum InternalUpdate {
 
     /// A variant that processes a new event with the given item id. If the
     /// check_scene flag is not set, the system will not check if the event is
-    /// listed in the current scene. If broadcast is set to true, the event
-    /// will be broadcast to the system
+    /// listed in the current scene. If send_to_connections is set to true, the
+    /// event will be broadcast via the system connection(s) in addition to the
+    /// rest of the Minerva program.
     ProcessEvent {
         event_id: ItemId,
         check_scene: bool,
-        broadcast: bool,
+        send_to_connections: bool,
     },
 
     /// A variant to echo events back to the system connections
@@ -92,16 +93,19 @@ impl InternalSend {
             .unwrap_or(());
     }
 
-    // A method to process a new event. If the check_scene flag is not set,
-    // the system will not check if the event is in the current scene. If
-    // broadcast is set to true, the event will be broadcast to the system.
-    //
-    pub async fn send_event(&self, event_id: ItemId, check_scene: bool, broadcast: bool) {
+    /// A method to process a new event. If the check_scene flag is not set,
+    /// the system will not check if the event is in the current scene. If send_to_connections
+    /// is set to true, the event will be broadcast to the system connections as well
+    /// as the web interface (and media and dmx). If send_to_connections is set to false, the
+    /// event will not be sent back to the system connections (useful to avoid echoing events
+    /// back to the system connections).
+    ///
+    pub async fn send_event(&self, event_id: ItemId, check_scene: bool, send_to_connections: bool) {
         self.internal_send
             .send(InternalUpdate::ProcessEvent {
                 event_id,
                 check_scene,
-                broadcast,
+                send_to_connections,
             })
             .await
             .unwrap_or(());
