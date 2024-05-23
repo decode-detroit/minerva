@@ -265,7 +265,7 @@ impl SystemInterface {
                     // Try to process the event, and collect any events to broadcast
                     let mut is_first = true;
                     for (event_id, data) in handler.process_event(&event_id, check_scene).await {
-                        // If this is not the first event (i.e. this event) or we should send the first event to the connections, send it
+                        // If not the first event (i.e. this event), or if we should send the first event to the connections, send it
                         if !is_first || send_to_connections {
                             self.system_connection.broadcast(event_id, data).await;
                         }
