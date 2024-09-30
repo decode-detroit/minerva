@@ -404,11 +404,14 @@ export class SelectMenu extends React.PureComponent {
   // On load, get the list of potential items
   async componentDidMount() {
     try {
-      // Check if items were provided
+      // Placeholder lists
       let list = [];
+      let filtered = [];
+
+      // Check if items were provided
       if (this.props.hasOwnProperty(`items`)) {
+        // Check to see the item type for every item (not optimized)
         await asyncForEach(this.props.items, async (item) => {
-          // Check to see the item type
           let response = await fetch(`getType/${item.id}`);
           let type = "none";
   
@@ -418,7 +421,7 @@ export class SelectMenu extends React.PureComponent {
             type = json.data.message;
           }
           
-          // If the add menu type isn't none and this type doesn't match
+          // If the menu type isn't none and this type doesn't match
           if (this.props.type !== "none" && this.props.type !== type) {
             return; // return early
           }
@@ -436,6 +439,18 @@ export class SelectMenu extends React.PureComponent {
             });
           }
         });
+
+        // If a list was provided, show it immediately
+        if (this.props.hasOwnProperty(`items`)) {
+          filtered = [...list];
+        }
+
+        // Save the result to the state
+        this.setState({
+          unfiltered: list,
+          filtered: filtered,
+          ready: true,
+        });
         
       // Otherwise, fetch all items and process the response
       } else {
@@ -444,6 +459,13 @@ export class SelectMenu extends React.PureComponent {
         
         // If the response is valid
         if (json.isValid) {
+          // Save the temporary list, without types
+          this.setState({
+            unfiltered: list,
+            filtered: filtered,
+            ready: true,
+          });
+          
           // Get the detail of each item
           await asyncForEach(json.data.itemPairs, async (item) => {
             // Check to see the item type
@@ -456,7 +478,7 @@ export class SelectMenu extends React.PureComponent {
               type = json.data.message;
             }
             
-            // If the add menu type isn't none and this type doesn't match
+            // If the menu type isn't none and this type doesn't match
             if (this.props.type !== "none" && this.props.type !== type) {
               return; // return early
             }
@@ -468,21 +490,15 @@ export class SelectMenu extends React.PureComponent {
               description: item.description,
             });
           });
+
+          // Save the result to the state
+          this.setState({
+            unfiltered: list,
+            filtered: filtered,
+            ready: true,
+          });
         }
       }
-
-      // If a list was provided, show it immediately
-      let filtered = [];
-      if (this.props.hasOwnProperty(`items`)) {
-        filtered = [...list];
-      }
-
-      // Save the result to the state
-      this.setState({
-        unfiltered: list,
-        filtered: filtered,
-        ready: true,
-      });
 
       // Try to grab focus on the search input
       try {
