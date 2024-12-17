@@ -47,7 +47,7 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 
 // Import tracing features
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 // Import anyhow features
 use anyhow::Result;
@@ -81,9 +81,10 @@ impl Checksum for EventWithData {
 impl ConnectionType {
     /// An internal method to create a Live Connection from this Connection
     /// Type. This method estahblishes the connection to the underlying system.
-    /// If the connection fails, it will return the Error.
+    /// If it succeeds, it will return the live connection and a short description
+    /// of the connection. If the connection fails, it will return the Error.
     ///
-    async fn initialize(&self) -> Result<LiveConnection> {
+    async fn initialize(&self) -> Result<(LiveConnection, String)> {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the Mercury port
@@ -101,7 +102,10 @@ impl ConnectionType {
                     allowed_events.clone(),
                     RETRY_DELAY,
                 )?;
-                Ok(LiveConnection::Mercury { connection })
+                Ok((
+                    LiveConnection::Mercury { connection },
+                    format!("Mercury Connection at {:?}", path),
+                ))
             }
 
             // Connect to a live version of the zmq port
@@ -111,7 +115,10 @@ impl ConnectionType {
             } => {
                 // Create the new zmq connection
                 let connection = ZmqBind::new(send_path, recv_path).await?;
-                Ok(LiveConnection::ZmqPrimary { connection })
+                Ok((
+                    LiveConnection::ZmqPrimary { connection },
+                    format!("ZMQ Primary at {:?} and {:?}", send_path, recv_path),
+                ))
             }
 
             // Connect to a live version of the zmq port
@@ -121,7 +128,10 @@ impl ConnectionType {
             } => {
                 // Create a new zmq to main connection
                 let connection = ZmqConnect::new(send_path, recv_path).await?;
-                Ok(LiveConnection::ZmqSecondary { connection })
+                Ok((
+                    LiveConnection::ZmqSecondary { connection },
+                    format!("ZMQ Secondary at {:?} and {:?}", send_path, recv_path),
+                ))
             }
         }
     }
@@ -236,7 +246,6 @@ enum ConnectionUpdate {
 pub struct SystemConnection {
     internal_send: InternalSend, // structure to send events from the connections
     connection_senders: Vec<mpsc::Sender<ConnectionUpdate>>, // structure to forward events from the main program
-    is_broken: bool, // flag to indicate if one or more connections failed to establish
 }
 
 // Implement key Logger struct features
@@ -262,7 +271,6 @@ impl SystemConnection {
         let mut system_connection = SystemConnection {
             internal_send,
             connection_senders: Vec::new(),
-            is_broken: false,
         };
 
         // Try to update the system connection using the provided connection type(s)
@@ -274,13 +282,12 @@ impl SystemConnection {
         system_connection
     }
 
-    /// A method to update the system connection type. This method returns false
-    /// if it was unable to connect to the underlying system and warns the user.
+    /// A method to update and replace all the system connections
     ///
     pub async fn update_system_connections(
         &mut self,
         connections: Option<(ConnectionSet, Identifier)>,
-    ) -> bool {
+    ) {
         // Close the existing connections, if they exists
         for conn_send in self.connection_senders.iter() {
             conn_send.send(ConnectionUpdate::Stop).await.unwrap_or(());
@@ -288,61 +295,49 @@ impl SystemConnection {
 
         // Reset the connections
         self.connection_senders = Vec::new();
-        self.is_broken = false;
 
         // Check to see if there is a provided connection set
         if let Some((connection_set, identifier)) = connections {
-            // Initialize the system connections
+            // Initialize each of the system connections
             for possible_connection in connection_set {
-                // Attempt to initialize each connection
-                tokio::select! {
-                    result = possible_connection.initialize() => {
-                        // Examine the connection attempt
-                        match result {
-                            // If successful, spin up a thread for that connection
-                            Ok(connection) => {
-                                // Create the connecting mpscs
-                                let (conn_send, conn_recv) = mpsc::channel(128);
-                                let internal_send = self.internal_send.clone();
+                // Create the connecting mpscs
+                let (conn_send, conn_recv) = mpsc::channel(128);
+                let internal_send = self.internal_send.clone();
+                let identifier_clone = identifier.clone();
 
-                                // Spwan the thread
-                                tokio::spawn(SystemConnection::run_loop(connection, internal_send, conn_recv, identifier));
+                // Save the sender
+                self.connection_senders.push(conn_send);
 
-                                // Add the sender
-                                self.connection_senders.push(conn_send);
-                            }
+                // Spin off a thread for each connection
+                tokio::spawn(async move {
+                    // Try to initialize the connection
+                    match possible_connection.initialize().await {
+                        // If successful, wait on the thread
+                        Ok((connection, description)) => {
+                            // Note the new connection
+                            info!("System connection established: {}.", description);
 
-                            // If it fails, warn the user
-                            Err(e) => {
-                                error!("System connection error: {}.", e);
-                                self.is_broken = true;
-                            }
+                            // Run the connection loop
+                            SystemConnection::run_loop(
+                                connection,
+                                internal_send,
+                                conn_recv,
+                                identifier_clone,
+                            )
+                            .await;
                         }
-                    }
 
-                    _ = sleep(Duration::from_millis(5000)) => { // wait up to 5 seconds for each connection
-                        error!("System connection error: Connection attempt timed out.");
-                        self.is_broken = true;
+                        // If it fails, warn the user
+                        Err(e) => error!("System connection error: {}.", e),
                     }
-                }
+                });
             }
-
-            // Indicate whether the connections were successfully established
-            return !self.is_broken;
-        }
-
-        // Otherwise, leave the system disconnected
-        true
+        } // Otherwise, leave the system disconnected
     }
 
     /// A method to send events to the system connections
     ///
     pub async fn broadcast(&mut self, new_event: ItemId, data: Option<u32>) {
-        // Warn if one or more connections were not established
-        if self.is_broken {
-            error!("Unable to reach one or more system connections.");
-        }
-
         // Iterate through the connnections, if they exist
         for ref sender in self.connection_senders.iter() {
             // Send the new event
@@ -358,11 +353,6 @@ impl SystemConnection {
     /// A method to echo events to the system connections
     ///
     pub async fn echo(&mut self, new_event: ItemId, data1: u32, data2: u32) {
-        // Warn if one or more connections were not established
-        if self.is_broken {
-            error!("Unable to reach one or more system connections.");
-        }
-
         // Iterate through the connnections, if they exist
         for ref sender in self.connection_senders.iter() {
             // Send the echoed event

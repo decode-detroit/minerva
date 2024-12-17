@@ -758,17 +758,13 @@ impl SystemInterface {
             Err(_) => return, // errors will be logged separately if log_failure is true
         };
 
-        // Create a new connection to the underlying system
-        if !self
-            .system_connection
+        // Create a new connection to the hardware system
+        self.system_connection
             .update_system_connections(Some((
                 event_handler.get_connections(),
                 event_handler.get_identifier(),
             )))
-            .await
-        {
-            error!("Unable to open system connections.");
-        }
+            .await;
 
         // Trigger a redraw of the system
         self.interface_send.send(InterfaceUpdate::RefreshAll).await;
