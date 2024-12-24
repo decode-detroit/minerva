@@ -64,6 +64,7 @@ const EVENT_CHARACTER: u8 = '0' as u8; // the default event character
 const ACK_CHARACTER: u8 = '1' as u8; // the default ack character
 const ACK_DELAY: u64 = 200; // the longest delay to wait for an acknowledgement, in ms
 const RECONNECT_DELAY: u64 = 5000; // the delay to wait between retrying to establish a connection
+use super::RETRY_DELAY;
 const MAX_SEND_BUFFER: usize = 100; // the largest number of events allowed to pile up in the buffer
 const MAX_RETRY_COUNT: usize = 5; // the maximum number of times to retry sending an event
 
@@ -78,10 +79,10 @@ const MAX_RETRY_COUNT: usize = 5; // the maximum number of times to retry sendin
 ///
 pub struct Mercury {
     path: PathBuf,                              // the desired path of the serial port
+    alternate_paths: Vec<PathBuf>,              // the alternate possible locations where the serial connection may appear
     baud: u32,                                  // the baud rate of the serial port
     use_checksum: bool, // a flag indicating the system should use and verify 32bit checksums
     allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
-    write_timeout: u64,                         // the write timeout of the port
     stream: Option<serial::SerialStream>,       // the serial port of the connection, if available
     buffer: Vec<u8>,                            // the current input buffer
     outgoing: Vec<EventWithData>,               // the outgoing event buffer
@@ -97,18 +98,18 @@ impl Mercury {
     ///
     pub fn new(
         path: &PathBuf,
+        alternate_paths: &Vec<PathBuf>,
         baud: u32,
         use_checksum: bool,
         allowed_events: Option<FnvHashSet<ItemId>>,
-        write_timeout: u64,
     ) -> Result<Self> {
         // Create the new instance
         let mut mercury = Self {
             path: path.clone(),
+            alternate_paths: alternate_paths.clone(),
             baud,
             use_checksum,
             allowed_events,
-            write_timeout,
             stream: None,
             buffer: Vec::new(),
             outgoing: Vec::new(),
@@ -133,8 +134,31 @@ impl Mercury {
         // Disconnect from the port, if there is one
         drop(self.stream.take());
 
+        // Check to see if the normal path exists
+        let mut new_path = "";
+        if let Ok(false) = self.path.try_exists() { // if it doesn't
+            // Check the alternate paths
+            for possible_path in self.alternate_paths.iter() {
+                // If one of the possible paths exist
+                if let Ok(true) = possible_path.try_exists() {
+                    // Use that path (don't check the others)
+                    new_path = possible_path.to_str().unwrap_or("");
+                    break;
+                }
+            }
+
+            // If no path was found, return an error
+            if new_path == "" {
+                return Err(anyhow!("No valid paths for serial connection."));
+            }
+        
+        // Use the default path
+        } else {
+            new_path = self.path.to_str().unwrap_or("");
+        }
+
         // Create and configure a builder to connect to the underlying serial port
-        let builder = serial::new(self.path.to_str().unwrap_or(""), self.baud)
+        let builder = serial::new(new_path, self.baud)
             .data_bits(serial::DataBits::Eight)
             .parity(serial::Parity::None)
             .stop_bits(serial::StopBits::One)
@@ -275,7 +299,7 @@ impl Mercury {
 
         // Try to write to the serial port
         if let Some(ref mut stream) = self.stream {
-            Mercury::write_bytes(stream, bytes, self.write_timeout).await?;
+            Mercury::write_bytes(stream, bytes).await?;
 
         // If the stream doesn't exist (it always should)
         } else {
@@ -310,7 +334,7 @@ impl Mercury {
 
         // Try to write to the serial port
         if let Some(ref mut stream) = self.stream {
-            Mercury::write_bytes(stream, bytes, self.write_timeout).await?;
+            Mercury::write_bytes(stream, bytes).await?;
 
         // If the stream doesn't exist (it always should)
         } else {
@@ -327,7 +351,6 @@ impl Mercury {
     async fn write_bytes(
         stream: &mut serial::SerialStream,
         bytes: Vec<u8>,
-        write_timeout: u64,
     ) -> Result<()> {
         // Wait for the up to the write timeout for the stream to be ready
         tokio::select! {
@@ -348,7 +371,7 @@ impl Mercury {
             }
 
             // Only wait for the write timeout
-            _ = sleep(Duration::from_millis(write_timeout)) => {
+            _ = sleep(Duration::from_millis(RETRY_DELAY)) => {
                 // Mark the write as still waiting
                 return Err(anyhow!("Timeout while writing to Mercury port."));
             }
@@ -376,7 +399,7 @@ impl EventConnection for Mercury {
             error!("Communication read error: {}", error);
 
             // Wait at least the write timeout before returning
-            sleep(Duration::from_millis(self.write_timeout)).await;
+            sleep(Duration::from_millis(RETRY_DELAY)).await;
             return None;
         };
 
@@ -391,7 +414,7 @@ impl EventConnection for Mercury {
                 error!("Communication read error: {}", error);
 
                 // Wait at least the write timeout before returning
-                sleep(Duration::from_millis(self.write_timeout)).await;
+                sleep(Duration::from_millis(RETRY_DELAY)).await;
                 return None;
             }
 
@@ -810,7 +833,7 @@ mod tests {
         use std::time::Duration;
 
         // Create a new CmdMessenger instance
-        if let Ok(mut cc) = Mercury::new(&PathBuf::from("/dev/ttyACM0"), 115200, true, None, 100) {
+        if let Ok(mut cc) = Mercury::new(&PathBuf::from("/dev/ttyACM0"), [], 115200, true, None) {
             // Wait for the Arduino to boot
             thread::sleep(Duration::from_secs(3));
 

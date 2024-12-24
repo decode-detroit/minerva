@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "0.9.15"
+version = "0.9.16"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Interactive Show Control Software"
 license = "GPL-3.0-or-later"
@@ -18,7 +18,7 @@ serde_json = "1.0"
 redis = "0.25"
 serial = "0.4"
 byteorder = "1.4"
-zeromq = { version = "0.4.1", features = ["tcp-transport"] }
+zmq = "0.10"
 tokio = { version = "1.33", features = ["macros", "process", "rt-multi-thread", "time", "io-util"] }
 warp = { version = "0.3", features = ["tls"] }
 async-stream = "0.3"

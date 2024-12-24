@@ -90,6 +90,7 @@ impl ConnectionType {
             // Connect to a live version of the Mercury port
             &ConnectionType::Mercury {
                 ref path,
+                ref alternate_paths,
                 ref baud,
                 ref use_checksum,
                 ref allowed_events,
@@ -97,10 +98,10 @@ impl ConnectionType {
                 // Create the new Mercury connection
                 let connection = Mercury::new(
                     path,
+                    alternate_paths,
                     baud.clone(),
                     use_checksum.clone(),
                     allowed_events.clone(),
-                    RETRY_DELAY,
                 )?;
                 Ok((
                     LiveConnection::Mercury { connection },
