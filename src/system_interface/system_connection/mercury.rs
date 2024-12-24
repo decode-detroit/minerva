@@ -833,7 +833,7 @@ mod tests {
         use std::time::Duration;
 
         // Create a new CmdMessenger instance
-        if let Ok(mut cc) = Mercury::new(&PathBuf::from("/dev/ttyACM0"), [], 115200, true, None) {
+        if let Ok(mut cc) = Mercury::new(&PathBuf::from("/dev/ttyACM0"), &vec![], 115200, true, None) {
             // Wait for the Arduino to boot
             thread::sleep(Duration::from_secs(3));
 
