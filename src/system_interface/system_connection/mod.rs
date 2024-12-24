@@ -105,7 +105,7 @@ impl ConnectionType {
                 )?;
                 Ok((
                     LiveConnection::Mercury { connection },
-                    format!("Mercury Connection at {:?}", path),
+                    format!("Mercury Connection at {:?}.", path),
                 ))
             }
 
@@ -118,7 +118,7 @@ impl ConnectionType {
                 let connection = ZmqBind::new(send_path, recv_path).await?;
                 Ok((
                     LiveConnection::ZmqPrimary { connection },
-                    format!("ZMQ Primary at {:?} and {:?}", send_path, recv_path),
+                    format!("ZMQ Primary at {:?} and {:?}.", send_path, recv_path),
                 ))
             }
 
@@ -131,7 +131,7 @@ impl ConnectionType {
                 let connection = ZmqConnect::new(send_path, recv_path).await?;
                 Ok((
                     LiveConnection::ZmqSecondary { connection },
-                    format!("ZMQ Secondary at {:?} and {:?}", send_path, recv_path),
+                    format!("ZMQ Secondary at {:?} and {:?}.", send_path, recv_path),
                 ))
             }
         }
@@ -316,7 +316,7 @@ impl SystemConnection {
                         // If successful, wait on the thread
                         Ok((connection, description)) => {
                             // Note the new connection
-                            info!("System connection established: {}.", description);
+                            info!("System connection established: {}", description);
 
                             // Run the connection loop
                             SystemConnection::run_loop(
@@ -329,7 +329,7 @@ impl SystemConnection {
                         }
 
                         // If it fails, warn the user
-                        Err(e) => error!("System connection error: {}.", e),
+                        Err(e) => error!("System connection error: {}", e),
                     }
                 });
             }
@@ -346,7 +346,7 @@ impl SystemConnection {
                 .send(ConnectionUpdate::Broadcast(new_event, data))
                 .await
             {
-                error!("Unable to connect: {}.", error);
+                error!("Unable to connect: {}", error);
             }
         }
     }
@@ -361,7 +361,7 @@ impl SystemConnection {
                 .send(ConnectionUpdate::Echo(new_event, data1, data2))
                 .await
             {
-                error!("Unable to connect: {}.", error);
+                error!("Unable to connect: {}", error);
             }
         }
     }
