@@ -392,7 +392,7 @@ impl SystemInterface {
                     return UnpackResult::SuccessWithParameters(ConfigParameters {
                         identifier: handler.get_identifier(),
                         server_location: handler.get_server_location(),
-                        dmx_path: handler.get_dmx_path(),
+                        dmx_controllers: handler.get_dmx_controllers(),
                         media_players: handler.get_media_players(),
                         system_connections: handler.get_connections(),
                         background_process: handler.get_background_process(),

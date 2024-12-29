@@ -490,9 +490,6 @@ export class ConfigArea extends React.PureComponent {
         <div>Backup Server Location:
           <TextInput value={this.state.parameters.serverLocation} handleInput={(e) => {this.updateParameters("serverLocation", `${e.target.value === "" ? null : e.target.value}`)}} />
         </div>
-        <div>DMX Connection Path:
-          <TextInput value={this.state.parameters.dmxPath} handleInput={(e) => {this.updateParameters("dmxPath", `${e.target.value === "" ? null : e.target.value}`)}} />
-        </div>
         <div>Background Process:
           {!this.state.parameters.backgroundProcess && <TextInput value="" handleInput={(e) => {this.updateBackgroundProcess("process", `${e.target.value}`)}} />}
           {this.state.parameters.backgroundProcess && <>
@@ -503,6 +500,7 @@ export class ConfigArea extends React.PureComponent {
         </div>
         <div>System Connections: Not Yet Implemented</div>
         <div>Media Players: Not Yet Implemented</div>
+        <div>DMX Controllers: Not Yet Implemented</div>
       </div>
     )
   }s

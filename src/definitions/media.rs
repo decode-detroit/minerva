@@ -205,7 +205,7 @@ pub struct ApolloParams {
 pub struct MediaPlayer {
     pub channel_map: ChannelMap, // the map of channel numbers to channel properties
     pub window_map: WindowMap,   // the map of window numbers to window properties
-    pub apollo_params: ApolloParams, // the parameters for Apollo media player, if specified
+    pub apollo_params: ApolloParams, // the parameters for Apollo media player
 }
 
 // A helper struct to specify seeking media on a channel

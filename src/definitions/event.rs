@@ -159,9 +159,33 @@ pub enum DataType {
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DmxFade {
+    pub universe: Option<u32>,              // the dmx universe to send the fade to, defaults to 0
     pub channel: u32,               // the dmx channel to fade
     pub value: u8,                  // the final value at the end of the fade
     pub duration: Option<Duration>, // the duration of the fade (None if instantaneous)
+}
+
+// A helper struct to define a single dmx fade.
+// This version is serialized with camelCase to allow compatability with Vulcan.
+//
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DmxFadeHelper {
+    pub channel: u32,
+    pub value: u8,
+    pub duration: Option<Duration>,
+}
+
+// Implement conversion to DmxFadeHelper
+impl From<DmxFade> for DmxFadeHelper {
+    fn from(dmx_fade: DmxFade) -> Self {
+        // Recompose as a media cue helper
+        Self {
+            channel: dmx_fade.channel,
+            value: dmx_fade.value,
+            duration: dmx_fade.duration,
+        }
+    }
 }
 
 /// A struct to define a single media track to play

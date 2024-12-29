@@ -54,6 +54,9 @@ use chrono::NaiveDateTime;
 use tokio::fs::File;
 use tokio::time::sleep;
 
+// Import FNV HashSet
+use fnv::FnvHashMap;
+
 // Import Async recursion
 use async_recursion::async_recursion;
 
@@ -70,7 +73,7 @@ use anyhow::Result;
 pub struct EventHandler {
     queue: Queue, // current event queue
     #[cfg(not(target_os = "windows"))]
-    dmx_interface: Option<DmxInterface>, // the dmx interface, if available
+    dmx_interfaces: FnvHashMap<u32, DmxInterface>, // list of available dmx universes
     media_interfaces: Vec<MediaInterface>, // list of available media interfaces
     config: Config, // current configuration
     config_path: PathBuf, // current configuration path
@@ -154,19 +157,15 @@ impl EventHandler {
             resolved_path.push("default.yaml");
         }
 
-        // Attempt to create the dmx interface, if specified
-        #[cfg(not(target_os = "windows"))]
-        let mut dmx_interface = None;
-        #[cfg(not(target_os = "windows"))]
-        if let Some(path) = config.get_dmx_path() {
-            // Try to connect to the interface
-            if let Ok(interface) = DmxInterface::new(path.as_path()) {
-                dmx_interface = Some(interface);
-
-            // Otherwise, report the error
-            } else {
-                error!("Unable to initialize the DMX interface.");
-            }
+        // Attempt to create any DMX interfaces
+        let mut dmx_interfaces = FnvHashMap::default();
+        for (universe_number, params) in config.get_dmx_controllers() {
+            dmx_interfaces.insert(
+                universe_number, DmxInterface::new(
+                    params,
+                )
+                .await,
+            );
         }
 
         // Attempt to create any media interfaces
@@ -190,7 +189,7 @@ impl EventHandler {
             BackupHandler::new(config.get_identifier(), config.get_server_location()).await;
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, status_pairs, queued_events, dmx_universe, media_playlist)) =
+        if let Some((current_scene, status_pairs, queued_events, dmx_universes, media_playlist)) =
             backup.reload_backup(config.get_status_ids())
         {
             // Change the current scene silently (i.e. do not trigger the scene's default event)
@@ -204,9 +203,12 @@ impl EventHandler {
             config.load_backup_status(status_pairs).await;
 
             // Restore the existing dmx values
-            #[cfg(not(target_os = "windows"))]
-            if let Some(ref interface) = dmx_interface {
-                interface.restore_universe(dmx_universe).await;
+            for (universe_num, interface) in dmx_interfaces.iter_mut() {
+                // If there is backup information for that universe
+                if let Some(universe) = dmx_universes.get(universe_num) {
+                    // Load the backup information
+                    interface.restore_universe(universe.clone()).await.unwrap_or(());
+                }
             }
 
             // If there is a media playlist
@@ -246,7 +248,7 @@ impl EventHandler {
         Ok(Self {
             queue,
             #[cfg(not(target_os = "windows"))]
-            dmx_interface,
+            dmx_interfaces,
             media_interfaces,
             config,
             config_path: resolved_path,
@@ -319,19 +321,19 @@ impl EventHandler {
         self.config.get_default_scene()
     }
 
-    /// A method to return a copy of the dmx path
+    /// A method to return a copy of the dmx controller details
     ///
-    pub fn get_dmx_path(&self) -> Option<PathBuf> {
-        self.config.get_dmx_path()
+    pub fn get_dmx_controllers(&self) -> DmxControllers {
+        self.config.get_dmx_controllers()
     }
 
-    /// A method to return the identifier number.
+    /// A method to return the identifier number
     ///
     pub fn get_identifier(&self) -> Identifier {
         self.config.get_identifier()
     }
 
-    /// A method to return a copy of the event for the provided id.
+    /// A method to return a copy of the event for the provided id
     ///
     pub fn get_event(&mut self, event_id: &ItemId) -> Option<Event> {
         // Try to get a copy of the event
@@ -729,8 +731,7 @@ impl EventHandler {
             // If there is a fade to cue, send it to the dmx connection
             CueDmx { fade } => {
                 // Send it to the dmx interface, if it exists
-                #[cfg(not(target_os = "windows"))]
-                if let Some(ref interface) = &self.dmx_interface {
+                if let Some(interface) = self.dmx_interfaces.get_mut(&fade.universe.unwrap_or(0)) {
                     if let Err(err) = interface.play_fade(fade.clone()).await {
                         error!("Error with DMX playback: {}.", err);
 
@@ -741,7 +742,7 @@ impl EventHandler {
 
                 // Warn that there is no active Dmx interface
                 } else {
-                    error!("Failed to play DMX fade: No DMX interface available.");
+                    error!("Failed to play DMX fade: No DMX interface available for that universe.");
                 }
 
                 // On windows, just post the error

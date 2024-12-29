@@ -21,9 +21,6 @@
 // Import crate definitions
 use crate::definitions::*;
 
-// Import standard library features
-use std::path::PathBuf;
-
 // Import Tokio and warp features
 use tokio::sync::mpsc;
 use warp::ws::Message;
@@ -52,7 +49,7 @@ pub enum DisplaySetting {
 pub struct ConfigParameters {
     pub identifier: Identifier,
     pub server_location: Option<String>,
-    pub dmx_path: Option<PathBuf>,
+    pub dmx_controllers: DmxControllers,
     pub media_players: Vec<MediaPlayer>,
     pub system_connections: ConnectionSet,
     pub background_process: Option<BackgroundProcess>,

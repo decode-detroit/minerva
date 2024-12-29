@@ -46,59 +46,6 @@ impl QueuedEvent {
     }
 }
 
-// Define the DMX constants
-pub const DMX_MAX: u32 = 512; // the highest channel of DMX, exclusive
-
-/// A type definition for one set of Dmx channels
-///
-#[derive(Clone, Serialize, Deserialize)]
-pub struct DmxUniverse {
-    values: Vec<u8>, // Internal representation of the channel values
-                     // NOTE: the chennels are internally zero-indexed, rather than the one-indexed standard of DMX
-}
-
-/// Implement key features for the DmxUniverse
-impl DmxUniverse {
-    /// Function to create a new, initialized list of the dmx channels
-    ///
-    pub fn new() -> Self {
-        Self {
-            values: vec![0; DMX_MAX as usize],
-        }
-    }
-
-    /// Method to get the value of a particular channel
-    ///
-    pub fn get(&self, channel: u32) -> u8 {
-        // Check the bounds
-        if (channel > DMX_MAX) | (channel < 1) {
-            return 0; // default to zero
-        }
-
-        // Otherwise, convert to zero-indexed and return the value
-        return self.values[channel as usize - 1];
-    }
-
-    /// Method to set the value of a paticular channel
-    ///
-    pub fn set(&mut self, channel: u32, value: u8) {
-        // Check the bounds
-        if (channel <= DMX_MAX) & (channel > 0) {
-            // Convert to zero-indexed and set the value
-            self.values[channel as usize - 1] = value;
-        } // Otherwise, do nothing
-    }
-
-    /// Method to export the universe as a set of bytes
-    ///
-    /// CAUTION: These bytes are zero-indexed!
-    ///
-    pub fn as_bytes(&self) -> Vec<u8> {
-        // Return the array
-        self.values.clone()
-    }
-}
-
 /// A structure to save a media cue with timing information
 ///
 #[derive(Clone, Serialize, Deserialize)]
@@ -121,3 +68,6 @@ impl MediaPlayback {
 
 /// A structure to store the media playbacks in a playlist
 pub type MediaPlaylist = FnvHashMap<u32, MediaPlayback>;
+
+/// A structure to store the dmx universes in a set
+pub type DmxUniverses = FnvHashMap<u32, DmxUniverse>;

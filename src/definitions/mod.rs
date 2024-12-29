@@ -36,6 +36,7 @@ mod test;
 mod background;
 mod backup;
 mod connections;
+mod dmx;
 mod event;
 mod group;
 #[allow(dead_code)] // Allow dead code, reserved for future use
@@ -53,6 +54,7 @@ mod system;
 pub use self::background::*;
 pub use self::backup::*;
 pub use self::connections::*;
+pub use self::dmx::*;
 pub use self::event::*;
 pub use self::group::*;
 pub use self::index::*;

@@ -61,7 +61,7 @@ impl ApolloThread {
             // If the child process was created, return it
             Ok(child) => child,
 
-            // Otherwise, warn of the error and return
+            // Otherwise, try again in the local directory
             _ => {
                 // Try looking in the local directory
                 match Command::new("./apollo")
@@ -238,10 +238,13 @@ impl MediaInterface {
 
     // A helper method to send a new media cue
     pub async fn play_cue(&mut self, cue: MediaCue) -> Result<()> {
-        // Check that the channel is valid
-        if !self.channel_list.contains(&cue.channel) {
-            // If not, note the error
-            return Err(anyhow!("Channel for Media Cue not found."));
+        // If there is a channel list
+        if self.channel_list.len() > 0 {
+            // Check that the channel is valid
+            if !self.channel_list.contains(&cue.channel) {
+                // If not, note the error
+                return Err(anyhow!("Channel for Media Cue not found."));
+            }
         }
 
         // Create the request client if it doesn't exist
@@ -267,10 +270,13 @@ impl MediaInterface {
 
     // A helper method to adjust the location of a video frame by one pixel in any direction
     pub async fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<()> {
-        // Check that the channel is valid
-        if !self.channel_list.contains(&adjustment.channel) {
-            // If not, note the error
-            return Err(anyhow!("Channel for Media Alignment not found."));
+        // If there is a channel list
+        if self.channel_list.len() > 0 {
+            // Check that the channel is valid
+            if !self.channel_list.contains(&adjustment.channel) {
+                // If not, note the error
+                return Err(anyhow!("Channel for Media Alignment not found."));
+            }
         }
 
         // Create the request client if it doesn't exist
@@ -304,10 +310,13 @@ impl MediaInterface {
 
         // Look through the playlist
         for (channel, playback) in playlist.drain() {
-            // Check that the channel is valid
-            if !self.channel_list.contains(&channel) {
-                // If not, skip this entry
-                continue;
+            // If there is a channel list
+            if self.channel_list.len() > 0 {
+                // Check that the channel is valid
+                if !self.channel_list.contains(&channel) {
+                    // If not, skip this entry
+                    continue;
+                }
             }
 
             // Create the request client if it doesn't exist

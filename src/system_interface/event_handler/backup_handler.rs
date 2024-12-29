@@ -35,7 +35,7 @@ use tracing::{error, info, warn};
 use redis::{Commands, ConnectionLike, RedisResult};
 
 // Import FNV HashSet and HashMap
-use fnv::FnvHashSet;
+use fnv::{FnvHashSet, FnvHashMap};
 
 // Import YAML processing library
 use serde_yaml;
@@ -63,7 +63,7 @@ pub struct BackupHandler {
     last_queue_update: Instant, // the time of the last update for the queue backup
     last_media_update: Instant, // the time of the last update for the media backup
     backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
-    dmx_universe: DmxUniverse, // the current final value of all DMX fades
+    dmx_universes: DmxUniverses, // the current final value of all DMX fades for each universe
     media_playlist: MediaPlaylist, // the current media playback for each channel
 }
 
@@ -109,7 +109,7 @@ impl BackupHandler {
                         last_queue_update: Instant::now(),
                         last_media_update: Instant::now(),
                         backup_items: FnvHashSet::default(),
-                        dmx_universe: DmxUniverse::new(),
+                        dmx_universes: FnvHashMap::default(),
                         media_playlist: MediaPlaylist::default(),
                     };
 
@@ -131,7 +131,7 @@ impl BackupHandler {
             last_queue_update: Instant::now(),
             last_media_update: Instant::now(),
             backup_items: FnvHashSet::default(),
-            dmx_universe: DmxUniverse::new(),
+            dmx_universes: FnvHashMap::default(),
             media_playlist: MediaPlaylist::default(),
         }
     }
@@ -190,8 +190,7 @@ impl BackupHandler {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Try to copy the state to the server
-            let result: RedisResult<bool>;
-            result = connection.set(
+            let result: RedisResult<bool> = connection.set(
                 &format!("{}:{}", self.identifier, status_id),
                 &format!("{}", new_state.id()),
             );
@@ -258,8 +257,7 @@ impl BackupHandler {
             };
 
             // Try to copy the event to the server
-            let result: RedisResult<bool>;
-            result = connection.set(&format!("{}:queue", self.identifier), &event_string);
+            let result: RedisResult<bool> = connection.set(&format!("{}:queue", self.identifier), &event_string);
 
             // Alert that the event queue was not set
             if let Err(..) = result {
@@ -297,11 +295,24 @@ impl BackupHandler {
     pub async fn backup_dmx(&mut self, dmx_fade: DmxFade) {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
-            // Update the dmx status
-            self.dmx_universe.set(dmx_fade.channel, dmx_fade.value);
+            // Find an existing dmx universe
+            if let Some(universe) = self.dmx_universes.get_mut(&dmx_fade.universe.unwrap_or(0)) {
+                // Update the final value
+                universe.set(dmx_fade.channel, dmx_fade.value);
 
-            // Try to serialize the dmx universe
-            let dmx_string = match serde_yaml::to_string(&self.dmx_universe) {
+            // Or create the universe if it doesn't exist
+            } else {
+                let mut universe = DmxUniverse::new();
+                
+                // Set the final value
+                universe.set(dmx_fade.channel, dmx_fade.value);
+
+                // And add it to the collection of universes
+                self.dmx_universes.insert(dmx_fade.universe.unwrap_or(0), universe);
+            }
+
+            // Try to serialize the dmx universes and save them
+            let dmx_string = match serde_yaml::to_string(&self.dmx_universes) {
                 Ok(string) => string,
                 Err(error) => {
                     error!("Unable to parse DMX universer: {}.", error);
@@ -313,8 +324,7 @@ impl BackupHandler {
             };
 
             // Try to copy the data to the server
-            let result: RedisResult<bool>;
-            result = connection.set(&format!("{}:dmx", self.identifier), &dmx_string);
+            let result: RedisResult<bool> = connection.set(&format!("{}:dmx", self.identifier), &dmx_string);
 
             // Alert that the dmx status was not set
             if let Err(..) = result {
@@ -377,8 +387,7 @@ impl BackupHandler {
             };
 
             // Try to copy the data to the server
-            let result: RedisResult<bool>;
-            result = connection.set(&format!("{}:media", self.identifier), &media_string);
+            let result: RedisResult<bool> = connection.set(&format!("{}:media", self.identifier), &media_string);
 
             // Alert that the media playlist was not set
             if let Err(..) = result {
@@ -415,7 +424,7 @@ impl BackupHandler {
         ItemId,
         Vec<(ItemId, ItemId)>,
         Vec<QueuedEvent>,
-        DmxUniverse,
+        DmxUniverses,
         MediaPlaylist,
     )> {
         // If the redis connection exists
@@ -471,7 +480,7 @@ impl BackupHandler {
                 }
 
                 // Try to read the existing dmx universe
-                let mut dmx_universe = DmxUniverse::new();
+                let mut dmx_universes = FnvHashMap::default();
                 let result: RedisResult<String> =
                     connection.get(&format!("{}:dmx", self.identifier));
 
@@ -479,12 +488,12 @@ impl BackupHandler {
                 if let Ok(dmx_string) = result {
                     // Try to parse the data
                     if let Ok(universe) = serde_yaml::from_str(dmx_string.as_str()) {
-                        dmx_universe = universe;
+                        dmx_universes = universe;
                     }
                 }
 
                 // Save the dmx universe
-                self.dmx_universe = dmx_universe.clone();
+                self.dmx_universes = dmx_universes.clone();
 
                 // Try to read the existing media cues
                 let mut media_playlist = MediaPlaylist::default();
@@ -546,7 +555,7 @@ impl BackupHandler {
                             current_scene,
                             status_pairs,
                             queued_events,
-                            dmx_universe,
+                            dmx_universes,
                             media_playlist,
                         ));
                     }
@@ -580,8 +589,7 @@ impl BackupHandler {
         };
 
         // Try to copy the data to the server
-        let result: RedisResult<bool>;
-        result = connection.set(&format!("{}:lastupdate", self.identifier), &update_string);
+        let result: RedisResult<bool> = connection.set(&format!("{}:lastupdate", self.identifier), &update_string);
 
         // Alert that the media playlist was not set
         if let Err(..) = result {
@@ -661,6 +669,7 @@ mod tests {
         backup_handler.backup_status(&status2, &state2).await;
         backup_handler
             .backup_dmx(DmxFade {
+                universe: None,
                 channel: 1,
                 value: 255,
                 duration: None,
@@ -668,6 +677,7 @@ mod tests {
             .await;
         backup_handler
             .backup_dmx(DmxFade {
+                universe: Some(0),
                 channel: 3,
                 value: 150,
                 duration: None,
@@ -694,8 +704,8 @@ mod tests {
         {
             assert_eq!(current_scene, reload_scene);
             assert_eq!(vec!((status1, state1), (status2, state2)), statuses);
-            assert_eq!(255 as u8, dmx.get(1));
-            assert_eq!(150 as u8, dmx.get(3));
+            assert_eq!(255 as u8, dmx.get(&0).unwrap().get(1));
+            assert_eq!(150 as u8, dmx.get(&0).unwrap().get(3));
             assert_eq!(
                 MediaCue {
                     channel: 1,

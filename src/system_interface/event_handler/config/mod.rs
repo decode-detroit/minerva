@@ -29,7 +29,7 @@ mod status;
 use self::status::StatusHandler;
 
 // Import standard library features
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 // Import tokio features
 use tokio::fs::File;
@@ -162,7 +162,7 @@ struct YamlConfig {
     version: String,        // a version tag to warn the user of incompatible versions
     identifier: Identifier, // unique identifier for the controller instance, if specified
     server_location: Option<String>, // the location of the backup server, if specified
-    dmx_path: Option<PathBuf>, // the location of the dmx connection, if specified
+    dmx_controllers: DmxControllers, // the details of the dmx controller(s)
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
     system_connections: ConnectionSet, // the type of connection(s) to the underlying system
     background_process: Option<BackgroundProcess>, // an option background process to run
@@ -182,7 +182,7 @@ struct YamlConfig {
 pub struct Config {
     identifier: Identifier, // unique identifier for the controller instance
     system_connections: ConnectionSet, // the type of connection(s) to the underlying system
-    dmx_path: Option<PathBuf>, // the location of the dmx connection, if specified
+    dmx_controllers: DmxControllers, // the details of the dmx controller(s)
     media_players: Vec<MediaPlayer>, // the details of the media player(s)
     server_location: Option<String>, // the location of the backup server, if specified
     background_thread: Option<BackgroundThread>, // a copy of the background process info
@@ -221,7 +221,7 @@ impl Config {
         Config {
             identifier: Identifier { id: None },
             system_connections: ConnectionSet::new(),
-            dmx_path: None,
+            dmx_controllers: DmxControllers::default(),
             media_players: Vec::new(),
             server_location: None,
             background_thread: None,
@@ -359,7 +359,7 @@ impl Config {
         Ok(Config {
             identifier: yaml_config.identifier,
             system_connections: yaml_config.system_connections,
-            dmx_path: yaml_config.dmx_path,
+            dmx_controllers: yaml_config.dmx_controllers,
             server_location: yaml_config.server_location,
             media_players: yaml_config.media_players,
             background_thread,
@@ -398,12 +398,12 @@ impl Config {
         self.default_scene
     }
 
-    /// A method to return a copy of the dmx path
+    /// A method to return a copy of the dmx contollgers
     ///
-    pub fn get_dmx_path(&self) -> Option<PathBuf> {
-        self.dmx_path.clone()
+    pub fn get_dmx_controllers(&self) -> DmxControllers {
+        self.dmx_controllers.clone()
     }
-
+    
     /// A method to return the identifier
     ///
     pub fn get_identifier(&self) -> Identifier {
@@ -598,7 +598,7 @@ impl Config {
         // Update the fields of the current configuration
         self.identifier = parameters.identifier;
         self.server_location = parameters.server_location;
-        self.dmx_path = parameters.dmx_path;
+        self.dmx_controllers = parameters.dmx_controllers;
         self.media_players = parameters.media_players;
         self.system_connections = parameters.system_connections;
         self.default_scene = parameters.default_scene;
@@ -1149,7 +1149,7 @@ impl Config {
             identifier: self.get_identifier(),
             server_location: self.server_location.clone(),
             system_connections: self.get_connections(),
-            dmx_path: self.dmx_path.clone(),
+            dmx_controllers: self.dmx_controllers.clone(),
             media_players: self.media_players.clone(),
             background_process: self.get_background_process(),
             default_scene: self.default_scene,
