@@ -347,7 +347,7 @@ impl SystemInterface {
                 // Notify the user interface of the event
                 self.interface_send
                     .send(InterfaceUpdate::Notify {
-                        message: "ALL STOP. Upcoming events have been cleared.".to_string(),
+                        message: "ALL STOP. Upcoming events have been cleared.".into(),
                     })
                     .await;
 

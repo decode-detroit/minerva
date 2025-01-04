@@ -386,7 +386,7 @@ impl WebReply {
     pub fn success() -> WebReply {
         WebReply {
             is_valid: true,
-            data: WebReplyData::Message("Request completed.".to_string()),
+            data: WebReplyData::Message("Request completed.".into()),
         }
     }
 

@@ -49,16 +49,23 @@ impl VulcanThread {
         mut close_receiver: mpsc::Receiver<()>,
         path: PathBuf,
         address: String,
+        backup_location: Option<String>,
     ) {
         // Notify that the background process is starting
         info!("Starting Vulcan DMX controller ...");
 
+        // Compose the arguments
+        let mut arguments = vec!["-p".into(), path.to_str().unwrap_or("").into(), "-a".into(), address.clone()];
+        
+        // Add the backup location if specified
+        if let Some(location) = backup_location {
+            arguments.push("-b".into());
+            arguments.push(location);
+        }
+
         // Create the child process
         let mut child = match Command::new("vulcan")
-            .arg("-p")
-            .arg(&path)
-            .arg("-a")
-            .arg(&address)
+            .args(&arguments)
             .kill_on_drop(true)
             .spawn()
         {
@@ -69,10 +76,7 @@ impl VulcanThread {
             _ => {
                 // Try looking in the local directory
                 match Command::new("./vulcan")
-                    .arg("-p")
-                    .arg(&path)
-                    .arg("-a")
-                    .arg(&address)
+                    .args(&arguments)
                     .kill_on_drop(true)
                     .spawn()
                 {
@@ -138,10 +142,7 @@ impl VulcanThread {
 
                 // Start the process again
                 child = match Command::new("vulcan")
-                    .arg("-p")
-                    .arg(&path)
-                    .arg("-a")
-                    .arg(&address)
+                    .args(&arguments)
                     .kill_on_drop(true)
                     .spawn()
                 {
@@ -152,10 +153,7 @@ impl VulcanThread {
                     _ => {
                         // Try looking in the local directory
                         match Command::new("./vulcan")
-                            .arg("-p")
-                            .arg(&path)
-                            .arg("-a")
-                            .arg(&address)
+                            .args(&arguments)
                             .kill_on_drop(true)
                             .spawn()
                         {
@@ -190,6 +188,7 @@ impl DmxInterface {
     ///
     pub async fn new(
         vulcan_params: VulcanParams,
+        backup_location: Option<String>
     ) -> Self {
         // Copy the specified address or use the default
         let address =  vulcan_params
@@ -202,7 +201,7 @@ impl DmxInterface {
 
         // Spin out thread to monitor and restart vulcan, if requested
         if vulcan_params.spawn {
-            VulcanThread::spawn(close_receiver, vulcan_params.path.unwrap_or(PathBuf::new()), address.clone()).await;
+            VulcanThread::spawn(close_receiver, vulcan_params.path.unwrap_or(PathBuf::new()), address.clone(), backup_location).await;
         }
 
         // Return the complete module

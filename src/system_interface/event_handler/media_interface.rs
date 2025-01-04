@@ -53,18 +53,17 @@ impl ApolloThread {
         info!("Starting Apollo media player ...");
 
         // Compose the arguments
-        let mut arguments = vec!["-a".to_string(), address.clone()];
+        let mut arguments = vec!["-a".into(), address.clone()];
         
         // Add the backup location if specified
         if let Some(location) = backup_location {
-            arguments.push("-b".to_string());
+            arguments.push("-b".into());
             arguments.push(location);
         }
 
         // Create the child process
         let mut child = match Command::new("apollo")
             .args(&arguments)
-            //.kill_on_drop(true)
             .spawn()
         {
             // If the child process was created, return it
@@ -75,7 +74,6 @@ impl ApolloThread {
                 // Try looking in the local directory
                 match Command::new("./apollo")
                     .args(&arguments)
-                    //.kill_on_drop(true)
                     .spawn()
                 {
                     // If the child process was created, return it
@@ -167,7 +165,6 @@ impl ApolloThread {
                 // Start the process again
                 child = match Command::new("apollo")
                     .args(&arguments)
-                    //.kill_on_drop(true)
                     .spawn()
                 {
                     // If the child process was created, return it
@@ -178,7 +175,6 @@ impl ApolloThread {
                         // Try looking in the local directory
                         match Command::new("./apollo")
                             .args(&arguments)
-                            //.kill_on_drop(true)
                             .spawn()
                         {
                             // If the child process was created, return it

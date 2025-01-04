@@ -162,6 +162,7 @@ impl EventHandler {
             dmx_interfaces.insert(
                 universe_number, DmxInterface::new(
                     params,
+                    config.get_server_location(),
                 )
                 .await,
             );

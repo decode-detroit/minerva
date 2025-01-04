@@ -716,14 +716,14 @@ impl WebInterface {
     fn generate_admin_token(encoding_key: jwt::EncodingKey) -> String {
         // Compose the claims for the token
         let claims = Claims {
-            iss: "Minerva-LimitedCue-Admin".to_string(),
+            iss: "Minerva-LimitedCue-Admin".into(),
             exp: 0, // Expiration is ignored
         };
 
         // Try to encode the token
         match jwt::encode(&jwt::Header::default(), &claims, &encoding_key) {
             Ok(token) => token,
-            _ => "Unable to generate admin token.".to_string(),
+            _ => "Unable to generate admin token.".into(),
         }
     }
 
@@ -758,7 +758,7 @@ impl WebInterface {
 
         // Compose the claims for the token
         let claims = Claims {
-            iss: "Minerva-LimitedCue".to_string(),
+            iss: "Minerva-LimitedCue".into(),
             exp,
         };
 

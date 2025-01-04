@@ -170,7 +170,7 @@ impl ItemDescription {
     ///
     pub fn new(description: &str) -> ItemDescription {
         ItemDescription {
-            description: description.to_string(),
+            description: description.into(),
         }
     }
 
@@ -179,7 +179,7 @@ impl ItemDescription {
     #[allow(dead_code)]
     pub fn new_default() -> ItemDescription {
         ItemDescription {
-            description: "No Description".to_string(),
+            description: "No Description".into(),
         }
     }
 }
@@ -244,7 +244,7 @@ impl ItemPair {
         // Return the new item pair
         Some(ItemPair {
             id,
-            description: description.to_string(),
+            description: description.into(),
         })
     }
 
@@ -284,7 +284,7 @@ impl ItemPair {
         // Return the new item pair
         Some(ItemPair {
             id,
-            description: description.to_string(),
+            description: description.into(),
         })
     }
 
@@ -298,7 +298,7 @@ impl ItemPair {
     pub fn new_unchecked(id: u32, description: &str) -> ItemPair {
         ItemPair {
             id,
-            description: description.to_string(),
+            description: description.into(),
         }
     }
 
@@ -389,7 +389,7 @@ impl ItemPair {
     pub fn all_stop() -> ItemPair {
         ItemPair {
             id: ALL_STOP,
-            description: "ALL STOP".to_string(),
+            description: "ALL STOP".into(),
         }
     }
 }

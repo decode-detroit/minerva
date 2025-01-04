@@ -1145,7 +1145,7 @@ impl Config {
 
         // Create a YAML config from the elements
         let yaml_config = YamlConfig {
-            version: env!("CARGO_PKG_VERSION").to_string(),
+            version: env!("CARGO_PKG_VERSION").into(),
             identifier: self.get_identifier(),
             server_location: self.server_location.clone(),
             system_connections: self.get_connections(),

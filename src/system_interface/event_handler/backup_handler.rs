@@ -460,7 +460,7 @@ mod tests {
         // Create the backup handler
         let mut backup_handler = BackupHandler::new(
             Identifier { id: None },
-            Some("redis://127.0.0.1:6379".to_string()),
+            Some("redis://127.0.0.1:6379".into()),
         )
         .await;
 
