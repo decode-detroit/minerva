@@ -72,7 +72,6 @@ use anyhow::Result;
 ///
 pub struct EventHandler {
     queue: Queue, // current event queue
-    #[cfg(not(target_os = "windows"))]
     dmx_interfaces: FnvHashMap<u32, DmxInterface>, // list of available dmx universes
     media_interfaces: Vec<MediaInterface>, // list of available media interfaces
     config: Config, // current configuration
@@ -189,7 +188,7 @@ impl EventHandler {
             BackupHandler::new(config.get_identifier(), config.get_server_location()).await;
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, status_pairs, queued_events, dmx_universes, media_playlist)) =
+        if let Some((current_scene, status_pairs, queued_events)) =
             backup.reload_backup(config.get_status_ids())
         {
             // Change the current scene silently (i.e. do not trigger the scene's default event)
@@ -201,23 +200,6 @@ impl EventHandler {
 
             // Update the current status states based on the backup
             config.load_backup_status(status_pairs).await;
-
-            // Restore the existing dmx values
-            for (universe_num, interface) in dmx_interfaces.iter_mut() {
-                // If there is backup information for that universe
-                if let Some(universe) = dmx_universes.get(universe_num) {
-                    // Load the backup information
-                    interface.restore_universe(universe.clone()).await.unwrap_or(());
-                }
-            }
-
-            // If there is a media playlist
-            if media_playlist.len() > 0 {
-                // Restore the media playlist
-                for interface in media_interfaces.iter_mut() {
-                    interface.restore_playlist(media_playlist.clone()).await;
-                }
-            }
 
             // Update the queue with the found events
             for event in queued_events {
@@ -247,7 +229,6 @@ impl EventHandler {
         // Return the completed EventHandler with a new queue
         Ok(Self {
             queue,
-            #[cfg(not(target_os = "windows"))]
             dmx_interfaces,
             media_interfaces,
             config,
@@ -734,10 +715,6 @@ impl EventHandler {
                 if let Some(interface) = self.dmx_interfaces.get_mut(&fade.universe.unwrap_or(0)) {
                     if let Err(err) = interface.play_fade(fade.clone()).await {
                         error!("Error with DMX playback: {}.", err);
-
-                    // If successful, backup the dmx fade
-                    } else {
-                        self.backup.backup_dmx(fade).await;
                     }
 
                 // Warn that there is no active Dmx interface
@@ -778,12 +755,8 @@ impl EventHandler {
                     }
                 }
 
-                // If one of the media players played the cue, back it up
-                if success {
-                    self.backup.backup_media(cue).await;
-
                 // Otherwise, report the error
-                } else {
+                if !success {
                     error!("Failed to play media cue.");
                 }
             }

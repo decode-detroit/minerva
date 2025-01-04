@@ -151,7 +151,7 @@ impl BackupHandler {
         if let Some(mut connection) = self.connection.take() {
             // Try to copy the current scene to the server
             let result: RedisResult<bool> = connection.set(
-                &format!("{}:current", self.identifier),
+                &format!("minerva:{}:current", self.identifier),
                 &format!("{}", current_scene.id()),
             );
 
@@ -191,7 +191,7 @@ impl BackupHandler {
         if let Some(mut connection) = self.connection.take() {
             // Try to copy the state to the server
             let result: RedisResult<bool> = connection.set(
-                &format!("{}:{}", self.identifier, status_id),
+                &format!("minerva:{}:{}", self.identifier, status_id),
                 &format!("{}", new_state.id()),
             );
 
@@ -257,7 +257,7 @@ impl BackupHandler {
             };
 
             // Try to copy the event to the server
-            let result: RedisResult<bool> = connection.set(&format!("{}:queue", self.identifier), &event_string);
+            let result: RedisResult<bool> = connection.set(&format!("minerva:{}:queue", self.identifier), &event_string);
 
             // Alert that the event queue was not set
             if let Err(..) = result {
@@ -266,136 +266,6 @@ impl BackupHandler {
 
             // Save the new update time
             self.last_queue_update = Instant::now();
-
-            // Backup the update times
-            self.backup_last_update(&mut connection).await;
-
-            // Put the connection back
-            self.connection = Some(connection);
-        }
-    }
-
-    /// A method to backup the dmx values on the backup server based on each
-    /// provided dmx fade
-    ///
-    /// # Note
-    ///
-    /// As the backup handler does not hold a copy of the configuration, this
-    /// method does not verify the validity of the dmx values in any way.
-    /// It is expected that the calling module will perform this check.
-    ///
-    /// # Errors
-    ///
-    /// This function will raise an error if it is unable to connect to the
-    /// Redis server.
-    ///
-    /// Like all BackupHandler functions and methods, this function will fail
-    /// gracefully by notifying of any errors on the update line.
-    ///
-    pub async fn backup_dmx(&mut self, dmx_fade: DmxFade) {
-        // If the redis connection exists
-        if let Some(mut connection) = self.connection.take() {
-            // Find an existing dmx universe
-            if let Some(universe) = self.dmx_universes.get_mut(&dmx_fade.universe.unwrap_or(0)) {
-                // Update the final value
-                universe.set(dmx_fade.channel, dmx_fade.value);
-
-            // Or create the universe if it doesn't exist
-            } else {
-                let mut universe = DmxUniverse::new();
-                
-                // Set the final value
-                universe.set(dmx_fade.channel, dmx_fade.value);
-
-                // And add it to the collection of universes
-                self.dmx_universes.insert(dmx_fade.universe.unwrap_or(0), universe);
-            }
-
-            // Try to serialize the dmx universes and save them
-            let dmx_string = match serde_yaml::to_string(&self.dmx_universes) {
-                Ok(string) => string,
-                Err(error) => {
-                    error!("Unable to parse DMX universer: {}.", error);
-
-                    // Put the connection back
-                    self.connection = Some(connection);
-                    return;
-                }
-            };
-
-            // Try to copy the data to the server
-            let result: RedisResult<bool> = connection.set(&format!("{}:dmx", self.identifier), &dmx_string);
-
-            // Alert that the dmx status was not set
-            if let Err(..) = result {
-                error!("Unable to backup DMX onto backup server.");
-            }
-
-            // Backup the update times
-            self.backup_last_update(&mut connection).await;
-
-            // Put the connection back
-            self.connection = Some(connection);
-        }
-    }
-
-    /// A method to backup the currently playing media to the backup server.
-    /// It assumes the media started playing as this function was called.
-    ///
-    /// # Note
-    ///
-    /// As the backup handler does not hold a copy of the configuration, this
-    /// method does not verify the validity of the media cue values in any way.
-    /// It is expected that the calling module will perform this check.
-    ///
-    /// The media interface only waits half a second for media to load before
-    /// seeking to the corrent position of the media. This delay may not be
-    /// sufficient for network-loaded media which can take several seconds
-    /// to load. If the media takes too long to load, the media with resume
-    /// playback from the start rather than its correct position.
-    ///
-    /// # Errors
-    ///
-    /// This function will raise an error if it is unable to connect to the
-    /// Redis server.
-    ///
-    /// Like all BackupHandler functions and methods, this function will fail
-    /// gracefully by notifying of any errors on the update line.
-    ///
-    pub async fn backup_media(&mut self, media_cue: MediaCue) {
-        // If the redis connection exists
-        if let Some(mut connection) = self.connection.take() {
-            // Add the cue to the media playlist
-            self.media_playlist.insert(
-                media_cue.channel,
-                MediaPlayback {
-                    media_cue,
-                    time_since: Duration::from_secs(0),
-                },
-            ); // replaces an existing media playback, if it exists
-
-            // Try to serialize the media playlist
-            let media_string = match serde_yaml::to_string(&self.media_playlist) {
-                Ok(string) => string,
-                Err(error) => {
-                    error!("Unable to parse media playlist: {}.", error);
-
-                    // Put the connection back
-                    self.connection = Some(connection);
-                    return;
-                }
-            };
-
-            // Try to copy the data to the server
-            let result: RedisResult<bool> = connection.set(&format!("{}:media", self.identifier), &media_string);
-
-            // Alert that the media playlist was not set
-            if let Err(..) = result {
-                error!("Unable to backup media onto backup server.");
-            }
-
-            // Save the new update time
-            self.last_media_update = Instant::now();
 
             // Backup the update times
             self.backup_last_update(&mut connection).await;
@@ -424,14 +294,12 @@ impl BackupHandler {
         ItemId,
         Vec<(ItemId, ItemId)>,
         Vec<QueuedEvent>,
-        DmxUniverses,
-        MediaPlaylist,
     )> {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Check to see if there is an existing scene
             let result: RedisResult<String> =
-                connection.get(&format!("{}:current", self.identifier));
+                connection.get(&format!("minerva:{}:current", self.identifier));
 
             // If the current scene exists
             if let Ok(current_str) = result {
@@ -444,7 +312,7 @@ impl BackupHandler {
                     media_update: Duration::from_secs(0),
                 };
                 let result: RedisResult<String> =
-                    connection.get(&format!("{}:lastupdate", self.identifier));
+                    connection.get(&format!("minerva:{}:lastupdate", self.identifier));
 
                 // If something was received
                 if let Ok(update_string) = result {
@@ -457,7 +325,7 @@ impl BackupHandler {
                 // Try to read the exising event queue
                 let mut queued_events: Vec<QueuedEvent> = Vec::new();
                 let result: RedisResult<String> =
-                    connection.get(&format!("{}:queue", self.identifier));
+                    connection.get(&format!("minerva:{}:queue", self.identifier));
 
                 // If something was received
                 if let Ok(queue_string) = result {
@@ -478,50 +346,6 @@ impl BackupHandler {
                         event.update(last_updates.queue_update);
                     }
                 }
-
-                // Try to read the existing dmx universe
-                let mut dmx_universes = FnvHashMap::default();
-                let result: RedisResult<String> =
-                    connection.get(&format!("{}:dmx", self.identifier));
-
-                // If something was received
-                if let Ok(dmx_string) = result {
-                    // Try to parse the data
-                    if let Ok(universe) = serde_yaml::from_str(dmx_string.as_str()) {
-                        dmx_universes = universe;
-                    }
-                }
-
-                // Save the dmx universe
-                self.dmx_universes = dmx_universes.clone();
-
-                // Try to read the existing media cues
-                let mut media_playlist = MediaPlaylist::default();
-                let result: RedisResult<String> =
-                    connection.get(&format!("{}:media", self.identifier));
-
-                // If something was received
-                if let Ok(media_string) = result {
-                    // Try to parse the data
-                    if let Ok(media) = serde_yaml::from_str(media_string.as_str()) {
-                        media_playlist = media;
-                    }
-                }
-
-                // Update the timing for the media playlist
-                info!(
-                    "Adjusting media playlist by {}.{:0>3}.",
-                    last_updates.media_update.as_secs(),
-                    (last_updates.media_update.as_millis() % 1000)
-                );
-                if media_playlist.len() > 0 {
-                    for playback in media_playlist.values_mut() {
-                        playback.update(last_updates.media_update);
-                    }
-                }
-
-                // Save the media playlist
-                self.media_playlist = media_playlist.clone();
 
                 // Compile a list of valid status pairs
                 let mut status_pairs: Vec<(ItemId, ItemId)> = Vec::new();
@@ -555,8 +379,6 @@ impl BackupHandler {
                             current_scene,
                             status_pairs,
                             queued_events,
-                            dmx_universes,
-                            media_playlist,
                         ));
                     }
                 }
@@ -667,53 +489,13 @@ mod tests {
         backup_handler.backup_current_scene(&current_scene).await;
         backup_handler.backup_status(&status1, &state1).await;
         backup_handler.backup_status(&status2, &state2).await;
-        backup_handler
-            .backup_dmx(DmxFade {
-                universe: None,
-                channel: 1,
-                value: 255,
-                duration: None,
-            })
-            .await;
-        backup_handler
-            .backup_dmx(DmxFade {
-                universe: Some(0),
-                channel: 3,
-                value: 150,
-                duration: None,
-            })
-            .await;
-        backup_handler
-            .backup_media(MediaCue {
-                channel: 1,
-                uri: "video.mp4".to_string(),
-                loop_media: None,
-            })
-            .await;
-        backup_handler
-            .backup_media(MediaCue {
-                channel: 1,
-                uri: "new_video.mp4".to_string(),
-                loop_media: None,
-            })
-            .await;
 
         // Reload the backup
-        if let Some((reload_scene, statuses, _queue, dmx, media)) =
+        if let Some((reload_scene, statuses, _queue)) =
             backup_handler.reload_backup(vec![status1, status2])
         {
             assert_eq!(current_scene, reload_scene);
             assert_eq!(vec!((status1, state1), (status2, state2)), statuses);
-            assert_eq!(255 as u8, dmx.get(&0).unwrap().get(1));
-            assert_eq!(150 as u8, dmx.get(&0).unwrap().get(3));
-            assert_eq!(
-                MediaCue {
-                    channel: 1,
-                    uri: "new_video.mp4".to_string(),
-                    loop_media: None
-                },
-                media.get(&1).unwrap().media_cue
-            );
 
         // If the backup doesn't exist, throw the error
         } else {

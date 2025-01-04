@@ -606,7 +606,7 @@ impl EventConnection for Mercury {
                                 if self.outgoing.len() > 0 {
                                     if checksum != self.outgoing[0].checksum() {
                                         // Return an error and proceed
-                                        error!("Communication read error: Invalid ack checksum for Mercury port.");
+                                        error!("Communication read error: Incorrect ack checksum for Mercury port.");
                                         message_progress = MessageProgress::Waiting; // Resume looking for messages
                                         continue;
                                     }

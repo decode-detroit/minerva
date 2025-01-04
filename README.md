@@ -84,10 +84,7 @@ Minerva uses an external program, [Apollo](https://github.com/decode-detroit/apo
 
 The most up-to-date instructions for installing Redis can be found here: https://redis.io/.
 
-The default configuration should work just fine for most purposes. For super high reliabilty, you'll want to make sure every change is written to the disk (add to redis.conf):
-```
-save 60 1
-```
+The default configuration should work just fine for most purposes. Minerva will update the settings to make sure every change is written to the disk.
 
 ### ZMQ for Communication
 
