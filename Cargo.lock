@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "minerva"
-version = "0.9.16"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-recursion",

@@ -45,17 +45,26 @@ impl ApolloThread {
     async fn spawn(
         mut close_receiver: mpsc::Receiver<()>,
         address: String,
+        backup_location: Option<String>,
         mut window_map: WindowMap,
         mut channel_map: ChannelMap,
     ) {
         // Notify that the background process is starting
         info!("Starting Apollo media player ...");
 
+        // Compose the arguments
+        let mut arguments = vec!["-a".to_string(), address.clone()];
+        
+        // Add the backup location if specified
+        if let Some(location) = backup_location {
+            arguments.push("-b".to_string());
+            arguments.push(location);
+        }
+
         // Create the child process
         let mut child = match Command::new("apollo")
-            .arg("-a")
-            .arg(&address)
-            .kill_on_drop(true)
+            .args(&arguments)
+            //.kill_on_drop(true)
             .spawn()
         {
             // If the child process was created, return it
@@ -65,9 +74,8 @@ impl ApolloThread {
             _ => {
                 // Try looking in the local directory
                 match Command::new("./apollo")
-                    .arg("-a")
-                    .arg(&address)
-                    .kill_on_drop(true)
+                    .args(&arguments)
+                    //.kill_on_drop(true)
                     .spawn()
                 {
                     // If the child process was created, return it
@@ -158,9 +166,8 @@ impl ApolloThread {
 
                 // Start the process again
                 child = match Command::new("apollo")
-                    .arg("-a")
-                    .arg(&address)
-                    .kill_on_drop(true)
+                    .args(&arguments)
+                    //.kill_on_drop(true)
                     .spawn()
                 {
                     // If the child process was created, return it
@@ -170,9 +177,8 @@ impl ApolloThread {
                     _ => {
                         // Try looking in the local directory
                         match Command::new("./apollo")
-                            .arg("-a")
-                            .arg(&address)
-                            .kill_on_drop(true)
+                            .args(&arguments)
+                            //.kill_on_drop(true)
                             .spawn()
                         {
                             // If the child process was created, return it
@@ -209,6 +215,7 @@ impl MediaInterface {
         channel_map: ChannelMap,
         window_map: WindowMap,
         apollo_params: ApolloParams,
+        backup_location: Option<String>,
     ) -> Self {
         // Copy the specified address or use the default
         let address = apollo_params
@@ -224,7 +231,7 @@ impl MediaInterface {
 
         // Spin out thread to monitor and restart apollo, if requested
         if apollo_params.spawn {
-            ApolloThread::spawn(close_receiver, address.clone(), window_map, channel_map).await;
+            ApolloThread::spawn(close_receiver, address.clone(), backup_location, window_map, channel_map).await;
         }
 
         // Return the complete module

@@ -35,7 +35,7 @@ use tracing::{error, info, warn};
 use redis::{Commands, ConnectionLike, RedisResult};
 
 // Import FNV HashSet and HashMap
-use fnv::{FnvHashSet, FnvHashMap};
+use fnv::FnvHashSet;
 
 // Import YAML processing library
 use serde_yaml;
@@ -63,8 +63,6 @@ pub struct BackupHandler {
     last_queue_update: Instant, // the time of the last update for the queue backup
     last_media_update: Instant, // the time of the last update for the media backup
     backup_items: FnvHashSet<ItemId>, // items currently backed up in the system
-    dmx_universes: DmxUniverses, // the current final value of all DMX fades for each universe
-    media_playlist: MediaPlaylist, // the current media playback for each channel
 }
 
 // Implement key features for the status handler
@@ -109,8 +107,6 @@ impl BackupHandler {
                         last_queue_update: Instant::now(),
                         last_media_update: Instant::now(),
                         backup_items: FnvHashSet::default(),
-                        dmx_universes: FnvHashMap::default(),
-                        media_playlist: MediaPlaylist::default(),
                     };
 
                 // Indicate that there was a failure to connect to the server
@@ -131,8 +127,6 @@ impl BackupHandler {
             last_queue_update: Instant::now(),
             last_media_update: Instant::now(),
             backup_items: FnvHashSet::default(),
-            dmx_universes: FnvHashMap::default(),
-            media_playlist: MediaPlaylist::default(),
         }
     }
 
@@ -352,7 +346,7 @@ impl BackupHandler {
                 for status_id in status_ids.drain(..) {
                     // Try to read an existing status from the backup
                     let result: RedisResult<String> =
-                        connection.get(&format!("{}:{}", self.identifier, status_id));
+                        connection.get(&format!("minerva:{}:{}", self.identifier, status_id));
 
                     // If something was received
                     if let Ok(state_str) = result {
@@ -411,7 +405,7 @@ impl BackupHandler {
         };
 
         // Try to copy the data to the server
-        let result: RedisResult<bool> = connection.set(&format!("{}:lastupdate", self.identifier), &update_string);
+        let result: RedisResult<bool> = connection.set(&format!("minerva:{}:lastupdate", self.identifier), &update_string);
 
         // Alert that the media playlist was not set
         if let Err(..) = result {
@@ -433,25 +427,22 @@ impl Drop for BackupHandler {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Try to delete the current scene if it exists (unable to manually specify types)
-            let _: RedisResult<bool> = connection.del(&format!("{}:current", self.identifier));
+            let _: RedisResult<bool> = connection.del(&format!("minerva:{}:current", self.identifier));
 
             // Try to delete the last update backup if it exists
-            let _: RedisResult<bool> = connection.del(&format!("{}:lastupdate", self.identifier));
+            let _: RedisResult<bool> = connection.del(&format!("minerva:{}:lastupdate", self.identifier));
 
             // Try to delete the queue if it exists
-            let _: RedisResult<bool> = connection.del(&format!("{}:queue", self.identifier));
-
-            // Try to delete the dmx backup if it exists
-            let _: RedisResult<bool> = connection.del(&format!("{}:dmx", self.identifier));
-
-            // Try to delete the media backup if it exists
-            let _: RedisResult<bool> = connection.del(&format!("{}:media", self.identifier));
+            let _: RedisResult<bool> = connection.del(&format!("minerva:{}:queue", self.identifier));
 
             // Try to delete all the items that were backed up
             for item in self.backup_items.drain() {
-                let _: RedisResult<bool> = connection.del(&format!("{}:{}", self.identifier, item));
+                let _: RedisResult<bool> = connection.del(&format!("minerva:{}:{}", self.identifier, item));
             }
         }
+
+        // Make sure all the closing processes have time to finish
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
 

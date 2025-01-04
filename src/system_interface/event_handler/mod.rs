@@ -175,6 +175,7 @@ impl EventHandler {
                     details.channel_map,
                     details.window_map,
                     details.apollo_params,
+                    config.get_server_location()
                 )
                 .await,
             );

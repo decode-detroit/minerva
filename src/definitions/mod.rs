@@ -36,6 +36,7 @@ mod test;
 mod background;
 mod backup;
 mod connections;
+#[allow(dead_code)] // Allow dead code, reserved for future use
 mod dmx;
 mod event;
 mod group;

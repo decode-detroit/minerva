@@ -242,6 +242,7 @@ impl DmxInterface {
     }
 
     // A helper method to reload a DMX universe
+    #[allow(dead_code)] // Allow dead code, reserved for future use
     pub async fn restore_universe(&mut self, universe: DmxUniverse) -> Result<()> {
         // Create the request client if it doesn't exist
         if self.client.is_none() {

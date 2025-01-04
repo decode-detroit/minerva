@@ -23,9 +23,6 @@ use crate::definitions::*;
 // Import standard library features
 use std::time::Duration;
 
-// Import FNV HashMap
-use fnv::FnvHashMap;
-
 /// A structure to store queued events in a backup-safe format
 ///
 #[derive(Copy, Clone, Serialize, Deserialize)]
@@ -53,21 +50,3 @@ pub struct MediaPlayback {
     pub media_cue: MediaCue,  // the media information that was cued
     pub time_since: Duration, // the minimum time since the media was cued
 }
-
-/// Implement time updates for the MediaPlayback
-impl MediaPlayback {
-    /// A method to add time to the time_since field
-    ///
-    pub fn update(&mut self, additional_time: Duration) {
-        self.time_since = self
-            .time_since
-            .checked_add(additional_time)
-            .unwrap_or(self.time_since); // keep current time if overflow
-    }
-}
-
-/// A structure to store the media playbacks in a playlist
-pub type MediaPlaylist = FnvHashMap<u32, MediaPlayback>;
-
-/// A structure to store the dmx universes in a set
-pub type DmxUniverses = FnvHashMap<u32, DmxUniverse>;

@@ -43,7 +43,7 @@ impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.id {
             &Some(ref id) => write!(f, "{}", id),
-            _ => write!(f, "default"),
+            _ => write!(f, "~"),
         }
     }
 }
