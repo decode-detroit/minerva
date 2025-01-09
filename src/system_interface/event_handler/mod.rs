@@ -71,13 +71,13 @@ use anyhow::Result;
 /// to the current configuration of the program and the available events.
 ///
 pub struct EventHandler {
-    queue: Queue, // current event queue
+    queue: Queue,                                  // current event queue
     dmx_interfaces: FnvHashMap<u32, DmxInterface>, // list of available dmx universes
-    media_interfaces: Vec<MediaInterface>, // list of available media interfaces
-    config: Config, // current configuration
-    config_path: PathBuf, // current configuration path
-    index_access: IndexAccess, // access point to the item index
-    backup: BackupHandler, // current backup server
+    media_interfaces: Vec<MediaInterface>,         // list of available media interfaces
+    config: Config,                                // current configuration
+    config_path: PathBuf,                          // current configuration path
+    index_access: IndexAccess,                     // access point to the item index
+    backup: BackupHandler,                         // current backup server
 }
 
 // Implement the event handler functions
@@ -160,11 +160,8 @@ impl EventHandler {
         let mut dmx_interfaces = FnvHashMap::default();
         for (universe_number, params) in config.get_dmx_controllers() {
             dmx_interfaces.insert(
-                universe_number, DmxInterface::new(
-                    params,
-                    config.get_server_location(),
-                )
-                .await,
+                universe_number,
+                DmxInterface::new(params, config.get_server_location()).await,
             );
         }
 
@@ -176,7 +173,7 @@ impl EventHandler {
                     details.channel_map,
                     details.window_map,
                     details.apollo_params,
-                    config.get_server_location()
+                    config.get_server_location(),
                 )
                 .await,
             );
@@ -721,7 +718,9 @@ impl EventHandler {
 
                 // Warn that there is no active Dmx interface
                 } else {
-                    error!("Failed to play DMX fade: No DMX interface available for that universe.");
+                    error!(
+                        "Failed to play DMX fade: No DMX interface available for that universe."
+                    );
                 }
 
                 // On windows, just post the error

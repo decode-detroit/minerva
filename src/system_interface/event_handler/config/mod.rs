@@ -403,7 +403,7 @@ impl Config {
     pub fn get_dmx_controllers(&self) -> DmxControllers {
         self.dmx_controllers.clone()
     }
-    
+
     /// A method to return the identifier
     ///
     pub fn get_identifier(&self) -> Identifier {

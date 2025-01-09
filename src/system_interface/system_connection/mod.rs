@@ -53,7 +53,7 @@ use tracing::{error, info, warn};
 use anyhow::Result;
 
 // Define modeule constants
-const RETRY_DELAY: u64 = 100; // the write retry delay for the connections in ms
+const RETRY_DELAY: u64 = 200; // the write retry delay for the connections in ms
 
 // Define the a helper type for returning events
 type EventWithData = (ItemId, u32, u32);
@@ -389,8 +389,8 @@ impl SystemConnection {
 
                             // If an identifier was specified
                             if let Some(identity) = identifier.id {
-                                // Verify the game id is correct
-                                if identity == game_id {
+                                // Verify the game id is the universal identifier or is correct
+                                if game_id == UNIVERSAL_IDENTIFIER || game_id == identity {
                                     // Send the event to the program FIXME Handle incoming data
                                     internal_send.send_event(id, true, false).await; // don't broadcast
 
@@ -412,8 +412,8 @@ impl SystemConnection {
                         match update {
                             // Send the new event
                             Some(ConnectionUpdate::Broadcast(id, data)) => {
-                                // Use the identifier or zero for the game id
-                                let game_id = identifier.id.unwrap_or(0);
+                                // Use the identifier or the universal identifier for the game id
+                                let game_id = identifier.id.unwrap_or(UNIVERSAL_IDENTIFIER);
 
                                 // Translate the data to a placeholder, if necessary
                                 let data2 = data.unwrap_or(0);
@@ -471,8 +471,8 @@ impl SystemConnection {
 
                             // If an identifier was specified
                             if let Some(identity) = identifier.id {
-                                // Verify the game id is correct
-                                if identity == game_id {
+                                // Verify the game id is the universal identifier or is correct
+                                if game_id == UNIVERSAL_IDENTIFIER || game_id == identity {
                                     // Send the event to the program FIXME Handle incoming data
                                     internal_send.send_event(id, true, false).await; // don't broadcast
 
@@ -494,8 +494,8 @@ impl SystemConnection {
                         match update {
                             // Send the new event
                             Some(ConnectionUpdate::Broadcast(id, data)) => {
-                                // Use the identifier or zero for the game id
-                                let game_id = identifier.id.unwrap_or(0);
+                                // Use the identifier or universal identifier for the game id
+                                let game_id = identifier.id.unwrap_or(UNIVERSAL_IDENTIFIER);
 
                                 // Translate the data to a placeholder, if necessary
                                 let data2 = data.unwrap_or(0);

@@ -79,8 +79,8 @@ const MAX_RETRY_COUNT: usize = 5; // the maximum number of times to retry sendin
 ///
 pub struct Mercury {
     path: PathBuf,                              // the desired path of the serial port
-    alternate_paths: Vec<PathBuf>,              // the alternate possible locations where the serial connection may appear
-    baud: u32,                                  // the baud rate of the serial port
+    alternate_paths: Vec<PathBuf>, // the alternate possible locations where the serial connection may appear
+    baud: u32,                     // the baud rate of the serial port
     use_checksum: bool, // a flag indicating the system should use and verify 32bit checksums
     allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
     stream: Option<serial::SerialStream>,       // the serial port of the connection, if available
@@ -136,7 +136,8 @@ impl Mercury {
 
         // Check to see if the normal path exists
         let mut new_path = "";
-        if let Ok(false) = self.path.try_exists() { // if it doesn't
+        if let Ok(false) = self.path.try_exists() {
+            // if it doesn't
             // Check the alternate paths
             for possible_path in self.alternate_paths.iter() {
                 // If one of the possible paths exist
@@ -151,7 +152,7 @@ impl Mercury {
             if new_path == "" {
                 return Err(anyhow!("No valid paths for serial connection."));
             }
-        
+
         // Use the default path
         } else {
             new_path = self.path.to_str().unwrap_or("");
@@ -338,7 +339,7 @@ impl Mercury {
 
         // If the stream doesn't exist (it always should)
         } else {
-            return Err(anyhow!("Unable to write to Mercury port."));
+            return Err(anyhow!("Unable to access Mercury port: no byte stream."));
         }
 
         // Indicate that the event was sent
@@ -348,11 +349,8 @@ impl Mercury {
     /// A helper function to write asyncronously to a serial port stream
     /// Returns false if the port was unavailable immediately or after the
     /// write timeout has expired.
-    async fn write_bytes(
-        stream: &mut serial::SerialStream,
-        bytes: Vec<u8>,
-    ) -> Result<()> {
-        // Wait for the up to the write timeout for the stream to be ready
+    async fn write_bytes(stream: &mut serial::SerialStream, bytes: Vec<u8>) -> Result<()> {
+        // Wait for up to the write timeout for the stream to be ready
         tokio::select! {
             // If the serial stream is available
             Ok(_) = stream.writable() => {
@@ -366,7 +364,7 @@ impl Mercury {
 
                 // Otherwise, mark the write as incomplete
                 } else {
-                    return Err(anyhow!("Unable to write to Mercury port."));
+                    return Err(anyhow!("Unable to access Mercury port: no byte stream."));
                 }
             }
 
@@ -425,7 +423,7 @@ impl EventConnection for Mercury {
         // Create a placeholder and temporary variables to track the message and status
         let mut possible_event = None;
         let mut message = Vec::new();
-        let mut escaped = false; // indicates whether or not the currect character is escaped
+        let mut escaped = false; // indicates whether or not the current character is escaped
         let mut message_progress = MessageProgress::Waiting; // indicates the status of the message reading
         let mut message_until = 0; // indicates the last character of a valid message
 
@@ -435,7 +433,7 @@ impl EventConnection for Mercury {
             match message_progress {
                 // Waiting for the start of a new message
                 MessageProgress::Waiting => {
-                    // Verify the command character
+                    // Verify the event character
                     if *character == EVENT_CHARACTER {
                         // Reset the message variables
                         message = Vec::new();
@@ -443,7 +441,6 @@ impl EventConnection for Mercury {
                         message_progress = MessageProgress::ReadEvent;
 
                     // Verify the ack character
-                    // (command separator will be skipped, as we do not reset new_message)
                     } else if *character == ACK_CHARACTER {
                         // Reset the message variables
                         message = Vec::new();
@@ -456,7 +453,7 @@ impl EventConnection for Mercury {
 
                 // Processing an event
                 MessageProgress::ReadEvent => {
-                    // If the last message was an escape character, unescape this one
+                    // If the last character was an escape character, unescape this one
                     if escaped {
                         // If the escape was not valid
                         if *character != FIELD_SEPARATOR
@@ -477,7 +474,7 @@ impl EventConnection for Mercury {
                         // Catch the command separator
                         if *character == COMMAND_SEPARATOR {
                             // Note the end of the valid message
-                            message_until = count + 1; // remove this character from the buffer
+                            message_until = count + 1; // remove this command separator from the buffer
 
                             // Try to read the three arguments from the message
                             let mut cursor = Cursor::new(message.clone());
@@ -527,7 +524,7 @@ impl EventConnection for Mercury {
                                 // Verify the value
                                 if checksum != (id, data1, data2).checksum() {
                                     // Return an error and proceed
-                                    error!("Communication read error: Invalid checksum for Mercury port.");
+                                    error!("Communication read error: Invalid checksum for Mercury port: Expected {} but got {}", (id, data1, data2).checksum(), checksum);
                                     message_progress = MessageProgress::Waiting; // Resume looking for messages
                                     continue;
                                 }
@@ -563,7 +560,7 @@ impl EventConnection for Mercury {
 
                 // Processing an ack
                 MessageProgress::ReadAck => {
-                    // If the last message was an escape character, unescape this one
+                    // If the last character was an escape character, unescape this one
                     if escaped {
                         // If the escape was not valid
                         if *character != FIELD_SEPARATOR
@@ -584,7 +581,7 @@ impl EventConnection for Mercury {
                         // Catch the command separator
                         if *character == COMMAND_SEPARATOR {
                             // Note the end of the valid message
-                            message_until = count + 1; // remove this character from the buffer
+                            message_until = count + 1; // remove this command separator from the buffer
 
                             // If looking for checksums
                             if self.use_checksum {
@@ -593,7 +590,7 @@ impl EventConnection for Mercury {
                                 let checksum = match ReadBytesExt::read_u32::<LittleEndian>(
                                     &mut cursor,
                                 ) {
-                                    Ok(id) => id,
+                                    Ok(checksum) => checksum,
                                     _ => {
                                         // Return an error and proceed
                                         error!("Communication read error: Invalid ack checksum for Mercury port.");
@@ -627,7 +624,7 @@ impl EventConnection for Mercury {
 
                             // Otherwise, just remove the first event from the buffer
                             } else {
-                                // Verify the checksum against the last event
+                                // Verify that there is an event in the buffer
                                 if self.outgoing.len() > 0 {
                                     // Remove the first event from the buffer, reset the timer, and reset the count
                                     self.outgoing.remove(0);
@@ -833,7 +830,9 @@ mod tests {
         use std::time::Duration;
 
         // Create a new CmdMessenger instance
-        if let Ok(mut cc) = Mercury::new(&PathBuf::from("/dev/ttyACM0"), &vec![], 115200, true, None) {
+        if let Ok(mut cc) =
+            Mercury::new(&PathBuf::from("/dev/ttyACM0"), &vec![], 115200, true, None)
+        {
             // Wait for the Arduino to boot
             thread::sleep(Duration::from_secs(3));
 

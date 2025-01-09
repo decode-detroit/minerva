@@ -54,7 +54,7 @@ impl ApolloThread {
 
         // Compose the arguments
         let mut arguments = vec!["-a".into(), address.clone()];
-        
+
         // Add the backup location if specified
         if let Some(location) = backup_location {
             arguments.push("-b".into());
@@ -62,20 +62,14 @@ impl ApolloThread {
         }
 
         // Create the child process
-        let mut child = match Command::new("apollo")
-            .args(&arguments)
-            .spawn()
-        {
+        let mut child = match Command::new("apollo").args(&arguments).spawn() {
             // If the child process was created, return it
             Ok(child) => child,
 
             // Otherwise, try again in the local directory
             _ => {
                 // Try looking in the local directory
-                match Command::new("./apollo")
-                    .args(&arguments)
-                    .spawn()
-                {
+                match Command::new("./apollo").args(&arguments).spawn() {
                     // If the child process was created, return it
                     Ok(child) => child,
 
@@ -163,20 +157,14 @@ impl ApolloThread {
                 info!("Restarting Apollo media player ...");
 
                 // Start the process again
-                child = match Command::new("apollo")
-                    .args(&arguments)
-                    .spawn()
-                {
+                child = match Command::new("apollo").args(&arguments).spawn() {
                     // If the child process was created, return it
                     Ok(child) => child,
 
                     // Otherwise, warn of the error and end the thread
                     _ => {
                         // Try looking in the local directory
-                        match Command::new("./apollo")
-                            .args(&arguments)
-                            .spawn()
-                        {
+                        match Command::new("./apollo").args(&arguments).spawn() {
                             // If the child process was created, return it
                             Ok(child) => child,
 
@@ -227,7 +215,14 @@ impl MediaInterface {
 
         // Spin out thread to monitor and restart apollo, if requested
         if apollo_params.spawn {
-            ApolloThread::spawn(close_receiver, address.clone(), backup_location, window_map, channel_map).await;
+            ApolloThread::spawn(
+                close_receiver,
+                address.clone(),
+                backup_location,
+                window_map,
+                channel_map,
+            )
+            .await;
         }
 
         // Return the complete module

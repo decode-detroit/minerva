@@ -28,10 +28,20 @@ use std::path::PathBuf;
 // Import FNV HashSet
 use fnv::FnvHashSet;
 
-/// Define the instance identifier. Instances with the same identifier will trigger
+pub const UNIVERSAL_IDENTIFIER: u32 = 0;
+
+/// The game instance identifier. Instances with the same identifier will trigger
 /// events with one another; instances with different identifiers will not.
+///
 /// If no identifier is specified, this instance will accept all events and
 /// produce events with the identifier 0.
+///
+/// If an identifier <x> is specified, this instance will only accept events with
+/// the identifier <x> or the universal identifier (0), and it will produce events
+/// with the identifier <x>.
+///
+/// Note: Specifying an identifier with the universersal identifier (0) is the
+/// same as specifying None.
 ///
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Identifier {
@@ -56,8 +66,8 @@ pub enum ConnectionType {
     /// assumes the serial connection uses the Mercury event protocol.
     Mercury {
         path: PathBuf,                              // the location of the serial port
-        alternate_paths: Vec<PathBuf>,              // other locations where the serial port may appear
-        baud: u32,                                  // the baud rate of the serial port
+        alternate_paths: Vec<PathBuf>, // other locations where the serial port may appear
+        baud: u32,                     // the baud rate of the serial port
         use_checksum: bool, // a flag indicating the system should use and verify 32bit checksums
         allowed_events: Option<FnvHashSet<ItemId>>, // if specified, the only events that can be sent to this connection
     },

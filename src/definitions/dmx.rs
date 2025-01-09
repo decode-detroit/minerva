@@ -109,4 +109,3 @@ pub struct VulcanParams {
 /// A type to hold multiple dmx controllers with a universe number
 ///
 pub type DmxControllers = FnvHashMap<u32, VulcanParams>;
-

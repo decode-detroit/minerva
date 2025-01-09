@@ -159,9 +159,9 @@ pub enum DataType {
 ///
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DmxFade {
-    pub universe: Option<u32>,              // the dmx universe to send the fade to, defaults to 0
-    pub channel: u32,               // the dmx channel to fade
-    pub value: u8,                  // the final value at the end of the fade
+    pub universe: Option<u32>, // the dmx universe to send the fade to, defaults to 0
+    pub channel: u32,          // the dmx channel to fade
+    pub value: u8,             // the final value at the end of the fade
     pub duration: Option<Duration>, // the duration of the fade (None if instantaneous)
 }
 

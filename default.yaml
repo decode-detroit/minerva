@@ -28,7 +28,7 @@ system_connections:
 - !Mercury
     path: /dev/ttyACM0
     baud: 115200
-    use_checksum: false
+    use_checksum: true
     alternate_paths: []
 background_process: null
 default_scene:

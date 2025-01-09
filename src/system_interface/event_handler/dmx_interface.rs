@@ -55,8 +55,13 @@ impl VulcanThread {
         info!("Starting Vulcan DMX controller ...");
 
         // Compose the arguments
-        let mut arguments = vec!["-p".into(), path.to_str().unwrap_or("").into(), "-a".into(), address.clone()];
-        
+        let mut arguments = vec![
+            "-p".into(),
+            path.to_str().unwrap_or("").into(),
+            "-a".into(),
+            address.clone(),
+        ];
+
         // Add the backup location if specified
         if let Some(location) = backup_location {
             arguments.push("-b".into());
@@ -64,22 +69,14 @@ impl VulcanThread {
         }
 
         // Create the child process
-        let mut child = match Command::new("vulcan")
-            .args(&arguments)
-            .kill_on_drop(true)
-            .spawn()
-        {
+        let mut child = match Command::new("vulcan").args(&arguments).spawn() {
             // If the child process was created, return it
             Ok(child) => child,
 
             // Otherwise, try again in the local directory
             _ => {
                 // Try looking in the local directory
-                match Command::new("./vulcan")
-                    .args(&arguments)
-                    .kill_on_drop(true)
-                    .spawn()
-                {
+                match Command::new("./vulcan").args(&arguments).spawn() {
                     // If the child process was created, return it
                     Ok(child) => child,
 
@@ -141,22 +138,14 @@ impl VulcanThread {
                 info!("Restarting Vulcan DMX contoller ...");
 
                 // Start the process again
-                child = match Command::new("vulcan")
-                    .args(&arguments)
-                    .kill_on_drop(true)
-                    .spawn()
-                {
+                child = match Command::new("vulcan").args(&arguments).spawn() {
                     // If the child process was created, return it
                     Ok(child) => child,
 
                     // Otherwise, try again in the local directory
                     _ => {
                         // Try looking in the local directory
-                        match Command::new("./vulcan")
-                            .args(&arguments)
-                            .kill_on_drop(true)
-                            .spawn()
-                        {
+                        match Command::new("./vulcan").args(&arguments).spawn() {
                             // If the child process was created, return it
                             Ok(child) => child,
 
@@ -186,12 +175,9 @@ pub struct DmxInterface {
 impl DmxInterface {
     /// A function to create a new instance of the MediaInterface
     ///
-    pub async fn new(
-        vulcan_params: VulcanParams,
-        backup_location: Option<String>
-    ) -> Self {
+    pub async fn new(vulcan_params: VulcanParams, backup_location: Option<String>) -> Self {
         // Copy the specified address or use the default
-        let address =  vulcan_params
+        let address = vulcan_params
             .address
             .clone()
             .unwrap_or(String::from("127.0.0.1:88522"));
@@ -201,7 +187,13 @@ impl DmxInterface {
 
         // Spin out thread to monitor and restart vulcan, if requested
         if vulcan_params.spawn {
-            VulcanThread::spawn(close_receiver, vulcan_params.path.unwrap_or(PathBuf::new()), address.clone(), backup_location).await;
+            VulcanThread::spawn(
+                close_receiver,
+                vulcan_params.path.unwrap_or(PathBuf::new()),
+                address.clone(),
+                backup_location,
+            )
+            .await;
         }
 
         // Return the complete module

@@ -121,8 +121,8 @@ impl EventConnection for ZmqBind {
 /// connection.
 ///
 pub struct ZmqConnect {
-    zmq_send: Socket,                 // the ZMQ send connection
-    zmq_recv: Socket,                 // the ZMQ receive connection
+    zmq_send: Socket,                    // the ZMQ send connection
+    zmq_recv: Socket,                    // the ZMQ receive connection
     filter_in: Vec<(ItemId, u32, u32)>,  // events to filter, incoming
     filter_out: Vec<(ItemId, u32, u32)>, // events to filter, outgoing
 }
@@ -177,7 +177,6 @@ impl EventConnection for ZmqConnect {
             // Otherwise, wait a little for other events to process
             sleep(Duration::from_millis(POLLING_RATE)).await;
         }
-
 
         // Filter the event before returning it
         let mut count = 0;
@@ -269,7 +268,7 @@ fn read_from_zmq(zmq_recv: &mut Socket) -> Option<EventWithData> {
         // Try to convert the message
         id = match message.as_str().unwrap_or("").parse::<u32>() {
             Ok(new_data) => new_data,
-            _ =>  {
+            _ => {
                 error!("Communication read error: Invalid Event Id for ZMQ.");
                 return None;
             }
@@ -319,12 +318,7 @@ fn read_from_zmq(zmq_recv: &mut Socket) -> Option<EventWithData> {
 }
 
 // A helper function to write a single event from the zmq connection
-fn write_to_zmq(
-    zmq_send: &mut Socket,
-    event_id: ItemId,
-    data1: u32,
-    data2: u32,
-) -> Result<()> {
+fn write_to_zmq(zmq_send: &mut Socket, event_id: ItemId, data1: u32, data2: u32) -> Result<()> {
     // Send a multipart ZMQ message, formatted as strings
     zmq_send.send(&event_id.id().to_string(), zmq::SNDMORE)?;
     zmq_send.send(&data1.to_string(), zmq::SNDMORE)?;

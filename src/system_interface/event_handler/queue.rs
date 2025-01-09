@@ -355,9 +355,6 @@ impl Queue {
 
                         // If there is some time remaining, wait for a message to arrive or the time to pass
                         Some(delay) => {
-                            // Create the new sleep
-                            let sleep = sleep(delay);
-
                             // Act on the first to return
                             tokio::select! {
                                 // If an event is received before the delay expires
@@ -367,7 +364,7 @@ impl Queue {
                                 }
 
                                 // If the delay expires instead
-                                _ = sleep => {
+                                _ = sleep(delay) => {
                                     // Remove the last event from the list
                                     let last_event = coming_events.pop_if(&event).await;
 
