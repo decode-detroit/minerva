@@ -180,7 +180,7 @@ impl DmxInterface {
         let address = vulcan_params
             .address
             .clone()
-            .unwrap_or(String::from("127.0.0.1:88522"));
+            .unwrap_or(String::from("127.0.0.1:8852"));
 
         // Create a channel to notify the background thread to close
         let (_close_sender, close_receiver) = mpsc::channel(1); // don't need space for any messages
