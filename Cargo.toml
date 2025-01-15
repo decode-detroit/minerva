@@ -15,7 +15,7 @@ fnv = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9"
 serde_json = "1.0"
-redis = "0.27"
+redis = "0.28"
 serial = "0.4"
 byteorder = "1.4"
 zmq = "0.10"
@@ -37,7 +37,9 @@ warp-embed = "0.5"
 tokio-serial = "5.4"
 bytes = "1.5"
 jsonwebtoken = "9"
+console-subscriber = { version = "0.4", optional = true }
 
 [features]
 no_can_limit = []
 no_action_recursion = []
+tokio_console = ["console-subscriber"]

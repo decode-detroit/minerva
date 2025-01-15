@@ -187,7 +187,7 @@ impl EventHandler {
             BackupHandler::new(config.get_identifier(), config.get_server_location()).await;
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, status_pairs, queued_events)) =
+        if let Some((current_scene, mut status_pairs, queued_events)) =
             backup.reload_backup(config.get_status_ids())
         {
             // Change the current scene silently (i.e. do not trigger the scene's default event)
@@ -198,7 +198,15 @@ impl EventHandler {
             config.choose_scene(current_scene).await.unwrap_or(());
 
             // Update the current status states based on the backup
-            config.load_backup_status(status_pairs).await;
+            config.load_backup_status(status_pairs.clone()).await;
+
+            // Restate the all of the current states to the system, restricted by the current scene
+            for (count, (_, current_state)) in status_pairs.drain(..).enumerate() {
+                queue.add_event(EventDelay::new(Some(Duration::from_millis(count as u64)), current_state)).await; // small delay for each to keep from overwhelming the system connections
+            }
+
+            // Wait 100 milliseconds for the queued states to process
+            sleep(Duration::from_millis(100)).await;
 
             // Update the queue with the found events
             for event in queued_events {

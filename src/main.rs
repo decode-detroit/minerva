@@ -167,6 +167,7 @@ impl Minerva {
     ///
     async fn run(arguments: Arguments) {
         // Initialize logging (guard is held until the end of run())
+        #[cfg(not(feature = "tokio_console"))]
         let _guard = Minerva::setup_logging(arguments.log_level);
 
         // Create the item index to process item description requests
@@ -229,6 +230,10 @@ impl Minerva {
 async fn main() {
     // Get the commandline arguments
     let arguments = Arguments::parse();
+
+    // Start the console subscriber
+    #[cfg(feature = "tokio_console")]
+    console_subscriber::init();
 
     // Create a single instance marker
     if let Ok(instance) = SingleInstance::new("minerva") {
