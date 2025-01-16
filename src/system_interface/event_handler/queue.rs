@@ -28,7 +28,6 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 // Import tokio features
-use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
 
@@ -290,7 +289,7 @@ impl Queue {
     ///
     pub fn new(internal_send: InternalSend) -> Queue {
         // Create a new channel pair to send updates to the background queue
-        let (queue_load, queue_receive) = mpsc::channel(128);
+        let (queue_load, queue_receive) = mpsc::channel(512);
 
         // Create the new queue data
         let coming_events = ComingEvents::new(internal_send.clone());
@@ -298,7 +297,7 @@ impl Queue {
 
         // Launch the background process with the queue data
         let general_clone = internal_send.clone();
-        Handle::current().spawn(async {
+        tokio::spawn(async {
             // Run the queue background process indefinitely
             Queue::run_loop(general_clone, queue_receive, coming_clone).await;
         });

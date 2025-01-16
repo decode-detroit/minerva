@@ -25,7 +25,6 @@ use std::path::PathBuf;
 
 // Import tokio elements
 use tokio::process::Command;
-use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 
@@ -90,7 +89,7 @@ impl VulcanThread {
         };
 
         // Spawn a background thread to monitor the process
-        Handle::current().spawn(async move {
+        tokio::spawn(async move {
             // Run indefinitely or until the process fails
             loop {
                 // Wait a second for the server to start

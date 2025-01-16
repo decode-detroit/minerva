@@ -35,7 +35,6 @@ use std::path::Path;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
-use tokio::runtime::Handle;
 
 // Import tracing features
 use tracing::{error, info, warn};
@@ -85,7 +84,7 @@ impl BackgroundThread {
             let keepalive = background_process.keepalive;
 
             // Spawn a background thread to monitor the process
-            Handle::current().spawn(async move {
+            tokio::spawn(async move {
                 // Run indefinitely or until the process fails
                 loop {
                     // Wait for the process to finish

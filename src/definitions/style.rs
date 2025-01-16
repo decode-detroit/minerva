@@ -102,7 +102,7 @@ impl StyleAccess {
     ///
     pub fn new() -> (Self, mpsc::Receiver<StyleUpdate>) {
         // Create the new channel
-        let (style_send, receive) = mpsc::channel(128);
+        let (style_send, receive) = mpsc::channel(512);
 
         // Create and return both new items
         (StyleAccess { style_send }, receive)

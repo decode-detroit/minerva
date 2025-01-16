@@ -78,7 +78,7 @@ impl InternalSend {
     ///
     pub fn new() -> (InternalSend, mpsc::Receiver<InternalUpdate>) {
         // Create the new channel
-        let (internal_send, receive) = mpsc::channel(128);
+        let (internal_send, receive) = mpsc::channel(512);
 
         // Create and return both new items
         (InternalSend { internal_send }, receive)
@@ -141,7 +141,7 @@ impl WebSend {
     ///
     pub fn new() -> (Self, mpsc::Receiver<WebRequest>) {
         // Create the new channel
-        let (web_send, receive) = mpsc::channel(256);
+        let (web_send, receive) = mpsc::channel(512);
 
         // Create and return both new items
         (WebSend { web_send }, receive)

@@ -126,7 +126,7 @@ impl InterfaceSend {
     ///
     pub fn new() -> (Self, mpsc::Receiver<InterfaceUpdate>) {
         // Create one or two new channels
-        let (interface_send, interface_recv) = mpsc::channel(256);
+        let (interface_send, interface_recv) = mpsc::channel(512);
 
         // Create and return the new items
         (InterfaceSend { interface_send }, interface_recv)
@@ -205,7 +205,7 @@ impl LimitedSend {
     ///
     pub fn new() -> (Self, mpsc::Receiver<LimitedUpdate>) {
         // Create one or two new channels
-        let (limited_send, limited_recv) = mpsc::channel(256);
+        let (limited_send, limited_recv) = mpsc::channel(512);
 
         // Create and return the new items
         (LimitedSend { limited_send }, limited_recv)

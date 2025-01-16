@@ -302,7 +302,7 @@ impl SystemConnection {
             // Initialize each of the system connections
             for possible_connection in connection_set {
                 // Create the connecting mpscs
-                let (conn_send, conn_recv) = mpsc::channel(128);
+                let (conn_send, conn_recv) = mpsc::channel(512);
                 let internal_send = self.internal_send.clone();
                 let identifier_clone = identifier.clone();
 

@@ -89,7 +89,7 @@ impl WebInterface {
         let edit_address = edit_addr.parse::<std::net::SocketAddr>();
 
         // Create a channel for sending new limited listener handles
-        let (limited_listener_send, limited_listener_recv) = mpsc::channel(128);
+        let (limited_listener_send, limited_listener_recv) = mpsc::channel(512);
 
         // Spin up a thread to pass messages to all the limited web sockets
         let web_clone = web_send.clone();
@@ -271,7 +271,7 @@ impl WebInterface {
         }
 
         // Create a channel for sending new listener handles
-        let (listener_send, listener_recv) = mpsc::channel(128);
+        let (listener_send, listener_recv) = mpsc::channel(512);
 
         // Spin up a thread to pass messages to all the web sockets
         let web_clone = web_send.clone();
@@ -863,7 +863,7 @@ impl WebInterface {
         let (ws_tx, mut ws_rx) = socket.split();
 
         // Use an unbounded channel to handle buffering and flushing of messages
-        let (tx, mut rx) = mpsc::channel(128);
+        let (tx, mut rx) = mpsc::channel(512);
         let stream = stream! {
             while let Some(item) = rx.recv().await {
                 yield item;
@@ -899,7 +899,7 @@ impl WebInterface {
         let (ws_tx, mut ws_rx) = socket.split();
 
         // Use an unbounded channel to handle buffering and flushing of messages
-        let (tx, mut rx) = mpsc::channel(128);
+        let (tx, mut rx) = mpsc::channel(512);
         let stream = stream! {
             while let Some(item) = rx.recv().await {
                 yield item;
