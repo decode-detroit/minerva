@@ -24,8 +24,6 @@
 // Define private submodules
 mod backup_handler;
 mod config;
-#[cfg(not(target_os = "windows"))]
-// DMX Interface temporarily disabled on Windows due to a bug in the tokio-serial library
 mod dmx_interface;
 mod media_interface;
 mod queue;
@@ -36,7 +34,6 @@ use crate::definitions::*;
 // Import other definitions
 use self::backup_handler::BackupHandler;
 use self::config::Config;
-#[cfg(not(target_os = "windows"))]
 use self::dmx_interface::DmxInterface;
 use self::media_interface::MediaInterface;
 use self::queue::Queue;
@@ -202,7 +199,12 @@ impl EventHandler {
 
             // Restate the all of the current states to the system, restricted by the current scene
             for (count, (_, current_state)) in status_pairs.drain(..).enumerate() {
-                queue.add_event(EventDelay::new(Some(Duration::from_millis(count as u64)), current_state)).await; // small delay for each to keep from overwhelming the system connections
+                queue
+                    .add_event(EventDelay::new(
+                        Some(Duration::from_millis(count as u64)),
+                        current_state,
+                    ))
+                    .await; // small delay for each to keep from overwhelming the system connections
             }
 
             // Wait 100 milliseconds for the queued states to process

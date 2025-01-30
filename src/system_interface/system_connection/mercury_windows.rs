@@ -51,10 +51,10 @@ impl Mercury {
     ///
     pub fn new(
         _path: &PathBuf,
+        _alternate_paths: &Vec<PathBuf>,
         _baud: u32,
         _use_checksum: bool,
         _allowed_events: Option<FnvHashSet<ItemId>>,
-        _write_timeout: u64,
     ) -> Result<Self> {
         Ok(Self {})
     }
