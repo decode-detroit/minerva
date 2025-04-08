@@ -19,7 +19,7 @@ redis = "0.28"
 serial = "0.4"
 byteorder = "1.4"
 zmq = "0.10"
-tokio = { version = "1.33", features = ["macros", "process", "rt-multi-thread", "time", "io-util"] }
+tokio = { version = "1.43", features = ["macros", "process", "rt-multi-thread", "time", "io-util"] }
 warp = { version = "0.3", features = ["tls"] }
 async-stream = "0.3"
 async-recursion = "1.0"
