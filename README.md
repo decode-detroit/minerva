@@ -70,6 +70,7 @@ The completed binary will be located in the automatically generated "target/rele
 Extras! Everyone loves extras. To take advantage of all Minerva's features, you'll need the Gstreamer library and a Redis server.
 
 * Sister program **Apollo** controls media playback directly from Minerva.
+* Brother program **Vulcan** controls DMX lighting directly from Minerva.
 * **Redis** provides real-time crash recovery.
 
 You'll need to install these tools on whichever computers you would like to **run** Minerva.
@@ -79,6 +80,14 @@ You'll need to install these tools on whichever computers you would like to **ru
 Audio and video playback support is built in to Minerva by default.
 
 Minerva uses an external program, [Apollo](https://github.com/decode-detroit/apollo), for all media playback. The two projects are developed concurrently and are separate to improve reliability and reusability.
+
+### Vulcan for DMX Control
+
+DMX support is built in to Minerva by default.
+
+Minerva uses an external program, [Vulcan](https://github.com/decode-detroit/vulcan), for all dmx control. The two projects are developed concurrently and are separate to improve reliability and reusability.
+
+All DMX channels default to 0. This can cause confusion when the channel isn't explicitly set by the user, but is nonetheless necessary for the device to function. For example, the main dimmer channel on a light fixture needs to be manually set to 255.
 
 ### Redis for Instant Recovery
 
@@ -99,18 +108,6 @@ On Debian-like systems, you may need to add your user to the dialout group to co
 sudo adduser $USER dialout
 ```
 You'll need to log out and log back in for this to take effect.
-
-### DMX For Lighting/Effects Control
-
-The DMX connection doesn't require any additional software or libraries to run and is included by default.
-
-On Debian-like systems, you may need to add your user to the dialout group:
-```
-sudo adduser $USER dialout
-```
-You'll need to log out and log back in for this to take effect.
-
-All DMX channels default to 0. This can cause confusion when the channel isn't explicitly set by the user, but is nonetheless necessary for the device to function. For example, the main dimmer channel on a light fixture needs to be manually set to 255.
 
 ## Raspberry Pi-like Systems (ARM)
 
