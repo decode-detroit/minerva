@@ -13,9 +13,9 @@ lto = true
 chrono = { version = "0.4", features = ["serde"] }
 fnv = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
+serde_yaml = "0.9.34-deprecated"
 serde_json = "1.0"
-redis = "0.31"
+redis = "0.32"
 serial = "0.4"
 byteorder = "1.5"
 zmq = "0.10"
