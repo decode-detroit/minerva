@@ -17,6 +17,9 @@
 
 //! This module implements structures shared from the media interface
 
+// Import Serde macros
+pub use serde::{Deserialize, Serialize};
+
 // Import FNV HashMap
 use fnv::FnvHashMap;
 

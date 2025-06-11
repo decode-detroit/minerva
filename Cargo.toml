@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Interactive Show Control Software"
 license = "GPL-3.0-or-later"
@@ -38,6 +38,7 @@ tokio-serial = "5.4"
 bytes = "1.10"
 jsonwebtoken = "9.3"
 console-subscriber = { version = "0.4", optional = true }
+system_shutdown = "4.0"
 
 [features]
 no_can_limit = []

@@ -1,6 +1,6 @@
 {
   "name": "minerva-web-interface",
-  "version": "0.9.15",
+  "version": "1.0.2",
   "private": true,
   "dependencies": {
     "@testing-library/jest-dom": "^5.17.0",

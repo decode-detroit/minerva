@@ -20,10 +20,6 @@
 // Allow deeper recursion testing for web server
 #![recursion_limit = "256"]
 
-// Import YAML processing libraries
-#[macro_use]
-extern crate serde;
-
 // Define program modules
 #[macro_use]
 mod definitions;
@@ -56,6 +52,9 @@ use clap::Parser;
 
 // Import single instance features
 use single_instance::SingleInstance;
+
+// Import shutdown features
+use system_shutdown::shutdown;
 
 /// Struct to hold the optional arguments for Minerva
 #[derive(Parser, Debug)]
@@ -165,7 +164,9 @@ impl Minerva {
 
     /// A function to build the main program and the user interface
     ///
-    async fn run(arguments: Arguments) {
+    /// This function returns true if the user requested the computer to shut down.
+    ///
+    async fn run(arguments: Arguments) -> bool {
         // Initialize logging (guard is held until the end of run())
         #[cfg(not(feature = "tokio_console"))]
         let _guard = Minerva::setup_logging(arguments.log_level);
@@ -220,7 +221,7 @@ impl Minerva {
         .await;
 
         // Block on the system interface
-        system_interface.run().await;
+        system_interface.run().await // return the shutdown variable
     }
 }
 
@@ -236,6 +237,7 @@ async fn main() {
     console_subscriber::init();
 
     // Create a single instance marker
+    let is_shutdown;
     if let Ok(instance) = SingleInstance::new("minerva") {
         // If not allowing multiple instances and this isn't the only instance
         if !arguments.allow_multiple && !instance.is_single() {
@@ -244,13 +246,21 @@ async fn main() {
         }
 
         // Create the program and run until directed otherwise
-        Minerva::run(arguments).await;
+        is_shutdown = Minerva::run(arguments).await;
 
     // If unable to create the marker, warn the user
     } else {
         println!("Unable to verify if this is the only instance of Minerva.");
 
         // Create the program and run until directed otherwise
-        Minerva::run(arguments).await;
+        is_shutdown = Minerva::run(arguments).await;
+    }
+
+    // Check to see if a shutdown was requested
+    if is_shutdown {
+        match shutdown() {
+            Ok(_) => println!("Shutting down computer ..."),
+            Err(error) => eprintln!("Unable to shut down computer: {}", error),
+        }
     }
 }

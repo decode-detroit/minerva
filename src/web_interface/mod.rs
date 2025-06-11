@@ -154,6 +154,15 @@ impl WebInterface {
                             // Create the options response
                             let cors_options = warp::options().map(warp::reply).with(cors.clone());
 
+                            // Create the authorized shutdown filter
+                            let authorized_shutdown = warp::post()
+                                .and(warp::path("shutdown"))
+                                .and(warp::path::end())
+                                .and(WebInterface::with_clone(decoding_key.clone()))
+                                .and(WebInterface::with_clone(clone_send.clone()))
+                                .and(warp::header::<String>("authorization"))
+                                .and_then(WebInterface::authorized_shutdown);
+
                             // Create the authenticated generate token filter
                             let generate_token = warp::get()
                                 .and(warp::path("generateToken"))
@@ -194,6 +203,7 @@ impl WebInterface {
                             // Serve this route on a separate port
                             warp::serve(
                                 cors_options
+                                    .or(authorized_shutdown)
                                     .or(generate_token)
                                     .or(limited_listen)
                                     .or(limited_cue_event),
@@ -419,6 +429,14 @@ impl WebInterface {
                     .and(WebInterface::with_json::<SceneChange>())
                     .and_then(WebInterface::handle_request);
 
+                // Create the shutdown filter
+                let shutdown = warp::post()
+                    .and(warp::path("shutdown"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(clone_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::Shutdown))
+                    .and_then(WebInterface::handle_request);
+
                 // Create the config file filter
                 let status_change = warp::post()
                     .and(warp::path("statusChange"))
@@ -447,6 +465,7 @@ impl WebInterface {
                     .or(get_styles)
                     .or(get_type)
                     .or(scene_change)
+                    .or(shutdown)
                     .or(status_change)
                     .or(run_page);
 
@@ -604,6 +623,14 @@ impl WebInterface {
                     .and(WebInterface::with_json::<SaveStyles>())
                     .and_then(WebInterface::handle_save_styles);
 
+                // Create the shutdown filter
+                let shutdown = warp::post()
+                    .and(warp::path("shutdown"))
+                    .and(warp::path::end())
+                    .and(WebInterface::with_clone(web_send.clone()))
+                    .and(WebInterface::with_clone(UserRequest::Shutdown))
+                    .and_then(WebInterface::handle_request);
+
                 // Create the main page filter
                 let edit_page = warp::get().and(embed(&EditWebsite));
 
@@ -626,6 +653,7 @@ impl WebInterface {
                     .or(get_type)
                     .or(save_config)
                     .or(save_style)
+                    .or(shutdown)
                     .or(edit_page);
 
                 // Handle incoming requests on the edit port
@@ -724,6 +752,61 @@ impl WebInterface {
         match jwt::encode(&jwt::Header::default(), &claims, &encoding_key) {
             Ok(token) => token,
             _ => "Unable to generate admin token.".into(),
+        }
+    }
+
+    /// A function to shut down the computer
+    /// (requires the admin token)
+    ///
+    async fn authorized_shutdown(
+        key: jwt::DecodingKey,
+        web_send: WebSend,
+        token: String,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        // Create the validation requirements for the admin token
+        let mut validation = jwt::Validation::default();
+        validation.set_issuer(&["Minerva-LimitedCue-Admin"]);
+        validation.validate_exp = false; // generator token doesn't expire
+        match jwt::decode::<Claims>(&token, &key, &validation) {
+            // Return the decoded data
+            Ok(_) => (),
+
+            // Return an authentication error
+            _ => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&WebReply::failure("User is not authorized.")),
+                    http::StatusCode::FORBIDDEN,
+                ));
+            }
+        };
+
+        // Send the shutdown message and wait for the reply
+        let (reply_to, rx) = oneshot::channel();
+        web_send.send(reply_to, UserRequest::Shutdown).await;
+
+        // Wait for the reply
+        if let Ok(reply) = rx.await {
+            // If the reply is a success
+            if reply.is_success() {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::OK,
+                ));
+
+            // Otherwise, note the error
+            } else {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::BAD_REQUEST,
+                ));
+            }
+
+        // Otherwise, note the error
+        } else {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&WebReply::failure("Unable to process request.")),
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+            ));
         }
     }
 

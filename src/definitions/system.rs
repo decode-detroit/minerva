@@ -313,6 +313,9 @@ pub enum UserRequest {
     /// A variant to change the current scene.
     SceneChange { scene: ItemId },
 
+    /// A special variant to close the program, unload all the data, and attempt to shut down the computer
+    Shutdown,
+
     /// A variant to change the state of the indicated status.
     StatusChange { status: ItemId, state: ItemId },
 }

@@ -24,6 +24,9 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::hash;
 
+// Import Serde macros
+use serde::{Deserialize, Serialize};
+
 /// Define the All Stop command (a.k.a. emergency stop)
 const ALL_STOP: u32 = 0;
 

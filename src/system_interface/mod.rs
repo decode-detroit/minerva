@@ -120,7 +120,11 @@ impl SystemInterface {
     /// A method to run one iteration of the system interface to update the user
     /// and underlying system of any event changes.
     ///
-    async fn run_once(&mut self) -> bool {
+    /// This method returns Ok(()) if the program should continue running, and
+    /// an Error if it should close. If Error(true), the user has requested the
+    /// computer shut down as well.
+    ///
+    async fn run_once(&mut self) -> Result<(), bool> {
         // Check for updates on any line
         tokio::select! {
             // Updates from the Internal System
@@ -193,14 +197,20 @@ impl SystemInterface {
                     // The unpacking indicated the program should close
                     UnpackResult::Close => {
                         request.reply_to.send(WebReply::success()).unwrap_or(());
-                        return false;
+                        return Err(false);
+                    }
+
+                    // The unpacking indicated the program should close and the computer should shut down
+                    UnpackResult::Shutdown => {
+                        request.reply_to.send(WebReply::success()).unwrap_or(());
+                        return Err(true);
                     }
                 }
             }
         }
 
         // In most cases, indicate to continue normally
-        true
+        Ok(())
     }
 
     /// A method to run an infinite number of interations of the system
@@ -209,17 +219,24 @@ impl SystemInterface {
     /// When this loop completes, it will consume the system interface and drop
     /// all associated data.
     ///
-    pub async fn run(mut self) {
+    /// The returned boolean is true if the user requested the computer to shut down.
+    ///
+    pub async fn run(mut self) -> bool {
         // Loop the structure indefinitely
+        let is_shutdown;
         loop {
             // Repeat endlessly until run_once reaches close
-            if !self.run_once().await {
+            if let Err(shutdown) = self.run_once().await {
+                is_shutdown = shutdown;
                 break;
             }
         }
 
         // Drop all associated data in system interface
         drop(self);
+
+        // Return the shutdown variable
+        is_shutdown
     }
 
     /// A method to unpack internal updates from the main program thread.
@@ -715,6 +732,9 @@ impl SystemInterface {
                 }
             }
 
+            // Close the system interface thread and attempt to shut down the computer
+            UserRequest::Shutdown => return UnpackResult::Shutdown,
+
             // Change the state of a particular status
             UserRequest::StatusChange { status, state } => {
                 // If the event handler exists
@@ -811,6 +831,9 @@ enum UnpackResult {
 
     // A variant to indicate the program should close
     Close,
+
+    // A varient to indicate the program should close and the computer should shut down
+    Shutdown,
 }
 
 // Tests of the system_interface module

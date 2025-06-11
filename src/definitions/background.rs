@@ -20,6 +20,9 @@
 // Import standard library features
 use std::path::PathBuf;
 
+// Import Serde macros
+use serde::{Deserialize, Serialize};
+
 /// A struct to define the elements of a background process
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]

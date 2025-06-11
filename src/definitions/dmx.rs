@@ -20,6 +20,9 @@
 // Import standard library features
 use std::path::PathBuf;
 
+// Import Serde macros
+use serde::{Deserialize, Serialize};
+
 // Import FNV HashSet
 use fnv::FnvHashMap;
 

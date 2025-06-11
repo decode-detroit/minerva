@@ -51,6 +51,9 @@ mod status;
 mod style;
 mod system;
 
+// Import Serde macros
+pub use serde::{Deserialize, Serialize};
+
 // Reexport all the definitions from the submodules
 pub use self::background::*;
 pub use self::backup::*;
