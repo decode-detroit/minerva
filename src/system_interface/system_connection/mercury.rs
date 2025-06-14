@@ -673,7 +673,7 @@ impl EventConnection for Mercury {
         self.check_connection()?;
 
         // If there's a filter, apply it (and return early, if not found)
-        if let Some(ref events) = &self.allowed_events {
+        if let Some(events) = &self.allowed_events {
             if !events.contains(&id) {
                 return Ok(());
             }
