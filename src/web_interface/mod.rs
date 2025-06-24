@@ -154,6 +154,15 @@ impl WebInterface {
                             // Create the options response
                             let cors_options = warp::options().map(warp::reply).with(cors.clone());
 
+                            // Create the authorized close filter
+                            let authorized_close = warp::post()
+                                .and(warp::path("close"))
+                                .and(warp::path::end())
+                                .and(WebInterface::with_clone(decoding_key.clone()))
+                                .and(WebInterface::with_clone(clone_send.clone()))
+                                .and(warp::header::<String>("authorization"))
+                                .and_then(WebInterface::authorized_close);
+
                             // Create the authorized shutdown filter
                             let authorized_shutdown = warp::post()
                                 .and(warp::path("shutdown"))
@@ -203,6 +212,7 @@ impl WebInterface {
                             // Serve this route on a separate port
                             warp::serve(
                                 cors_options
+                                    .or(authorized_close)
                                     .or(authorized_shutdown)
                                     .or(generate_token)
                                     .or(limited_listen)
@@ -752,6 +762,61 @@ impl WebInterface {
         match jwt::encode(&jwt::Header::default(), &claims, &encoding_key) {
             Ok(token) => token,
             _ => "Unable to generate admin token.".into(),
+        }
+    }
+
+    /// A function to close Minerva
+    /// (requires the admin token)
+    ///
+    async fn authorized_close(
+        key: jwt::DecodingKey,
+        web_send: WebSend,
+        token: String,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        // Create the validation requirements for the admin token
+        let mut validation = jwt::Validation::default();
+        validation.set_issuer(&["Minerva-LimitedCue-Admin"]);
+        validation.validate_exp = false; // generator token doesn't expire
+        match jwt::decode::<Claims>(&token, &key, &validation) {
+            // Return the decoded data
+            Ok(_) => (),
+
+            // Return an authentication error
+            _ => {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&WebReply::failure("User is not authorized.")),
+                    http::StatusCode::FORBIDDEN,
+                ));
+            }
+        };
+
+        // Send the shutdown message and wait for the reply
+        let (reply_to, rx) = oneshot::channel();
+        web_send.send(reply_to, UserRequest::Close).await;
+
+        // Wait for the reply
+        if let Ok(reply) = rx.await {
+            // If the reply is a success
+            if reply.is_success() {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::OK,
+                ));
+
+            // Otherwise, note the error
+            } else {
+                return Ok(warp::reply::with_status(
+                    warp::reply::json(&reply),
+                    http::StatusCode::BAD_REQUEST,
+                ));
+            }
+
+        // Otherwise, note the error
+        } else {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&WebReply::failure("Unable to process request.")),
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+            ));
         }
     }
 
