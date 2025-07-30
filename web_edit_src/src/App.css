@@ -1182,31 +1182,36 @@ button.green {
 }
 
 .box.none .divButton {
-  width: 33.33%;
-  padding: 0.3rem;
+  padding: 0.3rem 0.5rem;
   font-size: 1rem;
   text-align: center;
   cursor: pointer;
+  flex-grow: 1;
+  border-radius: 0;
+}
+
+.box.none .divButton.bottomLeft {
+  border-radius: 0 0 0 6px;
+}
+
+.box.none .divButton.bottomRight {
+  border-radius: 0 0 6px 0;
 }
 
 .box.none .divButton.event {
   background-color: #008106;
-  border-radius: 0 0 0 6px;
 }
 
 .box.none .divButton.status {
   background-color: #0074a3;
-  border-radius: 0;
 }
 
 .box.none .divButton.scene {
   background-color: #b2500c;
-  border-radius: 0;
 }
 
 .box.none .divButton.group {
   background-color: #713d80;
-  border-radius: 0 0 6px 0;
 }
 
 .box.none .divButton:hover {

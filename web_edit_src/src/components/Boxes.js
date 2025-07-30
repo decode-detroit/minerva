@@ -207,9 +207,12 @@ export class BlankFragment extends React.PureComponent {
         <div className="subtitle">Choose Item Type</div>
         <div className="typeChooser">
           <div className="divButton event" onClick={() => {let modifications = [{ modifyEvent: { itemId: { id: this.props.id }, event: { actions: [] }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Event</div>
-          <div className="divButton status" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Status</div>
           <div className="divButton scene" onClick={() => {let modifications = [{ modifyScene: { itemId: { id: this.props.id }, scene: { items: [], groups: [], }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Scene</div>
           <div className="divButton group" onClick={() => {let modifications = [{ modifyGroup: { itemId: { id: this.props.id }, group: { items: [], isHidden: true }}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Group</div>
+        </div>
+        <div className="typeChooser">
+          <div className="divButton status bottomLeft" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { MultiState: { current: { id: 0 }, allowed: [], no_change_silent: false, }}}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>MultiState Status</div>
+          <div className="divButton status bottomRight" onClick={() => {let modifications = [{ modifyStatus: { itemId: { id: this.props.id }, status: { CountedState: { current: { id: 0 }, trigger: { id: 0 }, anti_trigger: { id: 0 }, reset: { id: 0 }, count: 0, default_count: 0, no_change_silent: false, }}}}]; this.props.saveModifications(modifications); this.props.updateItem()}}>Counted Status</div>
         </div>
       </>
     );
@@ -540,6 +543,7 @@ export class StatusFragment extends React.PureComponent {
 
   // Helper function to add a new state
   addState(id) {
+    // Handle multistate
     if (this.state.status.hasOwnProperty(`MultiState`)) {
       // Save the new state id
       this.setState((prevState) => {
@@ -563,8 +567,8 @@ export class StatusFragment extends React.PureComponent {
           isMenuVisible: false,
         };
       });
-    
-    // Ignore types other than multistate
+
+    // Does not apply to states other than multistate
     } else {
       console.error("This feature not yet implemented.");
     }
@@ -572,6 +576,7 @@ export class StatusFragment extends React.PureComponent {
 
   // Helper function to remove a state
   removeState(index) {
+    // Handle multistate
     if (this.state.status.hasOwnProperty(`MultiState`)) {
       // Save the new state id
       this.setState((prevState) => {
@@ -599,7 +604,7 @@ export class StatusFragment extends React.PureComponent {
         };
       });
     
-    // Ignore types other than multistate
+    // Does not apply to states other than multistate
     } else {
       console.error("This feature not yet implemented.");
     }
@@ -613,23 +618,50 @@ export class StatusFragment extends React.PureComponent {
 
   // Return the fragment
   render() {
-    // Compose any states into a list
-    let children = [];
+    // If a multistate
     if (this.state.status.hasOwnProperty(`MultiState`)) {
-      children = this.state.status.MultiState.allowed.map((state, index) => <State key={state.toString()} state={state} grabFocus={this.props.grabFocus} removeState={() => {this.removeState(index)}} createConnector={this.props.createConnector} />);
+      // Compose any states into a list
+      let children = this.state.status.MultiState.allowed.map((state, index) => <State key={state.toString()} state={state} grabFocus={this.props.grabFocus} removeState={() => {this.removeState(index)}} createConnector={this.props.createConnector} />);
+
+      // Return the fragment
+      return (
+        <>
+          <div className="subtitle">States:</div>
+          <div className="verticalList" onWheel={stopPropogation}>{children}
+            {this.state.selectMenu}
+          </div>
+          <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
+            {this.state.isMenuVisible ? `-` : `+`}
+            {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addState} saveModifications={this.props.saveModifications}/>}
+          </div>
+        </>
+      );
+
+    // If a counted state
+    } else if (this.state.status.hasOwnProperty(`CountedState`)) {
+      // Return the fragment
+      return (
+        <>
+          <div className="countedStateDetail" onClick={(e) => {stopPropogation(e); this.toggleMenu()}}>
+            <div className={this.state.isMenuVisible && "isEditing"}>{this.state.description}</div>
+            <div className="editNote">Click To Change</div>
+          </div>
+          <div className="subtitle">States:</div>
+          <div className="verticalList" onWheel={stopPropogation}>{children}
+            {this.state.selectMenu}
+          </div>
+          <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
+            {this.state.isMenuVisible ? `-` : `+`}
+            {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addState} saveModifications={this.props.saveModifications}/>}
+          </div>
+        </>
+      );
     }
 
     // Return the fragment
     return (
       <>
-        <div className="subtitle">States:</div>
-        <div className="verticalList" onWheel={stopPropogation}>{children}
-          {this.state.selectMenu}
-        </div>
-        <div className="addButton" onClick={() => {this.setState(prevState => ({ isMenuVisible: !prevState.isMenuVisible }))}}>
-          {this.state.isMenuVisible ? `-` : `+`}
-          {this.state.isMenuVisible && <AddMenu type="event" left={180} top={60} closeMenu={() => this.setState({ isMenuVisible: false })} addItem={this.addState} saveModifications={this.props.saveModifications}/>}
-        </div>
+        <div>Not Implemented</div>
       </>
     );
   }
