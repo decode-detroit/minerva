@@ -31,7 +31,7 @@ use self::web_definitions::*;
 use tokio::fs::read;
 use tokio::sync::{mpsc, oneshot};
 use warp::ws::{Message, WebSocket};
-use warp::{http, Filter};
+use warp::{Filter, http};
 
 // Import tracing features
 use tracing::{error, info};
@@ -917,7 +917,7 @@ impl WebInterface {
                 return Ok(warp::reply::with_status(
                     warp::reply::json(&WebReply::failure("Unable to generate new token.")),
                     http::StatusCode::INTERNAL_SERVER_ERROR,
-                ))
+                ));
             }
         };
 

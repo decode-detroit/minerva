@@ -636,9 +636,10 @@ export class StatusFragment extends React.PureComponent {
           </div>
         </>
       );
+    }
 
-    // If a counted state
-    } else if (this.state.status.hasOwnProperty(`CountedState`)) {
+    // If a counted state FIXME
+    /*} else if (this.state.status.hasOwnProperty(`CountedState`)) {
       // Return the fragment
       return (
         <>
@@ -656,7 +657,7 @@ export class StatusFragment extends React.PureComponent {
           </div>
         </>
       );
-    }
+    }*/
 
     // Return the fragment
     return (

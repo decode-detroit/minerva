@@ -397,7 +397,7 @@ export class CueDmx extends React.PureComponent {
     }
 
     // Update the action, with or without duration
-    if ((this.state.duration != 0) && !isNaN(parseInt(this.state.duration))) {
+    if ((this.state.duration !== 0) && !isNaN(parseInt(this.state.duration))) {
       this.props.changeAction({
         CueDmx: {
           fade: {
@@ -692,7 +692,7 @@ export class CueMedia extends React.PureComponent {
     }
 
     // Update the action, with or without loop media
-    if (loop !== null && loop != "") {
+    if (loop !== null && loop !== "") {
       this.props.changeAction({
         CueMedia: {
           cue: {
@@ -810,7 +810,7 @@ export class AdjustMedia extends React.PureComponent {
           <div className="actionDetail" onClick={stopPropogation}>
             <div className="additionalInfo noDivider">
               <label>Channel</label><input type="number" min="0" value={this.props.adjustMedia.adjustment.channel} onInput={this.handleChannelChange}></input><br/>
-              <div className="toggleButton" onClick={this.handleDirectionChange}>Direction: {this.props.adjustMedia.adjustment.direction == "Up" && "↑"}{this.props.adjustMedia.adjustment.direction == "Down" && "↓"}{this.props.adjustMedia.adjustment.direction == "Right" && "→"}{this.props.adjustMedia.adjustment.direction == "Left" && "←"}</div>
+              <div className="toggleButton" onClick={this.handleDirectionChange}>Direction: {this.props.adjustMedia.adjustment.direction === "Up" && "↑"}{this.props.adjustMedia.adjustment.direction === "Down" && "↓"}{this.props.adjustMedia.adjustment.direction === "Right" && "→"}{this.props.adjustMedia.adjustment.direction === "Left" && "←"}</div>
             </div>
           </div>
         }/>

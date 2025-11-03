@@ -23,7 +23,7 @@ use crate::definitions::*;
 // Import tokio elements
 use tokio::process::Command;
 use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 // Import reqwest elements
 use reqwest::Client;

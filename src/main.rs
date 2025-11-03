@@ -44,7 +44,7 @@ extern crate anyhow;
 // Import tracing features
 use tracing::Level;
 use tracing_appender;
-use tracing_subscriber::filter::{filter_fn, LevelFilter};
+use tracing_subscriber::filter::{LevelFilter, filter_fn};
 use tracing_subscriber::prelude::*;
 
 // Import clap features
@@ -121,7 +121,9 @@ impl Minerva {
 
             // Otherwise, print a nice error
             _ => {
-                println!("Unable to parse parameter for option 'logLevel'. Options are Trace, Debug, Info, Warn, and Error.");
+                println!(
+                    "Unable to parse parameter for option 'logLevel'. Options are Trace, Debug, Info, Warn, and Error."
+                );
                 LevelFilter::INFO
             }
         };

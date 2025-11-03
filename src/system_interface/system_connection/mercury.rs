@@ -482,7 +482,9 @@ impl EventConnection for Mercury {
                                 Ok(id) => id,
                                 _ => {
                                     // Return an error and proceed
-                                    error!("Communication read error: Invalid Event Id for Mercury port.");
+                                    error!(
+                                        "Communication read error: Invalid Event Id for Mercury port."
+                                    );
                                     message_progress = MessageProgress::Waiting; // Resume looking for messages
                                     continue;
                                 }
@@ -491,7 +493,9 @@ impl EventConnection for Mercury {
                                 Ok(data1) => data1,
                                 _ => {
                                     // Return an error and proceed
-                                    error!("Communication read error: Invalid second field for Mercury port.");
+                                    error!(
+                                        "Communication read error: Invalid second field for Mercury port."
+                                    );
                                     message_progress = MessageProgress::Waiting; // Resume looking for messages
                                     continue;
                                 }
@@ -500,7 +504,9 @@ impl EventConnection for Mercury {
                                 Ok(data2) => data2,
                                 _ => {
                                     // Return an error and proceed
-                                    error!("Communication read error: Invalid third field for Mercury port.");
+                                    error!(
+                                        "Communication read error: Invalid third field for Mercury port."
+                                    );
                                     message_progress = MessageProgress::Waiting; // Resume looking for messages
                                     continue;
                                 }
@@ -515,7 +521,9 @@ impl EventConnection for Mercury {
                                     Ok(checksum) => checksum,
                                     _ => {
                                         // Return an error and proceed
-                                        error!("Communication read error: Invalid checksum field for Mercury port.");
+                                        error!(
+                                            "Communication read error: Invalid checksum field for Mercury port."
+                                        );
                                         message_progress = MessageProgress::Waiting; // Resume looking for messages
                                         continue;
                                     }
@@ -524,7 +532,11 @@ impl EventConnection for Mercury {
                                 // Verify the value
                                 if checksum != (id, data1, data2).checksum() {
                                     // Return an error and proceed
-                                    error!("Communication read error: Invalid checksum for Mercury port: Expected {} but got {}", (id, data1, data2).checksum(), checksum);
+                                    error!(
+                                        "Communication read error: Invalid checksum for Mercury port: Expected {} but got {}",
+                                        (id, data1, data2).checksum(),
+                                        checksum
+                                    );
                                     message_progress = MessageProgress::Waiting; // Resume looking for messages
                                     continue;
                                 }
@@ -593,7 +605,9 @@ impl EventConnection for Mercury {
                                     Ok(checksum) => checksum,
                                     _ => {
                                         // Return an error and proceed
-                                        error!("Communication read error: Invalid ack checksum for Mercury port.");
+                                        error!(
+                                            "Communication read error: Invalid ack checksum for Mercury port."
+                                        );
                                         message_progress = MessageProgress::Waiting; // Resume looking for messages
                                         continue;
                                     }
@@ -603,7 +617,9 @@ impl EventConnection for Mercury {
                                 if self.outgoing.len() > 0 {
                                     if checksum != self.outgoing[0].checksum() {
                                         // Return an error and proceed
-                                        error!("Communication read error: Incorrect ack checksum for Mercury port.");
+                                        error!(
+                                            "Communication read error: Incorrect ack checksum for Mercury port."
+                                        );
                                         message_progress = MessageProgress::Waiting; // Resume looking for messages
                                         continue;
                                     }
@@ -773,7 +789,9 @@ impl EventConnection for Mercury {
                     // And if time has expired
                     if (instant + Duration::from_millis(ACK_DELAY)) < Instant::now() {
                         // Notify the system of a communication error
-                        error!("Communication write error: No Acknowledgement from Mercury port. Retrying ...");
+                        error!(
+                            "Communication write error: No Acknowledgement from Mercury port. Retrying ..."
+                        );
 
                         // Increment the retry count
                         self.retry_count += 1;
