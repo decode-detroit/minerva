@@ -73,12 +73,12 @@ impl StatusHandler {
         // Try to return the local status as an id
         if let Some(status) = self.status_map.get(status_id) {
             // Return the current state
-            return Some(status.current());
+            Some(status.current())
 
         // Warn that there is an error with the provided status id
         } else {
             error!("Unable to locate current state of status: {}.", &status_id);
-            return None;
+            None
         }
     }
 
@@ -86,10 +86,7 @@ impl StatusHandler {
     ///
     pub fn get_status(&self, status_id: &ItemId) -> Option<Status> {
         // Return the status if found
-        match self.status_map.get(status_id) {
-            Some(status) => Some(status.clone()),
-            None => None,
-        }
+        self.status_map.get(status_id).cloned()
     }
 
     /// A method to edit an existing status, add a new one, or delete the existing
@@ -148,7 +145,7 @@ impl StatusHandler {
         // Try to get a mutable reference to the status
         if let Some(status) = self.status_map.get_mut(status_id) {
             // Try to update the status and return the result
-            status.update(new_state.clone())
+            status.update(*new_state)
 
         // Warn the system that this is not a valid id
         } else {
@@ -177,7 +174,7 @@ impl StatusHandler {
         // Compile a list of ids from the status map
         let mut ids = Vec::new();
         for id in self.status_map.keys() {
-            ids.push(id.clone());
+            ids.push(*id);
         }
 
         // Return the completed list
@@ -195,7 +192,7 @@ impl StatusHandler {
         // Compile a list of the available statuses
         let mut id_vec = Vec::new();
         for key in self.status_map.keys() {
-            id_vec.push(key.clone());
+            id_vec.push(*key);
         }
 
         // Sort the status ids

@@ -52,19 +52,19 @@ impl DmxUniverse {
     #[allow(dead_code)]
     pub fn get(&self, channel: u32) -> u8 {
         // Check the bounds
-        if (channel > DMX_MAX) | (channel < 1) {
+        if !(1..=DMX_MAX).contains(&channel) {
             return 0; // default to zero
         }
 
         // Otherwise, convert to zero-indexed and return the value
-        return self.values[channel as usize - 1];
+        self.values[channel as usize - 1]
     }
 
     /// Method to set the value of a paticular channel
     ///
     pub fn set(&mut self, channel: u32, value: u8) {
         // Check the bounds
-        if (channel <= DMX_MAX) & (channel > 0) {
+        if (1..=DMX_MAX).contains(&channel) {
             // Convert to zero-indexed and set the value
             self.values[channel as usize - 1] = value;
         } // Otherwise, do nothing

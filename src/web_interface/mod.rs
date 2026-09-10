@@ -493,7 +493,7 @@ impl WebInterface {
                     .and(warp::ws())
                     .map(|ws: warp::ws::Ws| {
                         // This will call the function if the handshake succeeds.
-                        ws.on_upgrade(move |socket| WebInterface::fake_listener(socket))
+                        ws.on_upgrade(WebInterface::fake_listener)
                     });
 
                 // Create the all items filter
@@ -701,15 +701,12 @@ impl WebInterface {
                         // If the reply is a success
                         if reply.is_success() {
                             // Ensure it's the correct reply
-                            match reply.data {
-                                WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) => {
-                                    // Send the update to the listener (cheat: technically should be InterfaceUpdate some of the time, but they're equivalent)
-                                    if let Ok(_) = new_listener.socket.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await {
-                                        // If successful, add the tx line to the listeners
-                                        listeners.push(new_listener);
-                                    }
+                            if let WebReplyData::CurrentSceneAndStatus((current_scene, current_status)) = reply.data {
+                                // Send the update to the listener (cheat: technically should be InterfaceUpdate some of the time, but they're equivalent)
+                                if new_listener.socket.send(LimitedUpdate::CurrentSceneAndStatus { current_scene, current_status }.into()).await.is_ok() {
+                                    // If successful, add the tx line to the listeners
+                                    listeners.push(new_listener);
                                 }
-                                _ => ()
                             }
 
                         // Otherwise, just add the listener
@@ -734,7 +731,7 @@ impl WebInterface {
                         }
 
                         // Try to send a message with the new entries
-                        if let Ok(_) = listener.socket.send(update.clone().into()).await {
+                        if listener.socket.send(update.clone().into()).await.is_ok() {
                             // If the message was successful, keep the channel
                             active_listeners.push(listener);
                         }
@@ -798,25 +795,25 @@ impl WebInterface {
         if let Ok(reply) = rx.await {
             // If the reply is a success
             if reply.is_success() {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::OK,
-                ));
+                ))
 
             // Otherwise, note the error
             } else {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::BAD_REQUEST,
-                ));
+                ))
             }
 
         // Otherwise, note the error
         } else {
-            return Ok(warp::reply::with_status(
+            Ok(warp::reply::with_status(
                 warp::reply::json(&WebReply::failure("Unable to process request.")),
                 http::StatusCode::INTERNAL_SERVER_ERROR,
-            ));
+            ))
         }
     }
 
@@ -853,25 +850,25 @@ impl WebInterface {
         if let Ok(reply) = rx.await {
             // If the reply is a success
             if reply.is_success() {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::OK,
-                ));
+                ))
 
             // Otherwise, note the error
             } else {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::BAD_REQUEST,
-                ));
+                ))
             }
 
         // Otherwise, note the error
         } else {
-            return Ok(warp::reply::with_status(
+            Ok(warp::reply::with_status(
                 warp::reply::json(&WebReply::failure("Unable to process request.")),
                 http::StatusCode::INTERNAL_SERVER_ERROR,
-            ));
+            ))
         }
     }
 
@@ -966,25 +963,25 @@ impl WebInterface {
         if let Ok(reply) = rx.await {
             // If the reply is a success
             if reply.is_success() {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::OK,
-                ));
+                ))
 
             // Otherwise, note the error
             } else {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::BAD_REQUEST,
-                ));
+                ))
             }
 
         // Otherwise, note the error
         } else {
-            return Ok(warp::reply::with_status(
+            Ok(warp::reply::with_status(
                 warp::reply::json(&WebReply::failure("Unable to process request.")),
                 http::StatusCode::INTERNAL_SERVER_ERROR,
-            ));
+            ))
         }
     }
 
@@ -1025,12 +1022,13 @@ impl WebInterface {
         );
 
         // Send a listener with no expiration
-        if let Err(_) = sender
+        if sender
             .send(ListenerWithExpiration {
                 socket: tx,
                 expiration: token_data.claims.exp,
             })
             .await
+            .is_err()
         {
             // Drop the connection on failure
             return;
@@ -1061,12 +1059,13 @@ impl WebInterface {
         );
 
         // Send a listener with no expiration
-        if let Err(_) = sender
+        if sender
             .send(ListenerWithExpiration {
                 socket: tx,
                 expiration: 0,
             })
             .await
+            .is_err()
         {
             // Drop the connection on failure
             return;
@@ -1093,25 +1092,25 @@ impl WebInterface {
         if let Ok(reply) = rx.await {
             // If the reply is a success
             if reply.is_success() {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::OK,
-                ));
+                ))
 
             // Otherwise, note the error
             } else {
-                return Ok(warp::reply::with_status(
+                Ok(warp::reply::with_status(
                     warp::reply::json(&reply),
                     http::StatusCode::BAD_REQUEST,
-                ));
+                ))
             }
 
         // Otherwise, note the error
         } else {
-            return Ok(warp::reply::with_status(
+            Ok(warp::reply::with_status(
                 warp::reply::json(&WebReply::failure("Unable to process request.")),
                 http::StatusCode::INTERNAL_SERVER_ERROR,
-            ));
+            ))
         }
     }
 
@@ -1124,13 +1123,13 @@ impl WebInterface {
         let items = index_access.get_all_pairs().await;
 
         // Return the item pair (even if it is the default)
-        return Ok(warp::reply::with_status(
+        Ok(warp::reply::with_status(
             warp::reply::json(&WebReply {
                 is_valid: true,
                 data: WebReplyData::ItemPairs(items),
             }),
             http::StatusCode::OK,
-        ));
+        ))
     }
 
     /// A function to handle get item requests (processed by the index)
@@ -1145,13 +1144,13 @@ impl WebInterface {
             .await;
 
         // Return the item pair (even if it is the default)
-        return Ok(warp::reply::with_status(
+        Ok(warp::reply::with_status(
             warp::reply::json(&WebReply {
                 is_valid: true,
                 data: WebReplyData::Item(item_pair),
             }),
             http::StatusCode::OK,
-        ));
+        ))
     }
 
     /// A function to handle getting the current stylesheet
@@ -1167,15 +1166,15 @@ impl WebInterface {
             .map(|(mut selector, rule)| {
                 selector += " ";
                 selector += &rule;
-                return selector;
+                selector
             })
             .collect::<Vec<String>>()
             .join("\n");
 
         // Indicate success
-        return Ok(warp::http::Response::builder()
+        Ok(warp::http::Response::builder()
             .header("content-type", "text/css")
-            .body(rules_string));
+            .body(rules_string))
     }
 
     /// A function to handle saving an updated stylesheet
@@ -1187,10 +1186,10 @@ impl WebInterface {
         style_access.add_styles(styles.new_styles).await;
 
         // Indicate success
-        return Ok(warp::reply::with_status(
+        Ok(warp::reply::with_status(
             warp::reply::json(&WebReply::success()),
             http::StatusCode::CREATED,
-        ));
+        ))
     }
 
     /// A function to add a fake listener

@@ -56,12 +56,12 @@ use anyhow::Result;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 // Define the communication constants
-const FIELD_SEPARATOR: u8 = 0x2C as u8; // the divider between the three fields
-const COMMAND_SEPARATOR: u8 = 0x3B as u8; // the divider between commands
-const ESCAPE_CHARACTER: u8 = 0x2F as u8; // the character to escape other characters
-const NULL_CHARACTER: u8 = 0x00 as u8; // the null character
-const EVENT_CHARACTER: u8 = '0' as u8; // the default event character
-const ACK_CHARACTER: u8 = '1' as u8; // the default ack character
+const FIELD_SEPARATOR: u8 = 0x2C_u8; // the divider between the three fields
+const COMMAND_SEPARATOR: u8 = 0x3B_u8; // the divider between commands
+const ESCAPE_CHARACTER: u8 = 0x2F_u8; // the character to escape other characters
+const NULL_CHARACTER: u8 = 0x00_u8; // the null character
+const EVENT_CHARACTER: u8 = b'0'; // the default event character
+const ACK_CHARACTER: u8 = b'1'; // the default ack character
 const ACK_DELAY: u64 = 200; // the longest delay to wait for an acknowledgement, in ms
 const RECONNECT_DELAY: u64 = 5000; // the delay to wait between retrying to establish a connection
 use super::RETRY_DELAY;
@@ -149,7 +149,7 @@ impl Mercury {
             }
 
             // If no path was found, return an error
-            if new_path == "" {
+            if new_path.is_empty() {
                 return Err(anyhow!("No valid paths for serial connection."));
             }
 
@@ -242,7 +242,7 @@ impl Mercury {
             }
 
             // Add the original character to the message
-            fixed.push(character.clone());
+            fixed.push(character);
         }
 
         // Return the completed message
@@ -266,7 +266,7 @@ impl Mercury {
         tmp.write_u32::<LittleEndian>(id.id())?;
 
         // Escape the new argument and then add it
-        bytes.write(Mercury::escape(tmp).as_slice())?;
+        bytes.write_all(Mercury::escape(tmp).as_slice())?;
 
         // Add the separator and convert each argument to a character vector
         bytes.push(FIELD_SEPARATOR);
@@ -274,7 +274,7 @@ impl Mercury {
         tmp.write_u32::<LittleEndian>(data1)?;
 
         // Escape the new argument and then add it
-        bytes.write(Mercury::escape(tmp).as_slice())?;
+        bytes.write_all(Mercury::escape(tmp).as_slice())?;
 
         // Add the separator and convert each argument to a character vector
         bytes.push(FIELD_SEPARATOR);
@@ -282,7 +282,7 @@ impl Mercury {
         tmp.write_u32::<LittleEndian>(data2)?;
 
         // Escape the new argument and then add it
-        bytes.write(Mercury::escape(tmp).as_slice())?;
+        bytes.write_all(Mercury::escape(tmp).as_slice())?;
 
         // If directed
         if self.use_checksum {
@@ -292,7 +292,7 @@ impl Mercury {
             tmp.write_u32::<LittleEndian>((id, data1, data2).checksum())?;
 
             // Escape the new argument and then add it
-            bytes.write(Mercury::escape(tmp).as_slice())?;
+            bytes.write_all(Mercury::escape(tmp).as_slice())?;
         }
 
         // Append the command separator
@@ -327,7 +327,7 @@ impl Mercury {
             tmp.write_u32::<LittleEndian>(checksum)?;
 
             // Escape the new argument and then add it
-            bytes.write(Mercury::escape(tmp).as_slice())?;
+            bytes.write_all(Mercury::escape(tmp).as_slice())?;
         }
 
         // Append the command separator
@@ -466,7 +466,7 @@ impl EventConnection for Mercury {
                         }
 
                         // Append the new character to the message
-                        message.push(character.clone());
+                        message.push(*character);
                         escaped = false;
 
                     // Interpret the other, non-escaped, non-message-beginning characters
@@ -565,7 +565,7 @@ impl EventConnection for Mercury {
 
                         // Ignore the field separator
                         } else if *character != FIELD_SEPARATOR {
-                            message.push(character.clone());
+                            message.push(*character);
                         }
                     }
                 }
@@ -585,7 +585,7 @@ impl EventConnection for Mercury {
                         }
 
                         // Append the new character to the arguments
-                        message.push(character.clone());
+                        message.push(*character);
                         escaped = false;
 
                     // Interpret the other, non-escaped, non-message-beginning characters
@@ -614,7 +614,7 @@ impl EventConnection for Mercury {
                                 };
 
                                 // Verify the checksum against the last event
-                                if self.outgoing.len() > 0 {
+                                if !self.outgoing.is_empty() {
                                     if checksum != self.outgoing[0].checksum() {
                                         // Return an error and proceed
                                         error!(
@@ -641,7 +641,7 @@ impl EventConnection for Mercury {
                             // Otherwise, just remove the first event from the buffer
                             } else {
                                 // Verify that there is an event in the buffer
-                                if self.outgoing.len() > 0 {
+                                if !self.outgoing.is_empty() {
                                     // Remove the first event from the buffer, reset the timer, and reset the count
                                     self.outgoing.remove(0);
                                     self.last_ack = None;
@@ -663,7 +663,7 @@ impl EventConnection for Mercury {
 
                         // Ignore the field separator
                         } else if *character != FIELD_SEPARATOR {
-                            message.push(character.clone());
+                            message.push(*character);
                         }
                     }
                 }
@@ -675,7 +675,7 @@ impl EventConnection for Mercury {
 
         // Add the incoming event to the filter
         if let Some(ref event) = possible_event {
-            self.filter_events.push(event.clone());
+            self.filter_events.push(*event);
         }
 
         // Return the resulting event, or none
@@ -689,15 +689,14 @@ impl EventConnection for Mercury {
         self.check_connection()?;
 
         // If there's a filter, apply it (and return early, if not found)
-        if let Some(events) = &self.allowed_events {
-            if !events.contains(&id) {
-                return Ok(());
-            }
+        if let Some(events) = &self.allowed_events
+            && !events.contains(&id)
+        {
+            return Ok(());
         }
 
         // Add this event to the outgoing buffer
-        self.outgoing
-            .push((id.clone(), data1.clone(), data2.clone()));
+        self.outgoing.push((id, data1, data2));
 
         // If the port is not ready to receive bytes
         if self.outgoing.len() > 1 {
@@ -725,21 +724,21 @@ impl EventConnection for Mercury {
     async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Filter each event before echoing it to the system
         let mut count = 0;
-        for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_events.iter() {
+        for (filter_id, filter_data1, filter_data2) in self.filter_events.iter() {
             // If the event matches an event in the filter
             if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
                 break; // exit with the found event count
             }
 
             // Increment the count
-            count = count + 1;
+            count += 1;
         }
 
         // Filter the event and remove it from the filter
         if count < self.filter_events.len() {
             // Remove that event from the filter
             self.filter_events.remove(count);
-            return Ok(());
+            Ok(())
 
         // Otherwise, echo the event to the system
         } else {
@@ -752,7 +751,7 @@ impl EventConnection for Mercury {
     ///
     async fn process_pending(&mut self) -> bool {
         // If there are no pending outgoing messages
-        if self.outgoing.len() == 0 {
+        if self.outgoing.is_empty() {
             return false;
 
         // Otherwise, try to process the messages
@@ -772,11 +771,7 @@ impl EventConnection for Mercury {
                 None => {
                     // Copy and send the next event
                     let (id, data1, data2) = self.outgoing[0];
-                    if self
-                        .write_event_now(id.clone(), data1.clone(), data2.clone())
-                        .await
-                        .is_err()
-                    {
+                    if self.write_event_now(id, data1, data2).await.is_err() {
                         is_unavailable = true;
                     }
 
@@ -804,11 +799,7 @@ impl EventConnection for Mercury {
                         } else {
                             // Copy and resend the current event
                             let (id, data1, data2) = self.outgoing[0];
-                            if self
-                                .write_event_now(id.clone(), data1.clone(), data2.clone())
-                                .await
-                                .is_err()
-                            {
+                            if self.write_event_now(id, data1, data2).await.is_err() {
                                 is_unavailable = true;
                             }
 
@@ -820,13 +811,11 @@ impl EventConnection for Mercury {
             }
 
             // If the port is unavailable, drop the connection
-            if is_unavailable {
-                if let Some(bad_port) = self.stream.take() {
-                    drop(bad_port); // Ensure the port is promptly dropped
+            if is_unavailable && let Some(bad_port) = self.stream.take() {
+                drop(bad_port); // Ensure the port is promptly dropped
 
-                    // Notify the system of a communication error
-                    error!("Communication write error: Lost connection to Mercury port.");
-                }
+                // Notify the system of a communication error
+                error!("Communication write error: Lost connection to Mercury port.");
             }
         }
 

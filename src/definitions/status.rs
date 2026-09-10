@@ -65,29 +65,25 @@ impl Status {
     /// A method to return the current state of the status
     ///
     pub fn current(&self) -> ItemId {
-        match self {
-            &MultiState { ref current, .. } => current.clone(),
-            &CountedState { ref current, .. } => current.clone(),
+        match *self {
+            MultiState { current, .. } => current,
+            CountedState { current, .. } => current,
         }
     }
 
     /// A method to return the allowed states
     ///
     pub fn allowed(&self) -> Vec<ItemId> {
-        match self {
-            &MultiState { ref allowed, .. } => allowed.clone(),
-            &CountedState {
-                ref trigger,
-                ref anti_trigger,
-                ref reset,
+        match *self {
+            MultiState { ref allowed, .. } => allowed.clone(),
+            CountedState {
+                trigger,
+                anti_trigger,
+                reset,
                 ..
             } => {
                 // Create and return the allowed vector
-                let mut allowed = Vec::new();
-                allowed.push(trigger.clone());
-                allowed.push(anti_trigger.clone());
-                allowed.push(reset.clone());
-                allowed
+                vec![trigger, anti_trigger, reset]
             }
         }
     }
@@ -96,22 +92,22 @@ impl Status {
     /// This method does not change the current state.
     ///
     pub fn is_allowed(&self, new_state: &ItemId) -> bool {
-        match self {
+        match *self {
             // The multistate variant
-            &MultiState { ref allowed, .. } => {
+            MultiState { ref allowed, .. } => {
                 // Check if the new state is valid
-                allowed.is_empty() | allowed.contains(&new_state)
+                allowed.is_empty() | allowed.contains(new_state)
             }
 
             // The countedstate variant
-            &CountedState {
-                ref trigger,
-                ref anti_trigger,
-                ref reset,
+            CountedState {
+                trigger,
+                anti_trigger,
+                reset,
                 ..
             } => {
                 // Check if the new state is valid
-                (*new_state == *trigger) | (*new_state == *anti_trigger) | (*new_state == *reset)
+                (*new_state == trigger) | (*new_state == anti_trigger) | (*new_state == reset)
             }
         }
     }
@@ -122,9 +118,9 @@ impl Status {
     /// a distinction between no change and failure
     ///
     pub fn update(&mut self, new_state: ItemId) -> Option<ItemId> {
-        match self {
+        match *self {
             // The multistate variant
-            &mut MultiState {
+            MultiState {
                 ref mut current,
                 ref allowed,
                 ref no_change_silent,
@@ -147,7 +143,7 @@ impl Status {
             }
 
             // The countedstate variant
-            &mut CountedState {
+            CountedState {
                 ref mut current,
                 ref mut count,
                 ref reset,
@@ -168,12 +164,12 @@ impl Status {
 
                     // Reset the current state
                     *current = *anti_trigger;
-                    Some(current.clone())
+                    Some(*current)
 
                 // Increment the count when the anti-trigger is provided
                 } else if new_state == *anti_trigger {
                     // Increase the count
-                    *count = *count + 1;
+                    *count += 1;
 
                     // If no_change_silent and current is already anti_trigger
                     if *no_change_silent & (*current == *anti_trigger) {
@@ -182,13 +178,13 @@ impl Status {
 
                     // Reset the current state
                     *current = *anti_trigger;
-                    Some(current.clone())
+                    Some(*current)
 
                 // Decrement the count when the trigger is provided
                 } else if new_state == *trigger {
                     // If the count is not zero, decrease it
                     if *count > 0 {
-                        *count = *count - 1;
+                        *count -= 1;
 
                     // If the count is already zero and no_change_silent
                     } else if *no_change_silent {
@@ -201,7 +197,7 @@ impl Status {
                     }
 
                     // Return the current state
-                    Some(current.clone())
+                    Some(*current)
 
                 // Otherwise report failure
                 } else {
@@ -233,6 +229,7 @@ pub struct StatusPartialDescription {
 /// should indicate that the user cannot select a valid state.
 ///
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct StatusDescription {
     pub current: ItemPair,
     pub allowed: Vec<ItemPair>,

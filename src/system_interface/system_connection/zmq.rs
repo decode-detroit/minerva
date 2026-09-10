@@ -180,14 +180,14 @@ impl EventConnection for ZmqConnect {
 
         // Filter the event before returning it
         let mut count = 0;
-        for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_out.iter() {
+        for (filter_id, filter_data1, filter_data2) in self.filter_out.iter() {
             // If the event matches an event in the filter
             if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
                 break; // exit with the found event count
             }
 
             // Increment the count
-            count = count + 1;
+            count += 1;
         }
 
         // Filter the event and remove it from the filter
@@ -227,25 +227,25 @@ impl EventConnection for ZmqConnect {
     async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Filter each event before adding it to the list
         let mut count = 0;
-        for &(ref filter_id, ref filter_data1, ref filter_data2) in self.filter_in.iter() {
+        for (filter_id, filter_data1, filter_data2) in self.filter_in.iter() {
             // If the event matches an event in the filter
             if (id == *filter_id) && (data1 == *filter_data1) && (data2 == *filter_data2) {
                 break; // exit with the found event count
             }
 
             // Increment the count
-            count = count + 1;
+            count += 1;
         }
 
         // Filter the event and remove it from the filter
         if count < self.filter_in.len() {
             // Remove that event from the filter
             self.filter_in.remove(count);
-            return Ok(());
+            Ok(())
 
         // Otherwise, send the event
         } else {
-            return self.write_event(id, data1, data2).await;
+            self.write_event(id, data1, data2).await
         }
     }
 
@@ -314,7 +314,7 @@ fn read_from_zmq(zmq_recv: &mut Socket) -> Option<EventWithData> {
     }
 
     // Return the received id
-    return Some((ItemId::new_unchecked(id), data1, data2));
+    Some((ItemId::new_unchecked(id), data1, data2))
 }
 
 // A helper function to write a single event from the zmq connection

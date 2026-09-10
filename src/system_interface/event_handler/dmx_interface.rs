@@ -121,7 +121,7 @@ impl VulcanThread {
 
                         // Tell Vulcan to close
                         let _ = tmp_client
-                                        .post(&format!("http://{}/close", &address))
+                                        .post(format!("http://{}/close", address))
                                         .send()
                                         .await;
 
@@ -188,7 +188,7 @@ impl DmxInterface {
         if vulcan_params.spawn {
             VulcanThread::spawn(
                 close_receiver,
-                vulcan_params.path.unwrap_or(PathBuf::new()),
+                vulcan_params.path.unwrap_or_default(),
                 address.clone(),
                 backup_location,
             )
@@ -222,7 +222,7 @@ impl DmxInterface {
         self.client
             .as_ref()
             .unwrap()
-            .post(&format!("http://{}/playFade", &self.address))
+            .post(format!("http://{}/playFade", self.address))
             .json(&helper)
             .send()
             .await?;
@@ -246,7 +246,7 @@ impl DmxInterface {
         self.client
             .as_ref()
             .unwrap()
-            .post(&format!("http://{}/loadUniverse", &self.address))
+            .post(format!("http://{}/loadUniverse", self.address))
             .json(&helper)
             .send()
             .await?;

@@ -78,6 +78,7 @@ pub struct FullCueEvent {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct DebugMode {
     is_debug: bool,
 }
@@ -88,6 +89,7 @@ pub struct Edit {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ErrorLog {
     filename: String,
 }
@@ -100,6 +102,7 @@ pub struct EventChange {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct GameLog {
     filename: String,
 }
@@ -135,6 +138,7 @@ pub struct GetType {
 }
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct ProcessEvent {
     event_id: u32,
     check_scene: bool,
@@ -272,13 +276,11 @@ impl From<LimitedCueEvent> for UserRequest {
 impl From<FullCueEvent> for UserRequest {
     fn from(cue_event: FullCueEvent) -> Self {
         // Create the duration
-        let delay;
-        if cue_event.secs != 0 || cue_event.nanos != 0 {
-            delay =
-                Some(Duration::from_secs(cue_event.secs) + Duration::from_nanos(cue_event.nanos));
+        let delay = if cue_event.secs != 0 || cue_event.nanos != 0 {
+            Some(Duration::from_secs(cue_event.secs) + Duration::from_nanos(cue_event.nanos))
         } else {
-            delay = None;
-        }
+            None
+        };
 
         // Return the request
         UserRequest::CueEvent {

@@ -37,9 +37,6 @@ use redis::{Commands, ConnectionLike, RedisResult};
 // Import FNV HashSet and HashMap
 use fnv::FnvHashSet;
 
-// Import YAML processing library
-use serde_yaml;
-
 /// A helper structure to hold the last update
 ///
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -95,7 +92,7 @@ impl BackupHandler {
                     );
 
                     // Unpack the result from the operation
-                    if let Err(..) = result {
+                    if result.is_err() {
                         // Warn that it wasn't possible to update the current scene
                         error!("Unable to set Redis snapshot settings.");
                     }
@@ -145,12 +142,12 @@ impl BackupHandler {
         if let Some(mut connection) = self.connection.take() {
             // Try to copy the current scene to the server
             let result: RedisResult<bool> = connection.set(
-                &format!("minerva:{}:current", self.identifier),
-                &format!("{}", current_scene.id()),
+                format!("minerva:{}:current", self.identifier),
+                format!("{}", current_scene.id()),
             );
 
             // Unpack the result from the operation
-            if let Err(..) = result {
+            if result.is_err() {
                 // Warn that it wasn't possible to update the current scene
                 error!("Unable to backup current scene onto backup server.");
             }
@@ -185,17 +182,17 @@ impl BackupHandler {
         if let Some(mut connection) = self.connection.take() {
             // Try to copy the state to the server
             let result: RedisResult<bool> = connection.set(
-                &format!("minerva:{}:{}", self.identifier, status_id),
-                &format!("{}", new_state.id()),
+                format!("minerva:{}:{}", self.identifier, status_id),
+                format!("{}", new_state.id()),
             );
 
             // Warn that the particular status was not set
-            if let Err(..) = result {
+            if result.is_err() {
                 error!("Unable to backup status onto backup server: {}.", status_id);
 
             // Otherwise, add the id to the backup items
             } else {
-                self.backup_items.insert(status_id.clone());
+                self.backup_items.insert(*status_id);
             }
 
             // Backup the update times
@@ -252,10 +249,10 @@ impl BackupHandler {
 
             // Try to copy the event to the server
             let result: RedisResult<bool> =
-                connection.set(&format!("minerva:{}:queue", self.identifier), &event_string);
+                connection.set(format!("minerva:{}:queue", self.identifier), &event_string);
 
             // Alert that the event queue was not set
-            if let Err(..) = result {
+            if result.is_err() {
                 error!("Unable to backup events onto backup server.");
             }
 
@@ -282,15 +279,12 @@ impl BackupHandler {
     /// gracefully by notifying of any errors on the update line and returning
     /// None.
     ///
-    pub fn reload_backup(
-        &mut self,
-        mut status_ids: Vec<ItemId>,
-    ) -> Option<(ItemId, Vec<(ItemId, ItemId)>, Vec<QueuedEvent>)> {
+    pub fn reload_backup(&mut self, mut status_ids: Vec<ItemId>) -> Option<ExistingBackup> {
         // If the redis connection exists
         if let Some(mut connection) = self.connection.take() {
             // Check to see if there is an existing scene
             let result: RedisResult<String> =
-                connection.get(&format!("minerva:{}:current", self.identifier));
+                connection.get(format!("minerva:{}:current", self.identifier));
 
             // If the current scene exists
             if let Ok(current_str) = result {
@@ -303,7 +297,7 @@ impl BackupHandler {
                     media_update: Duration::from_secs(0),
                 };
                 let result: RedisResult<String> =
-                    connection.get(&format!("minerva:{}:lastupdate", self.identifier));
+                    connection.get(format!("minerva:{}:lastupdate", self.identifier));
 
                 // If something was received
                 if let Ok(update_string) = result {
@@ -316,7 +310,7 @@ impl BackupHandler {
                 // Try to read the exising event queue
                 let mut queued_events: Vec<QueuedEvent> = Vec::new();
                 let result: RedisResult<String> =
-                    connection.get(&format!("minerva:{}:queue", self.identifier));
+                    connection.get(format!("minerva:{}:queue", self.identifier));
 
                 // If something was received
                 if let Ok(queue_string) = result {
@@ -332,27 +326,27 @@ impl BackupHandler {
                     last_updates.queue_update.as_secs(),
                     (last_updates.queue_update.as_millis() % 1000)
                 );
-                if queued_events.len() > 0 {
+                if !queued_events.is_empty() {
                     for event in queued_events.iter_mut() {
                         event.update(last_updates.queue_update);
                     }
                 }
 
-                // Compile a list of valid status pairs
-                let mut status_pairs: Vec<(ItemId, ItemId)> = Vec::new();
+                // Compile a hashmap of the current status
+                let mut current_status = CurrentStatus::default();
                 for status_id in status_ids.drain(..) {
                     // Try to read an existing status from the backup
                     let result: RedisResult<String> =
-                        connection.get(&format!("minerva:{}:{}", self.identifier, status_id));
+                        connection.get(format!("minerva:{}:{}", self.identifier, status_id));
 
                     // If something was received
                     if let Ok(state_str) = result {
                         // Try to parse the current state id
                         if let Ok(state_id) = state_str.parse::<u32>() {
                             // Try to compose the id into an item
-                            if let Some(new_state) = ItemId::new(state_id) {
+                            if let Some(current_state) = ItemId::new(state_id) {
                                 // Add the status id and new state to the status pairs
-                                status_pairs.push((status_id, new_state));
+                                current_status.insert(status_id, current_state);
                             }
                         }
                     }
@@ -366,7 +360,11 @@ impl BackupHandler {
                         self.connection = Some(connection);
 
                         // Return the current scene and status pairs
-                        return Some((current_scene, status_pairs, queued_events));
+                        return Some(ExistingBackup {
+                            current_scene,
+                            current_status,
+                            queued_events,
+                        });
                     }
                 }
             }
@@ -399,12 +397,12 @@ impl BackupHandler {
 
         // Try to copy the data to the server
         let result: RedisResult<bool> = connection.set(
-            &format!("minerva:{}:lastupdate", self.identifier),
+            format!("minerva:{}:lastupdate", self.identifier),
             &update_string,
         );
 
         // Alert that the media playlist was not set
-        if let Err(..) = result {
+        if result.is_err() {
             error!("Unable to backup update times onto backup server.");
         }
     }
@@ -424,20 +422,19 @@ impl Drop for BackupHandler {
         if let Some(mut connection) = self.connection.take() {
             // Try to delete the current scene if it exists (unable to manually specify types)
             let _: RedisResult<bool> =
-                connection.del(&format!("minerva:{}:current", self.identifier));
+                connection.del(format!("minerva:{}:current", self.identifier));
 
             // Try to delete the last update backup if it exists
             let _: RedisResult<bool> =
-                connection.del(&format!("minerva:{}:lastupdate", self.identifier));
+                connection.del(format!("minerva:{}:lastupdate", self.identifier));
 
             // Try to delete the queue if it exists
-            let _: RedisResult<bool> =
-                connection.del(&format!("minerva:{}:queue", self.identifier));
+            let _: RedisResult<bool> = connection.del(format!("minerva:{}:queue", self.identifier));
 
             // Try to delete all the items that were backed up
             for item in self.backup_items.drain() {
                 let _: RedisResult<bool> =
-                    connection.del(&format!("minerva:{}:{}", self.identifier, item));
+                    connection.del(format!("minerva:{}:{}", self.identifier, item));
             }
         }
 
@@ -482,11 +479,15 @@ mod tests {
         backup_handler.backup_status(&status2, &state2).await;
 
         // Reload the backup
-        if let Some((reload_scene, statuses, _queue)) =
-            backup_handler.reload_backup(vec![status1, status2])
+        if let Some(ExistingBackup {
+            current_scene: reload_scene,
+            current_status,
+            ..
+        }) = backup_handler.reload_backup(vec![status1, status2])
         {
             assert_eq!(current_scene, reload_scene);
-            assert_eq!(vec!((status1, state1), (status2, state2)), statuses);
+            assert_eq!(Some(&state1), current_status.get(&status1));
+            assert_eq!(Some(&state2), current_status.get(&status2));
 
         // If the backup doesn't exist, throw the error
         } else {

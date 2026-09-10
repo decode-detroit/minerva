@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "1.0.2"
+version = "1.1.1"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Interactive Show Control Software"
 license = "GPL-3.0-or-later"
@@ -15,11 +15,11 @@ fnv = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9.34-deprecated"
 serde_json = "1.0"
-redis = "1.2"
+redis = "1.7"
 serial = "0.4"
 byteorder = "1.5"
 zmq = "0.10"
-tokio = { version = "1.52", features = ["macros", "process", "rt-multi-thread", "time", "io-util"] }
+tokio = { version = "1.53", features = ["macros", "process", "rt-multi-thread", "time", "io-util"] }
 warp = { version = "0.3", features = ["tls"] }
 async-stream = "0.3"
 async-recursion = "1.1"
@@ -32,11 +32,11 @@ thread_local = "1.1"
 single-instance = "0.3"
 anyhow = "1.0"
 clap = { version = "4.6", features = ["derive"] }
-rust-embed = "8.11"
+rust-embed = "8.12"
 warp-embed = "0.5"
-tokio-serial = "5.4"
-bytes = "1.11"
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+tokio-serial = "5.5"
+bytes = "1.12"
+jsonwebtoken = { version = "11.0", features = ["rust_crypto"] }
 console-subscriber = { version = "0.5", optional = true }
 system_shutdown = "4.1"
 

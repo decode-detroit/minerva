@@ -46,7 +46,16 @@ impl QueuedEvent {
 /// A structure to save a media cue with timing information
 ///
 #[derive(Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct MediaPlayback {
     pub media_cue: MediaCue,  // the media information that was cued
     pub time_since: Duration, // the minimum time since the media was cued
+}
+
+/// A structure to hold an existing backup reloaded from the server
+///
+pub struct ExistingBackup {
+    pub current_scene: ItemId,           // the current scene
+    pub current_status: CurrentStatus, // a hashmap of all the backed-up statuses with their current states
+    pub queued_events: Vec<QueuedEvent>, // a list of all queued events
 }

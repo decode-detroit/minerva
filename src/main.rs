@@ -43,7 +43,6 @@ extern crate anyhow;
 
 // Import tracing features
 use tracing::Level;
-use tracing_appender;
 use tracing_subscriber::filter::{LevelFilter, filter_fn};
 use tracing_subscriber::prelude::*;
 

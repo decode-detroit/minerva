@@ -98,7 +98,7 @@ impl ApolloThread {
 
                     // Post the window to Apollo
                     let _ = tmp_client
-                        .post(&format!("http://{}/defineWindow", &address))
+                        .post(format!("http://{}/defineWindow", address))
                         .json(&window)
                         .send()
                         .await;
@@ -111,7 +111,7 @@ impl ApolloThread {
 
                     // Post the channel to Apollo
                     let _ = tmp_client
-                        .post(&format!("http://{}/defineChannel", &address))
+                        .post(format!("http://{}/defineChannel", address))
                         .json(&channel)
                         .send()
                         .await;
@@ -140,7 +140,7 @@ impl ApolloThread {
 
                         // Tell Apollo to close
                         let _ = tmp_client
-                                        .post(&format!("http://{}/close", &address))
+                                        .post(format!("http://{}/close", address))
                                         .send()
                                         .await;
 
@@ -207,7 +207,7 @@ impl MediaInterface {
             .unwrap_or(String::from("127.0.0.1:27655"));
 
         // Collect the list of valid channels
-        let channel_list = channel_map.keys().map(|key| key.clone()).collect();
+        let channel_list = channel_map.keys().copied().collect();
 
         // Create a channel to notify the background thread to close
         let (_close_sender, close_receiver) = mpsc::channel(1); // don't need space for any messages
@@ -236,7 +236,7 @@ impl MediaInterface {
     // A helper method to send a new media cue
     pub async fn play_cue(&mut self, cue: MediaCue) -> Result<()> {
         // If there is a channel list
-        if self.channel_list.len() > 0 {
+        if !self.channel_list.is_empty() {
             // Check that the channel is valid
             if !self.channel_list.contains(&cue.channel) {
                 // If not, note the error
@@ -256,7 +256,7 @@ impl MediaInterface {
         self.client
             .as_ref()
             .unwrap()
-            .post(&format!("http://{}/cueMedia", &self.address))
+            .post(format!("http://{}/cueMedia", self.address))
             .json(&helper)
             .send()
             .await?;
@@ -268,7 +268,7 @@ impl MediaInterface {
     // A helper method to adjust the location of a video frame by one pixel in any direction
     pub async fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<()> {
         // If there is a channel list
-        if self.channel_list.len() > 0 {
+        if !self.channel_list.is_empty() {
             // Check that the channel is valid
             if !self.channel_list.contains(&adjustment.channel) {
                 // If not, note the error
@@ -288,7 +288,7 @@ impl MediaInterface {
         self.client
             .as_ref()
             .unwrap()
-            .post(&format!("http://{}/alignChannel", &self.address))
+            .post(format!("http://{}/alignChannel", self.address))
             .json(&helper)
             .send()
             .await?;

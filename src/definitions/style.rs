@@ -132,7 +132,7 @@ impl StyleAccess {
     pub async fn remove_rule(&self, selector: String) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .style_send
             .send(StyleUpdate::UpdateStyle {
                 selector: selector.clone(),
@@ -140,6 +140,7 @@ impl StyleAccess {
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return false
             return false;
@@ -156,7 +157,7 @@ impl StyleAccess {
     pub async fn update_rule(&self, selector: String, new_rule: String) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .style_send
             .send(StyleUpdate::UpdateStyle {
                 selector,
@@ -164,6 +165,7 @@ impl StyleAccess {
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return false
             return false;
@@ -175,16 +177,17 @@ impl StyleAccess {
 
     /// A method to see if an style rule exists in the style sheet
     ///
-    pub async fn is_listed(&self, selector: &String) -> bool {
+    pub async fn is_listed(&self, selector: &str) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .style_send
             .send(StyleUpdate::GetExistence {
-                selector: selector.clone(),
+                selector: selector.to_string(),
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return false
             return false;
@@ -197,16 +200,17 @@ impl StyleAccess {
     /// A method to get the rule from the style sheet
     /// Returns an empty string if the selector is not found
     ///
-    pub async fn get_rule(&self, selector: &String) -> String {
+    pub async fn get_rule(&self, selector: &str) -> String {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .style_send
             .send(StyleUpdate::GetRule {
-                selector: selector.clone(),
+                selector: selector.to_string(),
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return an empty String
             return String::new();
@@ -221,10 +225,11 @@ impl StyleAccess {
     pub async fn get_all_selectors(&self) -> Vec<String> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .style_send
             .send(StyleUpdate::GetAllSelectors { reply_line })
             .await
+            .is_err()
         {
             // On failure, return none
             return Vec::new();
@@ -239,10 +244,11 @@ impl StyleAccess {
     pub async fn get_all_rules(&self) -> StyleMap {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .style_send
             .send(StyleUpdate::GetAllRules { reply_line })
             .await
+            .is_err()
         {
             // On failure, return none
             return FnvHashMap::default();

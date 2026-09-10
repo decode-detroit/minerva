@@ -298,9 +298,7 @@ impl SystemInterface {
 
                         // Pass the event as a limited update
                         self.limited_send
-                            .send(LimitedUpdate::CurrentEvent {
-                                event: event_id.clone(),
-                            })
+                            .send(LimitedUpdate::CurrentEvent { event: event_id })
                             .await;
                     }
 
@@ -459,7 +457,7 @@ impl SystemInterface {
                     let mut status = handler.get_statuses();
 
                     // Repackage into a current status (drop allowed states)
-                    let mut current_status = CurrentStatus::default();
+                    let mut current_status = WebCurrentStatus::default();
                     for (status_id, status_description) in status.drain() {
                         current_status.insert(status_id.id(), status_description.current.id());
                     }
@@ -636,11 +634,11 @@ impl SystemInterface {
                                         for item_id in scene.items.iter() {
                                             // If it's a group, add it to the group list
                                             if handler.get_group(item_id).is_some() {
-                                                groups.insert(item_id.clone());
+                                                groups.insert(*item_id);
 
                                             // Otherwise, save it to the item list
                                             } else {
-                                                items.insert(item_id.clone());
+                                                items.insert(*item_id);
                                             }
                                         }
 
@@ -800,7 +798,7 @@ enum UnpackResult {
     Success,
 
     // A variant for successful unpacking with current scene and status
-    SuccessWithCurrentSceneAndStatus((ItemId, CurrentStatus)),
+    SuccessWithCurrentSceneAndStatus((ItemId, WebCurrentStatus)),
 
     // A variant for successful unpacking with an event
     SuccessWithEvent(Event),

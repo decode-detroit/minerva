@@ -116,7 +116,7 @@ impl ItemIndex {
                 // Create a copy of the item ids
                 let mut items = Vec::new();
                 for item in self.index.keys() {
-                    items.push(item.clone());
+                    items.push(*item);
                 }
 
                 // Sort the items by item id
@@ -131,7 +131,7 @@ impl ItemIndex {
                 // Create a copy of the item ids
                 let mut items = Vec::new();
                 for (item, description) in self.index.iter() {
-                    items.push(ItemPair::from_item(item.clone(), description.clone()));
+                    items.push(ItemPair::from_item(*item, description.clone()));
                 }
 
                 // Sort the items by item id

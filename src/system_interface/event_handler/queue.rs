@@ -130,10 +130,7 @@ impl ComingEvents {
         // Get access to the list
         if let Ok(list) = self.list.lock() {
             // Return the last entry
-            return match list.last() {
-                Some(event) => Some(event.clone()),
-                None => None,
-            };
+            return list.last().copied();
         }
         None
     }
@@ -228,7 +225,7 @@ impl ComingEvents {
         self.send_current().await;
 
         // Return the new event
-        return Some(new_event);
+        Some(new_event)
     }
 
     /// A method to remove any events that match the event id from the list.

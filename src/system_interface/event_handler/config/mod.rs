@@ -45,9 +45,6 @@ use anyhow::Result;
 // Import FNV HashMap
 use fnv::FnvHashMap;
 
-// Import YAML processing library
-use serde_yaml;
-
 /// A simple structure to hold and manage the background process
 ///
 struct BackgroundThread {
@@ -286,7 +283,7 @@ impl Config {
 
         // Check the version id and warn the user if they differ
         let version = env!("CARGO_PKG_VERSION");
-        if &yaml_config.version != version {
+        if yaml_config.version != version {
             warn!(
                 "Version of configuration ({}) does not match software version ({}).",
                 &yaml_config.version, version
@@ -298,29 +295,29 @@ impl Config {
         let mut event_set = FnvHashMap::default();
         for (item_pair, possible_event) in yaml_config.event_set.iter() {
             // Insert the event description into the lookup
-            match item_index.insert(item_pair.get_id(), item_pair.get_description()) {
+            if item_index
+                .insert(item_pair.get_id(), item_pair.get_description())
+                .is_some()
+            {
                 // Warn of events defined multiple times
-                Some(_) => {
-                    warn!(
-                        "Item {} has multiple definitions in lookup.",
-                        &item_pair.id()
-                    ) // FIXME This check doesn't work due to the deserialization process
-                }
-                None => (),
+                warn!(
+                    "Item {} has multiple definitions in lookup.",
+                    &item_pair.id()
+                ) // FIXME This check doesn't work due to the deserialization process
             }
 
             // If the event is specified
-            if let &Some(ref event) = possible_event {
+            if let Some(event) = possible_event {
                 // Insert the event into the events hash map
-                match event_set.insert(item_pair.get_id(), event.clone()) {
+                if event_set
+                    .insert(item_pair.get_id(), event.clone())
+                    .is_some()
+                {
                     // Warn of an event defined multiple times
-                    Some(_) => {
-                        warn!(
-                            "Item {} has multiple definitions in event list.",
-                            &item_pair.id()
-                        )
-                    }
-                    None => (),
+                    warn!(
+                        "Item {} has multiple definitions in event list.",
+                        &item_pair.id()
+                    );
                 }
             }
         }
@@ -344,7 +341,7 @@ impl Config {
         let current_scene = yaml_config.default_scene;
 
         // Check to see if the default scene is valid and warn if not defined
-        if scene_map.get(&current_scene).is_none() {
+        if !scene_map.contains_key(&current_scene) {
             warn!("Current scene is not defined.");
         }
 
@@ -379,10 +376,9 @@ impl Config {
     ///
     pub fn get_background_process(&self) -> Option<BackgroundProcess> {
         // Get a copy of the background process, if it exists
-        match &self.background_thread {
-            &Some(ref bt) => Some(bt.background_process()),
-            &None => None,
-        }
+        self.background_thread
+            .as_ref()
+            .map(|bt| bt.background_process())
     }
 
     /// A method to return a copy of the system connections
@@ -414,7 +410,7 @@ impl Config {
     ///
     pub fn get_group(&self, item_id: &ItemId) -> Option<Group> {
         // Return the scene, if found, and return a copy
-        self.group_map.get(item_id).map(|group| group.clone())
+        self.group_map.get(item_id).cloned()
     }
 
     /// A method to return a list of all available scenes in this
@@ -425,7 +421,7 @@ impl Config {
         // Compile a list of the available groups
         let mut groups = Vec::new();
         for group_id in self.group_map.keys() {
-            groups.push(group_id.clone());
+            groups.push(*group_id);
         }
 
         // Sort them in order
@@ -463,9 +459,9 @@ impl Config {
     /// A method to silently update the status of the system based on a previous
     /// backup.
     ///
-    pub async fn load_backup_status(&mut self, mut status_pairs: Vec<(ItemId, ItemId)>) {
+    pub async fn load_backup_status(&mut self, mut current_status: CurrentStatus) {
         // For every status in the status pairs, set the current value
-        for (status_id, new_state) in status_pairs.drain(..) {
+        for (status_id, new_state) in current_status.drain() {
             self.status_handler
                 .modify_status(&status_id, &new_state)
                 .await;
@@ -485,8 +481,8 @@ impl Config {
             // Send the change to the limited interface
             self.limited_send
                 .send(LimitedUpdate::UpdateStatus {
-                    status_id: status_id.clone(),
-                    new_state: new_state.clone(),
+                    status_id,
+                    new_state,
                 })
                 .await;
 
@@ -508,7 +504,7 @@ impl Config {
     ///
     pub fn get_scene(&self, item_id: &ItemId) -> Option<Scene> {
         // Return the scene, if found, and return a copy
-        self.scene_map.get(item_id).map(|scene| scene.clone())
+        self.scene_map.get(item_id).cloned()
     }
 
     /// A method to return a list of all available scenes in this
@@ -519,7 +515,7 @@ impl Config {
         // Compile a list of the available scenes
         let mut scenes = Vec::new();
         for scene_id in self.scene_map.keys() {
-            scenes.push(scene_id.clone());
+            scenes.push(*scene_id);
         }
 
         // Sort them in order
@@ -545,7 +541,7 @@ impl Config {
         if let Some(scene) = self.scene_map.get(&self.current_scene) {
             // Compile the list of the available items
             for item_id in scene.items.iter() {
-                items.push(item_id.clone());
+                items.push(*item_id);
             }
 
             // Add the list of group ids
@@ -588,7 +584,7 @@ impl Config {
     /// A method to return the current scene.
     ///
     pub fn get_current_scene(&self) -> ItemId {
-        self.current_scene.clone()
+        self.current_scene
     }
 
     /// A method to save new parameters to the configuration
@@ -627,13 +623,13 @@ impl Config {
                 .await;
 
             // Indicate success
-            return Ok(());
+            Ok(())
 
         // Warn the system that the selected id doesn't exist
         } else {
             // Warn of the error and indicate failure
             warn!("Scene Id not found in configuration: {}.", scene_id);
-            return Err(());
+            Err(())
         }
     }
 
@@ -658,12 +654,12 @@ impl Config {
         // Try to update the underlying status
         if let Some(new_id) = self
             .status_handler
-            .modify_status(&status_id, &new_state)
+            .modify_status(status_id, new_state)
             .await
         {
             // Get the item pairs
-            let status_pair = self.index_access.get_pair(&status_id).await;
-            let state_pair = self.index_access.get_pair(&new_state).await;
+            let status_pair = self.index_access.get_pair(status_id).await;
+            let state_pair = self.index_access.get_pair(new_state).await;
 
             // Send the change to the interface
             self.interface_send
@@ -676,8 +672,8 @@ impl Config {
             // Send the change to the limited interface
             self.limited_send
                 .send(LimitedUpdate::UpdateStatus {
-                    status_id: status_id.clone(),
-                    new_state: new_state.clone(),
+                    status_id: *status_id,
+                    new_state: *new_state,
                 })
                 .await;
 
@@ -903,9 +899,7 @@ impl Config {
                 );
 
                 // Make sure the scene is also an event
-                if !self.event_set.contains_key(&scene_id) {
-                    self.event_set.insert(scene_id, Event::new());
-                }
+                self.event_set.entry(scene_id).or_default();
 
             // Otherwise, add the scene
             } else {
@@ -916,9 +910,7 @@ impl Config {
                 self.scene_map.insert(scene_id, new_scene);
 
                 // Make sure the scene is also an event
-                if !self.event_set.contains_key(&scene_id) {
-                    self.event_set.insert(scene_id, Event::new());
-                }
+                self.event_set.entry(scene_id).or_default();
             }
 
         // If no new scene was specified
@@ -960,7 +952,7 @@ impl Config {
                 // Warn the user that the status is broken
                 warn!(
                     "Item appears in status {}. Status has a broken definition.",
-                    self.index_access.get_description(&status_id).await
+                    self.index_access.get_description(status_id).await
                 );
             }
         }
@@ -1032,7 +1024,7 @@ impl Config {
             if is_broken {
                 warn!(
                     "Item appears in event {}. Event has a broken definition.",
-                    self.index_access.get_description(&event_id).await
+                    self.index_access.get_description(event_id).await
                 );
             }
         }
@@ -1048,7 +1040,7 @@ impl Config {
     ///
     pub fn get_event(&mut self, id: &ItemId) -> Option<Event> {
         // Try to return a copy of the event
-        self.event_set.get(id).map(|event| event.clone())
+        self.event_set.get(id).cloned()
     }
 
     /// A method to return the event based on the event id.
@@ -1069,11 +1061,11 @@ impl Config {
                     // If not, check all the groups in the scene
                     let mut is_found = false;
                     for group_id in scene.groups.iter() {
-                        if let Some(group) = self.group_map.get(&group_id) {
-                            if group.items.contains(id) {
-                                is_found = true;
-                                break;
-                            }
+                        if let Some(group) = self.group_map.get(group_id)
+                            && group.items.contains(id)
+                        {
+                            is_found = true;
+                            break;
                         }
                     }
 
@@ -1203,7 +1195,7 @@ impl Config {
             }
 
             // Verify that the scene is described in the lookup
-            if !lookup.contains_key(&id) {
+            if !lookup.contains_key(id) {
                 warn!("Scene not described in lookup: {}.", id);
             }
         }
@@ -1261,23 +1253,23 @@ impl Config {
             }
 
             // Verify that the event is described in the event lookup
-            test = test & Config::verify_lookup(lookup, id).await;
+            test &= Config::verify_lookup(lookup, id).await;
         }
 
         // If the key map is specified
         if let Some(key_map) = &scene.key_map {
             // Verify that each key mapping matches a valid event
-            for (_, id) in key_map.iter() {
+            for id in key_map.values() {
                 // Make sure the event is listed in the scene
                 if !scene.items.contains(id) {
                     // If not, check all the groups in the scene
                     let mut is_found = false;
                     for group_id in scene.groups.iter() {
-                        if let Some(group) = group_map.get(&group_id) {
-                            if group.items.contains(id) {
-                                is_found = true;
-                                break;
-                            }
+                        if let Some(group) = group_map.get(group_id)
+                            && group.items.contains(id)
+                        {
+                            is_found = true;
+                            break;
                         }
                     }
 
@@ -1318,7 +1310,7 @@ impl Config {
             // Check each action, exiting early if any action fails the check
             match action {
                 // If there is a new scene, verify the id is valid
-                &NewScene { ref new_scene } => {
+                NewScene { new_scene } => {
                     // If the desired scene does exist
                     if scene_map.contains_key(new_scene) {
                         // Verify that the newscene event exists in the new scene
@@ -1339,9 +1331,9 @@ impl Config {
                 }
 
                 // If there is a status modification, verify both components of the modification
-                &ModifyStatus {
-                    ref status_id,
-                    ref new_state,
+                ModifyStatus {
+                    status_id,
+                    new_state,
                 } => {
                     // Check that the status_id is valid
                     if let Some(status) = status_map.get(status_id) {
@@ -1360,78 +1352,75 @@ impl Config {
                         & Config::verify_lookup(lookup, new_state).await;
                 }
                 // If there is dmx fade to cue, assume validity
-                &CueDmx { .. } => (),
+                CueDmx { .. } => (),
 
                 // If there is an event to cue, verify that it exists
-                &CueEvent { ref event } => {
+                CueEvent { event } => {
                     // Verify that the event is listed in the current scene
                     if !scene.items.contains(&event.id()) {
                         // If not, check all the groups in the scene
                         let mut is_found = false;
                         for group_id in scene.groups.iter() {
-                            if let Some(group) = group_map.get(&group_id) {
-                                if group.items.contains(&event.id()) {
-                                    is_found = true;
-                                    break;
-                                }
+                            if let Some(group) = group_map.get(group_id)
+                                && group.items.contains(&event.id())
+                            {
+                                is_found = true;
+                                break;
                             }
                         }
 
                         // If not found
                         if !(is_found) {
-                            warn!("Cued event not in scene: {}.", &event.id());
+                            warn!("Cued event not in scene: {}.", event.id());
                             // Do not flag as incorrect
                         }
                     }
 
                     // Return false if the event_id is incorrect
                     if !event_list.contains_key(&event.id()) {
-                        warn!("Event contains invalid cue event: {}.", &event.id());
+                        warn!("Event contains invalid cue event: {}.", event.id());
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked
                 }
 
                 // If there is media to cue, check if the file exists
-                &CueMedia { ref cue } => {
+                CueMedia { cue } => {
                     // If the cue is referencing a local file
-                    if cue.uri.starts_with("file://") {
-                        if !Path::new(&cue.uri[7..]).exists() {
-                            warn!("Media file missing for cue media: {}.", cue.uri);
-                            return false;
-                        }
+                    if cue.uri.starts_with("file://") && !Path::new(&cue.uri[7..]).exists() {
+                        warn!("Media file missing for cue media: {}.", cue.uri);
+                        return false;
                     }
 
                     // If the loop media exists and is referencing a local file
-                    if let Some(ref media) = cue.loop_media {
-                        if media.starts_with("file://") {
-                            if !Path::new(&media[7..]).exists() {
-                                warn!("Media file missing for cue media: {}.", &media);
-                                return false;
-                            }
-                        }
+                    if let Some(ref media) = cue.loop_media
+                        && media.starts_with("file://")
+                        && !Path::new(&media[7..]).exists()
+                    {
+                        warn!("Media file missing for cue media: {}.", &media);
+                        return false;
                     }
                 }
 
                 // If there is media to adjust, assume validity
-                &AdjustMedia { .. } => (),
+                AdjustMedia { .. } => (),
 
                 // If there are events to cancel, verify that they exist
-                &CancelEvent { ref event } => {
+                CancelEvent { event } => {
                     // Return false if the event doesn't exist
-                    if !event_list.contains_key(&event) {
-                        warn!("Event contains invalid cancelled event: {}.", &event);
+                    if !event_list.contains_key(event) {
+                        warn!("Event contains invalid cancelled event: {}.", event);
                         return false;
                     } // Don't need to check lookup as all valid individual events are already checked. Don't need to check scene validity because cancelled events are not necessarily in the same scene.
                 }
 
                 // If there is data to save or send, assume validity
-                &SaveData { .. } => (),
-                &SendData { .. } => (),
+                SaveData { .. } => (),
+                SendData { .. } => (),
 
                 // If there is a select event, verify the components of the event
-                &SelectEvent {
-                    ref status_id,
-                    ref event_map,
+                SelectEvent {
+                    status_id,
+                    event_map,
                 } => {
                     // Check that the status_id is valid
                     if let Some(status) = status_map.get(status_id) {
@@ -1447,7 +1436,7 @@ impl Config {
                             // If there is a matching event, verify that it exists
                             if let Some(target_event) = event_map.get(state) {
                                 // Verify that the event exists
-                                if !event_list.contains_key(&target_event) {
+                                if !event_list.contains_key(target_event) {
                                     warn!(
                                         "Select event has invalid target event: {}.",
                                         &target_event
@@ -1477,7 +1466,7 @@ impl Config {
     ///
     async fn verify_lookup(lookup: &FnvHashMap<ItemId, ItemDescription>, id: &ItemId) -> bool {
         // Check to see if the id is available in the lookup
-        if !lookup.contains_key(&id) {
+        if !lookup.contains_key(id) {
             warn!("Item not described in lookup: {}.", id);
             return false;
         }

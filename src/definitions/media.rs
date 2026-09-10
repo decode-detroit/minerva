@@ -50,13 +50,13 @@ pub struct VideoFrameHelper {
 impl VideoFrame {
     pub fn into_helper(self) -> VideoFrameHelper {
         // Return the completed video window helper
-        return VideoFrameHelper {
+        VideoFrameHelper {
             window_number: self.window_number,
             top: self.top,
             left: self.left,
             height: self.height,
             width: self.width,
-        };
+        }
     }
 }
 
@@ -135,24 +135,18 @@ impl MediaChannel {
     // Add the channel number to an existing media channel
     pub fn add_number(self, channel: u32) -> MediaChannelHelper {
         // Convert the video window, if specified
-        let video_frame = match self.video_frame {
-            Some(frame) => Some(frame.into_helper()),
-            None => None,
-        };
+        let video_frame = self.video_frame.map(|device| device.into_helper());
 
         // Convert the audio device, if specified
-        let audio_device = match self.audio_device {
-            Some(device) => Some(device.into_helper()),
-            None => None,
-        };
+        let audio_device = self.audio_device.map(|device| device.into_helper());
 
         // Return the completed media channel helper
-        return MediaChannelHelper {
+        MediaChannelHelper {
             channel,
             video_frame,
             audio_device,
             loop_media: self.loop_media,
-        };
+        }
     }
 }
 
@@ -215,6 +209,7 @@ pub struct MediaPlayer {
 //
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct SeekMediaHelper {
     pub channel: u32,  // the channel for the media
     pub position: u64, // the new position within the media stream in milliseconds

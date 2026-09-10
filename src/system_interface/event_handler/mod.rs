@@ -149,7 +149,7 @@ impl EventHandler {
             .await;
 
             // Set the path to "default.yaml" in the current directory
-            resolved_path = env::current_dir().unwrap_or(PathBuf::new());
+            resolved_path = env::current_dir().unwrap_or_default();
             resolved_path.push("default.yaml");
         }
 
@@ -184,8 +184,11 @@ impl EventHandler {
             BackupHandler::new(config.get_identifier(), config.get_server_location()).await;
 
         // Check for existing data from the backup handler
-        if let Some((current_scene, mut status_pairs, queued_events)) =
-            backup.reload_backup(config.get_status_ids())
+        if let Some(ExistingBackup {
+            current_scene,
+            mut current_status,
+            queued_events,
+        }) = backup.reload_backup(config.get_status_ids())
         {
             // Change the current scene silently (i.e. do not trigger the scene's default event)
             info!(
@@ -195,13 +198,13 @@ impl EventHandler {
             config.choose_scene(current_scene).await.unwrap_or(());
 
             // Update the current status states based on the backup
-            config.load_backup_status(status_pairs.clone()).await;
+            config.load_backup_status(current_status.clone()).await;
 
             // Restate the all of the current states to the system, restricted by the current scene
-            for (count, (_, current_state)) in status_pairs.drain(..).enumerate() {
+            for (count, (_, current_state)) in current_status.drain().enumerate() {
                 queue
                     .add_event(EventDelay::new(
-                        Some(Duration::from_millis(count as u64)),
+                        Some(Duration::from_millis(count as u64 * 10)), // delay each new update by 10 ms
                         current_state,
                     ))
                     .await; // small delay for each to keep from overwhelming the system connections
@@ -577,13 +580,13 @@ impl EventHandler {
         // Try to retrieve the event and unpack the event
         if let Some(event) = self.config.try_event(event_id, checkscene).await {
             // Log the event
-            info!("Event: {}.", self.index_access.get_pair(&event_id).await);
+            info!("Event: {}.", self.index_access.get_pair(event_id).await);
 
             // Collect the events to broadcast
             let mut broadcast_events = BroadcastEvents::new(); // collect events to broadcast from each action
 
             // Add this event
-            broadcast_events.push((event_id.clone(), None));
+            broadcast_events.push((*event_id, None));
 
             // Unpack and process each action of the event
             for action in event {
@@ -600,7 +603,7 @@ impl EventHandler {
                     UnpackResult::Data(mut data) => {
                         // Add this event and each piece of data
                         for number in data.drain(..) {
-                            broadcast_events.push((event_id.clone(), Some(number)));
+                            broadcast_events.push((*event_id, Some(number)));
                         }
                     }
 
@@ -761,7 +764,7 @@ impl EventHandler {
                 // Send the cue to each media interface in turn
                 let mut success = false;
                 for interface in self.media_interfaces.iter_mut() {
-                    if let Ok(_) = interface.play_cue(cue.clone()).await {
+                    if interface.play_cue(cue.clone()).await.is_ok() {
                         success = true;
                     }
                 }
@@ -777,7 +780,7 @@ impl EventHandler {
                 // Send the cue to each media interface in turn
                 let mut success = false;
                 for interface in self.media_interfaces.iter_mut() {
-                    if let Ok(_) = interface.adjust_media(adjustment.clone()).await {
+                    if interface.adjust_media(adjustment.clone()).await.is_ok() {
                         success = true;
                     }
                 }
@@ -911,7 +914,7 @@ impl EventHandler {
                         }
 
                         // Save the last bit of data if the total doesn't add to 4
-                        if (length % 4) != 0 {
+                        if !length.is_multiple_of(4) {
                             data.push((first << 24) | (second << 16) | (third << 8) | fourth);
                         }
 
@@ -932,15 +935,11 @@ impl EventHandler {
                     if let Some(event_id) = event_map.get(&state) {
                         // Process the event immediately and return any new events
                         #[cfg(not(feature = "no_action_recursion"))]
-                        return UnpackResult::Events(
-                            self.process_event(&event_id.clone(), true).await,
-                        );
+                        return UnpackResult::Events(self.process_event(event_id, true).await);
 
                         // Add the event to the queue
                         #[cfg(feature = "no_action_recursion")]
-                        self.queue
-                            .add_event(EventDelay::new(None, event_id.clone()))
-                            .await;
+                        self.queue.add_event(EventDelay::new(None, event_id)).await;
 
                         // States with no matching event are ignored
                     }

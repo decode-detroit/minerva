@@ -115,14 +115,15 @@ impl IndexAccess {
     pub async fn remove_item(&self, item_id: ItemId) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .index_send
             .send(IndexUpdate::UpdateDescription {
-                item_id: item_id.clone(),
+                item_id,
                 new_description: None,
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return false
             return false;
@@ -145,14 +146,15 @@ impl IndexAccess {
     ) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .index_send
             .send(IndexUpdate::UpdateDescription {
-                item_id: item_id.clone(),
+                item_id,
                 new_description: Some(new_description.clone()),
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return false
             return false;
@@ -167,13 +169,14 @@ impl IndexAccess {
     pub async fn is_listed(&self, item_id: &ItemId) -> bool {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .index_send
             .send(IndexUpdate::GetExistence {
-                item_id: item_id.clone(),
+                item_id: *item_id,
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return false
             return false;
@@ -188,13 +191,14 @@ impl IndexAccess {
     pub async fn get_description(&self, item_id: &ItemId) -> ItemDescription {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .index_send
             .send(IndexUpdate::GetDescription {
-                item_id: item_id.clone(),
+                item_id: *item_id,
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return default
             return ItemDescription::new_default();
@@ -209,13 +213,14 @@ impl IndexAccess {
     pub async fn get_pair(&self, item_id: &ItemId) -> ItemPair {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .index_send
             .send(IndexUpdate::GetPair {
-                item_id: item_id.clone(),
+                item_id: *item_id,
                 reply_line,
             })
             .await
+            .is_err()
         {
             // On failure, return default
             return ItemPair::new_default(item_id.id());
@@ -230,10 +235,11 @@ impl IndexAccess {
     pub async fn get_all(&self) -> Vec<ItemId> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .index_send
             .send(IndexUpdate::GetAll { reply_line })
             .await
+            .is_err()
         {
             // On failure, return none
             return Vec::new();
@@ -248,10 +254,11 @@ impl IndexAccess {
     pub async fn get_all_pairs(&self) -> Vec<ItemPair> {
         // Send the message and wait for the reply
         let (reply_line, rx) = oneshot::channel();
-        if let Err(_) = self
+        if self
             .index_send
             .send(IndexUpdate::GetAllPairs { reply_line })
             .await
+            .is_err()
         {
             // On failure, return none
             return Vec::new();

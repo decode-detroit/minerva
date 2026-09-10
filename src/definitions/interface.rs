@@ -31,6 +31,7 @@ use fnv::FnvHashMap;
 /// An enum to change one of the display settings of the user interface
 #[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub enum DisplaySetting {
     /// A variant to change the debug mode of the display
     DebugMode(bool),
@@ -141,7 +142,11 @@ impl InterfaceSend {
 
 /// A type to store a hashmap of status ids and current state ids
 ///
-pub type CurrentStatus = FnvHashMap<u32, u32>;
+pub type CurrentStatus = FnvHashMap<ItemId, ItemId>;
+
+/// A type to share the current status of the game to the web interface
+///
+pub type WebCurrentStatus = FnvHashMap<u32, u32>;
 
 /// An enum type to provide updates to the limited interface.
 /// These updates contain only the minimal information needed
@@ -160,7 +165,7 @@ pub enum LimitedUpdate {
     #[serde(rename_all = "camelCase")]
     CurrentSceneAndStatus {
         current_scene: ItemId,
-        current_status: CurrentStatus,
+        current_status: WebCurrentStatus,
     },
 
     /// A variant indicating the current scene should be refreshed with

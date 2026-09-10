@@ -51,14 +51,14 @@ impl EventDelay {
     /// A method to return a copy of the event id
     ///
     pub fn id(&self) -> ItemId {
-        self.event_id.clone()
+        self.event_id
     }
 
     /// A method to return a Duration which indicates the delay between now
     /// and the moment when the event should be triggered.
     ///
     pub fn delay(&self) -> Option<Duration> {
-        self.delay.clone()
+        self.delay
     }
 }
 
@@ -87,7 +87,7 @@ impl ComingEvent {
     /// A method to return a copy of the event id.
     ///
     pub fn id(&self) -> ItemId {
-        self.event_id.clone()
+        self.event_id
     }
 
     /// A method to calculate the amount of time remaining before the event

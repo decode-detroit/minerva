@@ -88,19 +88,19 @@ impl ConnectionType {
         // Switch between the different connection types
         match self {
             // Connect to a live version of the Mercury port
-            &ConnectionType::Mercury {
-                ref path,
-                ref alternate_paths,
-                ref baud,
-                ref use_checksum,
-                ref allowed_events,
+            ConnectionType::Mercury {
+                path,
+                alternate_paths,
+                baud,
+                use_checksum,
+                allowed_events,
             } => {
                 // Create the new Mercury connection
                 let connection = Mercury::new(
                     path,
                     alternate_paths,
-                    baud.clone(),
-                    use_checksum.clone(),
+                    *baud,
+                    *use_checksum,
                     allowed_events.clone(),
                 )?;
                 Ok((
@@ -110,9 +110,9 @@ impl ConnectionType {
             }
 
             // Connect to a live version of the zmq port
-            &ConnectionType::ZmqPrimary {
-                ref send_path,
-                ref recv_path,
+            ConnectionType::ZmqPrimary {
+                send_path,
+                recv_path,
             } => {
                 // Create the new zmq connection
                 let connection = ZmqBind::new(send_path, recv_path).await?;
@@ -123,9 +123,9 @@ impl ConnectionType {
             }
 
             // Connect to a live version of the zmq port
-            &ConnectionType::ZmqSecondary {
-                ref send_path,
-                ref recv_path,
+            ConnectionType::ZmqSecondary {
+                send_path,
+                recv_path,
             } => {
                 // Create a new zmq to main connection
                 let connection = ZmqConnect::new(send_path, recv_path).await?;
@@ -169,26 +169,24 @@ impl EventConnection for LiveConnection {
     /// The read event method
     async fn read_event(&mut self) -> Option<EventWithData> {
         // Read from the interior connection
-        match self {
-            &mut LiveConnection::Mercury { ref mut connection } => connection.read_event().await,
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => connection.read_event().await,
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
-                connection.read_event().await
-            }
+        match *self {
+            LiveConnection::Mercury { ref mut connection } => connection.read_event().await,
+            LiveConnection::ZmqPrimary { ref mut connection } => connection.read_event().await,
+            LiveConnection::ZmqSecondary { ref mut connection } => connection.read_event().await,
         }
     }
 
     /// The write event method (does not check duplicates)
     async fn write_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Write to the interior connection
-        match self {
-            &mut LiveConnection::Mercury { ref mut connection } => {
+        match *self {
+            LiveConnection::Mercury { ref mut connection } => {
                 connection.write_event(id, data1, data2).await
             }
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => {
+            LiveConnection::ZmqPrimary { ref mut connection } => {
                 connection.write_event(id, data1, data2).await
             }
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
+            LiveConnection::ZmqSecondary { ref mut connection } => {
                 connection.write_event(id, data1, data2).await
             }
         }
@@ -197,14 +195,14 @@ impl EventConnection for LiveConnection {
     /// The echo event method (checks for duplicates from recently read events)
     async fn echo_event(&mut self, id: ItemId, data1: u32, data2: u32) -> Result<()> {
         // Echo events to the interior connection
-        match self {
-            &mut LiveConnection::Mercury { ref mut connection } => {
+        match *self {
+            LiveConnection::Mercury { ref mut connection } => {
                 connection.echo_event(id, data1, data2).await
             }
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => {
+            LiveConnection::ZmqPrimary { ref mut connection } => {
                 connection.echo_event(id, data1, data2).await
             }
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
+            LiveConnection::ZmqSecondary { ref mut connection } => {
                 connection.echo_event(id, data1, data2).await
             }
         }
@@ -213,14 +211,10 @@ impl EventConnection for LiveConnection {
     /// The process pending method
     async fn process_pending(&mut self) -> bool {
         // Process any pending writes
-        match self {
-            &mut LiveConnection::Mercury { ref mut connection } => {
-                connection.process_pending().await
-            }
-            &mut LiveConnection::ZmqPrimary { ref mut connection } => {
-                connection.process_pending().await
-            }
-            &mut LiveConnection::ZmqSecondary { ref mut connection } => {
+        match *self {
+            LiveConnection::Mercury { ref mut connection } => connection.process_pending().await,
+            LiveConnection::ZmqPrimary { ref mut connection } => connection.process_pending().await,
+            LiveConnection::ZmqSecondary { ref mut connection } => {
                 connection.process_pending().await
             }
         }
@@ -304,7 +298,7 @@ impl SystemConnection {
                 // Create the connecting mpscs
                 let (conn_send, conn_recv) = mpsc::channel(512);
                 let internal_send = self.internal_send.clone();
-                let identifier_clone = identifier.clone();
+                let identifier_clone = identifier;
 
                 // Save the sender
                 self.connection_senders.push(conn_send);
@@ -340,7 +334,7 @@ impl SystemConnection {
     ///
     pub async fn broadcast(&mut self, new_event: ItemId, data: Option<u32>) {
         // Iterate through the connnections, if they exist
-        for ref sender in self.connection_senders.iter() {
+        for sender in self.connection_senders.iter() {
             // Send the new event
             if let Err(error) = sender
                 .send(ConnectionUpdate::Broadcast(new_event, data))
@@ -355,7 +349,7 @@ impl SystemConnection {
     ///
     pub async fn echo(&mut self, new_event: ItemId, data1: u32, data2: u32) {
         // Iterate through the connnections, if they exist
-        for ref sender in self.connection_senders.iter() {
+        for sender in self.connection_senders.iter() {
             // Send the echoed event
             if let Err(error) = sender
                 .send(ConnectionUpdate::Echo(new_event, data1, data2))
