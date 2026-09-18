@@ -30,7 +30,7 @@ use chrono::{Local, NaiveDateTime};
 use fnv::FnvHashMap;
 
 /// A small struct that holds and event id and the corresponding delay until the
-/// event should be triggered. This delay is an Option<delay> to allow the
+/// event should be triggered. This delay is an `Option<delay>` to allow the
 /// possibility for events to trigger immediately.
 ///
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]

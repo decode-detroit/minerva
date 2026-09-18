@@ -334,50 +334,50 @@ pub struct WebReply {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WebReplyData {
-    // A variant that contains current scene and status
+    /// A variant that contains current scene and status
     #[serde(rename_all = "camelCase")]
     CurrentSceneAndStatus((ItemId, WebCurrentStatus)),
 
-    // A variant that contains event detail
+    /// A variant that contains event detail
     #[serde(rename_all = "camelCase")]
     Event(Option<WebEvent>),
 
-    // A variant that contains item detail
+    /// A variant that contains item detail
     #[serde(rename_all = "camelCase")]
     Item(ItemPair),
 
-    // A variant that contains an item list
+    /// A variant that contains an item list
     #[serde(rename_all = "camelCase")]
     Items(Vec<ItemId>),
 
-    // A variant that contains an item pair list
+    /// A variant that contains an item pair list
     #[serde(rename_all = "camelCase")]
     ItemPairs(Vec<ItemPair>),
 
-    // A variant for replies with a message
+    /// A variant for replies with a message
     #[serde(rename_all = "camelCase")]
     Message(String),
 
-    // A variant that contains group detail
+    /// A variant that contains group detail
     #[serde(rename_all = "camelCase")]
     Group(Option<WebGroup>),
 
-    // A variant that contains configuration paramters
+    /// A variant that contains configuration paramters
     #[serde(rename_all = "camelCase")]
     Parameters(ConfigParameters),
 
-    // A variant that contains a file path
+    /// A variant that contains a file path
     #[serde(rename_all = "camelCase")]
     Path {
         filename: String, // the filename, including the file extension
         path: String,     // the full file path, including the filenme
     },
 
-    // A variant that contains scene detail
+    /// A variant that contains scene detail
     #[serde(rename_all = "camelCase")]
     Scene(Option<WebScene>),
 
-    // A variant that contains status detail
+    /// A variant that contains status detail
     #[serde(rename_all = "camelCase")]
     Status(Option<Status>),
 }

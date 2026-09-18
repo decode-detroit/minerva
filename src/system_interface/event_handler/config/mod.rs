@@ -237,7 +237,7 @@ impl Config {
     /// A function to create a new config from a configuration file
     ///
     /// This function uses a file to fill out the game configuration. The
-    /// the format of the configuration file is YAML (http://yaml.org/) and must
+    /// the format of the configuration file is YAML (<http://yaml.org/>) and must
     /// match the structure of the private YamlConfig structure. In addition,
     /// the configuration file must preserve a number of invarients to run
     /// properly when loaded.

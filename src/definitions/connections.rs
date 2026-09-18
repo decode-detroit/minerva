@@ -36,9 +36,9 @@ pub const UNIVERSAL_IDENTIFIER: u32 = 0;
 /// If no identifier is specified, this instance will accept all events and
 /// produce events with the identifier 0.
 ///
-/// If an identifier <x> is specified, this instance will only accept events with
-/// the identifier <x> or the universal identifier (0), and it will produce events
-/// with the identifier <x>.
+/// If an identifier 'x' is specified, this instance will only accept events with
+/// the identifier 'x' or the universal identifier (0), and it will produce events
+/// with the identifier 'x'.
 ///
 /// Note: Specifying an identifier with the universersal identifier (0) is the
 /// same as specifying None.
