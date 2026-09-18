@@ -34,18 +34,15 @@ use reqwest::Client;
 // Import tracing features
 use tracing::{error, info};
 
-// Import anyhow features
-use anyhow::Result;
-
-/// A structure to hold and manage tthe Vulcan DMX controller thread
+/// A structure to hold and manage the Vulcan DMX controller thread
 ///
 struct VulcanThread;
 
 // Implement the VulcanThread Functions
 impl VulcanThread {
-    /// Spawn the monitoring thread
+    /// Spawn a copy of vulcan and the monitoring thread
     async fn spawn(
-        mut close_receiver: mpsc::Receiver<()>,
+        mut receiver: mpsc::Receiver<DmxFade>,
         path: PathBuf,
         address: String,
         backup_location: Option<String>,
@@ -88,17 +85,26 @@ impl VulcanThread {
             }
         };
 
+        // Create a client for passing dmx information
+        let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
+            // On error close the monitoring thread
+            Err(_) => {
+                error!("Unable to create Vulcan communication client.");
+                return;
+            }
+
+            // Otherwise, continue
+            Ok(client) => client,
+        };
+
+        // Wait a second for the server to start
+        sleep(Duration::from_secs(1)).await;
+
         // Spawn a background thread to monitor the process
         tokio::spawn(async move {
             // Run indefinitely or until the process fails
             loop {
-                // Wait a second for the server to start
-                sleep(Duration::from_secs(1)).await;
-
-                // Create a client for passing dmx information
-                let tmp_client = Client::new();
-
-                // Wait for the process to finish or the sender to be poisoned
+                // Wait for a message, the process to finish, or the sender to be poisoned
                 tokio::select! {
                     // The process has finished
                     result = child.wait() => {
@@ -114,19 +120,32 @@ impl VulcanThread {
                         }
                     }
 
-                    // Check if the close notification line has been dropped
-                    _ = close_receiver.recv() => {
-                        // Notify of the closure
-                        info!("Closing Vulcan DMX controller ...");
+                    // A message was received (or the line dropped)
+                    possible_fade = receiver.recv() => {
+                        // If a fade was received
+                        if let Some(fade) = possible_fade {
+                            // Recompose the dmx fade into a helper
+                            let helper: DmxFadeHelper = fade.into();
 
-                        // Tell Vulcan to close
-                        let _ = tmp_client
-                                        .post(format!("http://{}/close", address))
-                                        .send()
-                                        .await;
+                            // Pass the dmx fade on to Vulcan
+                            if let Err(err) = client.post(format!("http://{}/playFade", address)).json(&helper).send().await {
+                                error!("Error with DMX Fade: {}", err);
+                            };
 
-                        // Exit the loop and close the background thread
-                        break;
+                            // Start listening again for more messages
+                            continue;
+
+                        // Otherwise, the sending line has been dropped
+                        } else {
+                            // Notify of the closure
+                            info!("Closing Vulcan DMX controller ...");
+
+                            // Tell Vulcan to close
+                            let _ = client.post(format!("http://{}/close", address)).send().await;
+
+                            // Exit the loop and close the background thread
+                            break;
+                        }
                     }
                 }
 
@@ -156,6 +175,60 @@ impl VulcanThread {
                         }
                     }
                 };
+
+                // Wait a second for the server to start
+                sleep(Duration::from_secs(1)).await;
+            }
+        });
+    }
+
+    /// Spawn the monitoring thread only
+    async fn no_spawn(mut receiver: mpsc::Receiver<DmxFade>, address: String) {
+        // Notify that the background process is starting
+        info!("Connection to Vulcan DMX controller ...");
+
+        // Create a client for passing dmx information
+        let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
+            // On error close the monitoring thread
+            Err(_) => {
+                error!("Unable to create Vulcan communication client.");
+                return;
+            }
+
+            // Otherwise, continue
+            Ok(client) => client,
+        };
+
+        // Spawn a background thread to communicate
+        tokio::spawn(async move {
+            // Run indefinitely or until the line is closed
+            loop {
+                // If a fade was received
+                if let Some(fade) = receiver.recv().await {
+                    // Recompose the dmx fade into a helper
+                    let helper: DmxFadeHelper = fade.into();
+
+                    // Pass the dmx fade on to Vulcan
+                    if let Err(err) = client
+                        .post(format!("http://{}/playFade", address))
+                        .json(&helper)
+                        .send()
+                        .await
+                    {
+                        error!("Error with DMX Fade: {}", err);
+                    };
+
+                    // Start listening again for more messages
+                    continue;
+
+                // Otherwise, the sending line has been dropped
+                } else {
+                    // Notify of the closure
+                    info!("Disconnecting from Vulcan DMX controller ...");
+
+                    // Exit the loop and close the background thread
+                    break;
+                }
             }
         });
     }
@@ -164,10 +237,7 @@ impl VulcanThread {
 /// A structure to hold and manipulate the connection to the dmx backend
 ///
 pub struct DmxInterface {
-    client: Option<Client>, // the reqwest client for passing media changes
-    address: String,        // the address for requests to Apollo
-    _close_sender: mpsc::Sender<()>, // a line to notify the background thread to close
-                            // the line is never used, but is poisoned when dropped
+    sender: mpsc::Sender<DmxFade>, // a line to pass fades to the background thread. The line is poisoned when this structure is dropped
 }
 
 // Implement key functionality for the DMX Interface structure
@@ -182,76 +252,40 @@ impl DmxInterface {
             .unwrap_or(String::from("127.0.0.1:8852"));
 
         // Create a channel to notify the background thread to close
-        let (_close_sender, close_receiver) = mpsc::channel(1); // don't need space for any messages
+        let (sender, receiver) = mpsc::channel(512);
 
         // Spin out thread to monitor and restart vulcan, if requested
         if vulcan_params.spawn {
             VulcanThread::spawn(
-                close_receiver,
+                receiver,
                 vulcan_params.path.unwrap_or_default(),
-                address.clone(),
+                address,
                 backup_location,
             )
             .await;
+
+        // Otherwise, just spin the background thread for communication
+        } else {
+            VulcanThread::no_spawn(receiver, address).await;
         }
 
         // Return the complete module
-        Self {
-            client: None,
-            address,
-            _close_sender,
-        }
+        Self { sender }
     }
 
-    // A helper method to send a new dmx fade
-    pub async fn play_fade(&mut self, fade: DmxFade) -> Result<()> {
+    /// A method to send a new dmx fade to the dmx controller
+    ///
+    /// This method passes the request to the background thread for processing.
+    /// If the request fails, the error will be passed through the tracing library.
+    ///
+    pub async fn play_fade(&mut self, fade: DmxFade) {
         // Verify the range of the selected channel
         if (fade.channel > DMX_MAX) | (fade.channel < 1) {
-            return Err(anyhow!("Selected DMX channel is out of range."));
+            error!("Error with DMX playback: Selected DMX channel is out of range.");
+            return;
         }
 
-        // Create the request client if it doesn't exist
-        if self.client.is_none() {
-            self.client = Some(Client::new());
-        }
-
-        // Recompose the dmx fade into a helper
-        let helper: DmxFadeHelper = fade.into();
-
-        // Pass the dmx fade on to Vulcan
-        self.client
-            .as_ref()
-            .unwrap()
-            .post(format!("http://{}/playFade", self.address))
-            .json(&helper)
-            .send()
-            .await?;
-
-        // Indicate success
-        Ok(())
-    }
-
-    // A helper method to reload a DMX universe
-    #[allow(dead_code)] // Allow dead code, reserved for future use
-    pub async fn restore_universe(&mut self, universe: DmxUniverse) -> Result<()> {
-        // Create the request client if it doesn't exist
-        if self.client.is_none() {
-            self.client = Some(Client::new());
-        }
-
-        // Recompose the dmx fade into a helper
-        let helper: DmxUniverseHelper = universe.into();
-
-        // Pass the dmx fade on to Vulcan
-        self.client
-            .as_ref()
-            .unwrap()
-            .post(format!("http://{}/loadUniverse", self.address))
-            .json(&helper)
-            .send()
-            .await?;
-
-        // Indicate success
-        Ok(())
+        // Send the dmx fade to the background thread
+        self.sender.send(fade).await.unwrap_or(());
     }
 }

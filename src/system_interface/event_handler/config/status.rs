@@ -186,7 +186,7 @@ impl StatusHandler {
     ///
     /// # Errors
     ///
-    /// This methos does not return any errors
+    /// This method does not return any errors
     ///
     pub fn get_partial_status(&self) -> PartialStatus {
         // Compile a list of the available statuses

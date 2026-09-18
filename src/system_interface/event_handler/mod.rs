@@ -725,9 +725,7 @@ impl EventHandler {
             CueDmx { fade } => {
                 // Send it to the dmx interface, if it exists
                 if let Some(interface) = self.dmx_interfaces.get_mut(&fade.universe.unwrap_or(0)) {
-                    if let Err(err) = interface.play_fade(fade.clone()).await {
-                        error!("Error with DMX playback: {}.", err);
-                    }
+                    interface.play_fade(fade.clone()).await;
 
                 // Warn that there is no active Dmx interface
                 } else {
@@ -735,10 +733,6 @@ impl EventHandler {
                         "Failed to play DMX fade: No DMX interface available for that universe."
                     );
                 }
-
-                // On windows, just post the error
-                #[cfg(target_os = "windows")]
-                error!("Failed to play DMX fade: DMX system disabled on Windows.");
             }
 
             // If there is a cued event, process it or load it into the queue
@@ -761,33 +755,29 @@ impl EventHandler {
 
             // If there is media to cue, send it to the media connection
             CueMedia { cue } => {
-                // Send the cue to each media interface in turn
-                let mut success = false;
-                for interface in self.media_interfaces.iter_mut() {
-                    if interface.play_cue(cue.clone()).await.is_ok() {
-                        success = true;
-                    }
-                }
+                // Warn if there are no media interfaces
+                if self.media_interfaces.is_empty() {
+                    error!("No media interfaces available.");
 
-                // Otherwise, report the error
-                if !success {
-                    error!("Failed to play media cue.");
+                // Send the cue to each media interface in turn
+                } else {
+                    for interface in self.media_interfaces.iter_mut() {
+                        interface.play_cue(cue.clone()).await;
+                    }
                 }
             }
 
             // If there is media to adjust, send it to the media connection
             AdjustMedia { adjustment } => {
-                // Send the cue to each media interface in turn
-                let mut success = false;
-                for interface in self.media_interfaces.iter_mut() {
-                    if interface.adjust_media(adjustment.clone()).await.is_ok() {
-                        success = true;
-                    }
-                }
+                // Warn if there are no media interfaces
+                if self.media_interfaces.is_empty() {
+                    error!("No media interfaces available.");
 
-                // If all media players failed to play the cue, report the error
-                if !success {
-                    error!("Failed to adjust media.");
+                // Send the adjustment to each media interface in turn
+                } else {
+                    for interface in self.media_interfaces.iter_mut() {
+                        interface.adjust_media(adjustment.clone()).await;
+                    }
                 }
             }
 

@@ -1,6 +1,6 @@
 [package]
 name = "minerva"
-version = "1.1.1"
+version = "1.1.2"
 authors = ["Patton Doyle <patton@DecodeDetroit.com>"]
 description = "Interactive Show Control Software"
 license = "GPL-3.0-or-later"
@@ -36,7 +36,7 @@ rust-embed = "8.12"
 warp-embed = "0.5"
 tokio-serial = "5.5"
 bytes = "1.12"
-jsonwebtoken = { version = "11.0", features = ["rust_crypto"] }
+jsonwebtoken = { version = "11.1", features = ["rust_crypto"] }
 console-subscriber = { version = "0.5", optional = true }
 system_shutdown = "4.1"
 

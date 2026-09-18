@@ -31,8 +31,12 @@ use reqwest::Client;
 // Import tracing features
 use tracing::{error, info};
 
-// Import anyhow features
-use anyhow::Result;
+/// A helper enum to pass update types to the background thread
+///
+enum ApolloUpdate {
+    MediaCue(MediaCue),
+    MediaAdjustment(MediaAdjustment),
+}
 
 /// A structure to hold and manage the Apollo media player thread
 ///
@@ -40,9 +44,9 @@ struct ApolloThread;
 
 // Implement the ApolloThread Functions
 impl ApolloThread {
-    /// Spawn the monitoring thread
+    /// Spawn a copy of Apollo and the monitoring thread
     async fn spawn(
-        mut close_receiver: mpsc::Receiver<()>,
+        mut receiver: mpsc::Receiver<ApolloUpdate>,
         address: String,
         backup_location: Option<String>,
         mut window_map: WindowMap,
@@ -81,43 +85,58 @@ impl ApolloThread {
             }
         };
 
+        // Create a client for passing Apollo updates
+        let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
+            // On error close the monitoring thread
+            Err(_) => {
+                error!("Unable to create Apollo communication client.");
+                return;
+            }
+
+            // Otherwise, continue
+            Ok(client) => client,
+        };
+
+        // Wait a second for the server to start
+        sleep(Duration::from_secs(1)).await;
+
+        // Define the windows
+        for (window_number, window_definition) in window_map.drain() {
+            // Recompose the window definition
+            let window = window_definition.add_number(window_number);
+
+            // Post the window to Apollo
+            if let Err(err) = client
+                .post(format!("http://{}/defineWindow", address))
+                .json(&window)
+                .send()
+                .await
+            {
+                error!("Unable to define Apollo window: {}", err);
+            }
+        }
+
+        // Define all the media channels
+        for (channel_number, media_channel) in channel_map.drain() {
+            // Recompose the media channel
+            let channel = media_channel.add_number(channel_number);
+
+            // Post the channel to Apollo
+            if let Err(err) = client
+                .post(format!("http://{}/defineChannel", address))
+                .json(&channel)
+                .send()
+                .await
+            {
+                error!("Unable to define Apollo channel: {}", err);
+            }
+        }
+
         // Spawn a background thread to monitor the process
         tokio::spawn(async move {
             // Run indefinitely or until the process fails
             loop {
-                // Wait a second for the server to start
-                sleep(Duration::from_secs(1)).await;
-
-                // Create a client for passing channel definitions
-                let tmp_client = Client::new();
-
-                // Define the windows
-                for (window_number, window_definition) in window_map.drain() {
-                    // Recompose the window definition
-                    let window = window_definition.add_number(window_number);
-
-                    // Post the window to Apollo
-                    let _ = tmp_client
-                        .post(format!("http://{}/defineWindow", address))
-                        .json(&window)
-                        .send()
-                        .await;
-                }
-
-                // Define all the media channels
-                for (channel_number, media_channel) in channel_map.drain() {
-                    // Recompose the media channel
-                    let channel = media_channel.add_number(channel_number);
-
-                    // Post the channel to Apollo
-                    let _ = tmp_client
-                        .post(format!("http://{}/defineChannel", address))
-                        .json(&channel)
-                        .send()
-                        .await;
-                }
-
-                // Wait for the process to finish or the sender to be poisoned
+                // Wait for a message, the process to finish, or the sender to be poisoned
                 tokio::select! {
                     // The process has finished
                     result = child.wait() => {
@@ -133,19 +152,46 @@ impl ApolloThread {
                         }
                     }
 
-                    // Check if the close notification line has been dropped
-                    _ = close_receiver.recv() => {
-                        // Notify of the closure
-                        info!("Closing Apollo media player ...");
+                    // A message was received (or the line dropped)
+                    possible_update = receiver.recv() => {
+                        // If an update was received
+                        if let Some(update) = possible_update {
+                            match update {
+                                ApolloUpdate::MediaCue(cue) => {
+                                    // Recompose the media cue into a helper
+                                    let helper: MediaCueHelper = cue.into();
 
-                        // Tell Apollo to close
-                        let _ = tmp_client
-                                        .post(format!("http://{}/close", address))
-                                        .send()
-                                        .await;
+                                    // Pass the media cue to Apollo
+                                    if let Err(err) = client.post(format!("http://{}/cueMedia", address)).json(&helper).send().await {
+                                        error!("Error with Cue Media: {}", err);
+                                    }
+                                }
 
-                        // Exit the loop and close the background thread
-                        break;
+                                ApolloUpdate::MediaAdjustment(adjustment) => {
+                                    // Recompose the media cue into a helper
+                                    let helper: MediaAdjustmentHelper = adjustment.into();
+
+                                    // Pass the media cue to Apollo
+                                    if let Err(err) = client.post(format!("http://{}/alignChannel", address)).json(&helper).send().await {
+                                        error!("Error with Adjust Media: {}", err);
+                                    }
+                                }
+                            }
+
+                            // Start listening again for more messages
+                            continue;
+
+                        // Otherwise, the sending line has been dropped
+                        } else {
+                            // Notify of the closure
+                            info!("Closing Apollo media player ...");
+
+                            // Tell Apollo to close
+                            let _ = client.post(format!("http://{}/close", address)).send().await;
+
+                            // Exit the loop and close the background thread
+                            break;
+                        }
                     }
                 }
 
@@ -175,6 +221,108 @@ impl ApolloThread {
                         }
                     }
                 };
+
+                // Wait a second for the server to start
+                sleep(Duration::from_secs(1)).await;
+
+                // Define the windows
+                for (window_number, window_definition) in window_map.drain() {
+                    // Recompose the window definition
+                    let window = window_definition.add_number(window_number);
+
+                    // Post the window to Apollo
+                    if let Err(err) = client
+                        .post(format!("http://{}/defineWindow", address))
+                        .json(&window)
+                        .send()
+                        .await
+                    {
+                        error!("Unable to define Apollo window: {}", err);
+                    }
+                }
+
+                // Define all the media channels
+                for (channel_number, media_channel) in channel_map.drain() {
+                    // Recompose the media channel
+                    let channel = media_channel.add_number(channel_number);
+
+                    // Post the channel to Apollo
+                    if let Err(err) = client
+                        .post(format!("http://{}/defineChannel", address))
+                        .json(&channel)
+                        .send()
+                        .await
+                    {
+                        error!("Unable to define Apollo channel: {}", err);
+                    }
+                }
+            }
+        });
+    }
+
+    /// Spawn the monitoring thread only
+    async fn no_spawn(mut receiver: mpsc::Receiver<ApolloUpdate>, address: String) {
+        // Notify that the background process is starting
+        info!("Connecting to Apollo media player ...");
+
+        // Create a client for passing Apollo updates
+        let client = match Client::builder().timeout(Duration::from_secs(10)).build() {
+            // On error close the monitoring thread
+            Err(_) => {
+                error!("Unable to create Apollo communication client.");
+                return;
+            }
+
+            // Otherwise, continue
+            Ok(client) => client,
+        };
+
+        // Spawn a background thread to communicate
+        tokio::spawn(async move {
+            // Run indefinitely or until the line is closed
+            loop {
+                // If an update was received
+                if let Some(update) = receiver.recv().await {
+                    match update {
+                        ApolloUpdate::MediaCue(cue) => {
+                            // Recompose the media cue into a helper
+                            let helper: MediaCueHelper = cue.into();
+
+                            // Pass the media cue to Apollo
+                            if let Err(err) = client
+                                .post(format!("http://{}/cueMedia", address))
+                                .json(&helper)
+                                .send()
+                                .await
+                            {
+                                error!("Error with Cue Media: {}", err);
+                            }
+                        }
+
+                        ApolloUpdate::MediaAdjustment(adjustment) => {
+                            // Recompose the media cue into a helper
+                            let helper: MediaAdjustmentHelper = adjustment.into();
+
+                            // Pass the media cue to Apollo
+                            if let Err(err) = client
+                                .post(format!("http://{}/alignChannel", address))
+                                .json(&helper)
+                                .send()
+                                .await
+                            {
+                                error!("Error with Adjust Media: {}", err);
+                            }
+                        }
+                    }
+
+                // Otherwise, the sending line has been dropped
+                } else {
+                    // Notify of the closure
+                    info!("Disconnecting from Apollo media player ...");
+
+                    // Exit the loop and close the background thread
+                    break;
+                }
             }
         });
     }
@@ -184,10 +332,7 @@ impl ApolloThread {
 ///
 pub struct MediaInterface {
     channel_list: Vec<u32>, // a list of valid channels for this instance
-    client: Option<Client>, // the reqwest client for passing media changes
-    address: String,        // the address for requests to Apollo
-    _close_sender: mpsc::Sender<()>, // a line to notify the background thread to close
-                            // the line is never used, but is poisoned when dropped
+    sender: mpsc::Sender<ApolloUpdate>, // a line to pass updates to the background thread. The line is poisoned when this structure is dropped
 }
 
 // Implement key functionality for the Media Interface structure
@@ -210,90 +355,77 @@ impl MediaInterface {
         let channel_list = channel_map.keys().copied().collect();
 
         // Create a channel to notify the background thread to close
-        let (_close_sender, close_receiver) = mpsc::channel(1); // don't need space for any messages
+        let (sender, receiver) = mpsc::channel(512); // don't need space for any messages
 
         // Spin out thread to monitor and restart apollo, if requested
         if apollo_params.spawn {
-            ApolloThread::spawn(
-                close_receiver,
-                address.clone(),
-                backup_location,
-                window_map,
-                channel_map,
-            )
-            .await;
+            ApolloThread::spawn(receiver, address, backup_location, window_map, channel_map).await;
+
+        // Otherwise, just spin the background thread for communication
+        } else {
+            ApolloThread::no_spawn(receiver, address).await;
         }
 
         // Return the complete module
         Self {
             channel_list,
-            client: None,
-            address,
-            _close_sender,
+            sender,
         }
     }
 
-    // A helper method to send a new media cue
-    pub async fn play_cue(&mut self, cue: MediaCue) -> Result<()> {
+    /// A method to send a new media cue to the media controller
+    ///
+    /// This method passes the request to the background thread for processing.
+    /// If the request fails, the error will be passed through the tracing library.
+    ///
+    pub async fn play_cue(&mut self, cue: MediaCue) {
         // If there is a channel list
         if !self.channel_list.is_empty() {
             // Check that the channel is valid
             if !self.channel_list.contains(&cue.channel) {
-                // If not, note the error
-                return Err(anyhow!("Channel for Media Cue not found."));
+                // If not, note the error and return
+                error!("Channel for Media Cue not found.");
+                return;
             }
+
+        // Return if there is no channel list
+        } else {
+            error!("No media channels have been specified.");
+            return;
         }
 
-        // Create the request client if it doesn't exist
-        if self.client.is_none() {
-            self.client = Some(Client::new());
-        }
-
-        // Recompose the media cue into a helper
-        let helper: MediaCueHelper = cue.into();
-
-        // Pass the media cue to Apollo
-        self.client
-            .as_ref()
-            .unwrap()
-            .post(format!("http://{}/cueMedia", self.address))
-            .json(&helper)
-            .send()
-            .await?;
-
-        // Indicate success
-        Ok(())
+        // Send the media cue to the background thread
+        self.sender
+            .send(ApolloUpdate::MediaCue(cue))
+            .await
+            .unwrap_or(());
     }
 
-    // A helper method to adjust the location of a video frame by one pixel in any direction
-    pub async fn adjust_media(&mut self, adjustment: MediaAdjustment) -> Result<()> {
+    /// A method to adjust the location of a video frame by one pixel in any direction
+    ///
+    /// This method passes the request to the background thread for processing.
+    /// If the request fails, the error will be passed through the tracing library.
+    ///
+    pub async fn adjust_media(&mut self, adjustment: MediaAdjustment) {
         // If there is a channel list
         if !self.channel_list.is_empty() {
             // Check that the channel is valid
             if !self.channel_list.contains(&adjustment.channel) {
-                // If not, note the error
-                return Err(anyhow!("Channel for Media Alignment not found."));
+                // If not, note the error and return
+                error!("Channel for Media Cue not found.");
+                return;
             }
+
+        // Return if there is no channel list
+        } else {
+            error!("No media channels have been specified.");
+            return;
         }
 
-        // Create the request client if it doesn't exist
-        if self.client.is_none() {
-            self.client = Some(Client::new());
-        }
-
-        // Recompose the media cue into a helper
-        let helper: MediaAdjustmentHelper = adjustment.into();
-
-        // Pass the media cue to Apollo
-        self.client
-            .as_ref()
-            .unwrap()
-            .post(format!("http://{}/alignChannel", self.address))
-            .json(&helper)
-            .send()
-            .await?;
-
-        // Indicate success
-        Ok(())
+        // Send the media adjustment to the background thread
+        self.sender
+            .send(ApolloUpdate::MediaAdjustment(adjustment))
+            .await
+            .unwrap_or(());
     }
 }
