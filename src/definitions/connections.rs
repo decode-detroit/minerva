@@ -53,7 +53,7 @@ impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self.id {
             Some(id) => write!(f, "{}", id),
-            _ => write!(f, "~"),
+            _ => write!(f, "{}", UNIVERSAL_IDENTIFIER), // the same as id: 0
         }
     }
 }

@@ -1,4 +1,4 @@
-version: 1.1.1
+version: 1.1.2
 identifier:
   id: 0
 server_location: redis://127.0.0.1:6379
@@ -23,13 +23,14 @@ media_players:
     address: null
 system_connections:
 - !ZmqPrimary
-    send_path: "tcp://127.0.0.1:1111"
-    recv_path: "tcp://127.0.0.1:2222"
+  send_path: tcp://127.0.0.1:1111
+  recv_path: tcp://127.0.0.1:2222
 - !Mercury
-    path: /dev/ttyACM0
-    baud: 115200
-    use_checksum: true
-    alternate_paths: []
+  path: /dev/ttyACM0
+  alternate_paths: []
+  baud: 115200
+  use_checksum: true
+  allowed_events: null
 background_process: null
 default_scene:
   id: 100
@@ -67,19 +68,26 @@ scene_map:
     key_map: null
   ? id: 300
   : items:
-    - id: 302
-    - id: 323
     - id: 312
-    - id: 301
+    - id: 1003
     - id: 314
-    - id: 303
+    - id: 1006
     - id: 324
     - id: 313
-    - id: 304
+    - id: 1005
+    - id: 1002
     - id: 322
-    - id: 311
+    - id: 1001
     - id: 300
     - id: 321
+    - id: 302
+    - id: 323
+    - id: 301
+    - id: 303
+    - id: 1004
+    - id: 304
+    - id: 1000
+    - id: 311
     groups: []
     key_map: null
   ? id: 500
@@ -102,6 +110,15 @@ status_map:
     - id: 311
     - id: 312
     - id: 324
+    no_change_silent: false
+  ? id: 1000
+  : !MultiState
+    current:
+      id: 0
+    allowed:
+    - id: 1001
+    - id: 1002
+    - id: 1003
     no_change_silent: false
   ? id: 320
   : !MultiState
@@ -126,6 +143,9 @@ event_set:
   ? id: 410
     description: Send & Save Data
   : null
+  ? id: 1003
+    description: Solved
+  : []
   ? id: 324
     description: Deactivate
   : - !ModifyStatus
@@ -140,9 +160,19 @@ event_set:
         id: 310
       new_state:
         id: 311
+  ? id: 1005
+    description: Modify to Active
+  : - !ModifyStatus
+      status_id:
+        id: 1000
+      new_state:
+        id: 1002
   ? id: 320
     description: Change The Event
   : null
+  ? id: 1001
+    description: Inactive
+  : []
   ? id: 203
     description: An Event
   : []
@@ -197,6 +227,9 @@ event_set:
   ? id: 206
     description: You Found Me! (Debug Only)
   : []
+  ? id: 1000
+    description: Puzzle Example
+  : null
   ? id: 311
     description: On
   : []
@@ -255,6 +288,13 @@ event_set:
   ? id: 510
     description: You Can Play Media As Well
   : null
+  ? id: 1004
+    description: Modify to Inactive
+  : - !ModifyStatus
+      status_id:
+        id: 1000
+      new_state:
+        id: 1001
   ? id: 314
     description: Turn Off
   : - !ModifyStatus
@@ -262,11 +302,21 @@ event_set:
         id: 310
       new_state:
         id: 312
+  ? id: 1006
+    description: Modify to Solved
+  : - !ModifyStatus
+      status_id:
+        id: 1000
+      new_state:
+        id: 1003
   ? id: 210
     description: That's an Event! Try Again ...
   : null
   ? id: 205
     description: This Event Does Nothing
+  : []
+  ? id: 1002
+    description: Active
   : []
   ? id: 201
     description: Next Scene
@@ -323,8 +373,15 @@ event_set:
         id: 100
 user_styles:
   '#scene-100 #id-700 .groupArea': '{ width: 365px; height: 226px; }'
+  '#scene-300 #id-1000': '{ left: 363px; top: 337px; }'
   '#scene-100 #id-1000': '{ left: 532px; top: 362px; }'
+  '#scene-300 #id-1006': '{ left: 657px; top: 570px; }'
   '#scene-100 #id-700': '{ left: 379px; top: 96px; }'
+  '#scene-100 #id-101': '{ left: 58px; top: 51px; }'
   '#scene-200 #id-1000': '{ left: 591px; top: 365px; }'
   '#scene-100 #id-203': '{ left: 94px; top: 60px; }'
-  '#scene-100 #id-101': '{ left: 58px; top: 51px; }'
+  '#scene-300 #id-1001': '{ left: 362px; top: 418px; }'
+  '#scene-300 #id-1003': '{ left: 361px; top: 569px; }'
+  '#scene-300 #id-1004': '{ left: 660px; top: 421px; }'
+  '#scene-300 #id-1005': '{ left: 655px; top: 496px; }'
+  '#scene-300 #id-1002': '{ left: 362px; top: 493px; }'
